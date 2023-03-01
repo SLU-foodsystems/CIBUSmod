@@ -6,4 +6,3 @@ from .production_systems.manure_mgmt import ManureMgmt
 from .production_systems.feed_mgmt import FeedMgmt
 
 from .optimisation.geo_dist import GeoDistributor
-
