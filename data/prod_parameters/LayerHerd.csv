@@ -1,0 +1,5 @@
+animal,region,prod_system,parameter,unit,value,source,comment
+laying hens,all,all,chicken_stage,weeks,16,https://www.slu.se/institutioner/husdjurens-utfodring-vard/forskning/fagel/lasvart-om-fjaderfa/honans-livscykel/,
+laying hens,all,all,life_span,weeks,75,https://www.slu.se/institutioner/husdjurens-utfodring-vard/forskning/fagel/lasvart-om-fjaderfa/honans-livscykel/,
+laying hens,all,all,mortality,%,6,https://www.slu.se/institutioner/husdjurens-utfodring-vard/forskning/fagel/lasvart-om-fjaderfa/honans-livscykel/,
+laying hens,all,all,egg_prod,kg/hen,22,https://www.slu.se/institutioner/husdjurens-utfodring-vard/forskning/fagel/lasvart-om-fjaderfa/honans-livscykel/,
