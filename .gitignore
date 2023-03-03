@@ -7,3 +7,6 @@ __pycache__/
 
 # Excel temp files
 ~$*
+
+# Large shapefiles
+agr_stat_curation/data_raw_input/region_shape_files
