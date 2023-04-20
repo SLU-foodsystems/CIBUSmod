@@ -43,7 +43,7 @@ class CropProduction(object):
         p = self.par.get
 
         vprint('Calculating harvest ...')
-        self.harvest = self.area * (1 - p('share_unharvested')/100) * p('yield')
+        self.harvest = self.area * p('yield')
 
         vprint('Calculating production ...')
         self.calculate_production()
