@@ -7,3 +7,9 @@ __pycache__/
 
 # Excel temp files
 ~$*
+
+# Large shapefiles
+*.shp
+*.prj
+*.shx
+*.dbf
