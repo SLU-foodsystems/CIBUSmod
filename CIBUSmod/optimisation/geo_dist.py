@@ -68,10 +68,10 @@ class GeoDistributor:
 
         
 
-    def make_and_solve(self,use_cons='all',verbose=False):
-        '''Creates constraints, defines problem and solves the optimisation'''
+    def make(self,use_cons='all',verbose=False):
+        '''Creates constraints and defines optimisation problem'''
 
-        vprint = verbose_init(verbose, id_str='GeoDist')
+        vprint = verbose_init(verbose, id_str='GeoDist.make')
 
         if use_cons == 'all':
             use_cons = [1,2,3,4,5,6,7]
@@ -93,11 +93,39 @@ class GeoDistributor:
         vprint('Defining problem ...')
         self.define_cvx_problem(use_cons)
 
-        vprint('Finding solution ...')
+        vprint(type='end')
+
+    def solve(self, solver_settings='default', verbose=False):
+
+        vprint = verbose_init(verbose, id_str='GeoDist.solve')
+
+        # Default solver settings
+        if solver_settings=='default':
+            solver_settings = {
+                'solver':'OSQP',
+                'max_iter':200000,
+                'verbose':False
+            }
         
-        # Try to find a solution with different solvers
-        for solver in ['OSQP']:
-            self.optimise(solver)
+        # If a list of alternative solver/settings is not supplied
+        # make a one element list
+        if not isinstance(solver_settings, list):
+            solver_settings = [solver_settings]
+        
+        vprint('Finding solution ...')
+
+        # Solver    Solution        Time (s)
+        # ------    --------        --------
+        # ECOS      infeasible      -
+        # ECOS_BB   infeasible      -
+        # OSQP      optimal         4.873e-02
+        
+        # Try to find a solution with (potentially) different solver/settings
+        # If an optimal solution is found break and do not try next solver/settings
+        for kwargs in solver_settings:
+            solver = kwargs['solver']
+            self.problem.solve(**kwargs)
+
             if 'optimal' in self.problem.status:
                 break
 
@@ -128,6 +156,7 @@ class GeoDistributor:
 
         vprint(type='end')
 
+
     def define_cvx_problem(self,use_cons):
 
         x = cvxpy.Variable(len(self.x_idx['ani'])+len(self.x_idx['crp']), nonneg=True)
@@ -155,20 +184,6 @@ class GeoDistributor:
         self.problem = cvxpy.Problem(
             objective = OBJ,
             constraints = CONS
-        )
-
-    def optimise(self,solver='OSQP',verbose=False):
-
-        # Solver    Solution        Time (s)
-        # ------    --------        --------
-        # ECOS      infeasible      -
-        # ECOS_BB   infeasible      -
-        # OSQP      optimal         4.873e-02
-
-        self.problem.solve(
-            verbose = verbose,
-            solver = solver,
-            max_iter = 200000
         )
 
     def make_C1(self):
