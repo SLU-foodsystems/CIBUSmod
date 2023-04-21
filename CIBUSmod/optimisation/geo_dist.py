@@ -100,10 +100,19 @@ class GeoDistributor:
         vprint = verbose_init(verbose, id_str='GeoDist.solve')
 
         # Default solver settings
+        #
+        # OSQP
+        # ----
+        # Settings for OSQP available at https://osqp.org/docs/interfaces/solver_settings.html
+        # Using a too high tolerance (eps_abs, eps_rel) leads to large relative deviations
+        # from x0 for crops with small areas, but a low tolerance increases time to find solution.
+        # FUTURE WORK: Implement some scaling method to avoid this? Implement other solver (e.g. GUROBI)?
         if solver_settings=='default':
             solver_settings = {
                 'solver':'OSQP',
                 'max_iter':200000,
+                'eps_abs':1e-6,
+                'eps_rel':1e-6,
                 'verbose':False
             }
         
@@ -113,12 +122,6 @@ class GeoDistributor:
             solver_settings = [solver_settings]
         
         vprint('Finding solution ...')
-
-        # Solver    Solution        Time (s)
-        # ------    --------        --------
-        # ECOS      infeasible      -
-        # ECOS_BB   infeasible      -
-        # OSQP      optimal         4.873e-02
         
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
@@ -239,13 +242,13 @@ class GeoDistributor:
         '''Creates C3'''
 
         self.A3 = self.make_A3_and_A4(land_use='cropland')
-        self.b3 = self.A3.M @ np.concatenate((self.x0['ani'],self.x0['crp'])) * 1.1
+        self.b3 = self.A3.M @ np.concatenate((self.x0['ani'],self.x0['crp'])) * 1.1 # Implement cropland area limit factor from parameter
 
     def make_C4(self):
         '''Creates C4'''
 
-        self.A4 = self.make_A3_and_A4(land_use='semi-natural grassland')
-        self.b4 = self.A4.M @ np.concatenate((self.x0['ani'],self.x0['crp'])) * 1.1
+        self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
+        self.b4 = self.A4.M @ np.concatenate((self.x0['ani'],self.x0['crp'])) * 1.1 # Implement SNG area limit factor from parameter
 
     def make_O1(self):
         
@@ -518,7 +521,7 @@ class GeoDistributor:
 
             # Get row index from animal product demand vector (re)
             row_idx = self.x_idx['crp'].get_level_values('region').unique()
-            # Get col index from animal herds (cr,ps,re)
+            # Get col index from crops (cr,ps,re)
             col_idx = self.x_idx['crp']
 
             # Get dict for translating crop --> land use
