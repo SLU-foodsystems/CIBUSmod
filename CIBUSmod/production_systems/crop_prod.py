@@ -7,7 +7,34 @@ from ..utils.misc import rgetattr, rsetattr
 from ..utils.misc import Container
 
 class CropProduction(object):
-    '''Class for crop production'''
+    '''Class that handles crop production
+    
+    Parameters
+    ----------
+    par : ParameterRetriever object
+    index : pandas.Index or pandas.MultiIndex
+        Index for the rows. This is also passed on to the ParameterRetriever
+        
+    Attributes set on init
+    ----------------------
+    index : pandas.Index or padnas.MultiIndex
+        Index for rows
+        
+    Attributes set by CropProduction.calculate()
+    --------------------------------------------
+    area : pandas.DataFrame
+        Total crop area [ha] for most crops and [m2] for greenhouse crops 
+    harvest : pandas.DataFrame
+        Total harvest of crops [kg DM] for cereals, pulses, oilseeds, forages etc. and [kg wet weight] for vegetables, berries, fruit etc.
+    production : pandas.DataFrame
+        Total production of "crop products" (e.g. the crops "Wheat, winter" and "Wheat, spring" both produce the crop product "wheat") [kg DM] or [kg wet weight]
+    by_products : pandas.DataFrame
+        As above but for by-products (e.g. straw)
+    '''
+
+    # List of attributes in class
+    # Note: remember to update if more attributes are included!
+    data_attr = ['area','harvest','production','by_products']
 
     def __init__(self,par,index):
         
@@ -24,7 +51,7 @@ class CropProduction(object):
 
         Returns
         -------
-        Nothing. Stores output in pandas.DataFrames in the attrubutes: 'areas', 'harvest', 'crop_products' and 'by_products'
+        Nothing. Stores output in pandas.DataFrames in the attrubutes: 'area', 'harvest', 'production' and 'by_products'
         '''
 
         # Clear and set filters for ParameterRetriever
@@ -74,7 +101,7 @@ class CropProduction(object):
 
         old_x = self.area
         
-        for attr in ['area','production','by_products']:
+        for attr in self.data_attr:
             try:
                 rsetattr(obj, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
             except:

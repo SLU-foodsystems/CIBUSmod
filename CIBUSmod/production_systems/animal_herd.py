@@ -73,7 +73,7 @@ class AnimalHerd(object):
     
     '''
     # List of attributes in class
-    # Note to self: remember to update!
+    # Note: remember to update if more attributes are included!
     id_attr = ['species','breed','prod_system','sub_system','animals']
     data_attr = [
         'heads','slaughtered_n','lost_n','production',
