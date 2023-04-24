@@ -1,4 +1,5 @@
 import functools
+import pandas as pd
 
 # Functions to set and get nested attributes
 def rsetattr(obj, attr, val):
@@ -15,8 +16,10 @@ class Container(object):
     def new(self):
         obj = type(self).__new__(self.__class__)
         return obj
+    
+# Some helper functions for pandas objects
 
-# Function that aligns
+# Function that aligns and multiplies two dataframes
 def multiply_aligned(left,right):
     # Note: 'left' should be "bigger" than 'right'. I.e. contain
     # more or the same number of levels in index and/or columns
@@ -31,3 +34,7 @@ def multiply_aligned(left,right):
     # Make sure index and columns are ordered as in left
     multiplied = multiplied.reindex(index=left.index, columns=left.columns)
     return multiplied
+
+# Function that converts a pandas.MultiIndex to a dict {level : level values}
+def multiindex_to_dict(idx:pd.MultiIndex):
+    return {lvl:[val for val in idx.get_level_values(lvl)] for lvl in idx.names}
