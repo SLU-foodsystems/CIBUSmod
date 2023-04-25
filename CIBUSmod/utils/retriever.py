@@ -305,7 +305,7 @@ Parameters
 
     def get_rel(self,from_col='',to_col=''):
         '''Returns a dict with values in 'from_col' as keys and 'to_col' as values'''
-        if len(self.rel[from_col]) < len(self.rel[to_col]):
+        if len(set(self.rel[from_col])) < len(set(self.rel[to_col])):
             raise ValueError(f'Only one-to-one or many-to-one relations are allowed. Did you mean from_col={to_col}, to_col={from_col}?')
         return self.rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
     
