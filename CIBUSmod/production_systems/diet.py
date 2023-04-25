@@ -24,19 +24,23 @@ class Diet(object):
 
     Attributes set by FoodDemand.calculate()
     ----------------------------------------
-    population : int
-    food_demand : pandas.DataFrame
+    population : int [millions]
+    food_demand : pandas.DataFrame [kg/year]
+        Demand for food per production system and origin (domestic, imported)
+    food_demand_to_processing : pandas.DataFrame [kg/year]
+        Food demand after accounting for household, retail and processing wastes
     crop_prod_demand : pandas.DataFrame
+    crop_by_products : pandas.DataFrame
     animal_prod_demand : pandas.DataFrame
-    by_products : pandas.DataFrame
-    waste : pandas.DataFrame
-
-
+    animal_by_products : pandas.DataFrame
+    waste : pandas.DataFrame [kg/year]
+        Generated waste at household, retail and processing. Only includes domestically
+        generated waste assuming that processing waste for imported foods occur abroad.
     '''
 
     # List of attributes in class
     # Note: remember to update if more attributes are included!
-    data_attr = []
+    data_attr = ['population','food_demand','waste']
 
     def __init__(self, par: ParameterRetriever):
         self.par = par
@@ -55,13 +59,32 @@ class Diet(object):
         'food_demand', 'crop_prod_demand', 'animal_prod_demand', 'by_products' and 'waste'
         '''
 
+        # Define functions to print progress messages if verbose==True
+        vprint = verbose_init(verbose, id_str='Diet')
+
         # Get population size
         self.population = self.par.get('population')[0]
 
         # Calculate total food demand [kg/year]
+        vprint('Calculating food demand ...')
         self.calculate_food_demand()
 
+        # Calculate generated food waste [kg/year]
+        vprint('Calculating waste ...')
+        self.calculate_waste()
+
+        # Calculate demand for crop products and generated crop by-products
+        vprint('Calculating crop product demand ...')
+        self.calculate_crop_product_demand()
+
+        # Calculate demand for animal products and generated animal by-products
+        vprint('Calculating crop product demand ...')
+        self.calculate_animal_product_demand()
+
+        vprint(type='end')
+
     def calculate_food_demand(self):
+        
         # Get food items included in the diet and included production systems
         foods = self.par.get_unique('food', 'parameter == "consumption"')
         prod_systems = self.par.get_unique('prod_system', 'parameter == "share_in_prod_system"')
@@ -92,4 +115,49 @@ class Diet(object):
         self.par.clear()
         self.food_demand = cons / 1000 * 365.25 * self.population * 1000000
 
+        self.par.clear()
 
+    def calculate_waste(self):
+        
+        # Get shares wasted at different levels
+        waste_shares = pd.DataFrame(
+            columns = pd.Index(['household','retail','processing'], name='waste_level'),
+            index = self.food_demand.index
+        )
+        rel = self.par.get_rel('food','food_group')
+        waste_shares['food_group'] = [rel[f] for f in waste_shares.index.get_level_values('food')]
+        waste_shares.set_index('food_group', append=True, inplace=True)
+        waste_shares = self.par.get_from_frame('waste_share',waste_shares)/100
+
+        # Apply waste shares and calculate food needed to enter each stage
+        food_to_household = self.food_demand.mul(1/(1-waste_shares['household']),axis=0)
+        food_to_retail = food_to_household.mul(1/(1-waste_shares['retail']),axis=0)
+        food_to_processing = food_to_retail.mul(1/(1-waste_shares['processing']),axis=0)
+
+        # Create waste dataframe
+        waste = pd.DataFrame(
+            columns=waste_shares.columns,
+            index=waste_shares.index
+        )
+
+        # Calculate waste at each stage
+        # Processing waste for imported foods is assumed to be generated abroad (i.e. not included)
+        waste['household'] = (food_to_household - self.food_demand).sum(axis=1)
+        waste['retail'] = (food_to_retail - food_to_household).sum(axis=1)
+        waste['processing'] = food_to_processing['domestic'] - food_to_retail['domestic'] 
+        waste = waste.droplevel('food_group')
+
+        self.food_demand_to_processing = food_to_processing
+        self.waste = waste
+
+        self.par.clear()
+
+    def calculate_crop_product_demand(self):
+        pass
+
+    def calculate_animal_product_demand(self):
+        pass
+
+        # Handle dairy
+
+        # Handle demand for animal by-products
