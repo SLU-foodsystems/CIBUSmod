@@ -296,12 +296,33 @@ Parameters
 
                 
     def get_unique(self,filter,qry=None):
+        '''Get unique values for specified filter(s) in parameter Excel sheet
+        
+        Parameters
+        ----------
+        filter : str or list of str
+            filter(s) to get unique values for
+        qry : str
+            An optional query string filter the parameter sheet before finding
+            unique filter values
+
+        Returns
+        -------
+        numpy.array of unique values for filter if a str is supplied or
+        pandas.DataFrame of unique combinations of filter values with filter names as columns
+        '''
         if qry is not None:
             df = self.data.reset_index().query(qry)
         else:
             df = self.data.reset_index()
-        res = df['f_'+filter].unique() 
-        return res[~pd.isna(res)]
+
+        if isinstance(filter, list):
+            res = df[['f_'+f for f in filter]].dropna(how='any').drop_duplicates()
+            res.columns = filter
+            return res
+        else:
+            res = df['f_'+filter].unique() 
+            return res[~pd.isna(res)]
 
     def get_rel(self,from_col='',to_col=''):
         '''Returns a dict with values in 'from_col' as keys and 'to_col' as values'''
