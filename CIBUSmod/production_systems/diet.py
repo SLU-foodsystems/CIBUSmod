@@ -63,7 +63,7 @@ class Diet(object):
         vprint = verbose_init(verbose, id_str='Diet')
 
         # Get population size
-        self.population = self.par.get('population')[0]
+        self.get_population()
 
         # Calculate total food demand [kg/year]
         vprint('Calculating food demand ...')
@@ -83,25 +83,28 @@ class Diet(object):
 
         vprint(type='end')
 
+    def get_population(self):
+        self.population = self.par.get('population')[0]
+
     def calculate_food_demand(self):
         
         # Get food items included in the diet and included production systems
-        foods = self.par.get_unique('food', 'parameter == "consumption"')
-        prod_systems = self.par.get_unique('prod_system', 'parameter == "share_in_prod_system"')
+        fs = self.par.get_unique(['food','food_group'], 'parameter == "consumption"')
+        pss = self.par.get_unique('prod_system', 'parameter == "share_in_prod_system"')
 
         # Create dataframe for domestic and imported food demand ('food_demand')
         food_demand = pd.DataFrame(
             columns=pd.Index(['domestic','imported'],name='origin'),
             index=pd.MultiIndex.from_tuples(
-                [(f,ps) for f in foods for ps in prod_systems],
-                names=['food','prod_system']
+                [(f,fg,ps) for f,fg in fs.values for ps in pss],
+                names=['food','food_group','prod_system']
             )
         )
 
         # Get shares per production system
         share_per_prod_system = self.par.get_from_frame('share_in_prod_system',food_demand)/100
         # Calculate share conventional as what remains (Note: important that 'share_in_prod_system' == -100 in parameter Excel sheet)
-        share_con = share_per_prod_system.loc[(slice(None),'conventional'),:]
+        share_con = share_per_prod_system.xs('conventional', level='prod_system', drop_level=False)
         share_con = (share_per_prod_system.groupby('food').sum() * -1).reindex(share_con.index, level='food')
         share_per_prod_system.update(share_con)
 
@@ -124,9 +127,7 @@ class Diet(object):
             columns = pd.Index(['household','retail','processing'], name='waste_level'),
             index = self.food_demand.index
         )
-        rel = self.par.get_rel('food','food_group')
-        waste_shares['food_group'] = [rel[f] for f in waste_shares.index.get_level_values('food')]
-        waste_shares.set_index('food_group', append=True, inplace=True)
+
         waste_shares = self.par.get_from_frame('waste_share',waste_shares)/100
 
         # Apply waste shares and calculate food needed to enter each stage
@@ -145,7 +146,7 @@ class Diet(object):
         waste['household'] = (food_to_household - self.food_demand).sum(axis=1)
         waste['retail'] = (food_to_retail - food_to_household).sum(axis=1)
         waste['processing'] = food_to_processing['domestic'] - food_to_retail['domestic'] 
-        waste = waste.droplevel('food_group')
+        # waste = waste.droplevel('food_group')
 
         self.food_demand_to_processing = food_to_processing
         self.waste = waste
