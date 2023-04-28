@@ -232,12 +232,12 @@ animals              {self.animals}
         # Create production DF
         production = pd.DataFrame(
             index = self.index,
-            columns = pd.MultiIndex.from_tuples([(ps,ani,pr) for ps in pss for ani in anis for pr in prs], names=['prod_system','animal','product'])
+            columns = pd.MultiIndex.from_tuples([(ps,ani,pr) for ps in pss for ani in anis for pr in prs], names=['prod_system','animal','animal_prod'])
             )
         
         # Calculate meat production [kg CW]
         production.loc[:,(slice(None),slice(None),'meat')] = \
-            pd.concat({'meat': self.slaughtered_n}, names=['product'], axis=1).reorder_levels(['prod_system','animal','product'], axis=1) * \
+            pd.concat({'meat': self.slaughtered_n}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
             np.array([p('slaughter_weight', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
 
         # Calculate raw milk production [kg ECM]
@@ -245,7 +245,7 @@ animals              {self.animals}
         if 'milk' in prs:
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
-                    pd.concat({'milk': self.heads.loc[:,[(ps,'cows')]]}, names=['product'], axis=1).reorder_levels(['prod_system','animal','product'], axis=1) * \
+                    pd.concat({'milk': self.heads.loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
                     (p('milk_prod', prod_system=ps) * p('milk_to_dairy', prod_system=ps)/100) * \
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7) \
                     for ps in pss
