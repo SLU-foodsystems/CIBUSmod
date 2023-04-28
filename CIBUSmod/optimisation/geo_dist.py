@@ -31,14 +31,14 @@ class GeoDistributor:
 
     def __init__(self,D,x0,crops,herds,feed_mgmt):
         
-        self.D = D.copy()
-        self.x0 = x0.copy()
+        self.D = {k:v.copy() for k,v in zip(D.keys(),D.values())}
+        self.x0 = {k:v.copy() for k,v in zip(x0.keys(),x0.values())}
         self.crops = crops
         self.herds = herds
 
         # Add rows for any domestically produced crop products used for feed not already in crop product demand vector (D['crp'])
         for cp in feed_mgmt.par.get_unique('crop_prod'):
-            for ps in D['crp'].index.get_level_values('prod_system').unique():
+            for ps in self.D['crp'].index.get_level_values('prod_system').unique():
                 idx = (ps,cp)
                 if (feed_mgmt.par.get('share_imported', crop_prod=cp, prod_system=ps) != 100).any() & (idx not in self.D['crp'].index):
                     self.D['crp'][idx] = 0
@@ -57,8 +57,8 @@ class GeoDistributor:
 
         # Store D and x0 indexes
         self.D_idx = {
-            'ani' : D['ani'].index,
-            'crp' : D['crp'].index
+            'ani' : self.D['ani'].index,
+            'crp' : self.D['crp'].index
         }
         
         self.x0_idx = {
@@ -296,7 +296,7 @@ class GeoDistributor:
             ss = herd.sub_system
 
             # Go through animal products
-            for ap in herd.production.columns.get_level_values('product').unique():
+            for ap in herd.production.columns.get_level_values('animal_prod').unique():
                 # Go through output production systems
                 for ops in herd.production.columns.get_level_values('prod_system').unique():
                     if (ops,sp,ap) in row_idx:
