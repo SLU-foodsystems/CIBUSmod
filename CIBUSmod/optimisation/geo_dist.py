@@ -68,10 +68,21 @@ class GeoDistributor:
 
         
 
-    def make(self,use_cons='all',verbose=False):
+    def make(self, use_cons='all', scaling='none', verbose=False):
         '''Creates constraints and defines optimisation problem'''
 
         vprint = verbose_init(verbose, id_str='GeoDist.make')
+
+        vprint('Scaling ...')
+        # Calculate scaling factors
+        self.calculate_scaling_factors(scaling)
+
+        # Apply scaling factors to x0
+        self.x0s = {
+            key : df * self.scale_f[key]
+            for key,df
+            in zip(self.x0.keys(),self.x0.values())
+            }
 
         if use_cons == 'all':
             use_cons = [1,2,3,4,5,6,7]
@@ -141,17 +152,23 @@ class GeoDistributor:
             self.success = False
 
             # Get and store optimal value for variable
-            x = self.problem.variables()[0].value
-            self.x = {
+            xs = self.problem.variables()[0].value
+            self.xs = {
                 'ani' : pd.Series(
-                    x[0:len(self.x_idx['ani'])],
+                    xs[:len(self.x_idx['ani'])],
                     index = self.x_idx['ani']
                 ),
                 'crp' : pd.Series(
-                    x[len(self.x_idx['ani']):],
+                    xs[len(self.x_idx['ani']):],
                     index = self.x_idx['crp']
                 )
             }
+
+            self.x = {
+                key : df / self.scale_f[key]
+                for key,df
+                in zip(self.xs.keys(),self.xs.values())
+                }
         else:
             vprint(f'No solution found!')
             self.success = False
@@ -159,23 +176,81 @@ class GeoDistributor:
 
         vprint(type='end')
 
+    def calculate_scaling_factors(self,method):
+
+        # Method selection
+        if (method=='item+region') or (method=='region+item'):
+            do_f1 = True
+            do_f2 = True
+        elif method=='item':
+            do_f1 = True
+            do_f2 = False
+        elif method=='region':
+            do_f1 = False
+            do_f2 = True
+        elif method=='none':
+            do_f1 = False
+            do_f2 = False
+        else:
+            raise ValueError("method must be one of 'item', 'region', 'item+region' or 'none'")
+
+        scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
+
+        # Get x0 for animals and combine index levels crop+production system
+        x0_ani = self.x0['ani'].to_frame()
+        x0_ani['item'] = ['_'.join([sp,br,ps]) for sp,br,ps in self.x0['ani'].index.droplevel('region')]
+        x0_ani = x0_ani.set_index('item', append=True).droplevel(['species','breed','prod_system'])[self.x0['ani'].name]
+
+        # Get x0 for crops and combine index levels species+breed+production system
+        x0_crp = self.x0['crp'].to_frame()
+        x0_crp['item'] = ['_'.join([cr,ps]) for cr,ps in self.x0['crp'].index.droplevel('region')]
+        x0_crp = x0_crp.set_index('item', append=True).droplevel(['crop','prod_system'])[self.x0['crp'].name]
+
+        x0_ = pd.concat((x0_ani,x0_crp))
+
+        if do_f1:
+            # Calculate scale factor with regards to item (i.e. species+breed+production system or crop+production system)
+            sums1 = x0_.groupby('item').transform('sum')
+            f1 = 1 / sums1 * sums1.mean()
+            f1[f1==np.inf] = f1[f1!=np.inf].mean() # temp fix
+        else:
+            f1 = np.array([1]*len(x0_))
+
+        if do_f2:
+            # Calculate scale factor with regards to region 
+            sums2 = x0_.groupby('region').transform('sum')
+            f2 = 1 / sums2 * sums2.mean()
+        else:
+            f2 = np.array([1]*len(x0_))
+
+        # Assert results
+        assert np.isfinite(f1).all()
+        assert np.isfinite(f2).all()
+
+        # Calculate final scale factors
+        f = (f1 * f2)
+
+        scale_f['ani'].iloc[:] = f[:len(scale_f['ani'])]
+        scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
+        self.scale_f = scale_f
+
 
     def define_cvx_problem(self,use_cons):
 
-        x = cvxpy.Variable(len(self.x_idx['ani'])+len(self.x_idx['crp']), nonneg=True)
+        xs = cvxpy.Variable(len(self.x_idx['ani'])+len(self.x_idx['crp']), nonneg=True)
 
-        O1 = cvxpy.sum_squares(self.P1.M @ x - np.concatenate((self.x0['ani'].values,self.x0['crp'].values)))
+        O1 = cvxpy.sum_squares(self.P1.M @ xs - np.concatenate((self.x0s['ani'].values,self.x0s['crp'].values)))
         OBJ = cvxpy.Minimize(O1)
 
         CONS = []
         if '1' in use_cons:
-            CONS.append(self.A1.M @ x == self.b1)
+            CONS.append(self.A1.M @ xs == self.b1)
         if '2' in use_cons:
-            CONS.append(self.A2.M @ x >= 0)
+            CONS.append(self.A2.M @ xs >= 0)
         if '3' in use_cons:
-            CONS.append(self.A3.M @ x <= self.b3)
+            CONS.append(self.A3.M @ xs <= self.b3)
         if '4' in use_cons:
-            CONS.append(self.A4.M @ x <= self.b4)
+            CONS.append(self.A4.M @ xs <= self.b4)
         if '5' in use_cons:
             pass
         if '6' in use_cons:
@@ -242,13 +317,14 @@ class GeoDistributor:
         '''Creates C3'''
 
         self.A3 = self.make_A3_and_A4(land_use='cropland')
-        self.b3 = self.A3.M @ np.concatenate((self.x0['ani'],self.x0['crp'])) * 1.1 # Implement cropland area limit factor from parameter
+        
+        self.b3 = self.A3.M @ np.concatenate((self.x0s['ani'],self.x0s['crp'])) * 1.1 # NOTE: Implement cropland area limit factor from parameter, how to deal with scaling here
 
     def make_C4(self):
         '''Creates C4'''
 
         self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
-        self.b4 = self.A4.M @ np.concatenate((self.x0['ani'],self.x0['crp'])) * 1.1 # Implement SNG area limit factor from parameter
+        self.b4 = self.A4.M @ np.concatenate((self.x0s['ani'],self.x0s['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
 
     def make_O1(self):
         
@@ -303,7 +379,7 @@ class GeoDistributor:
                         # Get production of animal product (ap) from output production system (ops) per head
                         # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                         # and region (re)
-                        res = herd.production.loc[:,(ops,slice(None),ap)].sum(axis=1)
+                        res = herd.production.loc[:,(ops,slice(None),ap)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
 
                         # Store values and row/col nr
                         val.extend(res.values)
@@ -349,7 +425,7 @@ class GeoDistributor:
                     # Get feed demand for crop product (cp) from output production system (ops) per head
                     # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                     # and region (re)
-                    res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1)
+                    res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
 
                     # Store values and row/col nr
                     val.extend(res.values)
@@ -387,7 +463,7 @@ class GeoDistributor:
                 if (ps,cp) in row_idx:
                     # Get production of crop product (cp) from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
-                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0)
+                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0) / self.scale_f['crp'].loc[(cr,ps)]
 
                     # Store values and row/col nr
                     val.extend(res.values)
@@ -445,7 +521,7 @@ class GeoDistributor:
                         # Get regional feed demand for crop product (cp) from output production system (ops) per head
                         # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                         # and region (re)
-                        res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1)
+                        res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
 
                         # Store values and row/col nr
                         val.extend(res.values)
@@ -497,7 +573,7 @@ class GeoDistributor:
                 if (cp,ps) in row_idx_lookup:
                     # Get production of crop product (cp) from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
-                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0)
+                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0) / self.scale_f['crp'].loc[(cr,ps)]
 
                     # Store values and row/col nr
                     val.extend(res.values)
