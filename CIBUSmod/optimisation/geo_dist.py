@@ -15,35 +15,28 @@ class GeoDistributor:
     
     Parameters
     ----------
-    D : dict of pandas.Series
-        A dict of pandas series representing demand for animal (D['ani']) and crop products (D['crp'])
-        D['ani'].index should be on the form (production system, species, animal product)
-        D['crp'].index should be on the form (production system, crop product)
     x0 : dict of pandas.Series
         A dict of pandas series representing emand for animald (D['ani']) and crop products (D['crp'])
         x0['ani'].index should be on the form (species, breed, production system, region)
         x0['crp'].index should be on the form (*land use*, *crop group* ,crop, production system, region)
+    demand : DemandAndConversions object
     herds : pandas.Series of AnimalHerd objects
     crops : CropProduction object
         
     Attributes
     ----------'''
 
-    def __init__(self,D,x0,crops,herds,feed_mgmt):
+    def __init__(self,x0,demand,crops,herds,feed_mgmt):
         
-        self.D = {k:v.copy() for k,v in zip(D.keys(),D.values())}
+        
         self.x0 = {k:v.copy() for k,v in zip(x0.keys(),x0.values())}
+
+        self.demand = demand
         self.crops = crops
         self.herds = herds
+        self.feed_mgmt = feed_mgmt
 
-        # Add rows for any domestically produced crop products used for feed not already in crop product demand vector (D['crp'])
-        for cp in feed_mgmt.par.get_unique('crop_prod'):
-            for ps in self.D['crp'].index.get_level_values('prod_system').unique():
-                idx = (ps,cp)
-                if (feed_mgmt.par.get('share_imported', crop_prod=cp, prod_system=ps) != 100).any() & (idx not in self.D['crp'].index):
-                    self.D['crp'][idx] = 0
-
-        # Define idex for x
+        # Define index for x
         self.x_idx = {
             'ani' : pd.MultiIndex.from_tuples(
                     [(sp,br,ps,ss,re) for (sp,br,ps,ss) in self.herds.index for re in self.herds[(sp,br,ps,ss)].index],
@@ -54,24 +47,19 @@ class GeoDistributor:
 
         # Sort x0['ani'] to match x['ani']
         self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system')]
-
-        # Store D and x0 indexes
-        self.D_idx = {
-            'ani' : self.D['ani'].index,
-            'crp' : self.D['crp'].index
-        }
-        
+       
+        # Store x0 indexes
         self.x0_idx = {
             'ani' : self.x0['ani'].index,
             'crp' : self.x0['crp'].index
         }
 
-        
-
     def make(self, use_cons='all', scaling='none', verbose=False):
         '''Creates constraints and defines optimisation problem'''
 
         vprint = verbose_init(verbose, id_str='GeoDist.make')
+
+        self.get_demand()
 
         vprint('Scaling ...')
         # Calculate scaling factors
@@ -175,6 +163,25 @@ class GeoDistributor:
             # NEED TO IMPLEMENT A WAY TO HANDLE THIS SITUATION
 
         vprint(type='end')
+
+    def get_demand(self):
+        self.D = {
+            'ani' : self.demand.animal_prod_demand.copy(),
+            'crp' : self.demand.crop_prod_demand.copy()
+            }
+        
+        # Add rows for any domestically produced crop products used for feed not already in crop product demand vector (D['crp'])
+        for cp in self.feed_mgmt.par.get_unique('crop_prod'):
+            for ps in self.D['crp'].index.get_level_values('prod_system').unique():
+                idx = (ps,cp)
+                if (self.feed_mgmt.par.get('share_imported', crop_prod=cp, prod_system=ps) != 100).any() & (idx not in self.D['crp'].index):
+                    self.D['crp'][idx] = 0
+
+        # Store indexes
+        self.D_idx = {
+            'ani' : self.D['ani'].index,
+            'crp' : self.D['crp'].index
+        }
 
     def calculate_scaling_factors(self,method):
 
