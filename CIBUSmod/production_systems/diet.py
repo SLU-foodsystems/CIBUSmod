@@ -154,6 +154,7 @@ class Diet(object):
         self.par.clear()
 
     def calculate_crop_product_demand(self):
+        # FAILS IF 0% ORGANIC!!!
         
         # Get crop products and by-products
         cps = self.par.get_unique('crop_prod','parameter == "conv_factor_main"')
