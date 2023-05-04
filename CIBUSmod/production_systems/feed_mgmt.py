@@ -52,7 +52,7 @@ class FeedMgmt():
 
         # Create feed objects in herds
         for herd in self.herds:
-            if not hasattr(herd,'manure'):
+            if not hasattr(herd,'feed'):
                 herd.feed = Feed()
         
         vprint('Calculating feed consumption ...')

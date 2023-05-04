@@ -59,6 +59,7 @@ class GeoDistributor:
 
         vprint = verbose_init(verbose, id_str='GeoDist.make')
 
+        vprint('Creating demand vector ...')
         self.get_demand()
 
         vprint('Scaling ...')
@@ -171,6 +172,7 @@ class GeoDistributor:
             }
         
         # Add rows for any domestically produced crop products used for feed not already in crop product demand vector (D['crp'])
+        self.feed_mgmt.par.clear()
         for cp in self.feed_mgmt.par.get_unique('crop_prod'):
             for ps in self.D['crp'].index.get_level_values('prod_system').unique():
                 idx = (ps,cp)
@@ -425,23 +427,32 @@ class GeoDistributor:
             ps = herd.prod_system
             ss = herd.sub_system
 
-            # Go through crop products used as feed
-            for cp in herd.feed.crop_product_demand.columns.get_level_values('crop_prod').unique():
-                # Go through output production systems
-                for ops in herd.feed.crop_product_demand.columns.get_level_values('prod_system').unique():
-                    # Get feed demand for crop product (cp) from output production system (ops) per head
-                    # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
-                    # and region (re)
-                    res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
+            # Get crop products and production systems with domestic demand from feed
+            opss_cps = (
+                herd.feed.crop_product_demand
+                .xs('domestic', level='origin', axis=1)
+                .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no domestic demand
+                .droplevel('animal', axis=1)
+                .columns
+                .unique()
+                .values
+            )
 
-                    # Store values and row/col nr
-                    val.extend(res.values)
-                    row_nr.extend(
-                        [row_idx.get_loc((ops,cp))] * len(res)
-                    )
-                    col_nr.extend(
-                        [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
-                    )
+            # Go through crop products and production systems used as feed
+            for ops,cp in opss_cps:
+                # Get feed demand for crop product (cp) from output production system (ops) per head
+                # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
+                # and region (re)
+                res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
+
+                # Store values and row/col nr
+                val.extend(res.values)
+                row_nr.extend(
+                    [row_idx.get_loc((ops,cp))] * len(res)
+                )
+                col_nr.extend(
+                    [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
+                )
         
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
@@ -497,12 +508,15 @@ class GeoDistributor:
             for cp in list(set([
                                 cp
                                 for herd in self.herds if 'regional' in herd.feed.crop_product_demand.columns
-                                for cp in herd.feed.crop_product_demand['regional'].columns.get_level_values('crop_prod')
-                                
+                                for cp in (
+                                    herd.feed.crop_product_demand['regional']
+                                    .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
+                                    .columns.get_level_values('crop_prod')
+                                )
                             ]))
             for ps in self.x_idx['ani'].get_level_values('prod_system').unique()
             for re in self.x_idx['ani'].get_level_values('region').unique()
-        ])
+        ], names = ['crop_prod','prod_system','region'])
         # Get col index from animal herds (sp,br,ps,ss,re)
         col_idx = self.x_idx['ani']
 
@@ -521,23 +535,33 @@ class GeoDistributor:
 
             # Check if herd has any regional demand for feeds
             if 'regional' in herd.feed.crop_product_demand.columns:
-                # Go through crop products with regional demand
-                for cp in herd.feed.crop_product_demand['regional'].columns.get_level_values('crop_prod'):
-                    # Go through output production systems
-                    for ops in herd.feed.crop_product_demand['regional'].columns.get_level_values('prod_system'):
-                        # Get regional feed demand for crop product (cp) from output production system (ops) per head
-                        # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
-                        # and region (re)
-                        res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
 
-                        # Store values and row/col nr
-                        val.extend(res.values)
-                        row_nr.extend(
-                            [row_idx.get_loc((cp,ops,re)) for re in res.index]
-                        )
-                        col_nr.extend(
-                            [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
-                        )
+                # Get crop products and production systems with regional demand from feed
+                opss_cps = (
+                    herd.feed.crop_product_demand
+                    .xs('regional', level='origin', axis=1)
+                    .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no domestic demand
+                    .droplevel('animal', axis=1)
+                    .columns
+                    .unique()
+                    .values
+                )
+
+                # Go through crop products adn production systems with regional demand from feed
+                for ops,cp in opss_cps:
+                    # Get regional feed demand for crop product (cp) from output production system (ops) per head
+                    # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
+                    # and region (re)
+                    res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
+
+                    # Store values and row/col nr
+                    val.extend(res.values)
+                    row_nr.extend(
+                        [row_idx.get_loc((cp,ops,re)) for re in res.index]
+                    )
+                    col_nr.extend(
+                        [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
+                    )
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
@@ -550,20 +574,20 @@ class GeoDistributor:
 
     def make_A2_2(self):
         # Get row index from feeds with a regional demand (cp,ps,re)
-        reg_feeds = list(set([
-                                cp
-                                for herd in self.herds if 'regional' in herd.feed.crop_product_demand.columns
-                                for cp in herd.feed.crop_product_demand['regional'].columns.get_level_values('crop_prod')
-                                
-                            ]))
         row_idx = pd.MultiIndex.from_tuples([
             (cp,ps,re)
-            for cp in reg_feeds
+            for cp in list(set([
+                                cp
+                                for herd in self.herds if 'regional' in herd.feed.crop_product_demand.columns
+                                for cp in (
+                                    herd.feed.crop_product_demand['regional']
+                                    .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
+                                    .columns.get_level_values('crop_prod')
+                                )
+                            ]))
             for ps in self.x_idx['ani'].get_level_values('prod_system').unique()
             for re in self.x_idx['ani'].get_level_values('region').unique()
-        ],
-        names = ['crop_prod','prod_system','region']
-        )
+        ], names = ['crop_prod','prod_system','region'])
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx['crp']
 
@@ -575,8 +599,10 @@ class GeoDistributor:
         col_nr = []
 
 
-        for cr,ps in self.crops.production[self.crops.production[reg_feeds].sum(axis=1)>0].index.droplevel('region').unique():
-            for cp in row_idx.get_level_values('crop_prod'):
+        for cr,ps in self.crops.production.index.droplevel('region')[
+            self.crops.production[row_idx.get_level_values('crop_prod').unique()].sum(axis=1)>0
+            ].unique():
+            for cp in row_idx.get_level_values('crop_prod').unique():
                 if (cp,ps) in row_idx_lookup:
                     # Get production of crop product (cp) from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
