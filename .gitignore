@@ -13,3 +13,6 @@ __pycache__/
 *.prj
 *.shx
 *.dbf
+
+# Folder with temp dev files
+dev/
