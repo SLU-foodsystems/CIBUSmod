@@ -54,7 +54,7 @@ class GeoDistributor:
             'crp' : self.x0['crp'].index
         }
 
-    def make(self, use_cons='all', scaling='none', verbose=False):
+    def make(self, use_cons='all', scale_power=[0,0], verbose=False):
         '''Creates constraints and defines optimisation problem'''
 
         vprint = verbose_init(verbose, id_str='GeoDist.make')
@@ -64,7 +64,7 @@ class GeoDistributor:
 
         vprint('Scaling ...')
         # Calculate scaling factors
-        self.calculate_scaling_factors(scaling)
+        self.calculate_scaling_factors(scale_power)
 
         # Apply scaling factors to x0
         self.x0s = {
@@ -185,23 +185,7 @@ class GeoDistributor:
             'crp' : self.D['crp'].index
         }
 
-    def calculate_scaling_factors(self,method):
-
-        # Method selection
-        if (method=='item+region') or (method=='region+item'):
-            do_f1 = True
-            do_f2 = True
-        elif method=='item':
-            do_f1 = True
-            do_f2 = False
-        elif method=='region':
-            do_f1 = False
-            do_f2 = True
-        elif method=='none':
-            do_f1 = False
-            do_f2 = False
-        else:
-            raise ValueError("method must be one of 'item', 'region', 'item+region' or 'none'")
+    def calculate_scaling_factors(self,scale_power=[0,0]):
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
 
@@ -217,20 +201,14 @@ class GeoDistributor:
 
         x0_ = pd.concat((x0_ani,x0_crp))
 
-        if do_f1:
-            # Calculate scale factor with regards to item (i.e. species+breed+production system or crop+production system)
-            sums1 = x0_.groupby('item').transform('sum')
-            f1 = 1 / sums1 * sums1.mean()
-            f1[f1==np.inf] = f1[f1!=np.inf].mean() # temp fix
-        else:
-            f1 = np.array([1]*len(x0_))
-
-        if do_f2:
-            # Calculate scale factor with regards to region 
-            sums2 = x0_.groupby('region').transform('sum')
-            f2 = 1 / sums2 * sums2.mean()
-        else:
-            f2 = np.array([1]*len(x0_))
+        # Calculate scale factor with regards to item (i.e. species+breed+production system or crop+production system)
+        sums1 = x0_.groupby('item').transform('mean')
+        f1 = (sums1.mean() / sums1) * scale_power[0] + 1 * (1-scale_power[0])
+        f1[f1==np.inf] = f1[f1!=np.inf].mean() # temp fix
+        
+        # Calculate scale factor with regards to region 
+        sums2 = x0_.groupby('region').transform('mean')
+        f2 = (sums2.mean() / sums2) * scale_power[1] + 1 * (1-scale_power[1])
 
         # Assert results
         assert np.isfinite(f1).all()
