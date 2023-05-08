@@ -34,7 +34,7 @@ class CropProduction(object):
 
     # List of attributes in class
     # Note: remember to update if more attributes are included!
-    data_attr = ['area','harvest','production','by_products']
+    data_attr = ['area','harvest','production','by_products','seed_demand']
 
     def __init__(self,par,index):
         
@@ -75,7 +75,10 @@ class CropProduction(object):
         vprint('Calculating production ...')
         self.calculate_production()
 
-        # calculate nutrient req
+        vprint('Calculating seed demand ...')
+        self.calculate_seed_demand()
+
+        # calculate NPK req
         # calculate tractor energy
         # calculate other inputs
 
@@ -117,18 +120,26 @@ class CropProduction(object):
         cps = self.par.get_unique('crop_prod') # Get crop products
         bps = self.par.get_unique('by_prod') # Get by-products
 
-        production = pd.DataFrame(index=self.harvest.index)
-        by_products = pd.DataFrame(index=self.harvest.index)
-
-        for cp in cps:
-            production[cp] = self.harvest * np.nan_to_num(p('crop_to_prod', crop_prod=cp))
+        # Calculate crop product production
+        production = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
+        production = self.par.get_from_frame('crop_to_prod', production).mul(self.harvest, axis=0)
         self.par.remove('crop_prod')
 
-        for bp in bps:
-            by_products[bp] = self.harvest * np.nan_to_num(p('crop_to_prod', by_prod=bp))
+        # Calculate by-product generation
+        by_products = pd.DataFrame(index=self.index, columns=pd.Index(bps, name='by_prod'))
+        by_products = self.par.get_from_frame('crop_to_prod', by_products).mul(self.harvest, axis=0)
         self.par.remove('by_prod')
 
         self.production, self.by_products = (production, by_products)
+
+    def calculate_seed_demand(self):
+
+        # Get crop products
+        cps = self.par.get_unique('crop_prod', qry='parameter == "seed"') 
+
+        # Create dataframe
+        seed_demand = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
+        self.seed_demand = self.par.get_from_frame('seed', seed_demand).mul(self.area, axis=0)
 
 class StaticCropProduction(Container):
     '''Class used to create static copys of animal her objects. These stores all attributes except 'par'

@@ -171,9 +171,9 @@ class GeoDistributor:
             'crp' : self.demand.crop_prod_demand.copy()
             }
         
-        # Add rows for any domestically produced crop products used for feed not already in crop product demand vector (D['crp'])
+        # Add rows for any domestically produced crop products used for feed or seed not already in crop product demand vector (D['crp'])
         self.feed_mgmt.par.clear()
-        for cp in self.feed_mgmt.par.get_unique('crop_prod'):
+        for cp in set(self.feed_mgmt.par.get_unique('crop_prod')) | set(self.crops.par.get_unique('crop_prod', qry='parameter == "seed"')):
             for ps in self.D['crp'].index.get_level_values('prod_system').unique():
                 idx = (ps,cp)
                 if (self.feed_mgmt.par.get('share_imported', crop_prod=cp, prod_system=ps) != 100).any() & (idx not in self.D['crp'].index):
@@ -457,9 +457,13 @@ class GeoDistributor:
         for cr,ps in col_idx.droplevel('region').unique():
             for cp in cps:
                 if (ps,cp) in row_idx:
-                    # Get production of crop product (cp) from production system (ps) per area of crop (cr)
+                    # Get production of crop product (cp) minus seed demand
+                    # from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
-                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0) / self.scale_f['crp'].loc[(cr,ps)]
+                    res = (
+                        self.crops.production.loc[(cr,ps,slice(None)),(cp)]
+                        - (self.crops.seed_demand.loc[(cr,ps,slice(None)),(cp)] if cp in self.crops.seed_demand.columns else 0)
+                    ) / self.scale_f['crp'].loc[(cr,ps)]
 
                     # Store values and row/col nr
                     val.extend(res.values)

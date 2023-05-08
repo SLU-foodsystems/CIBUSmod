@@ -21,9 +21,10 @@ class Container(object):
 
 # Function that aligns and multiplies two dataframes
 def multiply_aligned(left,right):
-    # Note: 'left' should be "bigger" than 'right'. I.e. contain
-    # more or the same number of levels in index and/or columns
-    # than 'right'
+    '''Note: 'left' should be "bigger" than 'right'. I.e. contain
+    more or the same number of levels in index and/or columns
+    than 'right'''
+    
     aligned = left.align(right)
     multiplied = aligned[0]*aligned[1]
     # Make sure that column and index levels are ordered as in left
