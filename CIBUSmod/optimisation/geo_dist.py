@@ -46,7 +46,7 @@ class GeoDistributor:
         }
 
         # Sort x0['ani'] to match x['ani']
-        self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system')]
+        self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system').unique()]
        
         # Store x0 indexes
         self.x0_idx = {
@@ -154,7 +154,11 @@ class GeoDistributor:
             }
 
             self.x = {
-                key : df / self.scale_f[key]
+                key : (
+                    (df / self.scale_f[key])
+                    .reorder_levels(self.x_idx[key].names)
+                    .reindex(self.x_idx[key])
+                )
                 for key,df
                 in zip(self.xs.keys(),self.xs.values())
                 }
@@ -305,13 +309,13 @@ class GeoDistributor:
 
         self.A3 = self.make_A3_and_A4(land_use='cropland')
         
-        self.b3 = self.A3.M @ np.concatenate((self.x0s['ani'],self.x0s['crp'])) * 1.1 # NOTE: Implement cropland area limit factor from parameter, how to deal with scaling here
+        self.b3 = self.A3.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0s['crp'])) * 1.1 # NOTE: Implement cropland area limit factor from parameter, how to deal with scaling here
 
     def make_C4(self):
         '''Creates C4'''
 
         self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
-        self.b4 = self.A4.M @ np.concatenate((self.x0s['ani'],self.x0s['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
+        self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0s['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
 
     def make_O1(self):
         
