@@ -413,7 +413,8 @@ class GeoDistributor:
             opss_cps = (
                 herd.feed.crop_product_demand
                 .xs('domestic', level='origin', axis=1)
-                .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no domestic demand
+                # drop feeds with no (< 5e-6 kg) domestic demand
+                .round(5).replace({0:np.nan}).dropna(axis=1, how='all') 
                 .droplevel('animal', axis=1)
                 .columns
                 .unique()
