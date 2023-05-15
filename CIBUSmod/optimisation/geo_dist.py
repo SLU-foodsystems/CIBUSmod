@@ -172,7 +172,7 @@ class GeoDistributor:
     def get_demand(self):
         self.D = {
             'ani' : self.demand.animal_prod_demand.copy(),
-            'crp' : self.demand.crop_prod_demand.copy()
+            'crp' : self.demand.crop_prod_demand.sum(axis=1)
             }
         
         # Add rows for any domestically produced crop products used for feed or seed not already in crop product demand vector (D['crp'])

@@ -309,7 +309,7 @@ Parameters
         Returns
         -------
         numpy.array of unique values for filter if a str is supplied or
-        pandas.DataFrame of unique combinations of filter values with filter names as columns
+        pandas.DataFrame of unique combinations of filter (non-NaN) values with filter names as columns
         '''
         if qry is not None:
             df = self.data.reset_index().query(qry)
