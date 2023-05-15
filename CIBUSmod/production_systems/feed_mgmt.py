@@ -153,12 +153,14 @@ class FeedMgmt():
             fes = herd.par.get_unique('feed')
             # Get crop/by products
             qry = 'f_feed.isin([' + ', '.join(f'"{fe}"' for fe in fes) + '])'
-            prs = self.par.get_unique(of,qry=qry)
+            prs = self.par.get_unique(['feed',of],qry=qry).set_index('feed')[of]
+            # Remove feeds not supplied by crop/by products
+            fes = fes[np.isin(fes,prs.index)]
 
             result_df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ori,ps,ani,pr) for ori in ['domestic','regional','imported'] for ps in pss for ani in anis for pr in prs],
+                    [(ori,ps,ani,pr) for ori in ['domestic','regional','imported'] for ps in pss for ani in anis for pr in prs.unique()],
                     names=['origin','prod_system','animal',of]
                     )
                 )
@@ -167,7 +169,7 @@ class FeedMgmt():
                 retrieve_df = pd.DataFrame(
                     index = herd.index,
                     columns = pd.MultiIndex.from_tuples(
-                        [(ps,ani,pr,fe) for ps in pss for ani in anis for pr in prs for fe in fes],
+                        [(ps,ani,prs[fe],fe) for ps in pss for ani in anis for fe in fes],
                         names=['prod_system','animal',of,'feed']
                         )
                     )
