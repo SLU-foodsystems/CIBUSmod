@@ -783,3 +783,6 @@ class IndexedMatrix():
             
         self.rows = row_idx
         self.cols = col_idx
+
+    def eval(self, x):
+        return pd.Series(self.M @ x, index=self.rows)
