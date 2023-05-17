@@ -238,9 +238,9 @@ class GeoDistributor:
 
         CONS = []
         if '1' in use_cons:
-            CONS.append(self.A1.M @ xs == self.b1)
+            CONS.append(self.A1.M @ (xs/sf) == self.b1)
         if '2' in use_cons:
-            CONS.append(self.A2.M @ xs >= 0)
+            CONS.append(self.A2.M @ (xs/sf) >= 0)
         if '3' in use_cons:
             CONS.append(self.A3.M @ (xs/sf) <= self.b3)
         if '4' in use_cons:
@@ -377,7 +377,7 @@ class GeoDistributor:
                         # Get production of animal product (ap) from output production system (ops) per head
                         # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                         # and region (re)
-                        res = herd.production.loc[:,(ops,slice(None),ap)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
+                        res = herd.production.loc[:,(ops,slice(None),ap)].sum(axis=1)
 
                         # Store values and row/col nr
                         val.extend(res.values)
@@ -433,7 +433,7 @@ class GeoDistributor:
                 # Get feed demand for crop product (cp) from output production system (ops) per head
                 # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                 # and region (re)
-                res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
+                res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1)
 
                 # Store values and row/col nr
                 val.extend(res.values)
@@ -475,7 +475,7 @@ class GeoDistributor:
                     res = (
                         self.crops.production.loc[(cr,ps,slice(None)),(cp)]
                         - (self.crops.seed_demand.loc[(cr,ps,slice(None)),(cp)] if cp in self.crops.seed_demand.columns else 0)
-                    ) / self.scale_f['crp'].loc[(cr,ps)]
+                    )
 
                     # Store values and row/col nr
                     val.extend(res.values)
@@ -546,7 +546,7 @@ class GeoDistributor:
                     # Get regional feed demand for crop product (cp) from output production system (ops) per head
                     # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                     # and region (re)
-                    res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1) / self.scale_f['ani'].loc[(sp,br,ps)]
+                    res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1)
 
                     # Store values and row/col nr
                     val.extend(res.values)
@@ -600,7 +600,7 @@ class GeoDistributor:
                 if (cp,ps) in row_idx_lookup:
                     # Get production of crop product (cp) from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
-                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0) / self.scale_f['crp'].loc[(cr,ps)]
+                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0)
 
                     # Store values and row/col nr
                     val.extend(res.values)
