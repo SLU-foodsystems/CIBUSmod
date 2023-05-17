@@ -248,7 +248,7 @@ class GeoDistributor:
         if '5' in use_cons:
             pass
         if '6' in use_cons:
-            pass
+            CONS.append(self.A6.M @ (xs/sf) <= 0)
         if '7' in use_cons:
             pass
 
@@ -660,7 +660,7 @@ class GeoDistributor:
         self.crops.par.clear()
 
         # Get crop groups with max/min inclusion in rotation constraint
-        cgs = self.crops.par.get_unique('crop_group', qry=f'parameter == "{param}"')
+        cgs = self.crops.par.get_unique('crop_group', qry=f'parameter == "max_in_rot"')
         pss = self.x_idx['crp'].get_level_values('prod_system').unique()
         res = self.x_idx['crp'].get_level_values('region').unique()
 
@@ -684,8 +684,8 @@ class GeoDistributor:
 
         for cg,ps in row_idx.droplevel('region').unique():
             f = float(self.crops.par.get('max_in_rot' ,crop_group=cg, prod_system=ps)/100)
-            print(f)
-            vls = [0 if (ps != ps_) | (lu_rel[cr] != 'cropland') else ((1-f) if cg_rel[cr] == cg else -1) for cr,ps_,_ in col_idx]
+
+            vls = [0 if (ps != ps_) | (lu_rel[cr] != 'cropland') else ((1-f) if cg_rel[cr] == cg else -f) for cr,ps_,_ in col_idx]
             cns = list(range(len(col_idx)))
             rns = [row_idx.get_loc((cg,ps,re)) for _,_,re in col_idx]
 
@@ -693,11 +693,14 @@ class GeoDistributor:
             col_nr.extend(cns)
             row_nr.extend(rns)
 
+        M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
+        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
+
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
+            scipy.sparse.hstack([Z,M]),
             row_idx,
-            col_idx
+            {'ani':self.x_idx['ani'],'crp':col_idx}
         )
 
         return M
