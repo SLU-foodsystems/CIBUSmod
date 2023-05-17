@@ -227,6 +227,9 @@ class GeoDistributor:
 
 
     def define_cvx_problem(self,use_cons):
+        
+        # Get scaling factors
+        sf = np.concatenate([self.scale_f[k].reindex(self.x_idx[k], method='ffill') for k in ['ani','crp']])
 
         xs = cvxpy.Variable(len(self.x_idx['ani'])+len(self.x_idx['crp']), nonneg=True)
 
@@ -239,9 +242,9 @@ class GeoDistributor:
         if '2' in use_cons:
             CONS.append(self.A2.M @ xs >= 0)
         if '3' in use_cons:
-            CONS.append(self.A3.M @ xs <= self.b3)
+            CONS.append(self.A3.M @ (xs/sf) <= self.b3)
         if '4' in use_cons:
-            CONS.append(self.A4.M @ xs <= self.b4)
+            CONS.append(self.A4.M @ (xs/sf) <= self.b4)
         if '5' in use_cons:
             pass
         if '6' in use_cons:
@@ -288,8 +291,6 @@ class GeoDistributor:
     def make_C2(self):
         '''Creates C2'''
 
-        # TAR FÖR LÅNG TID !!!
-
         # Regional feed demand for crop products
         A2_1 = self.make_A2_1()
         # Production of crop products
@@ -305,17 +306,23 @@ class GeoDistributor:
         )
 
     def make_C3(self):
-        '''Creates C3'''
+        '''Creates C3: A3 @ x <= b3'''
 
         self.A3 = self.make_A3_and_A4(land_use='cropland')
         
-        self.b3 = self.A3.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0s['crp'])) * 1.1 # NOTE: Implement cropland area limit factor from parameter, how to deal with scaling here
+        self.b3 = self.A3.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1.1 # NOTE: Implement cropland area limit factor from parameter, how to deal with scaling here
 
     def make_C4(self):
-        '''Creates C4'''
+        '''Creates C4: A4 @ x <= b4'''
 
         self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
-        self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0s['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
+        self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
+
+    def make_C6(self):
+        '''Creates C6: A6 @ x <= 0'''
+
+        self.A6 = self.make_A6()
+
 
     def make_O1(self):
         
@@ -615,30 +622,85 @@ class GeoDistributor:
 
     def make_A3_and_A4(self,land_use):
 
-            # Get row index from animal product demand vector (re)
-            row_idx = self.x_idx['crp'].get_level_values('region').unique()
-            # Get col index from crops (cr,ps,re)
-            col_idx = self.x_idx['crp']
+        # Get row index from regions (re)
+        row_idx = self.x_idx['crp'].get_level_values('region').unique()
+        # Get col index from crops (cr,ps,re)
+        col_idx = self.x_idx['crp']
 
-            # Get dict for translating crop --> land use
-            rel = self.crops.par.get_rel('crop','land_use')
+        # Get dict for translating crop --> land use
+        rel = self.crops.par.get_rel('crop','land_use')
 
-            # Data and corresponding row/col numbers for constructing matrix
-            val = [1 if rel[cr] == land_use else 0 for cr,_,_ in col_idx]
-            col_nr = list(range(len(col_idx)))
-            row_nr = [row_idx.get_loc((re)) for _,_,re in col_idx]
+        # Data and corresponding row/col numbers for constructing matrix
+        val = [1 if rel[cr] == land_use else 0 for cr,_,_ in col_idx]
+        col_nr = list(range(len(col_idx)))
+        row_nr = [row_idx.get_loc((re)) for _,_,re in col_idx]
 
-            M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-            Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
+        M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
+        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
 
-            # Create Compressed Sparse Column matrix
-            M = IndexedMatrix(
-                scipy.sparse.hstack([Z,M]),
-                row_idx,
-                {'ani':self.x_idx['ani'],'crp':col_idx}
-            )
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.hstack([Z,M]),
+            row_idx,
+            {'ani':self.x_idx['ani'],'crp':col_idx}
+        )
 
-            return M
+        return M
+    
+    def make_A6(self):
+        '''Creates A-matrix for C6:
+        
+        Constrain the maximum share of cropland devoted to a given crop group
+        in a given region in a given production system.
+
+        Note to future:
+        - Would it be usefull with a constraint for minimum share?
+        - Deal with crops assumed not to be in rotation by putting 0 in the matrix'''
+
+        self.crops.par.clear()
+
+        # Get crop groups with max/min inclusion in rotation constraint
+        cgs = self.crops.par.get_unique('crop_group', qry=f'parameter == "{param}"')
+        pss = self.x_idx['crp'].get_level_values('prod_system').unique()
+        res = self.x_idx['crp'].get_level_values('region').unique()
+
+        # Get row index from (cg,ps,re)
+        row_idx = pd.MultiIndex.from_tuples(
+            [(cg,ps,re) for cg in cgs for ps in pss for re in res],
+            names = ['crop_group','prod_system','region']
+        )
+        # Get col index from crops (cr,ps,re)
+        col_idx = self.x_idx['crp']
+
+        # Get dict for translating crop --> land use
+        lu_rel = self.crops.par.get_rel('crop','land_use')
+        # Get dict for translating crop --> crop group
+        cg_rel = self.crops.par.get_rel('crop','crop_group')
+
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = []
+        row_nr = []
+        col_nr = []
+
+        for cg,ps in row_idx.droplevel('region').unique():
+            f = float(self.crops.par.get('max_in_rot' ,crop_group=cg, prod_system=ps)/100)
+            print(f)
+            vls = [0 if (ps != ps_) | (lu_rel[cr] != 'cropland') else ((1-f) if cg_rel[cr] == cg else -1) for cr,ps_,_ in col_idx]
+            cns = list(range(len(col_idx)))
+            rns = [row_idx.get_loc((cg,ps,re)) for _,_,re in col_idx]
+
+            val.extend(vls)
+            col_nr.extend(cns)
+            row_nr.extend(rns)
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
+            row_idx,
+            col_idx
+        )
+
+        return M
 
     def make_P1_1(self):
         # Get row index from x0['ani'] (sp,br,ps,re)
@@ -680,93 +742,6 @@ class GeoDistributor:
         )
 
         return M
-
-
-
-    # def make_A3(crs,pss,res):
-    #     '''Creates A-matrix for C3 or C4:
-    #     Arable area per region must not exceed available area
-        
-    #     C3: A3 @ x <= b3, where b3 is the available arable land per region
-    #     C4: A4 @ x <= b4, where b4 is the available semi-natural grassland area per region'''
-        
-    #     r=0
-    #     c=0
-    #     data = []
-    #     row_ind = []
-    #     col_ind = []
-        
-    #     for re2 in res:
-    #         c = 0
-    #         for cr in crs:
-    #             for ps in pss:
-    #                 for re in res:
-    #                     if (re == re2) & (cr != 'Semi-natural grasslands'):
-    #                         row_ind.append(r)
-    #                         col_ind.append(c)
-    #                         data.append(1.0)
-    #                     c+=1
-    #         r+=1
-            
-    #     A = scipy.sparse.coo_array((data,(row_ind,col_ind)))
-    #     return A.tocsc()
-
-    # make_A4 = make_A3
-
-    # def make_A5():
-    #     pass
-
-    # def make_A6(df,crs,pss,res):
-    #     '''Creates A-matrix for C6 or C7:
-        
-    #     Constrain the maximum (C6) or minimum (C7) share of arable land devoted to a given crop in a given region in a
-    #     given production system.
-        
-    #     C6(max): A6 @ x <= 0
-    #     C7(min): A7 @ x >= 0
-        
-    #     Note to future:
-    #     Currently implemented per crop but if one wants to constrain max/min share of a group of crops all crops
-    #     corresponding to the group in a row should have (1-f) and the rest -1.
-    #     Crops assumed not to be in rotation should have 0 in the matrix'''
-        
-    #     r=0
-    #     c=0
-    #     data = []
-    #     row_ind = []
-    #     col_ind = []
-        
-    #     crs2 = df.index.get_level_values('crop')[df['f']<1]
-        
-    #     if len(crs2)<1:
-    #         return None
-        
-    #     for cr2 in crs2:
-    #         f = df.loc[cr2,'f']
-    #         for ps2 in pss:
-    #             for re2 in res:
-    #                 c = 0
-    #                 for cr in crs:
-    #                     for ps in pss:
-    #                         for re in res:
-    #                             if  (re==re2) & (ps==ps2) & (cr != 'Semi-natural grasslands'): # 
-    #                                 if (cr==cr2):
-    #                                     row_ind.append(r)
-    #                                     col_ind.append(c)
-    #                                     data.append(1-f)
-    #                                 else:
-    #                                     row_ind.append(r)
-    #                                     col_ind.append(c)
-    #                                     data.append(-f)
-
-    #                             c+=1
-
-    #                 r+=1
-        
-    #     A = scipy.sparse.coo_array((data,(row_ind,col_ind)))
-    #     return A.tocsc()
-
-    # make_A7 = make_A6
 
 class IndexedMatrix():
     '''Class to store pandas.Index/MultiIndex alongside a sparse matrix to keep track of things'''
