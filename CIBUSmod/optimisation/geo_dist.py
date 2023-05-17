@@ -106,7 +106,6 @@ class GeoDistributor:
         # Settings for OSQP available at https://osqp.org/docs/interfaces/solver_settings.html
         # Using a too high tolerance (eps_abs, eps_rel) leads to large relative deviations
         # from x0 for crops with small areas, but a low tolerance increases time to find solution.
-        # FUTURE WORK: Implement some scaling method to avoid this? Implement other solver (e.g. GUROBI)?
         if solver_settings=='default':
             solver_settings = {
                 'solver':'OSQP',
