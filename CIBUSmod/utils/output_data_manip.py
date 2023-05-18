@@ -27,7 +27,7 @@ def concat_herds(herds):
                                 names=['sub_system'],axis=1)},
                             names=['breed'],axis=1)},
                         names=['species'],axis=1)
-                    for herd in herds
+                    if rgetattr(herd,attr) is not None else None for herd in herds
                 ],
                 axis=1
             )

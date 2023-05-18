@@ -59,6 +59,7 @@ class FeedMgmt():
         self.calculate_feed_consumption()
         vprint('Calculating demand for crop products ...')
         self.calculate_product_demand(of='crop_prod')
+        self.calculate_max_crop_in_crop_prod()
         vprint('Calculating demand for by-products ...')
         self.calculate_product_demand(of='by_prod')
 
@@ -140,10 +141,12 @@ class FeedMgmt():
         for herd in self.herds:
 
             # Set species and breed filters for ParameterRetriever
+            self.par.clear()
             self.par.set(
                 species = herd.species,
-                breed = herd.breed
-                )
+                breed = herd.breed,
+                sub_system = herd.sub_system
+            )
 
             # Get ouput production systems
             pss = herd.heads.columns.get_level_values('prod_system').unique()
@@ -208,6 +211,47 @@ class FeedMgmt():
 
             # Set attribute feed.<crop/by>_product_demand
             rsetattr(herd,'feed.'+of+'uct_demand',result_df)
+
+    def calculate_max_crop_in_crop_prod(self):
+        idx = pd.IndexSlice
+
+        # Get crops to handle
+        crs = (
+            self.par.get_unique(['crop','crop_prod'], qry='parameter == "max_crop_in_crop_prod"')
+            .set_index('crop_prod')['crop']
+        )
+
+        for herd in self.herds:
+            if herd.feed.crop_product_demand.columns.get_level_values('crop_prod').isin(crs.index).any():
+
+                # Set species and breed filters for ParameterRetriever
+                self.par.clear()
+                self.par.set(
+                    species = herd.species,
+                    breed = herd.breed,
+                    sub_system = herd.sub_system
+                )
+
+                # Get crop product demand supplied by crops in crs
+                df = herd.feed.crop_product_demand.loc[:,idx['domestic',:,:,crs.index]]
+
+                # Append crops to column index
+                df.columns = pd.MultiIndex.from_tuples(map(lambda x: (x + tuple([crs[x[-1]]])), df.columns), names = df.columns.names + ['crop'])
+
+                # Calculate maximum supply of crop_prod from crop
+                res = (df * self.par.get_from_frame(
+                    'max_crop_in_crop_prod',
+                    df,
+                    species=herd.species,
+                    breed=herd.breed,
+                    sub_system=herd.sub_system
+                )).groupby(['prod_system','crop_prod','crop'], axis=1).sum()/100
+
+                herd.feed.max_supply_from_crop = res
+
+            else:
+                herd.feed.max_supply_from_crop = None
+
 
 
 class Feed(Container):

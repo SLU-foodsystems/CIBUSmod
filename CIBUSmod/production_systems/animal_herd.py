@@ -77,7 +77,7 @@ class AnimalHerd(object):
     id_attr = ['species','breed','prod_system','sub_system','animals']
     data_attr = [
         'heads','slaughtered_n','lost_n','production',
-        'feed.energy_req','feed.consumption','feed.crop_product_demand','feed.by_product_demand',
+        'feed.energy_req','feed.consumption','feed.crop_product_demand','feed.by_product_demand','feed.max_supply_from_crop',
         'manure.N_excr','manure.N_loss','manure.N_to_spread'
     ]
 
@@ -209,7 +209,7 @@ animals              {self.animals}
             try:
                 rsetattr(obj, attr, rgetattr(self, attr).mul(x/old_x, axis=0))
             except:
-                pass
+                rsetattr(obj, attr, None)
         
         return obj
 
