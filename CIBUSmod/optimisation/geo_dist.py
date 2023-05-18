@@ -136,7 +136,7 @@ class GeoDistributor:
 
             # DO SOME MORE FEASIBILITY CHECKS ON THE SOLUTION HERE!!
 
-            vprint(f'Optimal solution found! Status: \'{self.problem.status}\', Solver: \'{solver}\'')
+            vprint(f'Optimal solution found! Status: \'{self.problem.status}\', Itterations: {self.problem.solver_stats.num_iters}, Solver: \'{self.problem.solver_stats.solver_name}\'')
             self.success = False
 
             # Get and store optimal value for variable
@@ -245,7 +245,7 @@ class GeoDistributor:
         if '4' in use_cons:
             CONS.append(self.A4.M @ (xs/sf) <= self.b4)
         if '5' in use_cons:
-            pass
+            CONS.append(self.A5.M @ (xs/sf) <= 0)
         if '6' in use_cons:
             CONS.append(self.A6.M @ (xs/sf) <= 0)
         if '7' in use_cons:
@@ -317,6 +317,22 @@ class GeoDistributor:
         self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
         self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
 
+    def make_C5(self):
+        '''Creates C5: A5 @ x <= 0'''
+        # Maximum supply of crop product(s) from crop(s)
+        A5_1 = self.make_A5_1()
+        # Production of crop products
+        A5_2 = self.make_A5_2()
+
+        # Stack matrices
+        A5 = scipy.sparse.hstack([A5_1.M,A5_2.M])
+
+        self.A5 = IndexedMatrix(
+            matrix=A5,
+            row_idx=A5_1.rows,
+            col_idx={'ani':A5_1.cols, 'crp':A5_2.cols}
+        )
+    
     def make_C6(self):
         '''Creates C6: A6 @ x <= 0'''
 
@@ -642,6 +658,104 @@ class GeoDistributor:
             scipy.sparse.hstack([Z,M]),
             row_idx,
             {'ani':self.x_idx['ani'],'crp':col_idx}
+        )
+
+        return M
+    
+    def make_A5_1(self):
+
+        # Get crop product and crop combindations where there is a constraint for maximum inclusion
+        cps_crs = self.feed_mgmt.par.get_unique(['crop_prod','crop'], qry='parameter == "max_crop_in_crop_prod"')
+
+        # Get row index (cp,cr,ps,re)
+        row_idx = pd.MultiIndex.from_tuples([
+            (cp,cr,ps,re)
+            for cp,cr in cps_crs.values
+            for ps in self.x_idx['ani'].get_level_values('prod_system').unique()
+            for re in self.x_idx['ani'].get_level_values('region').unique()
+        ], names = ['crop_prod','crop','prod_system','region'])
+        # Get col index from animal herds (sp,br,ps,ss,re)
+        col_idx = self.x_idx['ani']
+
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = []
+        row_nr = []
+        col_nr = []
+
+        # Go through animal herds 
+        for herd in self.herds:
+
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+
+            # Check if herd has 'feed.max_supply_from_crop'
+            if herd.feed.max_supply_from_crop is not None:
+                # Go through production systems, crop products and crop combinations with a max supply constraint
+                for ops,cp,cr in herd.feed.max_supply_from_crop.columns:
+                    # Get maximum supply of crop product (cp) from output production system (ops) in region (re)
+                    # from crop (cr) per head of defining animal of species (sp) and breed (br) in production
+                    # system (ps), sub system (ss) and region (re)
+                    res = - herd.feed.max_supply_from_crop.loc[:,(ops,cp,cr)]
+
+                    # Store values and row/col nr
+                    val.extend(res.values)
+                    row_nr.extend(
+                        [row_idx.get_loc((cp,cr,ops,re)) for re in res.index]
+                    )
+                    col_nr.extend(
+                        [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
+                    )
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
+            row_idx,
+            col_idx
+        )
+
+        return M
+    
+    def make_A5_2(self):
+        # Get crop product and crop combindations where there is a constraint for maximum inclusion
+        cps_crs = self.feed_mgmt.par.get_unique(['crop_prod','crop'], qry='parameter == "max_crop_in_crop_prod"')
+
+        # Get row index (cp,cr,ps,re)
+        row_idx = pd.MultiIndex.from_tuples([
+            (cp,cr,ps,re)
+            for cp,cr in cps_crs.values
+            for ps in self.x_idx['ani'].get_level_values('prod_system').unique()
+            for re in self.x_idx['ani'].get_level_values('region').unique()
+        ], names = ['crop_prod','crop','prod_system','region'])
+        # Get col index from crops (cr,ps,re)
+        col_idx = self.x_idx['crp']
+
+        row_idx_lookup = row_idx.droplevel('region').sort_values()
+
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = []
+        row_nr = []
+        col_nr = []
+
+        for cp,cr,ps in row_idx.droplevel('region').unique():
+            
+            res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0)
+
+            # Store values and row/col nr
+            val.extend(res.values)
+            row_nr.extend(
+                [row_idx.get_loc((cp,cr,ps,re)) for re in res.index.get_level_values('region')]
+            )
+            col_nr.extend(
+                [col_idx.get_loc((cr,ps,re)) for re in res.index.get_level_values('region')]
+            )
+                    
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
+            row_idx,
+            col_idx
         )
 
         return M
