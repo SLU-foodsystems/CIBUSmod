@@ -8,6 +8,15 @@ from ..production_systems.manure_mgmt import Manure
 from ..utils.misc import rgetattr,rsetattr
 
 def concat_herds(herds):
+    '''Combines multiple AnimalHerd objects
+    
+    Parameters
+    ----------
+    herds : itterable of AnimalHerd objects
+    
+    Returns
+    -------
+    StaticAnimalHerd object'''
     res_herd = StaticAnimalHerd()
 
     for attr in AnimalHerd.id_attr:
@@ -34,3 +43,51 @@ def concat_herds(herds):
         )
 
     return res_herd
+
+def get_land_use_per_prod(demand, crops, animals):
+    '''Returns land use in some usefull form (WIP!!)
+    
+    Parameters
+    ----------
+    demand: DemandAndConversions object
+    crops: CropProduction or StaticCropProduction object
+    animals: AnimalHerd or StaticAnimalHerd object
+    
+    Returns
+    -------
+    pandas.DataFrame on a usefull form'''
+
+    ###################################
+    #                                 #
+    #    THIS IS NOT DONE. WIP !!!    #
+    #                                 #
+    ###################################
+
+    # Get land use
+    lu = (
+        crps.production
+        .mul(crps.area, axis=0)
+        .mul(1/crps.production.sum(axis=1), axis=0)
+        .groupby('prod_system').sum()
+        .stack()
+    )
+
+    # Get demand
+    d = pd.concat([
+        crps.seed_demand.groupby('prod_system').sum().stack().rename('seed'),
+        diet.crop_prod_demand,
+        (
+            anis.feed.crop_product_demand.sum()
+            .groupby(['species','breed','sub_system','prod_system','crop_prod']).sum()
+            .unstack(['species','breed','sub_system'])
+        )
+    ], axis=1).fillna(0)
+
+    res = (
+        d.mul(1/d.sum(axis=1), axis=0)
+        .mul(lu, axis=0)
+        .pipe(lambda df: df.loc[df.sum(axis=1).sort_values().index, :])
+        .sort_index(level='prod_system', sort_remaining=False)
+    )
+
+    return res
