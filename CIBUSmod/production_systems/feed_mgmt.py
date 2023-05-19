@@ -12,10 +12,8 @@ class FeedMgmt():
     
     Parameters
     ----------
-    herds : (dict of) AnimalHerd object(s)
+    herds : (pandas.Series of) AnimalHerd object(s)
     par : ParameterRetriever object
-    **kwargs: str or list
-        Keyword arguments to be passed on as filters to the ParameterRetriever.
     '''
 
     def __init__(self,herds,par):
@@ -42,8 +40,6 @@ class FeedMgmt():
             for n in range(len(self.herds)-1):
                 if (self.herds[n].index != self.herds[n+1].index).any():
                     raise Exception('Indexes does not match across herds!')
-
-    
 
     def calculate(self, verbose=False):
 
