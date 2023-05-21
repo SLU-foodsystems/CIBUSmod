@@ -381,7 +381,7 @@ class CattleHerd(AnimalHerd):
         tmp_calves2recruitment = cows * p('recruitment_rate')/100
 
         # No. calves slaughtered before 1 year
-        tmp_calves2slaughter = (tmp_male2end + tmp_female2end - tmp_calves2recruitment) * p('slaughter_share',animal='calves')/100
+        tmp_calves2slaughter = (tmp_male2end + tmp_female2end - tmp_calves2recruitment) * p('slaughter_share_as_calf')/100
         # No. male calves slaughtered before 1 year (return 0 if div. by 0)
         tmp_male_calves2slaughter = np.divide(
             tmp_calves2slaughter * (tmp_male2end),
@@ -396,7 +396,7 @@ class CattleHerd(AnimalHerd):
         # No. calves --> heifers for slaughter
         tmp_calves2heifer = tmp_female2end - tmp_calves2recruitment - tmp_female_calves2slaughter
         # No. calves --> steers for slaughter
-        tmp_calves2steer = (tmp_male2end - tmp_male_calves2slaughter)*(p('slaughter_share',animal='steers') / (p('slaughter_share',animal='steers') + p('slaughter_share',animal='bulls')))
+        tmp_calves2steer = (tmp_male2end - tmp_male_calves2slaughter) * p('slaughter_share_male_as_steers')/100
         # No. calves --> bulls for slaughter 
         tmp_calves2bull = tmp_male2end - tmp_male_calves2slaughter - tmp_calves2steer
 
