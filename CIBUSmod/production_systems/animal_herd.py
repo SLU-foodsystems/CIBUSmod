@@ -197,6 +197,9 @@ animals              {self.animals}
         # Create a StaticAnimalHerd obejct and populate with data
         obj = StaticAnimalHerd()
 
+        obj.index = self.index.copy()
+        obj.par = self.par # Note: This is not a copy
+
         obj.feed = Feed()
         obj.manure = Manure()
 

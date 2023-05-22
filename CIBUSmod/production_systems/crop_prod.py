@@ -103,6 +103,9 @@ class CropProduction(object):
         obj = StaticCropProduction()
 
         old_x = self.area
+
+        obj.index = self.index.copy()
+        obj.par = self.par # Note: This is not a copy
         
         for attr in self.data_attr:
             try:
