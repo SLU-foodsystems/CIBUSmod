@@ -64,6 +64,7 @@ class CropProduction(object):
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='CropProduction')
 
+        # Set areas to ones
         self.area = pd.Series(np.ones(len(self.index)), index=self.index)
 
         # Provide shorthand 'p()' to get parameters
@@ -85,7 +86,7 @@ class CropProduction(object):
         vprint(type='end')
 
     def scale(self,new_x):
-        '''Rescales all output based on new_x (i.e. areas) and returns a StaticCropProduction object
+        '''Scales all data attributes based on new_x (i.e. areas)
         
         Parameters
         ----------
@@ -93,26 +94,37 @@ class CropProduction(object):
         
         '''
 
-        # Check so that x length and index match CropProduction object
+        # Check so that new_x length and index match CropProduction object
         if len(new_x) != len(self.index):
             raise TypeError('Length of x does not match length of index!')
         if hasattr(new_x,'index'):
             if (new_x.index != self.index).any():
                 raise TypeError('Index of x does not match index!')
 
-        obj = StaticCropProduction()
-
         old_x = self.area
-
-        obj.index = self.index.copy()
-        obj.par = self.par # Note: This is not a copy
         
         for attr in self.data_attr:
             try:
-                rsetattr(obj, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
+                rsetattr(self, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
             except:
-                pass
+                rsetattr(self, attr, None)
         
+        
+    
+    def make_static(self):
+        '''Returns a StaticCropProduction object that retains all data attributes but
+        has no methods or ParameterRetriever'''
+        
+        obj = StaticCropProduction()
+
+        obj.index = self.index.copy()
+
+        for attr in self.data_attr:
+            try:
+                rsetattr(obj, attr, rgetattr(self, attr).copy())
+            except:
+                rsetattr(obj, attr, None)
+
         return obj
 
     def calculate_production(self):

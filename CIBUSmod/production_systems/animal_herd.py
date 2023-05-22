@@ -131,6 +131,9 @@ animals              {self.animals}
                 **{i : self.index.get_level_values(i).values}
             )
 
+        # Set x (i.e. nr of defining animals) to ones
+        self.x = np.ones(len(self.index))
+
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str=f'AnimalHerd ({self.species}, {self.breed}, {self.prod_system}, {self.sub_system})')
         
@@ -142,8 +145,8 @@ animals              {self.animals}
 
         vprint(type='end')
 
-    def scale(self,x,x_is):
-        '''Rescales all output based on x and returns a StaticAnimalHerd object
+    def scale(self,new_x,x_is):
+        '''Scales all data attributes based on new_x
         
         Parameters
         ----------
@@ -172,15 +175,15 @@ animals              {self.animals}
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
-        # Check so that x length and index match AnimalHerd object
-        if len(x) != len(self.index):
+        # Check so that new_x length and index match AnimalHerd object
+        if len(new_x) != len(self.index):
             raise TypeError('Length of x does not match length of herd\'s index!')
-        if hasattr(x,'index'):
-            if (x.index != self.index).any():
+        if hasattr(new_x,'index'):
+            if (new_x.index != self.index).any():
                 raise TypeError('Index of x does not match herd\'s index!')
 
         if x_is == 'sows+gilts':
-            x = x / (1+ (p('recruitment_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
+            new_x = new_x / (1+ (p('recruitment_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
             x_is = 'sows'
 
         # Get 'old_x'
@@ -193,12 +196,22 @@ animals              {self.animals}
             old_x = self.heads.loc[:,(self.prod_system,['sows','gilts'])].sum(axis=1)
         else:
             old_x = self.heads.loc[:,(self.prod_system,x_is)]
+        
+        # Update data attributes
+        for attr in self.data_attr:
+            try:
+                rsetattr(self, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
+            except:
+                rsetattr(self, attr, None)
+    
+    def make_static(self):
+        '''Returns a StaticAnimalHerd object that retains all ID and data attributes but
+        has no methods or ParameterRetriever'''
 
         # Create a StaticAnimalHerd obejct and populate with data
         obj = StaticAnimalHerd()
 
         obj.index = self.index.copy()
-        obj.par = self.par # Note: This is not a copy
 
         obj.feed = Feed()
         obj.manure = Manure()
@@ -210,11 +223,12 @@ animals              {self.animals}
         # Set data attributes
         for attr in self.data_attr:
             try:
-                rsetattr(obj, attr, rgetattr(self, attr).mul(x/old_x, axis=0))
+                rsetattr(obj, attr, rgetattr(self, attr).copy())
             except:
                 rsetattr(obj, attr, None)
-        
+
         return obj
+
 
     def calculate_production(self):
         
@@ -275,7 +289,6 @@ class CattleHerd(AnimalHerd):
         self.species = 'cattle'
         self.animals = ['cows','breeding bulls','calves','heifers','steers','bulls']
 
-        self.x = np.ones(len(index))
         self.x_is = 'cows'
         
         super().__init__(par,index,**kwargs)
@@ -529,7 +542,6 @@ class PigHerd(AnimalHerd):
         self.species = 'pigs'
         self.animals = ['sows','boars','piglets','gilts','growing pigs','finishing pigs']
         
-        self.x = np.ones(len(index))
         self.x_is = 'sows+gilts'
         
         super().__init__(par,index,**kwargs)
