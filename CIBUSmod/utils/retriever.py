@@ -348,15 +348,45 @@ Parameters
                 self.filters.remove(f)
         
         self.set()
-        
 
+def _read_csv(path,parameter):
+    df = pd.read_csv(path, dtype=str)
+
+    if parameter not in df.columns:
+        raise ValueError(f"'{parameter}' not found in '{path}'")
+
+    f_cols = [c for c in df.columns if c.startswith("f_")]
+
+    df = df.rename({parameter:'value'}, axis=1)
+    df['parameter'] = parameter
+
+    return df.loc[:,f_cols+['parameter','value']]
+        
 def _read_xl(path,sheet):
+        idx = pd.IndexSlice
         # Read xl and set value columns to type float
         df = pd.read_excel(path, sheet_name=sheet, dtype=str)
-        # df.astype({col:float for col in df.columns if (col=='value') or col.startswith('y_')})
+
+        # Get parameters from any referenced csv-files
+        if sheet=='default':
+
+            # Get rows with reference to csv-files
+            to_read_csv = df.value.str.contains('.csv', na=False)
+            csvs_to_read = df.loc[to_read_csv,idx['parameter','value']]
+
+            # Drop rows refering to csv-files from df
+            df = df.loc[~to_read_csv]
+
+            # Read csvs and append to df
+            for parameter,csv_file in csvs_to_read.values:
+
+                csv_path = os.path.join(os.path.dirname(path),csv_file)
+                df_csv = _read_csv(csv_path,parameter)
+
+                df = pd.concat([df,df_csv])
 
         if (sheet=='default') | sheet.startswith('scn_'):
-            # Only retion filter column(s), parameter column and value column(s)
+            # Only retain filter column(s), parameter column and value column(s)
             index_cols = [c for c in df.columns if c.startswith("f_")]
             value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
 
