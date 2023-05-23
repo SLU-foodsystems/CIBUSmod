@@ -10,7 +10,7 @@ from ..utils.retriever import ParameterRetriever
 
 ixsl = pd.IndexSlice
 
-class Diet(object):
+class DemandAndConversions(object):
     '''Class that calculates demand for domestic and imported crop and animal products, as well as generated food waste
     and by-products etc. A per capita diet is defined in the parameter Excel sheet along with parmeters for import shares,
     conversion factors, waste levels, etc.

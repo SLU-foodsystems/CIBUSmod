@@ -15,6 +15,7 @@ class GeoDistributor:
     
     Parameters
     ----------
+    par : ParameterRetriever object
     x0 : dict of pandas.Series
         A dict of pandas series representing emand for animald (D['ani']) and crop products (D['crp'])
         x0['ani'].index should be on the form (species, breed, production system, region)
@@ -26,9 +27,9 @@ class GeoDistributor:
     Attributes
     ----------'''
 
-    def __init__(self,x0,demand,crops,herds,feed_mgmt):
+    def __init__(self,par,x0,demand,crops,herds,feed_mgmt):
         
-        
+        self.par = par
         self.x0 = {k:v.copy() for k,v in zip(x0.keys(),x0.values())}
 
         self.demand = demand
