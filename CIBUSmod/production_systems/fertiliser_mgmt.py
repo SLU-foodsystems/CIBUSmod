@@ -96,6 +96,12 @@ class FertiliserMgmt():
         # Caluclate crop area per use
         area_per_use = use_per_crop.mul(self.crops.area, axis=0)
 
+        # Append po8 regions to index
+        region2po8 = self.par.get_rel('region','po8')
+        yields = yields.set_index(yields.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
+        ley_share = ley_share.set_index(ley_share.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
+        area_per_use = area_per_use.set_index(area_per_use.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
+
         N_app = (
             # Recommendation [kg N/ha]
             (
@@ -110,7 +116,7 @@ class FertiliserMgmt():
             ) *
             # Area [ha]
             area_per_use
-        )
+        ).droplevel('po8')
 
         self.N_application = N_app
                 
