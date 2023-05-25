@@ -46,7 +46,7 @@ class FertiliserMgmt():
         vprint('Calculating crop N requirements ...')
         self.calculate_N_req()
 
-
+        vprint(type='end')
              
     def calculate_N_req(self):
         idx=pd.IndexSlice
