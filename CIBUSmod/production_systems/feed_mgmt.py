@@ -131,6 +131,7 @@ class FeedMgmt():
 
             herd.feed.energy_req = df_energy.reindex(columns=herd.heads.columns.get_level_values('prod_system').unique(), level='prod_system')
             herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal')
+            herd.data_attr.update(['feed.energy_req','feed.consumption'])
           
     def calculate_product_demand(self, of='crop_prod'):
 
@@ -207,6 +208,7 @@ class FeedMgmt():
 
             # Set attribute feed.<crop/by>_product_demand
             rsetattr(herd,'feed.'+of+'uct_demand',result_df)
+            herd.data_attr.update(['feed.'+of+'uct_demand'])
 
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
@@ -244,11 +246,11 @@ class FeedMgmt():
                 )).groupby(['prod_system','crop_prod','crop'], axis=1).sum()/100
 
                 herd.feed.max_supply_from_crop = res
+                herd.data_attr.update(['feed.max_supply_from_crop'])
 
             else:
                 herd.feed.max_supply_from_crop = None
-
-
+                herd.data_attr.update(['feed.max_supply_from_crop'])
 
 class Feed(Container):
     '''Class to store feed attributes in AnimalHerd obejcts'''

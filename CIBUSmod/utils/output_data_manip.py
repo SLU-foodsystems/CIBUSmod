@@ -25,7 +25,11 @@ def concat_herds(herds):
     res_herd.feed = Feed()
     res_herd.manure = Manure()
 
-    for attr in AnimalHerd.data_attr:
+    all_data_attr = [h.data_attr for h in herds]
+    if [all_data_attr[0]]*len(all_data_attr) != all_data_attr:
+        raise TypeError('Presence of data attributes differed across herds')
+
+    for attr in all_data_attr[0]:
         rsetattr(
             res_herd,attr,
             pd.concat(

@@ -1,15 +1,10 @@
-# import os
-# import pandas as pd
-# import numpy as np
 import geopandas as gpd
-# import matplotlib.pyplot as plt
+import pkg_resources
 
-# För att undvika varningar som beror på något knas med geopandas vs shapely
+# Supress shapely deprecation warnings due to problems with geopandas vs shapely
 import warnings
 from shapely.errors import ShapelyDeprecationWarning
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
-
-import pkg_resources
 
 # Read map from gpkg
 map_file = pkg_resources.resource_stream(__name__,'swe_regions.gpkg')

@@ -6,6 +6,8 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import rgetattr, rsetattr
 from ..utils.misc import Container
 
+from .fertiliser_mgmt import Fertiliser
+
 class CropProduction(object):
     '''Class that handles crop production
     
@@ -32,11 +34,10 @@ class CropProduction(object):
         As above but for by-products (e.g. straw)
     '''
 
-    # List of attributes in class
-    # Note: remember to update if more attributes are included!
-    data_attr = ['area','harvest','production','by_products','seed_demand']
-
     def __init__(self,par,index):
+
+        # Set to keep track of data attributes that have been assigned
+        self.data_attr = set()
         
         self.par = par
         self.index = index
@@ -66,12 +67,14 @@ class CropProduction(object):
 
         # Set areas to ones
         self.area = pd.Series(np.ones(len(self.index)), index=self.index)
+        self.data_attr.update(['area'])
 
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
         vprint('Calculating harvest ...')
         self.harvest = self.area * p('yield')
+        self.data_attr.update(['harvest'])
 
         vprint('Calculating production ...')
         self.calculate_production()
@@ -104,12 +107,8 @@ class CropProduction(object):
         old_x = self.area
         
         for attr in self.data_attr:
-            try:
+            if rgetattr(self, attr) is not None:
                 rsetattr(self, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
-            except:
-                rsetattr(self, attr, None)
-        
-        
     
     def make_static(self):
         '''Returns a StaticCropProduction object that retains all data attributes but
@@ -119,10 +118,12 @@ class CropProduction(object):
 
         obj.index = self.index.copy()
 
+        obj.fertiliser = Fertiliser()
+
         for attr in self.data_attr:
-            try:
+            if rgetattr(self, attr) is not None:
                 rsetattr(obj, attr, rgetattr(self, attr).copy())
-            except:
+            else:
                 rsetattr(obj, attr, None)
 
         return obj
@@ -146,6 +147,7 @@ class CropProduction(object):
         self.par.remove('by_prod')
 
         self.production, self.by_products = (production, by_products)
+        self.data_attr.update(['production','by_products'])
 
     def calculate_seed_demand(self):
 
@@ -155,6 +157,7 @@ class CropProduction(object):
         # Create dataframe
         seed_demand = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
         self.seed_demand = self.par.get_from_frame('seed', seed_demand).mul(self.area, axis=0)
+        self.data_attr.update(['seed_demand'])
 
 class StaticCropProduction(Container):
     '''Class used to create static copys of animal her objects. These stores all attributes except 'par'

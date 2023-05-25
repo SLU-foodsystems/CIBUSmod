@@ -34,16 +34,29 @@ class FertiliserMgmt():
                     names=['species','breed','prod_system','sub_system']
                 )
             )
+            
+    def calculate(self, verbose=False):
+
+        # Define functions to print progress messages if verbose==True
+        vprint = verbose_init(verbose, id_str='FertiliserMgmt')
+    
+        # Create feed objects in herds
+        self.crops.fertiliser = Fertiliser()
+
+        vprint('Calculating crop N requirements ...')
+        self.calculate_N_req()
+
+
              
-    def calculate_N_application(self):
+    def calculate_N_req(self):
         idx=pd.IndexSlice
 
         # Get crop yields
         yields = (self.crops.harvest / self.crops.area).fillna(0)
 
         # Calculate ley share per region
-        lu_rel = self.crops.par.get_rel('crop','land_use')
-        cg_rel = self.crops.par.get_rel('crop','crop_group')
+        lu_rel = self.crops.par.get_rel('crop','land_use') # crop --> land_use
+        cg_rel = self.crops.par.get_rel('crop','crop_group') # crop --> crop_group
 
         ley_share = self.crops.area.to_frame()
         ley_share.loc[:,'lu'] = ley_share.index.get_level_values('crop').map(lu_rel)
@@ -102,7 +115,7 @@ class FertiliserMgmt():
         ley_share = ley_share.set_index(ley_share.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
         area_per_use = area_per_use.set_index(area_per_use.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
 
-        N_app = (
+        N_req = (
             # Recommendation [kg N/ha]
             (
                 self.par.get_from_frame('N_rec_a',yields) * (yields/1000 ** 2) +
@@ -118,6 +131,8 @@ class FertiliserMgmt():
             area_per_use
         ).droplevel('po8')
 
-        self.N_application = N_app
+        self.crops.fertiliser.N_req = N_req
+        self.crops.data_attr.update(['fertiliser.N_req'])
                 
-    
+class Fertiliser(Container):
+    '''Class to store fertiliser attributes in CropProduction obejcts'''

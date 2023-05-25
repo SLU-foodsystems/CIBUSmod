@@ -72,17 +72,13 @@ class AnimalHerd(object):
     (ONLY 'N' IMPLEMENTED AT THE MOMENT)
     
     '''
-    # List of attributes in class
-    # Note: remember to update if more attributes are included!
-    id_attr = ['species','breed','prod_system','sub_system','animals']
-    data_attr = [
-        'heads','slaughtered_n','lost_n','production',
-        'feed.energy_req','feed.consumption','feed.crop_product_demand','feed.by_product_demand','feed.max_supply_from_crop',
-        'manure.N_excr','manure.N_loss','manure.N_to_spread'
-    ]
-
+    # Set of ID attributes in class
+    id_attr = set(['species','breed','prod_system','sub_system','animals'])
 
     def __init__(self,par,index,**kwargs):
+
+        # Set to keep track of data attributes that have been assigned
+        self.data_attr = set()
         
         self.par = par
         self.index = index
@@ -138,10 +134,10 @@ animals              {self.animals}
         vprint = verbose_init(verbose, id_str=f'AnimalHerd ({self.species}, {self.breed}, {self.prod_system}, {self.sub_system})')
         
         vprint('Calculating herd structure ...')
-        self.heads, self.slaughtered_n, self.lost_n = self.calculate_herd(self.x)
+        self.calculate_herd()
 
         vprint('Calculating production ...')
-        self.production = self.calculate_production()
+        self.calculate_production()
 
         vprint(type='end')
 
@@ -199,10 +195,8 @@ animals              {self.animals}
         
         # Update data attributes
         for attr in self.data_attr:
-            try:
+            if rgetattr(self, attr) is not None:
                 rsetattr(self, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
-            except:
-                rsetattr(self, attr, None)
     
     def make_static(self):
         '''Returns a StaticAnimalHerd object that retains all ID and data attributes but
@@ -222,9 +216,9 @@ animals              {self.animals}
         
         # Set data attributes
         for attr in self.data_attr:
-            try:
+            if rgetattr(self, attr) is not None:
                 rsetattr(obj, attr, rgetattr(self, attr).copy())
-            except:
+            else:
                 rsetattr(obj, attr, None)
 
         return obj
@@ -275,7 +269,7 @@ animals              {self.animals}
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)
 
-        return production
+        self.production = production
 
     def check_ration(self):
         '''Dummy method to pass feed ration feasibility check if a method is not provided in the species-specific sub-class'''
@@ -293,7 +287,7 @@ class CattleHerd(AnimalHerd):
         
         super().__init__(par,index,**kwargs)
         
-    def calculate_herd(self,x):
+    def calculate_herd(self):
         '''Calculates cattle herd structure and slaughters based on the number of cows.
         
         Parameters
@@ -313,7 +307,7 @@ class CattleHerd(AnimalHerd):
         p = self.par.get
         
         idx_len = len(self.index)
-        cows = x
+        cows = self.x
 
         # Check if there is any redistribution of animals across production systems.
         # If so extend rows in 'cows' to make room for animals in production systems
@@ -474,7 +468,10 @@ class CattleHerd(AnimalHerd):
 
             n += 1
         
-        return (heads,slaughter_n,lost_n)
+        self.heads = heads
+        self.slaughtered_n = slaughter_n
+        self.lost_n = lost_n
+        self.data_attr.update(['heads','slaughtered_n','lost_n'])
 
     def calculate_feed_energy_req(self,ani):
         '''Calculates Metabolizable Energy (ME) and water requrements for cattle based on
@@ -546,7 +543,7 @@ class PigHerd(AnimalHerd):
         
         super().__init__(par,index,**kwargs)
 
-    def calculate_herd(self,x,**kwargs):
+    def calculate_herd(self):
         '''Calculates pig herd structure and slaughters based on the number of sows.
         
         Parameters
@@ -562,11 +559,10 @@ class PigHerd(AnimalHerd):
             The order of DataFrames are (heads, slaughtered_n, lost_n)'''
 
         # Set filter values for par and provide shorthand 'p()' to get parameters
-        self.par.set(**kwargs)
         p = self.par.get
 
         idx_len = len(self.index)
-        sows = x / (1+ (p('recruitment_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
+        sows = self.x / (1+ (p('recruitment_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
 
         tmp_piglets_born = sows * p('litters_per_sow') * p('live_per_litter')
         tmp_piglets_weaned = tmp_piglets_born * (1 - p('mortality_0towean')/100)
@@ -628,7 +624,10 @@ class PigHerd(AnimalHerd):
 
             n += 1
 
-        return (heads,slaughter_n,lost_n)
+        self.heads = heads
+        self.slaughtered_n = slaughter_n
+        self.lost_n = lost_n
+        self.data_attr.update(['heads','slaughtered_n','lost_n'])
 
     def calculate_feed_energy_req(self,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
