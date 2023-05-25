@@ -117,10 +117,10 @@ class CropProduction(object):
         obj = StaticCropProduction()
 
         obj.index = self.index.copy()
-
         obj.fertiliser = Fertiliser()
+        obj.data_attr = self.data_attr.copy()
 
-        for attr in self.data_attr:
+        for attr in obj.data_attr:
             if rgetattr(self, attr) is not None:
                 rsetattr(obj, attr, rgetattr(self, attr).copy())
             else:

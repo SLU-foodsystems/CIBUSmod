@@ -263,28 +263,28 @@ class GeoDistributor:
         Production must meet demand A1 @ x == b1, where b1 is national demand per animal/crop product (D)'''
 
         # Animal product demand
-        A1_1 = self.make_A1_1()
+        self.A1_1 = self.make_A1_1()
         # Feed demand
-        A1_2 = self.make_A1_2()
+        self.A1_2 = self.make_A1_2()
         # Crop product demand
-        A1_3 = self.make_A1_3()
+        self.A1_3 = self.make_A1_3()
 
         # Stack matrices
         A1 = scipy.sparse.vstack([
             scipy.sparse.hstack([
-                A1_1.M,
-                scipy.sparse.csc_matrix((A1_1.M.shape[0],A1_3.M.shape[1]))
+                self.A1_1.M,
+                scipy.sparse.csc_matrix((self.A1_1.M.shape[0],self.A1_3.M.shape[1]))
             ]),
             scipy.sparse.hstack([
-                A1_2.M,
-                A1_3.M
+                self.A1_2.M,
+                self.A1_3.M
             ])
         ])
 
         self.A1 = IndexedMatrix(
             matrix=A1,
-            row_idx={'ani':A1_1.rows, 'crp':A1_2.rows},
-            col_idx={'ani':A1_1.cols, 'crp':A1_3.cols}
+            row_idx={'ani':self.A1_1.rows, 'crp':self.A1_2.rows},
+            col_idx={'ani':self.A1_1.cols, 'crp':self.A1_3.cols}
         )
         self.b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
 
@@ -292,17 +292,17 @@ class GeoDistributor:
         '''Creates C2'''
 
         # Regional feed demand for crop products
-        A2_1 = self.make_A2_1()
+        self.A2_1 = self.make_A2_1()
         # Production of crop products
-        A2_2 = self.make_A2_2()
+        self.A2_2 = self.make_A2_2()
 
         # Stack matrices
-        A2 = scipy.sparse.hstack([A2_1.M,A2_2.M])
+        A2 = scipy.sparse.hstack([self.A2_1.M,self.A2_2.M])
 
         self.A2 = IndexedMatrix(
             matrix=A2,
-            row_idx=A2_1.rows,
-            col_idx={'ani':A2_1.cols, 'crp':A2_2.cols}
+            row_idx=self.A2_1.rows,
+            col_idx={'ani':self.A2_1.cols, 'crp':self.A2_2.cols}
         )
 
     def make_C3(self):
@@ -321,17 +321,17 @@ class GeoDistributor:
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0'''
         # Maximum supply of crop product(s) from crop(s)
-        A5_1 = self.make_A5_1()
+        self.A5_1 = self.make_A5_1()
         # Production of crop products
-        A5_2 = self.make_A5_2()
+        self.A5_2 = self.make_A5_2()
 
         # Stack matrices
-        A5 = scipy.sparse.hstack([A5_1.M,A5_2.M])
+        A5 = scipy.sparse.hstack([self.A5_1.M,self.A5_2.M])
 
         self.A5 = IndexedMatrix(
             matrix=A5,
-            row_idx=A5_1.rows,
-            col_idx={'ani':A5_1.cols, 'crp':A5_2.cols}
+            row_idx=self.A5_1.rows,
+            col_idx={'ani':self.A5_1.cols, 'crp':self.A5_2.cols}
         )
     
     def make_C6(self):

@@ -206,16 +206,17 @@ animals              {self.animals}
         obj = StaticAnimalHerd()
 
         obj.index = self.index.copy()
-
         obj.feed = Feed()
         obj.manure = Manure()
+        obj.id_attr = self.id_attr.copy()
+        obj.data_attr = self.data_attr.copy()
 
         # Set ID attributes
-        for attr in self.id_attr:
+        for attr in obj.id_attr:
             setattr(obj,attr,getattr(self,attr))
         
         # Set data attributes
-        for attr in self.data_attr:
+        for attr in obj.data_attr:
             if rgetattr(self, attr) is not None:
                 rsetattr(obj, attr, rgetattr(self, attr).copy())
             else:
