@@ -8,14 +8,23 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 # Read map from gpkg
 map_file = pkg_resources.resource_stream(__name__,'swe_regions.gpkg')
-MAP = gpd.read_file(map_file, layer='sko').set_index("sko").rename_axis('region')
+MAP = {
+    'sko' : gpd.read_file(map_file, layer='sko').set_index("sko").rename_axis('region')
+}
 
-def map_from_series(ser, ax):
+def map_from_series(ser, reg='sko', **kwargs):
+    '''
+    Parameters
+    ----------
+    ser : pandas.Series
+        A series values to produce the map. Must have 'region' as index
+    reg : str
+        Defines what 'region' refers to (only 'sko' possible at the moment)
+    **kwargs
+        passed on to geopandas.GeoDataFrame.plot()
+    '''
     
     ser.name = 'values'
-    to_plot = MAP.join(ser)
+    to_plot = MAP[reg].join(ser)
 
-    MAP.plot(ax=ax, facecolor = '#DDDDDD')
-    to_plot.plot(ax=ax, edgecolor = 'none', column='values', linewidth = 0.1, legend = True)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
+    to_plot.plot(edgecolor = 'none', column='values', linewidth = 0.1, legend = True, **kwargs)
