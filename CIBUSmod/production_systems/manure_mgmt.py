@@ -75,6 +75,7 @@ class ManureMgmt():
         vprint('Calculating N available to spread ...')
         for herd in self.herds:
             herd.manure.N_to_spread = herd.manure.N_excr - herd.manure.N_loss.groupby(['prod_system','animal','MMS'], axis=1).sum()
+            herd.data_attr.update(['manure.N_to_spread'])
 
         # Phosphorous (P)
         # To be included ...
@@ -102,7 +103,7 @@ class ManureMgmt():
             anis = herd.animals
 
             # Create dataframe
-            herd.manure.N_excr = pd.DataFrame(
+            N_excr = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,ani,mms) for ps in pss for ani in anis for mms in mmss],
@@ -111,13 +112,16 @@ class ManureMgmt():
                 )
             
             # Calculate N excretion
-            herd.manure.N_excr.loc[:,:] = multiply_aligned(
+            N_excr.loc[:,:] = multiply_aligned(
                 (
-                    self.par.get_from_frame('manure_excr_N',herd.manure.N_excr)
-                    * self.par.get_from_frame('mms_share',herd.manure.N_excr)/100
+                    self.par.get_from_frame('manure_excr_N',N_excr)
+                    * self.par.get_from_frame('mms_share',N_excr)/100
                 ),
                 herd.heads
-            ) 
+            )
+
+            herd.manure.N_excr = N_excr
+            herd.data_attr.update(['manure.N_excr'])
         
         return None
         
@@ -173,6 +177,7 @@ class ManureMgmt():
             )
 
             herd.manure.N_loss.loc[:,:] = loss_stable + loss_storage
+            herd.data_attr.update(['manure.N_loss'])
 
         return None
 
