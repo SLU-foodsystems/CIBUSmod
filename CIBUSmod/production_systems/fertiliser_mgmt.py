@@ -27,7 +27,7 @@ class FertiliserMgmt():
         if isinstance(herds, pd.Series):
             self.herds = herds
         else:
-             self.herds = pd.Series(
+            self.herds = pd.Series(
                 data=herds,
                 index=pd.MultiIndex.from_tuples(
                     [(herds.species,herds.breed,herds.prod_system,herds.sub_system)],
@@ -45,6 +45,9 @@ class FertiliserMgmt():
 
         vprint('Calculating crop N requirements ...')
         self.calculate_N_req()
+
+        vprint('Distributing manure ...')
+        self.distribute_manure()
 
         vprint(type='end')
              
@@ -114,25 +117,34 @@ class FertiliserMgmt():
         yields = yields.set_index(yields.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
         ley_share = ley_share.set_index(ley_share.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
         area_per_use = area_per_use.set_index(area_per_use.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
+        
+        # Recommendation [kg N/ha]
+        N_rec = (
+            self.par.get_from_frame('N_rec_a',yields) * ((yields/1000) ** 2) +
+            self.par.get_from_frame('N_rec_b',yields) * yields/1000 +
+            self.par.get_from_frame('N_rec_m',yields)
+        )
+        # Adjustment for ley [-]
+        N_ley_adj = (
+            self.par.get_from_frame('N_ley_a',ley_share) * ley_share +
+            self.par.get_from_frame('N_ley_m',ley_share)
+        )
 
-        N_req = (
-            # Recommendation [kg N/ha]
-            (
-                self.par.get_from_frame('N_rec_a',yields) * (yields/1000 ** 2) +
-                self.par.get_from_frame('N_rec_b',yields) * yields/1000 +
-                self.par.get_from_frame('N_rec_m',yields)
-            ) *
-            # Adjustment for ley [-]
-            (
-                self.par.get_from_frame('N_ley_a',ley_share) * ley_share +
-                self.par.get_from_frame('N_ley_m',ley_share)
-            ) *
-            # Area [ha]
-            area_per_use
-        ).droplevel('po8')
+        N_req = (N_rec * N_ley_adj * area_per_use).droplevel('po8')
 
+        self.crops.fertiliser.N_rec = N_rec
+        self.crops.fertiliser.N_ley_adj = N_ley_adj
         self.crops.fertiliser.N_req = N_req
         self.crops.data_attr.update(['fertiliser.N_req'])
+
+    def distribute_manure(self):
+        pass
+        
+        # 1) Manure per production system to crops grown for feed
+        #    in that production system.
+
+        # 2) Surpluss manure to organic crops distributed according
+        #    to N requirements
                 
 class Fertiliser(Container):
     '''Class to store fertiliser attributes in CropProduction obejcts'''
