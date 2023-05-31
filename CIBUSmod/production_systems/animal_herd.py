@@ -84,10 +84,11 @@ class AnimalHerd(object):
         self.index = index
 
         for att in ['breed','prod_system','sub_system']:
-            if att in kwargs:
-                setattr(self,att,kwargs[att])
-            else:
-                setattr(self,att,'none')
+            if not hasattr(self,att):
+                if att in kwargs:
+                    setattr(self,att,kwargs[att])
+                else:
+                    setattr(self,att,'none')
             
     def __repr__(self):
         return f'''
@@ -223,7 +224,6 @@ animals              {self.animals}
                 rsetattr(obj, attr, None)
 
         return obj
-
 
     def calculate_production(self):
         
@@ -545,21 +545,18 @@ class PigHerd(AnimalHerd):
         super().__init__(par,index,**kwargs)
 
     def calculate_herd(self):
-        '''Calculates pig herd structure and slaughters based on the number of sows.
+        '''Calculates pig herd structure and slaughters based on x (i.e. number of sows).
         
         Parameters
         ----------
-        sows : pandas.Series
-            A pandas series contaning the number of sows.
-        **kwargs : str or list
-            Keyword arguments to be passed on as filters to the ParameterRetriever.
+        None
 
         Returns
         -------
-        tuple of pandas.DataFrames
-            The order of DataFrames are (heads, slaughtered_n, lost_n)'''
+        Nothing.
+        Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
 
-        # Set filter values for par and provide shorthand 'p()' to get parameters
+        # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
         idx_len = len(self.index)
@@ -681,23 +678,131 @@ class PigHerd(AnimalHerd):
 
         return np.nan_to_num(E_req)
 
-class PoultryHerd(AnimalHerd):
-    '''Class that handels pig herds.
-    
-    Parameters
-    ----------
-    par : ParameterRetriever object
-    breed : str
-        String defining animal breed ('dairy' or 'beef').
-    **kwargs : str or list
-        Keyword arguments to be passed on as filters to the ParameterRetriever.'''
+class SheepHerd(AnimalHerd):
+    pass
 
-    def __init__(self,par,breed,prod_system,sub_system,**kwargs):
+class BroilerHerd(AnimalHerd):
+    AnimalHerd.__doc__.replace('animal','broiler poultry')
+
+    def __init__(self,par,index,**kwargs):
         
-        species = 'pigs'
-        animals = ['sows','boars','piglets','gilts','growing pigs','finishing pigs']
+        self.species = 'poultry'
+        self.breed = 'broiler'
+        self.animals = ['broilers','breeding hens','breeding roosters']
+
+        self.x_is = 'broilers'
         
-        super().__init__(par,species,breed,prod_system,sub_system,animals,**kwargs)
+        super().__init__(par,index,**kwargs)
+
+    def calculate_herd(self):
+        '''Calculates broiler herd structure and slaughters based on x (i.e. number of
+        broilers in terms of animal places).
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Nothing.
+        Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
+
+        # Provide shorthand 'p()' to get parameters
+        p = self.par.get
+
+        idx_len = len(self.index)
+
+        # Get number of broilers. This is in terms of number of animal places
+        # and the average number of live animals at a given moment is lower as
+        # facilities need time for cleaning between rounds
+        broilers = self.x
+
+        # Calculate number of inserted animals
+        inserted_broilers = broilers * p('rounds_per_year')
+        inserted_parent_hens = (
+            inserted_broilers / 
+            p('eggs_per_breeding_hen') / 
+            (1 - p('mortality', animal='breeding hens')/100)
+        )
+        inserted_parent_roosters = inserted_parent_hens / p('hens_per_rooster')
+        inserted_grandparent_hens = (
+            (inserted_parent_hens + inserted_parent_roosters) /
+            p('eggs_per_breeding_hen') / 
+            (1 - p('mortality', animal='breeding hens')/100)
+        )
+        inserted_grandparent_roosters = inserted_grandparent_hens / p('hens_per_rooster')
+
+        inserted_breeding_hens = (inserted_parent_hens + inserted_grandparent_hens)
+        inserted_breeding_roosters = (inserted_parent_roosters + inserted_grandparent_roosters)
+
+        # Calculate number of parent animals
+        breeding_hens = inserted_breeding_hens * p('slaughter_age', animal='breeding hens')/365.25
+        breeding_roosters = inserted_breeding_roosters * p('slaughter_age', animal='breeding hens')/365.25
+
+        # Calculate lost animals
+        self.par.set(animal='broilers')
+        lost_broilers = (
+            inserted_broilers * 
+            (
+                (p('mortality')/100) + 
+                (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
+            )
+        )
+
+        self.par.set(animal='breeding hens')
+        lost_breeding_hens = (
+            inserted_breeding_hens * 
+            (
+                (p('mortality')/100) + 
+                (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
+            )
+        )
+
+        self.par.set(animal='breeding roosters')
+        lost_breeding_roosters = (
+            inserted_breeding_roosters * 
+            (
+                (p('mortality')/100) + 
+                (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
+            )
+        )
+
+        # Calculate number of slaughtered animals
+        slaughtered_broilers = inserted_broilers - lost_broilers
+        slaughtered_breeding_hens = inserted_breeding_hens - lost_breeding_hens
+        slaughtered_breeding_roosters = inserted_breeding_roosters - lost_breeding_roosters
+
+        # Create output DataFrames
+        pss = [self.prod_system] # Output production systems (==[self.prod_system] as no redistribution of animals in this class)
+
+        empty_df = pd.DataFrame(
+            columns = pd.MultiIndex.from_tuples([(ps, ani) for ps in pss for ani in self.animals], names=['prod_system','animal']),
+            index = self.index,
+            dtype = 'float64'
+            )
+        heads, slaughter_n, lost_n  = (empty_df.copy(),empty_df.copy(),empty_df.copy())
+
+        # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
+        n = 0
+        for ps in pss:
+            sel = range(n*idx_len, (n+1)*idx_len)
+            heads.loc[:,(ps,slice(None))] = \
+                np.array([broilers[sel],breeding_hens[sel],breeding_roosters[sel]]).T
+            slaughter_n.loc[:,(ps,slice(None))] = \
+                np.array([slaughtered_broilers[sel],slaughtered_breeding_hens[sel],slaughtered_breeding_roosters[sel]]).T
+            lost_n.loc[:,(ps,slice(None))] = \
+                np.array([lost_broilers[sel],lost_breeding_hens[sel],lost_breeding_roosters[sel]]).T
+
+            n += 1
+
+        self.heads = heads
+        self.slaughtered_n = slaughter_n
+        self.lost_n = lost_n
+        self.data_attr.update(['heads','slaughtered_n','lost_n'])
+
+
+class LayerHerd(AnimalHerd):
+    pass
 
 class ReindeerHerd(AnimalHerd):
     pass
