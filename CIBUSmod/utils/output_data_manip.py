@@ -1,3 +1,4 @@
+import warnings
 import pandas as pd
 
 from ..production_systems.animal_herd import AnimalHerd
@@ -25,11 +26,17 @@ def concat_herds(herds):
     res_herd.feed = Feed()
     res_herd.manure = Manure()
 
-    all_data_attr = [h.data_attr for h in herds]
-    if [all_data_attr[0]]*len(all_data_attr) != all_data_attr:
-        raise TypeError('Presence of data attributes differed across herds')
+    # Check presence of data attributes in AnimalHerd objects
+    # Only attributes present in all AnimalHerd objects are 
+    # retained in the combined StaticAnimalHerd object
+    data_attr_union = set.union(*[set(h.data_attr) for h in herds])
+    data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
+    data_attr_in_some = data_attr_union - data_attr_in_all
+    if len(data_attr_in_some) > 0:
+        warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
 
-    for attr in all_data_attr[0]:
+    # Go through data attributes and concatenate
+    for attr in data_attr_in_all:
         rsetattr(
             res_herd,attr,
             pd.concat(

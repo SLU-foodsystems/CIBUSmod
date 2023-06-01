@@ -168,7 +168,7 @@ animals              {self.animals}
             )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','meat','milk']
+        valid = ['cows','sows','sows+gilts','broilers','meat','milk']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -799,6 +799,22 @@ class BroilerHerd(AnimalHerd):
         self.slaughtered_n = slaughter_n
         self.lost_n = lost_n
         self.data_attr.update(['heads','slaughtered_n','lost_n'])
+
+    def calculate_feed_req(self,ani):
+
+        p = self.par.get
+
+        if ani=='broilers':
+            feed_req = (
+                p('rounds_per_year') *
+                p('feed_conversion_ratio') * 
+                p('slaughter_weight') * 
+                p('live_weight_per_CW')
+            )
+        else:
+            feed_req = p('feed_per_animal') / ( p('slaughter_age') / 365.25 )
+
+        return(feed_req)
 
 
 class LayerHerd(AnimalHerd):
