@@ -137,7 +137,7 @@ Parameters
         # If NaNs are return print warning and some useful information
         if np.isnan(result).any():
             if self.selection is None:
-                warnings.warn(f"NaN returned! No filters supplied and more than one value for '{parameter}' found in {self.path}.")
+                warnings.warn(f"NaN returned! No filters supplied and could not find a default value for '{parameter}' in {self.path}.")
             elif np.isnan(result).all():
                 str1 = f"NaNs returned! No value for '{parameter}' found in '{self.path}' matching any of the supplied filters (n={len(self.selection)}): \n----------\n"
                 n = min([len(self.selection),5])
@@ -425,7 +425,6 @@ def _build_selection_index(selection):
     return selection_index
 
 def _get_problem_data(data, index_cols, parameter):
-    # print('_get_problem_data input: ',data, index_cols, parameter,sep='\n -->',end='\n\n\n')
     if not isinstance(data, pd.Series):
         raise ValueError(f"data should be a pandas.Series")
     if unknown_columns := set(index_cols) - set(data.index.names):
@@ -454,7 +453,6 @@ def _get_problem_data(data, index_cols, parameter):
 
 
 def _select_with_defaults(data, index, columns_to_take_default):
-    # print('_select_with_defaults input: ',data, index, columns_to_take_default,sep='\n -->',end='\n\n\n')
     partial_data = data
     partial_index = index
 
@@ -465,31 +463,26 @@ def _select_with_defaults(data, index, columns_to_take_default):
                 if isinstance(partial_data.index, pd.MultiIndex)
                 else partial_data[EMPTY]
             )
-            # print('partial_data', partial_data,sep='\n -->',end='\n\n\n')
         except KeyError:
             # There is no default/empty key in this index column, which means
             # that ignoring the column is not possible.
             return partial_data[[]]
         try:
             partial_index = partial_index.droplevel(col)
-            # print('whops!')
         except ValueError:
             # Can't drop last level so don't
-            partial_data = pd.Series(partial_data, index=partial_index)
+            partial_data = pd.Series(partial_data, index=partial_index.get_level_values(0))
 
     if len(partial_index.names) == 1:
         partial_index = partial_index.get_level_values(0) # pd.MultiIndex --> pd.Index
 
-    # print('partial_data ---->', partial_data,sep='\n -->',end='\n\n\n')
-    # print('partial_index ---->', partial_index,sep='\n -->',end='\n\n\n')
     partial_result = partial_data.reindex(partial_index).set_axis(index)
-    # print('_select_with_defaults output: ', partial_result,sep='\n -->',end='\n\n\n')
+    
     return partial_result
 
 
 def _select_allowing_any_k_defaults(data, index, k):
     # Generate all the (n choose k) ways to have k default columns
-    # print('_select_allowing_any_k_defaults input: ',data,index,k,sep='\n -->',end='\n\n\n')
     results = pd.concat(
         [
             _select_with_defaults(data, index, default_cols)
@@ -498,23 +491,22 @@ def _select_allowing_any_k_defaults(data, index, k):
         axis=1,
     )
     exactly_one_result = results.notnull().sum(axis=1) == 1
-    # print('results',results,sep='\n -->',end='\n\n\n')
-    # print('exactly_one_result',exactly_one_result,sep='\n -->',end='\n\n\n')
-
-    
+        
     # Get elements with exactly one result
     results = results[exactly_one_result].sum(axis=1)
     # Drop duplicate indexes to be able to merge back (these will have returned the same value anyway)
     results = results[~results.index.duplicated(keep='first')]
-    # print('_select_allowing_any_k_defaults output: ', results,sep='\n -->',end='\n\n\n')
+    
     return results
 
 def _get_parameter_values(data, selection, parameter):
 
     # If no filters supplied check if only one value can be returned
-    # else return NaN and warn
+    # else return NaN
     if selection is None:
         result = data.xs(parameter, level="parameter")
+        # Get rows with only NaNs in filter columns
+        result = result.loc[result.index.to_frame().isna().all(axis=1)]
         if len(result) == 1:
             return result.values
         else:
@@ -528,7 +520,7 @@ def _get_parameter_values(data, selection, parameter):
     if problem_data is None:
         return np.array([EMPTY]*len(selection))
 
-    # Drop filters not 
+    # Drop filters not in data
     for lvl in set(selection.names)-set(problem_data.index.names):
         selection = selection.droplevel(lvl)
     
