@@ -168,7 +168,7 @@ animals              {self.animals}
             )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','broilers','meat','milk']
+        valid = ['cows','sows','sows+gilts','broilers','total horses','meat','milk']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -189,8 +189,8 @@ animals              {self.animals}
                 old_x = self.production.loc[:,(slice(None),'milk')].sum(axis=1)
             elif x_is == 'meat':
                 old_x = self.production.loc[:,(slice(None),'meat')].sum(axis=1)
-        elif x_is == 'sows+gilts':
-            old_x = self.heads.loc[:,(self.prod_system,['sows','gilts'])].sum(axis=1)
+        elif x_is == 'total horses':
+            old_x = self.heads.sum(axis=1)
         else:
             old_x = self.heads.loc[:,(self.prod_system,x_is)]
         
@@ -271,6 +271,7 @@ animals              {self.animals}
         production = production.fillna(0)
 
         self.production = production
+        self.data_attr.update(['production'])
 
     def check_ration(self):
         '''Dummy method to pass feed ration feasibility check if a method is not provided in the species-specific sub-class'''
@@ -820,10 +821,41 @@ class BroilerHerd(AnimalHerd):
 class LayerHerd(AnimalHerd):
     pass
 
-class ReindeerHerd(AnimalHerd):
-    pass
+class HorseHerd(AnimalHerd):
+    AnimalHerd.__doc__.replace('animal','broiler poultry')
 
-class HorsesHerd(AnimalHerd):
+    def __init__(self,par,index,**kwargs):
+            
+        self.species = 'horses'
+        self.animals = ['low-performing horses','medium-performing horses','broodmares','young horses']
+
+        self.x_is = 'total horses'
+        
+        super().__init__(par,index,**kwargs)
+
+    def calculate_herd(self):
+        '''Calculates horse herd structure x (i.e. total number of horses).
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Nothing.
+        Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
+
+        # Provide shorthand 'p()' to get parameters
+        p = self.par.get
+
+        idx_len = len(self.index)
+
+        # Get number of broilers. This is in terms of number of animal places
+        # and the average number of live animals at a given moment is lower as
+        # facilities need time for cleaning between rounds
+        total_horses = self.x
+
+class ReindeerHerd(AnimalHerd):
     pass
 
 class StaticAnimalHerd(Container):
