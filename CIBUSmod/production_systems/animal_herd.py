@@ -822,7 +822,7 @@ class LayerHerd(AnimalHerd):
     pass
 
 class HorseHerd(AnimalHerd):
-    AnimalHerd.__doc__.replace('animal','broiler poultry')
+    AnimalHerd.__doc__.replace('animal','horse')
 
     def __init__(self,par,index,**kwargs):
             
@@ -850,10 +850,30 @@ class HorseHerd(AnimalHerd):
 
         idx_len = len(self.index)
 
-        # Get number of broilers. This is in terms of number of animal places
-        # and the average number of live animals at a given moment is lower as
-        # facilities need time for cleaning between rounds
+        # Get total number of horses
         total_horses = self.x
+
+        # Calculate number of different animals
+        pss = [self.prod_system] # Output production systems (==[self.prod_system] as no redistribution of animals in this class)
+
+        heads = pd.DataFrame(
+            index = self.index,
+            columns = pd.MultiIndex.from_tuples([(ps, ani) for ps in pss for ani in self.animals], names=['prod_system','animal'])
+        )
+
+        heads = (
+            (self.par.get_from_frame('share_of_horses',heads)/100)
+            .mul(total_horses, axis=0)
+        )
+
+        # Assume no slaughter and losses for now
+        slaughtered_n = heads * 0
+        lost_n = heads * 0
+
+        self.heads = heads
+        self.slaughtered_n = slaughtered_n
+        self.lost_n = lost_n
+        self.data_attr.update(['heads','slaughtered_n','lost_n'])
 
 class ReindeerHerd(AnimalHerd):
     pass
