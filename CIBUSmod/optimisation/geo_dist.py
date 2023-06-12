@@ -171,7 +171,7 @@ class GeoDistributor:
 
     def get_demand(self):
         self.D = {
-            'ani' : self.demand.animal_prod_demand.copy(),
+            'ani' : self.demand.animal_prod_demand.sum(axis=1),
             'crp' : self.demand.crop_prod_demand.sum(axis=1)
             }
         
