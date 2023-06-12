@@ -23,10 +23,12 @@ class FeedMgmt():
         if isinstance(herds, pd.Series):
             self.herds = herds
         else:
+             if not isinstance(herds, list):
+                 herds = [herds]
              self.herds = pd.Series(
                 data=herds,
                 index=pd.MultiIndex.from_tuples(
-                    [(herds.species,herds.breed,herds.prod_system,herds.sub_system)],
+                    [(h.species,h.breed,h.prod_system,h.sub_system) for h in herds],
                     names=['species','breed','prod_system','sub_system']
                 )
             )

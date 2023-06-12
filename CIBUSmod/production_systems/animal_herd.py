@@ -232,10 +232,13 @@ animals              {self.animals}
 
         # Define output products
         prs = ['meat']
-        if 'cows' in self.animals:
+        if self.species == 'cattle':
             prs.append('milk')
-        if 'laying hen' in self.animals:
+        if (self.species == 'poultry') & (self.breed == 'layer'):
             prs.append('eggs')
+        if self.species == 'horses':
+            prs.append('heads')
+
         # Get ouput production systems
         pss = self.heads.columns.get_level_values('prod_system').unique()
         # Get animals
@@ -266,6 +269,13 @@ animals              {self.animals}
         # Calculate egg production
         if 'eggs' in prs:
             pass
+        
+        # Calculate total number of heads
+        if 'heads' in prs:
+            production.loc[:,(slice(None),slice(None),'heads')] = (
+                pd.concat({'heads': self.heads}, names=['animal_prod'], axis=1)
+                .reorder_levels(['prod_system','animal','animal_prod'], axis=1)
+            )
         
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)
@@ -727,7 +737,7 @@ class BroilerHerd(AnimalHerd):
         )
         inserted_parent_roosters = inserted_parent_hens / p('hens_per_rooster')
         inserted_grandparent_hens = (
-            (inserted_parent_hens + inserted_parent_roosters) /
+            (inserted_parent_hens * 2) / # Assumes 50/50 sex ratio
             p('eggs_per_breeding_hen') / 
             (1 - p('mortality', animal='breeding hens')/100)
         )
@@ -874,6 +884,29 @@ class HorseHerd(AnimalHerd):
         self.slaughtered_n = slaughtered_n
         self.lost_n = lost_n
         self.data_attr.update(['heads','slaughtered_n','lost_n'])
+
+    def calculate_feed_energy_req(self,ani):
+
+        p = self.par.get
+
+        # Calculate maintenance energy req.
+        E_maint = p('live_weight')**0.75 * p('maintenance_energy_factor') * 365.25
+
+        # Get activity adjustment factor
+        f_acti = p('energy_adjustment_factor')
+
+        if ani=='broodmares':
+            # Get gestation adjustment factor
+            f_gest = p('foals_per_year') * p('gestation_energy_factor')
+            # Get lactation adjustment factor
+            f_lact = p('foals_per_year') * p('lactation_energy_factor')
+        else:
+            f_gest = 0
+            f_lact = 0
+
+        E_req = E_maint * (1 + (f_acti + f_gest + f_lact))
+
+        return(E_req)
 
 class ReindeerHerd(AnimalHerd):
     pass
