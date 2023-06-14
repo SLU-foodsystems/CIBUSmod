@@ -1,0 +1,4 @@
+# Treat .ipynb as binary and hide from language stats
+*.ipynb linguist-vendored
+*.ipynb linguist-generated=true
+*.ipynb -diff -merge
