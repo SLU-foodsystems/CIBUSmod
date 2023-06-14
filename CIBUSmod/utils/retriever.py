@@ -233,8 +233,9 @@ Parameters
             try:
                 scn_data = _read_xl(self.path,'scn_'+scn)
             except:
-                # If scenario sheet not pressent print warning and do not update anything
-                warnings.warn(f"No sheet named 'scn_{scn}' found in '{self.path}'. No parameter values were updated according to this scenario.")
+                # If scenario sheet not pressent do not update anything.
+                # Should a warning be printed here?
+                # warnings.warn(f"No sheet named 'scn_{scn}' found in '{self.path}'. No parameter values were updated according to this scenario.")
                 continue
                 
             # If sheet was found but contained no parameters, move to next scenario

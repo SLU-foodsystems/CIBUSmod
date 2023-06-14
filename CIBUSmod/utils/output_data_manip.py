@@ -33,7 +33,9 @@ def concat_herds(herds):
     data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
     data_attr_in_some = data_attr_union - data_attr_in_all
     if len(data_attr_in_some) > 0:
-        warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
+        pass
+        # Should a warning be printed here?
+        # warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
 
     # Go through data attributes and concatenate
     for attr in data_attr_in_all:
