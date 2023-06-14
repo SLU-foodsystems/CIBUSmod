@@ -55,6 +55,8 @@ class FeedMgmt():
         
         vprint('Calculating feed consumption ...')
         self.calculate_feed_consumption()
+        vprint('Calculating feed losses ...')
+        self.calculate_losses()
         vprint('Calculating demand for crop products ...')
         self.calculate_product_demand(of='crop_prod')
         self.calculate_max_crop_in_crop_prod()
@@ -147,7 +149,6 @@ class FeedMgmt():
                 # If herd does not have a method to calculate energy requirements of animals
                 # the dry matter feed requirements are calculated from feed conversion ratios
                 # or a fixed feed intake per animal.
-                pass
 
                 df_feed_req = pd.DataFrame(
                     index = herd.index,
@@ -191,6 +192,28 @@ class FeedMgmt():
 
             herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal')
             herd.data_attr.update(['feed.consumption'])
+
+    def calculate_losses(self):
+        '''Calculate feeds lost during storage and feeding and demand for feed products entering on-farm storage.
+        '''
+        for herd in self.herds:
+            
+            # Set species and breed filters for ParameterRetriever
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+                )
+            
+            feed_to_feeding = herd.feed.consumption * ( 1 / ( 1 - self.par.get_from_frame('feeding_losses', herd.feed.consumption)/100 ) )
+            feeding_losses = feed_to_feeding - herd.feed.consumption
+
+            feed_to_storage = feed_to_feeding * ( 1 / ( 1 - self.par.get_from_frame('storage_losses', feed_to_feeding)/100 ) )
+            storage_losses = feed_to_storage - feed_to_feeding
+
+            herd.feed.demand = feed_to_storage
+            herd.feed.storage_losses = storage_losses
+            herd.feed.feeding_losses = feeding_losses
+            herd.data_attr.update(['feed.demand','feed.storage_losses','feed.feeding_losses'])
           
     def calculate_product_demand(self, of='crop_prod'):
 
@@ -240,7 +263,7 @@ class FeedMgmt():
 
                 result_df.loc[:,('domestic')] = pd.concat(
                     {'domestic': (
-                        multiply_aligned(feed_to_dom_prod,herd.feed.consumption)
+                        multiply_aligned(feed_to_dom_prod,herd.feed.demand)
                         .groupby(['prod_system','animal',of],sort=False,axis=1).sum()
                     )},
                     names=['origin'],
@@ -249,7 +272,7 @@ class FeedMgmt():
 
                 result_df.loc[:,('regional')] = pd.concat(
                     {'regional': (
-                        multiply_aligned(feed_to_reg_prod,herd.feed.consumption)
+                        multiply_aligned(feed_to_reg_prod,herd.feed.demand)
                         .groupby(['prod_system','animal',of],sort=False,axis=1).sum()
                     )},
                     names=['origin'],
@@ -258,7 +281,7 @@ class FeedMgmt():
 
                 result_df.loc[:,('imported')] = pd.concat(
                     {'imported': (
-                        multiply_aligned(feed_to_imp_prod,herd.feed.consumption)
+                        multiply_aligned(feed_to_imp_prod,herd.feed.demand)
                         .groupby(['prod_system','animal',of],sort=False,axis=1).sum()
                     )},
                     names=['origin'],
