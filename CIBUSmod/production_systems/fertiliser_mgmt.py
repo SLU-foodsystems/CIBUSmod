@@ -83,9 +83,15 @@ class FertiliserMgmt():
         ley_share = pdf.mul(ley_share, axis=0)
 
         # Get share of each crop_prod used for food, non-food and feed
+        # Note: Use shares are calculated on national level. Potential
+        # future development is to try and differentiate use shares
+        # across regions.
         use_per_crop_prod = pd.concat([
             self.demand.crop_prod_demand,
-            
+
+            self.crops.seed_demand.groupby('prod_system')
+            .sum().stack().rename('seed'),
+
             concat_herds(self.herds)
             .feed.crop_product_demand.sum()
             .groupby(['prod_system','crop_prod']).sum().rename('feed')
@@ -98,12 +104,13 @@ class FertiliserMgmt():
             self.crops.production
             .div(self.crops.production.sum(axis=1), axis=0).fillna(0)
         )
-        crop_prod_per_crop['none'] = 1 - crop_prod_per_crop.sum(axis=1)
 
+        # Add crop_prod='none' for crops not producing anything
+        crop_prod_per_crop['none'] = 1 - crop_prod_per_crop.sum(axis=1)
         # Add missing crop_prods in use_shares with use='none'
         for cp in [cp for cp in crop_prod_per_crop.columns.unique() if cp not in use_per_crop_prod.index.get_level_values('crop_prod')]:
                 for ps in use_per_crop_prod.index.get_level_values('prod_system').unique():
-                    use_per_crop_prod.loc[(ps,cp),:] = [0,0,0,1]
+                    use_per_crop_prod.loc[(ps,cp),:] = [0]*(len(use_per_crop_prod.columns)-1) + [1]
 
         # Calculate share of crop area per use
         use_per_crop = crop_prod_per_crop.mul(use_per_crop_prod.unstack()).groupby('use', axis=1).sum()
