@@ -67,20 +67,6 @@ class GeoDistributor:
             use_cons = [use_cons]
         use_cons = [str(e) for e in use_cons]
 
-        if '7' in use_cons:
-            # This constraint limits cultivation of some 
-            # crops in some regions. To spedd up this is implemented
-            # by dropping variables instead of introducing constraints.
-
-            # Drop variables representing crops in regions where
-            # that crop cant be grown and also drop variables 
-            # representing animals in a region that require a
-            # regional production of crops that cant be grown.
-
-            # TO BE IMPLEMENTED!!!
-            pass
-
-
         vprint('Creating demand vector ...')
         self.get_demand()
 
@@ -254,10 +240,7 @@ class GeoDistributor:
         if '1' in use_cons:
             CONS.append(self.A1.M @ (xs/sf) == self.b1)
         if '2' in use_cons:
-            # Note: ">= -1" to give some slack to avoid problems with solver
-            # not able to find solution with exactly 0 heads of animals in
-            # regions where a feed crop with regional demand can't be grown.
-            CONS.append(self.A2.M @ (xs/sf) >= -1)
+            CONS.append(self.A2.M @ (xs/sf) >= 0)
         if '3' in use_cons:
             CONS.append(self.A3.M @ (xs/sf) <= self.b3)
         if '4' in use_cons:
@@ -850,25 +833,96 @@ class GeoDistributor:
         on a minimum growing degree days in areas where the crop
         is currently (x0) grown.'''
         
+        #     |  Z   M1  |
+        # M = |          |
+        #     |  M2   Z  |
+
+        # <---- M1 ---->
+
         # Get row and col index from crops (cr,ps,re)
         row_idx = col_idx = self.x_idx['crp']
 
         # val=1 if fewer growing degrees in region than minimum for crop
+        # (i.e. crop can't be grown)
         val = (
             self.regions.par.get('GDD5',**row_idx.to_frame().to_dict('list'))
             <
             self.crops.par.get('min_GDD5',**row_idx.to_frame().to_dict('list'))
         ) * 1
 
-        # Create matrix with ones on diagonal if crop can't be grown
+        # Create matrix with ones on diagonal if crop can't be grown in region
         row_nr = col_nr = range(len(row_idx))
-        M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
+        M1 = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
+        Z1 = scipy.sparse.csc_matrix((M1.shape[0],len(self.x_idx['ani']))) # Zero matrix
+
+        # <---- M2 ---->
+
+        # Get row and col index from animals (sp,br,ps,ss,re)
+        row_idx = col_idx = self.x_idx['ani']
+
+        # Get crops that can be grown in region
+        crops_ok = pd.Series(val==0, index=self.x_idx['crp'])
+
+        # Get crop products that can be produced in region
+        crop_prod_ok = (
+            self.crops.production
+            .mul(crops_ok, axis=0)
+            .stack()
+            .groupby(['crop_prod','prod_system','region'])
+            .sum()
+            > 0
+        )
+        crop_prod_not_ok = (~crop_prod_ok).rename('not_ok')
+
+        # Create list to store index for herds that can't be in regions
+        herds_to_drop = []
+
+        for herd in self.herds:
+            reg_feed = (
+                herd.feed.crop_product_demand
+                .xs('regional',axis=1)
+                .stack(['prod_system','crop_prod'])
+                .sum(axis=1)
+                .reorder_levels(['crop_prod','prod_system','region'])
+                > 0
+            ).rename('reg')
+
+            # Get animal herds that can't be in region as the ones
+            # with any regional feed demand for a crop that can't
+            # be grown.
+            herd_drop = (
+                pd.merge(
+                    reg_feed,crop_prod_not_ok,
+                    how='left',
+                    left_index=True, right_index=True
+                ).sum(axis=1)
+                == 2
+            ).groupby(['region']).any()
+
+            drop_idx = herd_drop[herd_drop].index
+            
+            # Add to drop list
+            if herd_drop.any():
+                sp = herd.species
+                br = herd.breed
+                ps = herd.prod_system
+                ss = herd.sub_system
+                herds_to_drop += [(sp,br,ps,ss,re) for re in drop_idx]
+
+        val = np.array([idx in herds_to_drop for idx in row_idx]) * 1
+
+        # Create matrix with ones on diagonal if animal herd can't be in region
+        row_nr = col_nr = range(len(row_idx))
+        M2 = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
+        Z2 = scipy.sparse.csc_matrix((M2.shape[0],len(self.x_idx['crp']))) # Zero matrix
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z,M]),
-            row_idx,
+            scipy.sparse.vstack([
+                scipy.sparse.hstack([Z1,M1]),
+                scipy.sparse.hstack([M2,Z2])
+            ]),
+            {'ani':self.x_idx['ani'],'crp':col_idx},
             {'ani':self.x_idx['ani'],'crp':col_idx}
         )
 
