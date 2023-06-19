@@ -1,5 +1,6 @@
 from .utils.retriever import ParameterRetriever
 
+from .production_systems.regions import Regions
 from .production_systems.demand_and_conversions import DemandAndConversions
 from .production_systems.crop_prod import CropProduction
 from .production_systems.animal_herd import CattleHerd, PigHerd, BroilerHerd, HorseHerd

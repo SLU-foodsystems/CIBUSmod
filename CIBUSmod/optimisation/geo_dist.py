@@ -27,11 +27,12 @@ class GeoDistributor:
     Attributes
     ----------'''
 
-    def __init__(self,par,x0,demand,crops,herds,feed_mgmt):
+    def __init__(self,par,x0,regions,demand,crops,herds,feed_mgmt):
         
         self.par = par
         self.x0 = {k:v.copy() for k,v in zip(x0.keys(),x0.values())}
 
+        self.regions = regions
         self.demand = demand
         self.crops = crops
         self.herds = herds
@@ -60,6 +61,26 @@ class GeoDistributor:
 
         vprint = verbose_init(verbose, id_str='GeoDist.make')
 
+        if use_cons == 'all':
+            use_cons = [1,2,3,4,5,6,7]
+        elif not isinstance(use_cons,list):
+            use_cons = [use_cons]
+        use_cons = [str(e) for e in use_cons]
+
+        if '7' in use_cons:
+            # This constraint limits cultivation of some 
+            # crops in some regions. To spedd up this is implemented
+            # by dropping variables instead of introducing constraints.
+
+            # Drop variables representing crops in regions where
+            # that crop cant be grown and also drop variables 
+            # representing animals in a region that require a
+            # regional production of crops that cant be grown.
+
+            # TO BE IMPLEMENTED!!!
+            pass
+
+
         vprint('Creating demand vector ...')
         self.get_demand()
 
@@ -73,13 +94,6 @@ class GeoDistributor:
             for key,df
             in zip(self.x0.keys(),self.x0.values())
             }
-
-        if use_cons == 'all':
-            use_cons = [1,2,3,4,5,6,7]
-        elif not isinstance(use_cons,list):
-            use_cons = [use_cons]
-
-        use_cons = [str(e) for e in use_cons]
 
         # Make constraints
         for nr in use_cons:
@@ -193,12 +207,12 @@ class GeoDistributor:
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
 
-        # Get x0 for animals and combine index levels crop+production system
+        # Get x0 for animals and combine index levels species+breed+production system
         x0_ani = self.x0['ani'].to_frame()
         x0_ani['item'] = ['_'.join([sp,br,ps]) for sp,br,ps in self.x0['ani'].index.droplevel('region')]
         x0_ani = x0_ani.set_index('item', append=True).droplevel(['species','breed','prod_system'])[self.x0['ani'].name]
 
-        # Get x0 for crops and combine index levels species+breed+production system
+        # Get x0 for crops and combine index levels crop+production system
         x0_crp = self.x0['crp'].to_frame()
         x0_crp['item'] = ['_'.join([cr,ps]) for cr,ps in self.x0['crp'].index.droplevel('region')]
         x0_crp = x0_crp.set_index('item', append=True).droplevel(['crop','prod_system'])[self.x0['crp'].name]
@@ -240,7 +254,10 @@ class GeoDistributor:
         if '1' in use_cons:
             CONS.append(self.A1.M @ (xs/sf) == self.b1)
         if '2' in use_cons:
-            CONS.append(self.A2.M @ (xs/sf) >= 0)
+            # Note: ">= -1" to give some slack to avoid problems with solver
+            # not able to find solution with exactly 0 heads of animals in
+            # regions where a feed crop with regional demand can't be grown.
+            CONS.append(self.A2.M @ (xs/sf) >= -1)
         if '3' in use_cons:
             CONS.append(self.A3.M @ (xs/sf) <= self.b3)
         if '4' in use_cons:
@@ -250,7 +267,7 @@ class GeoDistributor:
         if '6' in use_cons:
             CONS.append(self.A6.M @ (xs/sf) <= 0)
         if '7' in use_cons:
-            pass
+            CONS.append(self.A7.M @ (xs/sf) == 0)
 
         # Define problem
         self.problem = cvxpy.Problem(
@@ -259,8 +276,10 @@ class GeoDistributor:
         )
 
     def make_C1(self):
-        '''Creates A-matrix for constraint (C1):
-        Production must meet demand A1 @ x == b1, where b1 is national demand per animal/crop product (D)'''
+        '''Creates C1: A1 @ x == b1
+        Production must meet demand. A1 @ x gives production and b1 is
+        national demand per animal/crop product (D)
+        '''
 
         # Animal product demand
         self.A1_1 = self.make_A1_1()
@@ -339,6 +358,11 @@ class GeoDistributor:
 
         self.A6 = self.make_A6()
 
+    def make_C7(self):
+        '''Creates C7: A7 @ x == 0
+        Limit crops to certain regions based on minimum growing degree days'''
+        
+        self.A7 = self.make_A7()
 
     def make_O1(self):
         
@@ -818,6 +842,38 @@ class GeoDistributor:
         )
 
         return M
+    
+    def make_A7(self):
+        '''Creates A-matrix for C7:
+        
+        Constrain crops from being grown in certain regions based
+        on a minimum growing degree days in areas where the crop
+        is currently (x0) grown.'''
+        
+        # Get row and col index from crops (cr,ps,re)
+        row_idx = col_idx = self.x_idx['crp']
+
+        # val=1 if fewer growing degrees in region than minimum for crop
+        val = (
+            self.regions.par.get('GDD5',**row_idx.to_frame().to_dict('list'))
+            <
+            self.crops.par.get('min_GDD5',**row_idx.to_frame().to_dict('list'))
+        ) * 1
+
+        # Create matrix with ones on diagonal if crop can't be grown
+        row_nr = col_nr = range(len(row_idx))
+        M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
+        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.hstack([Z,M]),
+            row_idx,
+            {'ani':self.x_idx['ani'],'crp':col_idx}
+        )
+
+        return M
+
 
     def make_P1_1(self):
         # Get row index from x0['ani'] (sp,br,ps,re)

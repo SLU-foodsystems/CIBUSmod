@@ -28,5 +28,11 @@ class Regions(object):
         self.par = par
         self.index = x0['crp'].index.get_level_values('region').unique()
 
-    def get_region_attributes(self):
-        pass
+    def get_attributes(self):
+        p = self.par.get
+
+        self.GDD5 = pd.Series(
+            p('GDD5', **self.index.to_frame().to_dict('list')),
+            index = self.index,
+            name = 'GDD5'
+        )
