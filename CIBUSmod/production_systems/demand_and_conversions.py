@@ -61,7 +61,7 @@ class DemandAndConversions(object):
         '''
 
         # Define functions to print progress messages if verbose==True
-        vprint = verbose_init(verbose, id_str='Diet')
+        vprint = verbose_init(verbose, id_str='DemandAndConversions')
 
         # Get population size
         self.get_population()
