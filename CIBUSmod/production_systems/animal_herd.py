@@ -516,7 +516,7 @@ class CattleHerd(AnimalHerd):
 
         if ani == 'cows':
             # ME req. for lactation [MJ/day]
-            # Milk in kg ECM: milk kg x 0,25 + fa tkg x 12,2 + protein kg x 7,7 = kg ECM
+            # Milk in kg ECM: milk kg x 0,25 + fat kg x 12,2 + protein kg x 7,7 = kg ECM
             milk = p('milk_prod') * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7) / 365.25
             E_lactation = p('lactation_energy_factor') * milk
 
