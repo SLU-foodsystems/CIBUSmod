@@ -59,7 +59,7 @@ class GeoDistributor:
     def make(self, use_cons='all', scale_power=[0,0], verbose=False):
         '''Creates constraints and defines optimisation problem'''
 
-        vprint = verbose_init(verbose, id_str='GeoDist.make')
+        vprint = verbose_init(verbose, id_str='GeoDistributor.make')
 
         if use_cons == 'all':
             use_cons = [1,2,3,4,5,6,7]
@@ -80,6 +80,10 @@ class GeoDistributor:
             for key,df
             in zip(self.x0.keys(),self.x0.values())
             }
+        
+        # Make objective function(s)
+        vprint('Making objective O1 ...')
+        self.make_O1()
 
         # Make constraints
         for nr in use_cons:
@@ -87,9 +91,9 @@ class GeoDistributor:
             vprint(f'Making constraint C{nr} ...')
             fun()
 
-        # Make objective function(s)
-        vprint('Making objective O1 ...')
-        self.make_O1()
+        # If C7 not included no variables are dropped
+        if '7' not in use_cons:
+            self.x_idx_short = {'ani':self.x_idx['ani'].copy(), 'crp':self.x_idx['crp'].copy()}
 
         vprint('Defining problem ...')
         self.define_cvx_problem(use_cons)
@@ -98,7 +102,7 @@ class GeoDistributor:
 
     def solve(self, solver_settings='default', verbose=False):
 
-        vprint = verbose_init(verbose, id_str='GeoDist.solve')
+        vprint = verbose_init(verbose, id_str='GeoDistributor.solve')
 
         # Default solver settings
         #
@@ -142,15 +146,16 @@ class GeoDistributor:
 
             # Get and store optimal value for variable
             xs = self.problem.variables()[0].value
+            # Put xs on short index (!= index if C7 is used) and reindex 
             self.xs = {
                 'ani' : pd.Series(
-                    xs[:len(self.x_idx['ani'])],
-                    index = self.x_idx['ani']
-                ),
+                    xs[:len(self.x_idx_short['ani'])],
+                    index = self.x_idx_short['ani']
+                ).reindex(self.x_idx['ani'], fill_value=0),
                 'crp' : pd.Series(
-                    xs[len(self.x_idx['ani']):],
-                    index = self.x_idx['crp']
-                )
+                    xs[len(self.x_idx_short['ani']):],
+                    index = self.x_idx_short['crp']
+                ).reindex(self.x_idx['crp'], fill_value=0)
             }
 
             self.x = {
@@ -229,11 +234,14 @@ class GeoDistributor:
     def define_cvx_problem(self,use_cons):
         
         # Get scaling factors
-        sf = np.concatenate([self.scale_f[k].reindex(self.x_idx[k], method='ffill') for k in ['ani','crp']])
+        sf = np.concatenate([self.scale_f[k].reindex(self.x_idx_short[k], method='ffill') for k in ['ani','crp']])
 
-        xs = cvxpy.Variable(len(self.x_idx['ani'])+len(self.x_idx['crp']), nonneg=True)
+        xs = cvxpy.Variable(len(self.x_idx_short['ani'])+len(self.x_idx_short['crp']), nonneg=True)
 
-        O1 = cvxpy.sum_squares(self.P1.M @ xs - np.concatenate((self.x0s['ani'].values,self.x0s['crp'].values)))
+        O1 = cvxpy.sum_squares(self.P1.M @ xs - np.concatenate((
+            self.x0s['ani'].values,
+            self.x0s['crp'].values
+        )))
         OBJ = cvxpy.Minimize(O1)
 
         CONS = []
@@ -250,7 +258,7 @@ class GeoDistributor:
         if '6' in use_cons:
             CONS.append(self.A6.M @ (xs/sf) <= 0)
         if '7' in use_cons:
-            CONS.append(self.A7.M @ (xs/sf) == 0)
+            pass
 
         # Define problem
         self.problem = cvxpy.Problem(
@@ -312,13 +320,13 @@ class GeoDistributor:
 
         self.A3 = self.make_A3_and_A4(land_use='cropland')
         
-        self.b3 = self.A3.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1.1 # NOTE: Implement cropland area limit factor from parameter, how to deal with scaling here
+        self.b3 = self.A3.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1 # NOTE: Implement cropland area limit factor from parameter
 
     def make_C4(self):
         '''Creates C4: A4 @ x <= b4'''
 
         self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
-        self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1.1 # NOTE: Implement SNG area limit factor from parameter, how to deal with scaling here
+        self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1 # NOTE: Implement SNG area limit factor from parameter
 
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0'''
@@ -342,10 +350,99 @@ class GeoDistributor:
         self.A6 = self.make_A6()
 
     def make_C7(self):
-        '''Creates C7: A7 @ x == 0
-        Limit crops to certain regions based on minimum growing degree days'''
+        '''Creates C7: Constrain crops to certain regions based on minimum growing degree days (GDD5).
+        Also constrains animals with regional demand for crops that can't be grown in a region'''
+
+        # This constraint is not implemented as a constraint in the solver but instead dropps
+        # variables representing crops or animals that can't be present in a region. 
         
-        self.A7 = self.make_A7()
+        # Index of crops
+        cr_idx = self.x_idx['crp']
+        
+        # Get allowed crop-region combinations (i.e. region GDD5 >= min_GDD5 for crop)
+        self.crops.par.clear()
+        self.regions.par.clear()
+        sel_cr = cr_idx[
+            self.regions.par.get('GDD5',**cr_idx.to_frame().to_dict('list'))
+            >=
+            self.crops.par.get('min_GDD5',**cr_idx.to_frame().to_dict('list'))
+        ]
+        
+        # Index of animal herds
+        an_idx = self.x_idx['ani']
+        
+        # Get crop products that CAN be produced in region
+        sel_cp = (
+            self.crops.production.loc[sel_cr]
+            .stack()
+            .groupby(['crop_prod','prod_system','region'])
+            .sum()
+            .replace({0:np.nan}).dropna()
+            .index
+        )
+        
+        # Index of crop products
+        cp_idx = (
+            self.crops.production
+            .stack().droplevel('crop')
+            .reorder_levels(['crop_prod','prod_system','region'])
+            .index.unique()
+        )
+        # Get crop products that CAN'T be produced in region
+        nsel_cp = cp_idx.difference(sel_cp)
+        
+        # List to populate with herds that can be in region
+        # (i.e. with no regional demand for feeds that can't be 
+        # produced in the region) 
+        sel_an = []
+
+        for h in self.herds:
+            # Get crop products with a regional feed demand
+            nsel_cp2 = (
+                (h.feed.crop_product_demand
+                .xs('regional',axis=1)
+                .stack(['prod_system','crop_prod'])
+                .sum(axis=1)
+                .reorder_levels(['crop_prod','prod_system','region'])
+                > 0)
+                .replace({False:np.nan}).dropna()
+                .index
+            )
+            
+            # Get regions where herd has a regional demand
+            # for a feed that can't be grown. 
+            nsel_re = nsel_cp.intersection(nsel_cp2).get_level_values('region').unique()
+            
+            # Get regions where herd CAN be present
+            sel_re = h.index.difference(nsel_re)
+
+            # Add herds allowed to animal selection
+            sp = h.species
+            br = h.breed
+            ps = h.prod_system
+            ss = h.sub_system
+            sel_an += [(sp,br,ps,ss,re) for re in sel_re]
+        # To pandas MultiIndex
+        sel_an = pd.MultiIndex.from_tuples(sel_an,names=['species','breed','prod_system','sub_system','region'])
+        
+        # Get variable positions not to drop
+        isel_an = [an_idx.get_loc(s) for s in sel_an]
+        isel_cr = [cr_idx.get_loc(s) + len(an_idx) for s in sel_cr]
+        isel = isel_an + isel_cr
+        
+        # Store short index (i.e. index of variables after dropping)
+        self.x_idx_short = {'ani':sel_an, 'crp':sel_cr}
+        
+        # Drop variables from objective and constraint matrices
+        for mat in ['P1','A1','A2','A3','A4','A5','A6']:
+            try:
+                A = getattr(self,mat)
+            except:
+                continue
+            else:
+                A.M = A.M[:,isel]
+                A.cols['ani'] = sel_an.copy()
+                A.cols['crp'] = sel_cr.copy()
 
     def make_O1(self):
         
@@ -825,109 +922,6 @@ class GeoDistributor:
         )
 
         return M
-    
-    def make_A7(self):
-        '''Creates A-matrix for C7:
-        
-        Constrain crops from being grown in certain regions based
-        on a minimum growing degree days in areas where the crop
-        is currently (x0) grown.'''
-        
-        #     |  Z   M1  |
-        # M = |          |
-        #     |  M2   Z  |
-
-        # <---- M1 ---->
-
-        # Get row and col index from crops (cr,ps,re)
-        row_idx = col_idx = self.x_idx['crp']
-
-        # val=1 if fewer growing degrees in region than minimum for crop
-        # (i.e. crop can't be grown)
-        val = (
-            self.regions.par.get('GDD5',**row_idx.to_frame().to_dict('list'))
-            <
-            self.crops.par.get('min_GDD5',**row_idx.to_frame().to_dict('list'))
-        ) * 1
-
-        # Create matrix with ones on diagonal if crop can't be grown in region
-        row_nr = col_nr = range(len(row_idx))
-        M1 = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-        Z1 = scipy.sparse.csc_matrix((M1.shape[0],len(self.x_idx['ani']))) # Zero matrix
-
-        # <---- M2 ---->
-
-        # Get row and col index from animals (sp,br,ps,ss,re)
-        row_idx = col_idx = self.x_idx['ani']
-
-        # Get crops that can be grown in region
-        crops_ok = pd.Series(val==0, index=self.x_idx['crp'])
-
-        # Get crop products that can be produced in region
-        crop_prod_ok = (
-            self.crops.production
-            .mul(crops_ok, axis=0)
-            .stack()
-            .groupby(['crop_prod','prod_system','region'])
-            .sum()
-            > 0
-        )
-        crop_prod_not_ok = (~crop_prod_ok).rename('not_ok')
-
-        # Create list to store index for herds that can't be in regions
-        herds_to_drop = []
-
-        for herd in self.herds:
-            reg_feed = (
-                herd.feed.crop_product_demand
-                .xs('regional',axis=1)
-                .stack(['prod_system','crop_prod'])
-                .sum(axis=1)
-                .reorder_levels(['crop_prod','prod_system','region'])
-                > 0
-            ).rename('reg')
-
-            # Get animal herds that can't be in region as the ones
-            # with any regional feed demand for a crop that can't
-            # be grown.
-            herd_drop = (
-                pd.merge(
-                    reg_feed,crop_prod_not_ok,
-                    how='left',
-                    left_index=True, right_index=True
-                ).sum(axis=1)
-                == 2
-            ).groupby(['region']).any()
-
-            drop_idx = herd_drop[herd_drop].index
-            
-            # Add to drop list
-            if herd_drop.any():
-                sp = herd.species
-                br = herd.breed
-                ps = herd.prod_system
-                ss = herd.sub_system
-                herds_to_drop += [(sp,br,ps,ss,re) for re in drop_idx]
-
-        val = np.array([idx in herds_to_drop for idx in row_idx]) * 1
-
-        # Create matrix with ones on diagonal if animal herd can't be in region
-        row_nr = col_nr = range(len(row_idx))
-        M2 = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-        Z2 = scipy.sparse.csc_matrix((M2.shape[0],len(self.x_idx['crp']))) # Zero matrix
-
-        # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.vstack([
-                scipy.sparse.hstack([Z1,M1]),
-                scipy.sparse.hstack([M2,Z2])
-            ]),
-            {'ani':self.x_idx['ani'],'crp':col_idx},
-            {'ani':self.x_idx['ani'],'crp':col_idx}
-        )
-
-        return M
-
 
     def make_P1_1(self):
         # Get row index from x0['ani'] (sp,br,ps,re)
