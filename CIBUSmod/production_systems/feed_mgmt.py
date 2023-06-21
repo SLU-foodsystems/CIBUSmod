@@ -355,30 +355,19 @@ class FeedMgmt():
     
     def calculate_enteric_methane(self):
 
+        idx = pd.IndexSlice
+
         for herd in self.herds:
 
-            if herd.species in ['cattle']:
-                # Calculate enetric fermentation based on method presented in
-                # <<Bertilsson (2016) Updating Swedish emission factors for cattle
-                # to be used for calculations of greenhouse gases>> which is used
-                # in the Swedish NIR.
+            self.par.set(
+                species=herd.species,
+                breed=herd.breed,
+                sub_system=herd.sub_system
+            )
 
-                idx = pd.IndexSlice
+            if herd.species in ['cattle','sheep']:
 
                 CH4_specific_energy = 55.6 # [MJ/kg]
-
-                self.par.set(
-                    species=herd.species,
-                    breed=herd.breed,
-                    sub_system=herd.sub_system
-                )
-
-                # Get dry matter intake [kg DM]
-                dry_matter_intake = (
-                    herd.feed.consumption
-                    .groupby(['prod_system','animal'], axis=1)
-                    .sum()
-                )
 
                 # Get gross energy intake [MJ]
                 GE_intake = (
@@ -389,59 +378,70 @@ class FeedMgmt():
                     .groupby(['prod_system','animal'], axis=1).sum()
                 )
 
-                # Get fat in ration [g/kg DM]
-                fat_in_ration = (
-                    (
-                        self.par.get_from_frame('feed_par_fat',herd.feed.consumption)
-                        * herd.feed.consumption
-                    )
-                    .groupby(['prod_system','animal'], axis=1).sum()
-                    / dry_matter_intake
-                )
+                if herd.species == 'cattle':
+                    # Calculate Ym (i.e. % of gross energy intake resulting in mtehane
+                    # emissions) based on method presented in <<Bertilsson (2016) Updating
+                    # Swedish emission factors for cattle to be used for calculations of
+                    # greenhouse gases>> which is used in the Swedish NIR.
 
-                sel_rough = ['ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing']
-
-                # Calculate concentrate share [% of DM]
-                concentrate_share = 100 - (
-                    (
+                    # Get dry matter intake [kg DM]
+                    dry_matter_intake = (
                         herd.feed.consumption
-                        .loc[:,idx[:,:,sel_rough]]
                         .groupby(['prod_system','animal'], axis=1)
                         .sum()
-                    ) / dry_matter_intake
-                ) * 100
-                
+                    )
 
-                # Calculate Ym (i.e. % of gross energy intake resulting in mtehane emissions)
-                Ym = (-0.046 * concentrate_share + 7.1379)
+                    # Get fat in ration [g/kg DM]
+                    fat_in_ration = (
+                        (
+                            self.par.get_from_frame('feed_par_fat',herd.feed.consumption)
+                            * herd.feed.consumption
+                        )
+                        .groupby(['prod_system','animal'], axis=1).sum()
+                        / dry_matter_intake
+                    )
 
-                # Update values using specific method for cows
-                Ym.update(
-                    (
-                        (1.39 * dry_matter_intake - 0.091 * fat_in_ration * herd.heads * 365.25)
-                        / GE_intake * 100
-                    ).xs('cows', level='animal', axis=1, drop_level=False)
-                )
+                    sel_rough = ['ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing']
 
-                # Calculate enteric methane emissions [kg CH4]
+                    # Calculate concentrate share [% of DM]
+                    concentrate_share = 100 - (
+                        (
+                            herd.feed.consumption
+                            .loc[:,idx[:,:,sel_rough]]
+                            .groupby(['prod_system','animal'], axis=1)
+                            .sum()
+                        ) / dry_matter_intake
+                    ) * 100
+                    
+
+                    # Calculate Ym (i.e. % of gross energy intake resulting in mtehane emissions)
+                    Ym = (-0.046 * concentrate_share + 7.1379)
+
+                    # Update values using specific method for cows
+                    Ym.update(
+                        (
+                            (1.39 * dry_matter_intake - 0.091 * fat_in_ration * herd.heads * 365.25)
+                            / GE_intake * 100
+                        ).xs('cows', level='animal', axis=1, drop_level=False)
+                    )
+                else:
+                    # Get specified Ym factors per animal
+                    Ym = self.par.get_from_frame('Ym_enteric',herd.heads)
+
+                # Calculate enteric methane emissions from Ym and GE intake [kg CH4]
                 enteric_methane = GE_intake * Ym/100 / CH4_specific_energy
 
             else:
-                # Calculate enteric fermentation based on EFs per animal
-                # IMPLEMENT AS PARAMETERS INSTEAD!!!
-                if herd.species == 'horses':
-                    EF = 18
-                elif herd.species == 'pigs':
-                    EF = 1.5
-                else:
-                    EF = 0
+                # Calculate enteric fermentation based on EFs [kg CH4/animal/year] per animal
                 
                 # Calculate enteric methane emissions [kg CH4]
-                enteric_methane = herd.heads * EF
+                enteric_methane = herd.heads * self.par.get_from_frame('EF_enteric', herd.heads)
 
             # Store enteric methane emissions [kg CH4]
             herd.enteric_methane = enteric_methane.fillna(0)
             herd.data_attr.update(['enteric_methane'])
+
+            self.par.clear()
 
 
 
