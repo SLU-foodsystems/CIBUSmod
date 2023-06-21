@@ -65,6 +65,19 @@ class FeedMgmt():
 
         vprint(type='end')
 
+    def calculate2(self, verbose=False):
+
+        # Define functions to print progress messages if verbose==True
+        vprint = verbose_init(verbose, id_str='FeedMgmt')
+
+        vprint('Adjusting feed rations (not implemented) ...')
+        self.redistribute_feeds()
+        vprint('Calculating enteric methane emissions ...')
+        self.calculate_enteric_methane()
+
+        vprint(type='end')
+
+
     def calculate_feed_consumption(self):
         '''Calculates energy requirements per animal and from this + defined feed rations the total demand for feeds per animal.'''
 
@@ -333,6 +346,104 @@ class FeedMgmt():
             else:
                 herd.feed.max_supply_from_crop = None
                 herd.data_attr.update(['feed.max_supply_from_crop'])
+
+    def redistribute_feeds(self):
+        # IMPLEMENT METHOD TO REDISTRIBUTE FEEDS
+        # IN ORDER TO ALIGN WITH GENERATED/IMPORTED
+        # BY-PRODUCTS
+        pass 
+    
+    def calculate_enteric_methane(self):
+
+        for herd in self.herds:
+
+            if herd.species in ['cattle']:
+                # Calculate enetric fermentation based on method presented in
+                # <<Bertilsson (2016) Updating Swedish emission factors for cattle
+                # to be used for calculations of greenhouse gases>> which is used
+                # in the Swedish NIR.
+
+                idx = pd.IndexSlice
+
+                CH4_specific_energy = 55.6 # [MJ/kg]
+
+                self.par.set(
+                    species=herd.species,
+                    breed=herd.breed,
+                    sub_system=herd.sub_system
+                )
+
+                # Get dry matter intake [kg DM]
+                dry_matter_intake = (
+                    herd.feed.consumption
+                    .groupby(['prod_system','animal'], axis=1)
+                    .sum()
+                )
+
+                # Get gross energy intake [MJ]
+                GE_intake = (
+                    (
+                        self.par.get_from_frame('feed_par_GE',herd.feed.consumption)
+                        * herd.feed.consumption
+                    )
+                    .groupby(['prod_system','animal'], axis=1).sum()
+                )
+
+                # Get fat in ration [g/kg DM]
+                fat_in_ration = (
+                    (
+                        self.par.get_from_frame('feed_par_fat',herd.feed.consumption)
+                        * herd.feed.consumption
+                    )
+                    .groupby(['prod_system','animal'], axis=1).sum()
+                    / dry_matter_intake
+                )
+
+                sel_rough = ['ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing']
+
+                # Calculate concentrate share [% of DM]
+                concentrate_share = 100 - (
+                    (
+                        herd.feed.consumption
+                        .loc[:,idx[:,:,sel_rough]]
+                        .groupby(['prod_system','animal'], axis=1)
+                        .sum()
+                    ) / dry_matter_intake
+                ) * 100
+                
+
+                # Calculate Ym (i.e. % of gross energy intake resulting in mtehane emissions)
+                Ym = (-0.046 * concentrate_share + 7.1379)
+
+                # Update values using specific method for cows
+                Ym.update(
+                    (
+                        (1.39 * dry_matter_intake - 0.091 * fat_in_ration * herd.heads * 365.25)
+                        / GE_intake * 100
+                    ).xs('cows', level='animal', axis=1, drop_level=False)
+                )
+
+                # Calculate enteric methane emissions [kg CH4]
+                enteric_methane = GE_intake * Ym/100 / CH4_specific_energy
+
+            else:
+                # Calculate enteric fermentation based on EFs per animal
+                # IMPLEMENT AS PARAMETERS INSTEAD!!!
+                if herd.species == 'horses':
+                    EF = 18
+                elif herd.species == 'pigs':
+                    EF = 1.5
+                else:
+                    EF = 0
+                
+                # Calculate enteric methane emissions [kg CH4]
+                enteric_methane = herd.heads * EF
+
+            # Store enteric methane emissions [kg CH4]
+            herd.enteric_methane = enteric_methane.fillna(0)
+            herd.data_attr.update(['enteric_methane'])
+
+
 
 class Feed(Container):
     '''Class to store feed attributes in AnimalHerd obejcts'''
