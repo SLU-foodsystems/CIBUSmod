@@ -73,14 +73,7 @@ class GeoDistributor:
         vprint('Scaling ...')
         # Calculate scaling factors
         self.calculate_scaling_factors(scale_power)
-
-        # Apply scaling factors to x0
-        self.x0s = {
-            key : df * self.scale_f[key]
-            for key,df
-            in zip(self.x0.keys(),self.x0.values())
-            }
-        
+       
         # Make objective function(s)
         vprint('Making objective O1 ...')
         self.make_O1()
@@ -145,28 +138,18 @@ class GeoDistributor:
             self.success = False
 
             # Get and store optimal value for variable
-            xs = self.problem.variables()[0].value
+            x = self.problem.variables()[0].value
             # Put xs on short index (!= index if C7 is used) and reindex 
-            self.xs = {
+            self.x = {
                 'ani' : pd.Series(
-                    xs[:len(self.x_idx_short['ani'])],
+                    x[:len(self.x_idx_short['ani'])],
                     index = self.x_idx_short['ani']
                 ).reindex(self.x_idx['ani'], fill_value=0),
                 'crp' : pd.Series(
-                    xs[len(self.x_idx_short['ani']):],
+                    x[len(self.x_idx_short['ani']):],
                     index = self.x_idx_short['crp']
                 ).reindex(self.x_idx['crp'], fill_value=0)
             }
-
-            self.x = {
-                key : (
-                    (df / self.scale_f[key])
-                    .reorder_levels(self.x_idx[key].names)
-                    .reindex(self.x_idx[key])
-                )
-                for key,df
-                in zip(self.xs.keys(),self.xs.values())
-                }
         else:
             vprint(f'No solution found!')
             self.success = False
@@ -194,7 +177,7 @@ class GeoDistributor:
             'crp' : self.D['crp'].index
         }
 
-    def calculate_scaling_factors(self,scale_power=[0,0]):
+    def calculate_scaling_factors(self,scale_power=0):
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
 
@@ -210,21 +193,26 @@ class GeoDistributor:
 
         x0_ = pd.concat((x0_ani,x0_crp))
 
-        # Calculate scale factor with regards to item (i.e. species+breed+production system or crop+production system)
-        sums1 = x0_.groupby('item').transform('mean')
-        f1 = (sums1.mean() / sums1) * scale_power[0] + 1 * (1-scale_power[0])
-        f1[f1==np.inf] = f1[f1!=np.inf].mean() # temp fix
+        # # Calculate scale factor with regards to item (i.e. species+breed+production system or crop+production system)
+        # sums1 = x0_.groupby('item').transform('mean')
+        # f1 = (sums1.mean() / sums1) * scale_power[0] + 1 * (1-scale_power[0])
+        # f1[~np.isfinite(f1)] = f1[np.isfinite(f1)].mean() # temp fix
         
-        # Calculate scale factor with regards to region 
-        sums2 = x0_.groupby('region').transform('mean')
-        f2 = (sums2.mean() / sums2) * scale_power[1] + 1 * (1-scale_power[1])
+        # # Calculate scale factor with regards to region 
+        # sums2 = x0_.groupby('region').transform('mean')
+        # f2 = (sums2.mean() / sums2) * scale_power[1] + 1 * (1-scale_power[1])
 
-        # Assert results
-        assert np.isfinite(f1).all()
-        assert np.isfinite(f2).all()
+        # # Assert results
+        # assert np.isfinite(f1).all()
+        # assert np.isfinite(f2).all()
 
-        # Calculate final scale factors
-        f = (f1 * f2)
+        # # Calculate final scale factors
+        # f = (f1 * f2)
+
+        f = x0_.mean()/x0_
+        f.loc[f==np.inf] = f.loc[f!=np.inf].max()
+        f = f * scale_power + 1 * (1-scale_power)
+        assert np.isfinite(f).all()
 
         scale_f['ani'].iloc[:] = f[:len(scale_f['ani'])]
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
@@ -233,30 +221,48 @@ class GeoDistributor:
 
     def define_cvx_problem(self,use_cons):
         
-        # Get scaling factors
-        sf = np.concatenate([self.scale_f[k].reindex(self.x_idx_short[k], method='ffill') for k in ['ani','crp']])
+        # Apply scaling factors to x0
+        x0s = cvxpy.Constant(
+            np.concatenate([
+                (self.x0[k] * self.scale_f[k])
+                .reindex(self.x0_idx[k])
+                for k in ['ani','crp']
+            ])
+        )
+        
+        # Get scaling factors for x
+        sf = cvxpy.Constant(
+            np.concatenate([
+                (
+                    self.scale_f['ani']
+                    .reindex(self.x_idx['ani'].reorder_levels(['species','breed','prod_system','region','sub_system']))
+                    .reindex(self.x_idx_short['ani'].reorder_levels(['species','breed','prod_system','region','sub_system']))
+                ),
+                self.scale_f['crp'].reindex(self.x_idx_short['crp'])
+            ])
+        )
 
-        xs = cvxpy.Variable(len(self.x_idx_short['ani'])+len(self.x_idx_short['crp']), nonneg=True)
+        n = len(self.x_idx_short['ani'])+len(self.x_idx_short['crp'])
+        x = cvxpy.Variable(n, nonneg=True)
 
-        O1 = cvxpy.sum_squares(self.P1.M @ xs - np.concatenate((
-            self.x0s['ani'].values,
-            self.x0s['crp'].values
-        )))
+        O1 = cvxpy.sum_squares(
+            (self.P1.M @ cvxpy.multiply(sf,x)) - x0s
+        )
         OBJ = cvxpy.Minimize(O1)
 
         CONS = []
         if '1' in use_cons:
-            CONS.append(self.A1.M @ (xs/sf) == self.b1)
+            CONS.append(self.A1.M @ x == self.b1)
         if '2' in use_cons:
-            CONS.append(self.A2.M @ (xs/sf) >= 0)
+            CONS.append(self.A2.M @ x >= 0)
         if '3' in use_cons:
-            CONS.append(self.A3.M @ (xs/sf) <= self.b3)
+            CONS.append(self.A3.M @ x <= self.b3)
         if '4' in use_cons:
-            CONS.append(self.A4.M @ (xs/sf) <= self.b4)
+            CONS.append(self.A4.M @ x <= self.b4)
         if '5' in use_cons:
-            CONS.append(self.A5.M @ (xs/sf) <= 0)
+            CONS.append(self.A5.M @ x <= 0)
         if '6' in use_cons:
-            CONS.append(self.A6.M @ (xs/sf) <= 0)
+            CONS.append(self.A6.M @ x <= 0)
         if '7' in use_cons:
             pass
 
