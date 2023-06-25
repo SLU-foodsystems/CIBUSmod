@@ -178,46 +178,24 @@ class GeoDistributor:
         }
 
     def calculate_scaling_factors(self,scale_power=0):
+        '''Calculates scaling factor to apply to x and x0 in objective O1
+        as f = (mean(x0)/x0) ^ scale_power. In cases where f = inf
+        (i.e. x0 = 0) f is set to the maximum value  where f != inf.
+        scale_power = 0 gives no scaling.
+        '''
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
 
-        # Get x0 for animals and combine index levels species+breed+production system
-        x0_ani = self.x0['ani'].to_frame()
-        x0_ani['item'] = ['_'.join([sp,br,ps]) for sp,br,ps in self.x0['ani'].index.droplevel('region')]
-        x0_ani = x0_ani.set_index('item', append=True).droplevel(['species','breed','prod_system'])[self.x0['ani'].name]
+        x0 = pd.concat((self.x0['ani'],self.x0['crp']))
 
-        # Get x0 for crops and combine index levels crop+production system
-        x0_crp = self.x0['crp'].to_frame()
-        x0_crp['item'] = ['_'.join([cr,ps]) for cr,ps in self.x0['crp'].index.droplevel('region')]
-        x0_crp = x0_crp.set_index('item', append=True).droplevel(['crop','prod_system'])[self.x0['crp'].name]
-
-        x0_ = pd.concat((x0_ani,x0_crp))
-
-        # # Calculate scale factor with regards to item (i.e. species+breed+production system or crop+production system)
-        # sums1 = x0_.groupby('item').transform('mean')
-        # f1 = (sums1.mean() / sums1) * scale_power[0] + 1 * (1-scale_power[0])
-        # f1[~np.isfinite(f1)] = f1[np.isfinite(f1)].mean() # temp fix
-        
-        # # Calculate scale factor with regards to region 
-        # sums2 = x0_.groupby('region').transform('mean')
-        # f2 = (sums2.mean() / sums2) * scale_power[1] + 1 * (1-scale_power[1])
-
-        # # Assert results
-        # assert np.isfinite(f1).all()
-        # assert np.isfinite(f2).all()
-
-        # # Calculate final scale factors
-        # f = (f1 * f2)
-
-        f = x0_.mean()/x0_
+        f = x0.mean()/x0
         f.loc[f==np.inf] = f.loc[f!=np.inf].max()
-        f = f * scale_power + 1 * (1-scale_power)
+        f = f ** scale_power
         assert np.isfinite(f).all()
 
         scale_f['ani'].iloc[:] = f[:len(scale_f['ani'])]
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
         self.scale_f = scale_f
-
 
     def define_cvx_problem(self,use_cons):
         
