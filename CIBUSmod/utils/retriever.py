@@ -32,25 +32,31 @@ class ParameterRetriever:
         Use '/' as file path separator.'''
 
     instances = weakref.WeakSet() # WeakSet of all ParameterRetriever instances
+    data_path_default = None # Path to default data
+    data_path_scenarios = None # Path to scenario data
 
+    @classmethod
+    def set_data_folders(cls,default,scenarios):
+        # Set default data path
+        cls.data_path_default = _path_from_str(default)
+        # Set scenario data path
+        cls.data_path_scenarios = _path_from_str(scenarios)
+    
     @classmethod
     def update_all_parameter_values(cls,scenario,year):
         for pr in cls.instances:
             pr.update_parameter_values(scenario,year)
 
-    def __init__(self, file, **kwargs):
+    def __init__(self, name, **kwargs):
         
         ParameterRetriever.instances.add(self)
-        
-        # Read parameter dataframe with all columns as str except the 'value' column
-        path = ''
-        for word in file.split('/'):
-            path = os.path.join(path, word)
-        self.path = os.path.join(path)
+        self.name = name
 
-        self.data = _read_xl(self.path,'default')
+        # Read parameter dataframe with all columns as str except the 'value' column
+        path = os.path.join(self.data_path_default, self.name + '.xlsx')
+        self.data = _read_xl(path,'default')
         try:
-            self.rel = _read_xl(self.path,'relations')
+            self.rel = _read_xl(path,'relations')
         except:
             self.rel = None
 
@@ -218,8 +224,11 @@ Parameters
         if isinstance(scenario,str):
             scenario = [scenario]
 
+        # Get path to default data
+        def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
+
         # Read default parameter values
-        data = _read_xl(self.path,'default')
+        data = _read_xl(def_path,'default')
         # Create pd.Series for updated parameter values
         updated_data = data.copy()
 
@@ -229,16 +238,18 @@ Parameters
         # an effect.
         for scn in scenario:
 
+            # Get path to scenario data
+            scn_path = os.path.join(self.data_path_scenarios, scn + '.xlsx')
+
             # Read scenario parameter values
             try:
-                scn_data = _read_xl(self.path,'scn_'+scn)
+                scn_data = _read_xl(scn_path,self.name)
             except:
-                # If scenario sheet not pressent do not update anything.
+                # If scenario xlsx or sheet not pressent do not update anything.
                 # Should a warning be printed here?
-                # warnings.warn(f"No sheet named 'scn_{scn}' found in '{self.path}'. No parameter values were updated according to this scenario.")
                 continue
                 
-            # If sheet was found but contained no parameters, move to next scenario
+            # If xlsx and sheet was found but contained no parameters, move to next scenario
             if len(scn_data) == 0:
                 continue
 
@@ -386,7 +397,7 @@ def _read_xl(path,sheet):
 
                 df = pd.concat([df,df_csv])
 
-        if (sheet=='default') | sheet.startswith('scn_'):
+        if sheet!='relations':
             # Only retain filter column(s), parameter column and value column(s)
             index_cols = [c for c in df.columns if c.startswith("f_")]
             value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
@@ -408,6 +419,12 @@ def _read_xl(path,sheet):
                 
 
         return df
+
+def _path_from_str(str):
+    path = ''
+    for word in str.split('/'):
+        path = os.path.join(path, word)
+    return path
 
 def _build_selection_index(selection):
     if len(selection) == 0:
