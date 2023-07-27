@@ -4,7 +4,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import itertools
-import numbers
+from openpyxl import load_workbook
 
 EMPTY = float("nan")
 
@@ -32,25 +32,31 @@ class ParameterRetriever:
         Use '/' as file path separator.'''
 
     instances = weakref.WeakSet() # WeakSet of all ParameterRetriever instances
+    data_path_default = None # Path to default data
+    data_path_scenarios = None # Path to scenario data
 
+    @classmethod
+    def set_data_folders(cls,default,scenarios):
+        # Set default data path
+        cls.data_path_default = _path_from_str(default)
+        # Set scenario data path
+        cls.data_path_scenarios = _path_from_str(scenarios)
+    
     @classmethod
     def update_all_parameter_values(cls,scenario,year):
         for pr in cls.instances:
             pr.update_parameter_values(scenario,year)
 
-    def __init__(self, file, **kwargs):
+    def __init__(self, name, **kwargs):
         
         ParameterRetriever.instances.add(self)
-        
-        # Read parameter dataframe with all columns as str except the 'value' column
-        path = ''
-        for word in file.split('/'):
-            path = os.path.join(path, word)
-        self.path = os.path.join(path)
+        self.name = name
 
-        self.data = _read_xl(self.path,'default')
+        # Read parameter dataframe with all columns as str except the 'value' column
+        path = os.path.join(self.data_path_default, self.name + '.xlsx')
+        self.data = _read_xl(path,'default')
         try:
-            self.rel = _read_xl(self.path,'relations')
+            self.rel = _read_xl(path,'relations')
         except:
             self.rel = None
 
@@ -137,9 +143,9 @@ Parameters
         # If NaNs are return print warning and some useful information
         if np.isnan(result).any():
             if self.selection is None:
-                warnings.warn(f"NaN returned! No filters supplied and could not find a default value for '{parameter}' in {self.path}.")
+                warnings.warn(f"NaN returned! No filters supplied and could not find a default value for '{parameter}' in {self.name}.xlsx.")
             elif np.isnan(result).all():
-                str1 = f"NaNs returned! No value for '{parameter}' found in '{self.path}' matching any of the supplied filters (n={len(self.selection)}): \n----------\n"
+                str1 = f"NaNs returned! No value for '{parameter}' found in '{self.name}'.xlsx matching any of the supplied filters (n={len(self.selection)}): \n----------\n"
                 n = min([len(self.selection),5])
                 str2 = "\n----------\n".join([
                     "\n".join([
@@ -151,7 +157,7 @@ Parameters
                 warnings.warn(str1+str2)
             else:
                 nan_sel = self.selection[np.isnan(result)]
-                str1 = f"NaNs returned! No value for '{parameter}' found in '{self.path}' for some of the supplied filters (n={len(nan_sel)}): \n----------\n"
+                str1 = f"NaNs returned! No value for '{parameter}' found in '{self.name}'.xlsx for some of the supplied filters (n={len(nan_sel)}): \n----------\n"
                 n = min([len(nan_sel),5])
                 str2 = "\n----------\n".join([
                     "\n".join([
@@ -196,11 +202,17 @@ Parameters
 
     def update_parameter_values(self,scenario,year):
         '''Method to update parameter values in ParameterRetriever according to specified scenario and year.
-        New parameter values need to be stored in a separate sheet of the parameter Excel file named 'scn_<scenario name>'.
-        In the scenario sheet new values are defined in year columns with column names on the format 'y_<year>'.
-        These are defined in relation to the default parameter values (i.e. a value of 0.9 implies a 10% reduction
-        from the default value). New parameter values can be defined in the Excel sheet for arbitrary years and the
-        method linearly interpolates values between defined years.
+        
+        New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
+        same name as default parameter xlsx file. In the scenario sheet new values are defined in year columns with
+        column names on the format 'y_<year>'. New parameter values can be defined in the Excel sheet for arbitrary
+        years and the method linearly interpolates values between defined years.
+        
+        Values can be defined in ralative (i.e. a factor to multiply the default value with) or absolute terms by
+        writing 'rel' or 'abs' respectively in a separate column named 'val_is'.
+        
+        Scenario values can be more general than default values (i.e. apply to several default values) but not
+        more specific.
         
         Parameters
         ----------
@@ -218,8 +230,11 @@ Parameters
         if isinstance(scenario,str):
             scenario = [scenario]
 
+        # Get path to default data
+        def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
+
         # Read default parameter values
-        data = _read_xl(self.path,'default')
+        data = _read_xl(def_path,'default')
         # Create pd.Series for updated parameter values
         updated_data = data.copy()
 
@@ -229,16 +244,21 @@ Parameters
         # an effect.
         for scn in scenario:
 
-            # Read scenario parameter values
-            try:
-                scn_data = _read_xl(self.path,'scn_'+scn)
-            except:
-                # If scenario sheet not pressent do not update anything.
-                # Should a warning be printed here?
-                # warnings.warn(f"No sheet named 'scn_{scn}' found in '{self.path}'. No parameter values were updated according to this scenario.")
+            # Get path to scenario data
+            scn_path = os.path.join(self.data_path_scenarios, scn + '.xlsx')
+
+            if not os.path.isfile(scn_path):
+                # If file does not exist print warning and continue
+                warnings.warn(f"No xlsx file found for '{scn}' on path {scn_path}")
                 continue
+            if not self.name in load_workbook(scn_path, read_only=True).sheetnames:
+                # If sheet does not exist don't update anything
+                continue
+
+            # Read scenario parameter values
+            scn_data = _read_xl(scn_path,self.name)
                 
-            # If sheet was found but contained no parameters, move to next scenario
+            # If xlsx and sheet was found but contained no parameters, move to next scenario
             if len(scn_data) == 0:
                 continue
 
@@ -250,16 +270,16 @@ Parameters
             last_year = np.array(scn_data.columns).astype(int).max()
             cols_to_add = list(set(np.array(range(first_year,last_year)).astype(str)) - set(scn_data.columns))
             scn_data[cols_to_add] = np.nan
-            scn_data = scn_data.reindex(sorted(scn_data.columns), axis=1)
+            scn_data = scn_data.reindex(sorted(scn_data.columns, key=int), axis=1)
 
             # Interpolate values for intermediate years and if neededpropagate first/last value of a
             # parameter backward/forward.
-            scn_data = scn_data.interpolate(axis=1, limit_direction='both')
+            scn_data = scn_data.interpolate(axis=1, limit_direction='forward')
 
             # Interpolation example:
             # ---------------------        ----------------------------------------------------------------------
             # par  2000  2005  2010  --->  par   2000  2001  2002  2003  2004  2005  2006  2007  2008  2009  2010
-            # A    nan   1.0   1.5   --->  A     1.0   1.0   1.0   1.0   1.0   1.0   1.1   1.2   1.3   1.4   1.5
+            # A    nan   1.0   1.5   --->  A     nan   nan   nan   nan   nan   1.0   1.1   1.2   1.3   1.4   1.5
             # B    1.0   1.5   nan   --->  B     1.0   1.1   1.2   1.3   1.4   1.5   1.5   1.5   1.5   1.5   1.5
             # C    1.0   0.5   1.0   --->  C     1.0   0.9   0.8   0.7   0.6   0.5   0.6   0.7   0.8   0.9   1.0
             # ---------------------        ----------------------------------------------------------------------
@@ -268,30 +288,45 @@ Parameters
             scn_data["value"] = scn_data[str(year)]
             scn_data = scn_data["value"]
 
-            # Go through parameters in scenario and update values
-            for parameter in scn_data.index.get_level_values('parameter').unique():
+            val_iss = scn_data.index.get_level_values('val_is').unique()
 
-                # Create selection
-                selection = self.data.xs(parameter,level='parameter', drop_level=False).index
-                scn_selection = selection.droplevel('parameter')
-                
-                # If no filter columns in scenarios sheet (i.e. values to update parameters apply universaly)
-                # then make sure that only one value is found and update accordingly
-                if len(scn_data.index.names)==1:
-                    if len(scn_data==1):
-                        values = scn_data.values
+            # Go through parameters defined in relative (rel) and absolute (abs) terms
+            for val_is in [v for v in ['rel','abs'] if v in val_iss]:
+
+                scn_data_ = scn_data.xs(val_is, level='val_is')
+
+                # Go through parameters in scenario and update values
+                for parameter in scn_data_.index.get_level_values('parameter').unique():
+
+                    # Create selection
+                    selection = self.data.xs(parameter,level='parameter', drop_level=False).index
+                    scn_selection = selection.droplevel('parameter')
+                    
+                    # If no filter columns in scenarios sheet (i.e. values to update parameters apply universaly)
+                    # then make sure that only one value is found and update accordingly
+                    if len(scn_data_.index.names)==1:
+                        assert np.isscalar(scn_data_.xs(parameter))
+                        values = pd.Series(
+                            scn_data_.xs(parameter),
+                            index=selection
+                        )
                     else:
-                        values = [EMPTY]
-                else:
-                    # Drop selection levels not in scenario filter columns
-                    for lvl in (set(selection.names) - set(scn_data.index.names)):
-                        scn_selection = scn_selection.droplevel(lvl)
+                        # Drop selection levels not in scenario filter columns
+                        for lvl in (set(selection.names) - set(scn_data_.index.names)):
+                            scn_selection = scn_selection.droplevel(lvl)
 
-                    # Get scenario values
-                    values = _get_parameter_values(scn_data, scn_selection, parameter)
+                        # Get scenario values
+                        values = pd.Series(
+                            _get_parameter_values(scn_data_, scn_selection, parameter),
+                            index=selection
+                        )
 
-                # Update values
-                updated_data.loc[selection] = data.loc[selection] * np.nan_to_num(values,1)
+                    # If in relative terms multiply with original value
+                    if val_is=='rel':
+                        values = data.loc[selection] * values
+
+                    # Update values
+                    updated_data.update(values)
             
         self.data = updated_data
 
@@ -386,9 +421,9 @@ def _read_xl(path,sheet):
 
                 df = pd.concat([df,df_csv])
 
-        if (sheet=='default') | sheet.startswith('scn_'):
+        if sheet!='relations':
             # Only retain filter column(s), parameter column and value column(s)
-            index_cols = [c for c in df.columns if c.startswith("f_")]
+            index_cols = [c for c in df.columns if c.startswith("f_") or c=="val_is"]
             value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
 
             df = (
@@ -408,6 +443,12 @@ def _read_xl(path,sheet):
                 
 
         return df
+
+def _path_from_str(str):
+    path = ''
+    for word in str.split('/'):
+        path = os.path.join(path, word)
+    return path
 
 def _build_selection_index(selection):
     if len(selection) == 0:
