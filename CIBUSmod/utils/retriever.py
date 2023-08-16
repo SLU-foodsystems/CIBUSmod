@@ -388,9 +388,24 @@ Parameters
 def _read_csv(path,parameter):
     df = pd.read_csv(path, dtype=str)
 
+    cell1 = df.columns[0]
+    if cell1.startswith('cols_as_filter'):
+        # If 'cols_as_filter' keyword found in first cell
+        # then stack data
+        df = pd.read_csv(path, dtype=str, header=1)
+        df.columns.name = cell1.replace('cols_as_filter: ','')
+        f_cols = [c for c in df.columns if c.startswith("f_")]
+        df = (
+            df
+            .set_index(f_cols)
+            .stack()
+            .rename(parameter)
+            .to_frame()
+            .reset_index()
+        )
+
     if parameter not in df.columns:
         raise ValueError(f"'{parameter}' not found in '{path}'")
-
     f_cols = [c for c in df.columns if c.startswith("f_")]
 
     df = df.rename({parameter:'value'}, axis=1)

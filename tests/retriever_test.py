@@ -32,7 +32,7 @@ assert test.get('one',F='a2') == 1.1
 test.clear()
 assert test.get('two') == 2
 
-# %% Get values loaded from csv
+# %% Get values loaded from csv files
 test.clear()
 assert test.get('five', A='a1') == 5.1
 
@@ -41,6 +41,15 @@ assert test.get('five', A='a1', E='e1') == 5.2
 
 test.clear()
 assert test.get('five', E='e1') == 5.3
+
+test.clear()
+assert test.get('six', A='a1', F='f1') == 6.1
+
+test.clear()
+assert test.get('six', A='a1', E='e1', F='f1') == 6.2
+
+test.clear()
+assert test.get('six', E='e1', F='f3') == 6.9
 
 # %% Return NaN if no propper match
 
@@ -147,3 +156,5 @@ assert test.get('three', A='a2', C='c2') == 31
 # %% Wrong scenario name
 test.update_parameter_values(['retriever_test_scn3','retriever_test_scn4'],10)
 print(test.data)
+
+# %%
