@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr
 
 class Regions(object):
     '''Class that handles region attributes
@@ -14,9 +13,12 @@ class Regions(object):
 
     Attributes set on init
     ----------------------
+    index : 
 
-    Attributes set by CropProduction.calculate()
+    Attributes set by Regions.calculate()
     --------------------------------------------
+    climate :
+    soil :
     '''
 
     def __init__(self,x0,par):

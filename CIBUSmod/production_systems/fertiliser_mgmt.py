@@ -15,6 +15,7 @@ class FertiliserMgmt():
     ----------
     crops : CropProduction object
     herds : (pandas.Series of) AnimalHerd object(s)
+    demand : DemandAndConversions object
     par : ParameterRetriever object
     '''
 
