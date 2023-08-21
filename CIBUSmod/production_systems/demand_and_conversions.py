@@ -80,7 +80,7 @@ class DemandAndConversions(object):
         self.calculate_crop_product_demand()
 
         # Calculate demand for animal products and generated animal by-products
-        vprint('Calculating crop product demand ...')
+        vprint('Calculating animal product demand ...')
         self.calculate_animal_product_demand()
 
         vprint(type='end')
