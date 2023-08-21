@@ -63,6 +63,7 @@ class MachineryAndEnergyMgmt(object):
     def calculate_field_machinery(self):
         p = self.par.get
         pf = self.par.get_from_frame
+        idx = pd.IndexSlice
 
         field_operations = pd.Index(
             self.par.get_unique('operation'),
@@ -79,6 +80,7 @@ class MachineryAndEnergyMgmt(object):
 
         # Get field operatiobns matrix specifying nr of times
         # each operation is performed
+        self.par.clear()
         A = pf(
             'field_operations',
             pd.DataFrame(index=self.crops.index, columns=field_operations)
@@ -181,7 +183,6 @@ class MachineryAndEnergyMgmt(object):
 
         # Calculate final energy
         E_final = A.copy()
-        idx = pd.IndexSlice
         # Series to get regions with soil class
         sc = pd.Series(self.regions.soil['class'].index.values, index = self.regions.soil['class'])
 
@@ -197,7 +198,7 @@ class MachineryAndEnergyMgmt(object):
         M = self.crops.energy_use.loc[:,idx['field machinery',:]]
 
         self.crops.energy_use.loc[:,idx['field machinery',:]] = (
-            (pf('machinery_energy_source_share',M)/100)
+            (pf('energy_source_share',M)/100)
             .mul(E_final.sum(axis=1), axis=0) /
             pf('drivetrain_efficiency',M)
         )
@@ -206,7 +207,18 @@ class MachineryAndEnergyMgmt(object):
         pass
 
     def calculate_greenhouses(self):
-        pass
+        pf = self.par.get_from_frame
+        idx = pd.IndexSlice
+
+        self.par.clear()
+        M = self.crops.energy_use.loc[:,idx['greenhouses',:]]
+        self.crops.energy_use.loc[:,idx['greenhouses',:]] = (
+            pf('greenhouse_energy_use',M)
+            .mul(self.crops.area, axis=0) *
+            (pf('energy_source_share',M)/100)
+        )
+
+
 
     def calculate_stables(self):
         pass
