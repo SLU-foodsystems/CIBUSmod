@@ -8,6 +8,8 @@ import scipy
 import time
 
 from ..utils.verbose_print import verbose_init
+from ..utils.misc import multiply_aligned
+from ..utils.output_data_manip import concat_herds
 
 class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given demand (D) and a number of constraints
@@ -93,7 +95,8 @@ class GeoDistributor:
 
         vprint(type='end')
 
-    def solve(self, solver_settings='default', verbose=False):
+    def solve(self, solver_settings='default', apply_solution=True, verbose=False):
+        '''Solve optimisation problem'''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.solve')
 
@@ -135,7 +138,7 @@ class GeoDistributor:
             # DO SOME MORE FEASIBILITY CHECKS ON THE SOLUTION HERE!!
 
             vprint(f'Optimal solution found! Status: \'{self.problem.status}\', Itterations: {self.problem.solver_stats.num_iters}, Solver: \'{self.problem.solver_stats.solver_name}\'')
-            self.success = False
+            self.success = True
 
             # Get and store optimal value for variable
             x = self.problem.variables()[0].value
@@ -150,12 +153,35 @@ class GeoDistributor:
                     index = self.x_idx_short['crp']
                 ).reindex(self.x_idx['crp'], fill_value=0)
             }
+
+            if apply_solution:
+                vprint(f'Applying solution')
+                self.apply_solution()
+
         else:
             vprint(f'No solution found!')
             self.success = False
             # NEED TO IMPLEMENT A WAY TO HANDLE THIS SITUATION
 
         vprint(type='end')
+
+    def apply_solution(self, x=None):
+        '''Update CropProduction and AnumalHerds according to found solution'''
+
+        if x is None:
+            x = self.x
+
+        # Update CropProduction
+        self.crops.scale(x['crp'])
+        # Update AnumalHerds
+        for h in self.herds:
+            h.scale(
+                x['ani'].loc[(h.species,h.breed,h.prod_system,h.sub_system)],
+                x_is = h.x_is
+            )
+        
+        # Allocate crop areas to uses
+        self.allocate_crop_production_per_use()
 
     def get_demand(self):
         self.D = {
@@ -947,9 +973,116 @@ class GeoDistributor:
         )
 
         return M
+    
+    def allocate_crop_production_per_use(self):
+        '''Allocate crop areas to different uses.
+        Creates attriute 'area_per_use' in CropProduction'''
+
+        # Get prouction per crop product
+        prod = (
+            self.crops.production
+            .stack()
+            .groupby(['region','prod_system','crop_prod']).sum()
+        )
+
+        # Get crop product demand for feed per region
+        feed_demand = (
+            concat_herds(self.herds)
+            .feed.crop_product_demand
+            .xs('domestic', level='origin', axis=1)
+            .groupby(['species','breed','prod_system','crop_prod'], axis=1).sum()
+            .stack(['prod_system','crop_prod'])
+            .reindex(prod.index)
+            .fillna(0)
+        )
+        feed_demand.columns = feed_demand.columns.map('{0[0]}, {0[1]}'.format).rename('demand')
+
+        # Calculate feed demand met regionally as the maximum
+        # share possible (i.e. regional crop areas are first
+        # used to cater for regional feed demand befor national
+        # demand for feed, food, etc.)
+        regional_feed_demand = feed_demand.where(
+            prod >= feed_demand.sum(axis=1),
+            (
+                feed_demand
+                .mul(1/feed_demand.sum(axis=1), axis=0)
+                .mul(prod, axis=0)
+            )
+        )
+
+        prod_to_national = prod - regional_feed_demand.sum(axis=1)
+
+        # Calculate remaining feed demand that needs to be supplied nationally
+        national_feed_demand = (feed_demand - regional_feed_demand).groupby(['prod_system','crop_prod']).sum()
+
+        national_demand = pd.concat([
+
+            self.demand.crop_prod_demand,
+
+            self.crops.seed_demand
+            .groupby('prod_system')
+            .sum().stack().rename('seed'),
+
+            national_feed_demand
+
+        ], axis=1).fillna(0).rename_axis('demand',axis=1)
+
+        national_demand_shares = (
+            national_demand
+            .transform(lambda x: x/x.sum() if x.sum()>0 else 0, axis=1)
+            .reindex(
+                prod_to_national
+                .reorder_levels(['prod_system','crop_prod','region'])
+                .index
+            )
+            .reorder_levels(['region','prod_system','crop_prod'])
+        )
+
+        # Calculate total demand (regional+national)
+        total_demand = (
+            national_demand_shares.mul(prod_to_national, axis=0)
+            +
+            regional_feed_demand.reindex(national_demand_shares.columns, axis=1).fillna(0)
+        )
+        total_demand['none'] = prod - total_demand.sum(axis=1)
+        # Set small negatives to zero
+        assert total_demand.min().min() > -1e-6
+        total_demand = total_demand.where(total_demand > 0, 0)
+
+        # Calculate shares of total demand per use
+        total_demand_shares = total_demand.mul(1/prod, axis=0)
+        # Assume 100% none demand for rows with NaNs (i.e. where prod==0)
+        total_demand_shares.loc[:,'none'].fillna(1, inplace=True)
+        total_demand_shares.fillna(0, inplace=True)
+
+        assert np.isclose(total_demand_shares.sum(axis=1),1).all()
+
+        # Calculate crop production per use
+        crop_production_per_use = multiply_aligned(
+
+            total_demand_shares.unstack()
+            .reindex(
+                self.crops.production
+                .reorder_levels(['region','prod_system','crop'])
+                .index
+            )
+            .reorder_levels(['crop','prod_system','region']),
+
+            self.crops.production
+        ).groupby('demand', axis=1).sum()
+
+        assert np.isclose(
+            crop_production_per_use.sum(axis=1),
+            self.crops.production.sum(axis=1)
+        ).all()
+
+        # Store dataframe as attribute
+        self.crops.production_per_use = crop_production_per_use
+        self.crops.data_attr.update(['production_per_use'])
 
 class IndexedMatrix():
-    '''Class to store pandas.Index/MultiIndex alongside a sparse matrix to keep track of things'''
+    '''Class to store pandas.Index/MultiIndex alongside a sparse
+    matrix to keep track of things'''
 
     def __init__(self,matrix,row_idx,col_idx):
         self.M = matrix

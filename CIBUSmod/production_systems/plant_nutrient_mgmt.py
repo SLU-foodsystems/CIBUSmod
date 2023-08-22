@@ -83,6 +83,10 @@ class PlantNutrientMgmt():
         yields = pdf.mul(yields, axis=0)
         ley_share = pdf.mul(ley_share, axis=0)
 
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # !!!!! USE NEW 'crops.production_per_use' ATTRIBUTE INSTEAD !!!!
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         # Get share of each crop_prod used for food, non-food and feed
         # Note: Use shares are calculated on national level. Potential
         # future development is to try and differentiate use shares
