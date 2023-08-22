@@ -7,8 +7,8 @@ from ..utils.misc import rgetattr, rsetattr, multiply_aligned
 from ..utils.output_data_manip import concat_herds
 from ..utils.misc import Container
 
-class FertiliserMgmt():
-    '''Class that that calculates ammount of fertiliser applications needed for crop production
+class PlantNutrientMgmt():
+    '''Class that that calculates ammount of plant nutrients needed for crop production
     and balances this with manure generation, etc.
     
     Parameters
@@ -39,7 +39,7 @@ class FertiliserMgmt():
     def calculate(self, verbose=False):
 
         # Define functions to print progress messages if verbose==True
-        vprint = verbose_init(verbose, id_str='FertiliserMgmt')
+        vprint = verbose_init(verbose, id_str='PlantNutrientMgmt')
     
         # Create feed objects in herds
         self.crops.fertiliser = Fertiliser()

@@ -6,7 +6,7 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import rgetattr, rsetattr
 from ..utils.misc import Container
 
-from .fertiliser_mgmt import Fertiliser
+from .plant_nutrient_mgmt import Fertiliser
 
 class CropProduction(object):
     '''Class that handles crop production

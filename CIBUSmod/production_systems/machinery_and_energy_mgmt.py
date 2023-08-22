@@ -54,7 +54,7 @@ class MachineryAndEnergyMgmt(object):
         vprint('Calculating energy use for grain drying (not implemented) ...')
         self.calculate_field_machinery()
 
-        vprint('Calculating energy use in greenhouses (not implemented) ...')
+        vprint('Calculating energy use in greenhouses ...')
         self.calculate_greenhouses()
 
         vprint('Calculating energy use in stables (not implemented) ...')
