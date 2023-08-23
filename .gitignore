@@ -16,3 +16,6 @@ __pycache__/
 
 # Folder with temp dev files
 dev/
+
+# Model output files
+*.pkl
