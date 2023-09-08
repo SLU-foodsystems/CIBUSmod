@@ -990,12 +990,12 @@ class GeoDistributor:
             concat_herds(self.herds)
             .feed.crop_product_demand
             .xs('domestic', level='origin', axis=1)
-            .groupby(['species','breed','prod_system','crop_prod'], axis=1).sum()
+            .groupby(['species','breed','sub_system','prod_system','crop_prod'], axis=1).sum()
             .stack(['prod_system','crop_prod'])
             .reindex(prod.index)
             .fillna(0)
         )
-        feed_demand.columns = feed_demand.columns.map('{0[0]}, {0[1]}'.format).rename('demand')
+        feed_demand.columns = feed_demand.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
 
         # Calculate feed demand met regionally as the maximum
         # share possible (i.e. regional crop areas are first
