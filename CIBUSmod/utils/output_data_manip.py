@@ -39,21 +39,24 @@ def concat_herds(herds):
 
     # Go through data attributes and concatenate
     for attr in data_attr_in_all:
-        rsetattr(
-            res_herd,attr,
-            pd.concat(
-                [
-                    pd.concat({herd.species : 
-                        pd.concat({herd.breed :
-                            pd.concat({herd.sub_system : rgetattr(herd,attr)},
-                                names=['sub_system'],axis=1)},
-                            names=['breed'],axis=1)},
-                        names=['species'],axis=1)
-                    if rgetattr(herd,attr) is not None else None for herd in herds
-                ],
-                axis=1
-            )
+
+        df = pd.concat(
+            [
+                pd.concat({herd.species : 
+                    pd.concat({herd.breed :
+                        pd.concat({herd.sub_system : rgetattr(herd,attr)},
+                            names=['sub_system'],axis=1)},
+                        names=['breed'],axis=1)},
+                    names=['species'],axis=1)
+                if rgetattr(herd,attr) is not None else None for herd in herds
+            ],
+            axis=1
         )
+
+        # Group and sum columns to avoid duplicates
+        df = df.groupby(df.columns.names, axis=1).sum()
+
+        rsetattr(res_herd,attr,df)
 
     return res_herd
 
