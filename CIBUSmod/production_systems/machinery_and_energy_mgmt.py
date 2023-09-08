@@ -59,6 +59,8 @@ class MachineryAndEnergyMgmt(object):
 
         vprint('Calculating energy use in stables (not implemented) ...')
         self.calculate_stables()
+
+        vprint(type='end')
     
     def calculate_field_machinery(self):
         p = self.par.get
