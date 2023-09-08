@@ -45,14 +45,14 @@ class PlantNutrientMgmt():
         self.crops.fertiliser = Fertiliser()
 
         vprint('Calculating crop N requirements ...')
-        self.calculate_N_req()
+        self.calculate_TAN_req()
 
         vprint('Distributing manure ...')
         self.distribute_manure()
 
         vprint(type='end')
              
-    def calculate_N_req(self):
+    def calculate_TAN_req(self):
         idx=pd.IndexSlice
 
         # Get crop yields
@@ -130,33 +130,250 @@ class PlantNutrientMgmt():
         ley_share = ley_share.set_index(ley_share.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
         area_per_use = area_per_use.set_index(area_per_use.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
         
-        # Recommendation [kg N/ha]
-        N_rec = (
+        # Recommendation [kg TAN/ha]
+        TAN_rec = (
             self.par.get_from_frame('N_rec_a',yields) * ((yields/1000) ** 2) +
             self.par.get_from_frame('N_rec_b',yields) * yields/1000 +
             self.par.get_from_frame('N_rec_m',yields)
         )
         # Adjustment for ley [-]
-        N_ley_adj = (
+        TAN_ley_adj = (
             self.par.get_from_frame('N_ley_a',ley_share) * ley_share +
             self.par.get_from_frame('N_ley_m',ley_share)
         )
 
-        N_req = (N_rec * N_ley_adj * area_per_use).droplevel('po8')
+        TAN_req = (TAN_rec * TAN_ley_adj * area_per_use).droplevel('po8')
 
-        self.crops.fertiliser.N_rec = N_rec
-        self.crops.fertiliser.N_ley_adj = N_ley_adj
-        self.crops.fertiliser.N_req = N_req
-        self.crops.data_attr.update(['fertiliser.N_req'])
+        self.crops.fertiliser.TAN_req = TAN_req
+        self.crops.data_attr.update(['fertiliser.TAN_req'])
 
     def distribute_manure(self):
-        pass
-        
-        # 1) Manure per production system to crops grown for feed
-        #    in that production system.
+        # Generated manure is allocated to different crop areas based
+        # on TAN requirements while ensuring that manure P application
+        # does not exceed a certain threshold (kg P/ha) defined by
+        # parameter 'manure_P_max' (THE LATTER NOT YET IMPLEMENTED).
+        #
+        # The following rules are used to distribute manure to different
+        # crop areas.
+        #
+        # 1.    Distribute manure deposited by animals in production system X
+        #       while grazing to 'grazing crop' Y based on share of grazed
+        #       biomass produced by 'grazing crop' Y and used by animal
+        #       production system X.
+        #
+        # 2.	Distribute organic manure deposited in stables to organic areas
+        #       in the region based on TAN requirements up to 100% of
+        #       crop TAN requirements.
+        #
+        # 3.	Distribute conventional manure and any organic manure remaining
+        #       after (2) to organic areas in the region based on TAN requirements
+        #       up to X% of crop TAN requirements, where X is defined by parameter
+        #       'manure_TAN_max'.
+        #
+        # NOTE: This method of distributing manure does not produce reliable results
+        # in terms of ammount of manure applied on different crops, but focus on distribution
+        # across production systems. E.g. it is likely to assume that manure on cattle
+        # farms is primarily applied on the farms' own crop area (i.e. fodder crops)
 
-        # 2) Surpluss manure to organic crops distributed according
-        #    to N requirements
+        herds = concat_herds(self.herds)
+
+        # Create dataframe for results
+        manure_TAN_application = pd.DataFrame(
+            0,
+            columns = herds.manure.N_to_spread.columns,
+            index = self.crops.area.index
+        )
+
+        # 1. MANURE TO GRAZING AREAS ---------------------------->
+        # Get crops used for grazing
+        grazing_crops = self.crops.par.get_unique('crop', 'f_crop_prod=="grazing"')
+        # Get menure TAN deposited while grazing
+        manure_TAN_grazing = herds.manure.TAN_to_spread.xs('grazing', level='MMS', axis=1, drop_level=False)
+        # Share of grazed biomass per "grazing crop"
+        share_grazed_per_grazing_crop = (
+            self.crops.production_per_use
+            .filter(regex="feed.*")
+            .loc[grazing_crops]
+            .groupby(['prod_system','region'])
+            .transform(lambda x: x/x.sum())
+            .fillna(0)
+        )
+        # Split columns to multiindex with species, breed, sub_system
+        share_grazed_per_grazing_crop.columns = pd.MultiIndex.from_tuples(
+            [
+                tuple(
+                    s.replace('feed ','')
+                    .replace('(','')
+                    .replace(')','')
+                    .split(', ')
+                ) for s in 
+                share_grazed_per_grazing_crop.columns
+            ], 
+            names=['species','breed','sub_system']
+        )
+
+        for ps in (
+                manure_TAN_grazing
+                .columns
+                .get_level_values('prod_system')
+                .unique()
+            ):
+            # Distribute manure on grazing crops
+            manure_TAN_per_grazing_crop = (
+                manure_TAN_grazing
+                .xs(ps, level='prod_system', axis=1, drop_level=False)
+                .multiply(
+                    share_grazed_per_grazing_crop
+                    .xs(ps, level='prod_system', drop_level=False)
+                    .reindex(manure_TAN_grazing.columns, axis=1),
+                    axis=0
+                )
+            )
+
+            # Add to result dataframe
+            manure_TAN_application = \
+            manure_TAN_application.add(manure_TAN_per_grazing_crop, fill_value=0)
+
+        # Create dataframes to track manure TAN available to spread and TAN
+        # requirements that are not yet met.
+        manure_TAN = herds.manure.TAN_to_spread.drop('grazing', level='MMS', axis=1)
+        TAN_req = self.crops.fertiliser.TAN_req.sum(axis=1)
+        manure_TAN_remaining = manure_TAN.copy()
+        TAN_req_remaining = TAN_req.copy()
+
+        # 2. ORGANIC MANURE TO ORGANIC AREAS -------------------------->
+
+        # TAN requirements to be covered and manure to be used in this step
+        TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
+        manure_TAN_to_use = manure_TAN_remaining.xs('organic', level='prod_system', axis=1, drop_level=False)
+
+        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+
+        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+        _update_manure_TAN_frames(
+            manure_TAN_to_spread,
+            manure_TAN_remaining,
+            TAN_req_remaining, manure_TAN_application
+        )
+
+        # 3. ALL MANURE TO ORGANIC AREAS UP TO X% TAN --------------------->
+
+        # Calculate TAN requirements to be covered in this step
+        self.par.clear()
+
+        TAN_not_to_cover = TAN_req.xs('organic', level='prod_system', drop_level=False)
+        TAN_not_to_cover = (
+            TAN_not_to_cover *
+            (1-self.par.get(
+                'manure_TAN_max',
+                **TAN_not_to_cover.index.to_frame().to_dict('list')
+            )/100)
+        )
+
+        TAN_to_cover = (
+            TAN_req_remaining.xs('organic', level='prod_system', drop_level=False) -
+            TAN_not_to_cover
+        )
+        TAN_to_cover[TAN_to_cover<0] = 0
+
+        manure_TAN_to_use = manure_TAN_remaining
+
+        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+
+        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+        _update_manure_TAN_frames(
+            manure_TAN_to_spread,
+            manure_TAN_remaining,
+            TAN_req_remaining, manure_TAN_application
+        )
+
+        # 4. ALL MANURE TO CONVENTIONAL AREAS --------------------->
+
+        # Calculate TAN requirements to be covered in this step
+        TAN_to_cover = TAN_req_remaining
+        manure_TAN_to_use = manure_TAN_remaining
+
+        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+
+        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+        _update_manure_TAN_frames(
+            manure_TAN_to_spread,
+            manure_TAN_remaining,
+            TAN_req_remaining, manure_TAN_application
+        )
+
+        # FINALIZE ----------------------------------------------->
+
+        # Calculate share of manure applied per crop
+        share_manure_per_crop = (
+            manure_TAN_application
+            .groupby('region')
+            .transform(lambda x: x/x.sum())
+            .fillna(0)
+        )
+
+        # Apply shares to manure dataframes
+        self.crops.fertiliser.manure_TAN = manure_TAN_application # [kg TAN]
+        self.crops.fertiliser.manure_N = herds.manure.N_to_spread.multiply(share_manure_per_crop) # [kg N]
+        # self.crops.fertiliser.manure_P =  # [kg P]
+        # self.crops.fertiliser.manure_K =  # [kg K]
+        # self.crops.fertiliser.manure_VS =  # [kg VS]
+        
+        self.crops.data_attr.update(['fertiliser.manure_TAN','fertiliser.manure_N'])
                 
 class Fertiliser(Container):
     '''Class to store fertiliser attributes in CropProduction obejcts'''
+
+def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
+
+    # Calculate share of manure to be spread
+    share_manure_to_spread = (
+        TAN_to_cover.groupby('region').sum()
+        /
+        manure_TAN_to_use.sum(axis=1)
+    ).fillna(0)
+    share_manure_to_spread[share_manure_to_spread>1] = 1
+    share_manure_to_spread[share_manure_to_spread<0] = 0
+
+    # Calculate distribution key for distributing manure to crops
+    # within each region
+    dist_key = (
+        TAN_to_cover
+        .groupby('region')
+        .transform(lambda x:x/x.sum())
+    )
+
+    # Calculate manure to spread
+    manure_TAN_to_spread = (
+        manure_TAN_to_use
+        .multiply(share_manure_to_spread, axis=0)
+        .multiply(dist_key, axis=0)
+    )
+
+    return manure_TAN_to_spread
+
+def _update_manure_TAN_frames(
+        manure_TAN_to_spread,
+        manure_TAN_remaining,
+        TAN_req_remaining,
+        manure_TAN_application):
+    
+    return (
+        # Update manure TAN remaining
+        manure_TAN_remaining.subtract(
+            manure_TAN_to_spread.groupby('region').sum(),
+            fill_value = 0
+        ),
+
+        # Update TAN requirements remaining
+        TAN_req_remaining.subtract(
+            manure_TAN_to_spread.sum(axis=1),
+            fill_value = 0
+        ),
+
+        # Update applied manure
+        manure_TAN_application.add(
+            manure_TAN_to_spread,
+            fill_value = 0
+        )
+    )
