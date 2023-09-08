@@ -67,15 +67,28 @@ class ManureMgmt():
         # Volatile solids (VS)
         # To be included ...
 
-        # Nitrogen (N) [kg N per year]
+        # Nitrogen (N) [kg N or TAN per year]
         vprint('Calculating N excretion ...')
         self.calculate_N_excretion()
         vprint('Calculating N losses ...')
         self.calculate_N_losses()
         vprint('Calculating N available to spread ...')
         for herd in self.herds:
-            herd.manure.N_to_spread = herd.manure.N_excr - herd.manure.N_loss.groupby(['prod_system','animal','MMS'], axis=1).sum()
-            herd.data_attr.update(['manure.N_to_spread'])
+            # Set species and breed filters for ParameterRetriever
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+                )
+            
+            # Calculate total nitrogen available to spread
+            N_to_spread = herd.manure.N_excr - herd.manure.N_loss.groupby(['prod_system','animal','MMS'], axis=1).sum()
+
+            # Calculate plant available nitrogen available to spread
+            TAN_to_spread = N_to_spread * self.par.get_from_frame('TAN_share',N_to_spread)/100
+
+            herd.manure.N_to_spread = N_to_spread
+            herd.manure.TAN_to_spread = TAN_to_spread
+            herd.data_attr.update(['manure.N_to_spread','manure.TAN_to_spread'])
 
         # Phosphorous (P)
         # To be included ...
