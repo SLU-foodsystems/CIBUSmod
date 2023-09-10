@@ -73,6 +73,26 @@ class PlantNutrientMgmt():
         )
         ley_share = (ley_share / ley_share.groupby(['prod_system','region']).transform('sum')).loc['Ley']
 
+        # Calculate area per use
+        share_per_use = (
+            self.crops.production_per_use
+            .div(
+                self.crops.production_per_use.sum(axis=1),
+                axis=0
+            )
+            .rename_axis('use', axis=1)
+            .fillna(0)
+        )
+        share_per_use.columns = (
+            share_per_use.columns
+            .str.replace('feed.*','feed', regex=True)
+            .str.replace('export','food') # Assume food use for exported crops
+        )
+        share_per_use = share_per_use.groupby('use', axis=1).sum()
+        share_per_use['none'] = 1 - share_per_use.drop('none', axis=1).sum(axis=1)
+
+        area_per_use = share_per_use.mul(self.crops.area, axis=0)
+
         # Propagate across uses (same yield/ley_share for all uses)
         pdf = pd.DataFrame(
             data=1,
@@ -82,47 +102,6 @@ class PlantNutrientMgmt():
 
         yields = pdf.mul(yields, axis=0)
         ley_share = pdf.mul(ley_share, axis=0)
-
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # !!!!! USE NEW 'crops.production_per_use' ATTRIBUTE INSTEAD !!!!
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-        # Get share of each crop_prod used for food, non-food and feed
-        # Note: Use shares are calculated on national level. Potential
-        # future development is to try and differentiate use shares
-        # across regions.
-        use_per_crop_prod = pd.concat([
-            self.demand.crop_prod_demand,
-
-            self.crops.seed_demand.groupby('prod_system')
-            .sum().stack().rename('seed'),
-
-            concat_herds(self.herds)
-            .feed.crop_product_demand.sum()
-            .groupby(['prod_system','crop_prod']).sum().rename('feed')
-        ], axis=1).rename_axis('use', axis=1)
-        use_per_crop_prod = use_per_crop_prod.div(use_per_crop_prod.sum(axis=1), axis=0).fillna(0)
-        use_per_crop_prod['none'] = 1 - use_per_crop_prod.sum(axis=1)
-
-        # Get share of crop production that supplies each crop_prod
-        crop_prod_per_crop = (
-            self.crops.production
-            .div(self.crops.production.sum(axis=1), axis=0).fillna(0)
-        )
-
-        # Add crop_prod='none' for crops not producing anything
-        crop_prod_per_crop['none'] = 1 - crop_prod_per_crop.sum(axis=1)
-        # Add missing crop_prods in use_shares with use='none'
-        for cp in [cp for cp in crop_prod_per_crop.columns.unique() if cp not in use_per_crop_prod.index.get_level_values('crop_prod')]:
-                for ps in use_per_crop_prod.index.get_level_values('prod_system').unique():
-                    use_per_crop_prod.loc[(ps,cp),:] = [0]*(len(use_per_crop_prod.columns)-1) + [1]
-
-        # Calculate share of crop area per use
-        use_per_crop = crop_prod_per_crop.mul(use_per_crop_prod.unstack()).groupby('use', axis=1).sum()
-        assert np.isclose(use_per_crop.sum(axis=1),1).all()
-
-        # Caluclate crop area per use
-        area_per_use = use_per_crop.mul(self.crops.area, axis=0)
 
         # Append po8 regions to index
         region2po8 = self.par.get_rel('region','po8')
