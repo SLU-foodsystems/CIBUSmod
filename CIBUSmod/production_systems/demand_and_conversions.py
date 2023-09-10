@@ -6,6 +6,7 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import rgetattr, rsetattr
 from ..utils.misc import multiindex_to_dict
 from ..utils.misc import multiply_aligned
+from ..utils.misc import Container
 from ..utils.retriever import ParameterRetriever
 
 ixsl = pd.IndexSlice
@@ -39,11 +40,11 @@ class DemandAndConversions(object):
         generated waste assuming that processing waste for imported foods occur abroad.
     '''
 
-    # List of attributes in class
-    # Note: remember to update if more attributes are included!
-    data_attr = ['population','food_demand','waste']
-
     def __init__(self, par: ParameterRetriever):
+
+        # Set to keep track of data attributes that have been assigned
+        self.data_attr = set()
+
         self.par = par
 
     def calculate(self, verbose=False):
@@ -85,10 +86,32 @@ class DemandAndConversions(object):
 
         vprint(type='end')
 
+    def make_static(self):
+        '''Returns a StaticDemandAndConversions object that retains all data attributes but
+        has no methods or ParameterRetriever'''
+        
+        obj = StaticDemandAndConversions()
+
+        obj.data_attr = self.data_attr.copy()
+
+        for attr in obj.data_attr:
+            if rgetattr(self, attr) is not None:
+                rsetattr(obj, attr, rgetattr(self, attr).copy())
+            else:
+                rsetattr(obj, attr, None)
+
+        return obj
+
     def get_population(self):
+
+        self.par.clear()
+
         self.population = self.par.get('population')[0]
+        self.data_attr.update(['population'])
 
     def calculate_food_demand(self):
+
+        self.par.clear()
         
         # Get food items included in the diet and included production systems
         fs = self.par.get_unique(['food','food_group'], 'parameter == "consumption"')
@@ -117,12 +140,12 @@ class DemandAndConversions(object):
         # Get consumption (g/day)
         cons = self.par.get_from_frame('consumption',food_demand) * share_per_prod_system * share_per_origin
         # Convert to [kg/year] and factor in population
-        self.par.clear()
         self.food_demand = cons / 1000 * 365.25 * self.population * 1000000
-
-        self.par.clear()
+        self.data_attr.update(['population'])
 
     def calculate_waste(self):
+
+        self.par.clear()
         
         # Get shares wasted at different levels
         waste_shares = pd.DataFrame(
@@ -152,10 +175,11 @@ class DemandAndConversions(object):
 
         self.food_demand_to_processing = food_to_processing
         self.waste = waste
-
-        self.par.clear()
+        self.data_attr.update(['food_demand_to_processing','waste'])
 
     def get_non_food_and_export_demand(self):
+
+        self.par.clear()
 
         # Get food items and production systems with non-food demand 
         fs_pss = self.par.get_unique(
@@ -194,9 +218,12 @@ class DemandAndConversions(object):
         # Store as data attributes
         self.non_food_demand = non_food_demand
         self.export_demand = export_demand
+        self.data_attr.update(['non_food_demand','export_demand'])
         
 
     def calculate_crop_product_demand(self):
+
+        self.par.clear()
         
         # Get demand for food + non-food
         demand = pd.concat((
@@ -242,10 +269,11 @@ class DemandAndConversions(object):
         # Store dataframes
         self.crop_prod_demand = crop_prod_demand
         self.crop_by_products = crop_by_products
-
-        self.par.clear()
+        self.data_attr.update(['crop_prod_demand','crop_by_products'])
 
     def calculate_animal_product_demand(self):
+
+        self.par.clear()
 
         # Get demand for food + non-food
         demand = pd.concat((
@@ -322,7 +350,7 @@ class DemandAndConversions(object):
 
         # Calculate additional raw milk that needs to be produced and induced skim milk exports
         add_raw_milk_prod = cream_shortage * cream_to_raw_milk
-        induced_skim_milk_exports = add_raw_milk_prod * raw_milk_to_skim_milk
+        induced_skim_milk_exports = (add_raw_milk_prod * raw_milk_to_skim_milk).sum(axis=1)
 
         # Add additional raw milk production to demand dataframe
         for ps in animal_prod_demand.index.get_level_values('prod_system').unique():
@@ -337,10 +365,23 @@ class DemandAndConversions(object):
         # Store dataframes
         self.animal_prod_demand = animal_prod_demand
         self.animal_by_products = animal_by_products
+        self.data_attr.update(['animal_prod_demand','animal_by_products'])
 
         # Add induced skim milk exports to export demand
-        self.induced_skim_milk_exports = induced_skim_milk_exports # A bit temporary... find a good way to handle this!!!
-
-        self.par.clear()
+        self.export_demand = pd.concat([
+            self.export_demand,
+            pd.concat([
+                pd.concat([
+                        induced_skim_milk_exports
+                ], keys=['export'], names=['food_group'])
+            ], keys=['Milk and products 1-2% fat'], names=['food'])
+        ])
 
         # Handle demand for animal by-products !!!
+
+class StaticDemandAndConversions(Container):
+    '''Class used to create static copy of DemandAndConversions object. These stores all attributes except 'par'
+    but does not inherit any methods'''
+
+    def __repr__(self):
+        return DemandAndConversions.__repr__(self)
