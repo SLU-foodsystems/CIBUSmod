@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 
 from ..utils.verbose_print import verbose_init
 
@@ -21,44 +22,127 @@ class Regions(object):
     soil :
     '''
 
-    def __init__(self,x0,par):
+    def __init__(self,par):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = set()
         
-        self.x0 = x0
         self.par = par
-        self.index = x0['crp'].index.get_level_values('region').unique()
+
+        # Get initial crop areas and animal numbers
+        self.get_x0()
 
     def calculate(self, verbose=False):
         
-        # Clear and set filters for ParameterRetriever
-        self.par.clear()
-        for i in self.index.names:
-            self.par.set(
-                **{i : self.index.get_level_values(i).values}
-            )
-
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='Regions')
+
+        # Get initial crop areas and animal numbers
+        vprint('Getting initial crop areas and animal numbers (x0) ...')
+        self.get_x0()
 
         # Get climate and soil attributes
         vprint('Getting climate and soil attributes ...')
         self.get_climate()
         self.get_soil()
 
-    def get_climate(self):
-        p = self.par.get
+        vprint(type='end')
 
+    def get_x0(self):
+
+        self.par.clear()
+
+        # THIS IS A TEMPORY IMPLEMENTATION. X0 WILL LATER BE DEFINED
+        # AS PARAMETERS AND RETRIEVED WITH THE PARAMETERRETRIEVER !!!!
+
+        path = os.path.join(self.par.data_path_default,'..','x0')
+
+        # Define x0_crp
+
+        x0_crp = \
+            pd.read_csv(os.path.join(path,'x0_crp.csv'), dtype={'region': object})\
+            .set_index(['crop','prod_system','region'])['area']
+
+        # Define x0_ani
+        x0_ani = pd.read_csv(os.path.join(path,'x0_ani.csv'), dtype={'region': object})
+
+        x0_ani['species'] = np.nan
+        x0_ani['species'] = \
+        np.where(np.isin(x0_ani['animal'], ['kor för mjölkproduktion', 'kor för uppfödning av kalvar']),'cattle',x0_ani['species'])
+        x0_ani['species'] = \
+        np.where(x0_ani['animal']=='suggor för avel','pigs',x0_ani['species'])
+        x0_ani['species'] = \
+        np.where(x0_ani['animal']=='slaktkycklingar','poultry',x0_ani['species'])
+        x0_ani['species'] = \
+        np.where(x0_ani['animal']=='hästar','horses',x0_ani['species'])
+
+        # Add horse breeds
+        x0_ani = pd.concat([
+            x0_ani[x0_ani.animal != 'hästar'],
+            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'ponnyer'}),
+            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'kallblod'}),
+            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'ridhästar'}),
+            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'trav och galopp'})
+            ])
+
+        x0_ani['breed'] = np.nan
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='kor för mjölkproduktion','dairy',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='kor för uppfödning av kalvar','beef',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='suggor för avel','none',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='slaktkycklingar','broiler',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='ponnyer','ponies and Icelandic horses',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='kallblod','cold blooded horses',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='ridhästar','riding horses',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='trav och galopp','trotters and racehorses',x0_ani['breed'])
+
+        x0_ani = x0_ani[x0_ani['species']!='nan'][['species','breed','prod_system','region','number']].set_index(['species','breed','prod_system','region'])['number']
+
+        # Numbers per horse breed
+        x0_ani.update(x0_ani.xs(('horses','ponies and Icelandic horses'),level=('species','breed'),drop_level=False) * 0.297)  
+        x0_ani.update(x0_ani.xs(('horses','cold blooded horses'),level=('species','breed'),drop_level=False) * 0.100)  
+        x0_ani.update(x0_ani.xs(('horses','riding horses'),level=('species','breed'),drop_level=False) * 0.343)  
+        x0_ani.update(x0_ani.xs(('horses','trotters and racehorses'),level=('species','breed'),drop_level=False) * 0.260)  
+
+        x0_ani = x0_ani.fillna(0)
+
+        self.x0_crops = x0_crp
+        self.x0_animals = x0_ani
+        self.data_attr.update(['x0_crops','x0_animals'])
+
+
+    def get_climate(self):
+
+        # Get index and set filters
+        self.par.clear()
+        index = self.x0_crops.index.get_level_values('region').unique()
+        p = self.par.get
+        self.par.set(**index.to_frame().to_dict('list'))
+
+        # Get climate parameters
         self.climate = pd.DataFrame(
             np.array([p('GDD5')]).T,
-            index = self.index,
+            index = index,
             columns = ['GDD5']
         )
+        self.data_attr.update(['climate'])
 
     def get_soil(self):
-        p = self.par.get
 
+        # Get index and set filters
+        self.par.clear()
+        index = self.x0_crops.index.get_level_values('region').unique()
+        p = self.par.get
+        self.par.set(**index.to_frame().to_dict('list'))
+
+        # Get soil parameters
         self.soil = pd.DataFrame(
             np.array([
                 p('soil_clay'),
@@ -67,7 +151,7 @@ class Regions(object):
                 p('soil_OM'),
                 p('soil_pH')
             ]).T,
-            index = self.index,
+            index = index,
             columns = ['clay','silt','sand','OM','pH']
         )
 
@@ -112,6 +196,8 @@ class Regions(object):
                 txt_classes=txt_classes,
                 axis=1
             )
+        
+        self.data_attr.update(['soil'])
 
 def _get_soil_class(x, txt_classes):
     for txt_class in txt_classes:

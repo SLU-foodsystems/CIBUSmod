@@ -29,34 +29,15 @@ class GeoDistributor:
     Attributes
     ----------'''
 
-    def __init__(self,par,x0,regions,demand,crops,herds,feed_mgmt):
+    def __init__(self,par,regions,demand,crops,herds,feed_mgmt):
         
         self.par = par
-        self.x0 = {k:v.copy() for k,v in zip(x0.keys(),x0.values())}
 
         self.regions = regions
         self.demand = demand
         self.crops = crops
         self.herds = herds
         self.feed_mgmt = feed_mgmt
-
-        # Define index for x
-        self.x_idx = {
-            'ani' : pd.MultiIndex.from_tuples(
-                    [(sp,br,ps,ss,re) for (sp,br,ps,ss) in self.herds.index for re in self.herds[(sp,br,ps,ss)].index],
-                    names=['species','breed','prod_system','sub_system','region']
-                    ),
-            'crp' : self.crops.index
-        }
-
-        # Sort x0['ani'] to match x['ani']
-        self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system').unique()]
-       
-        # Store x0 indexes
-        self.x0_idx = {
-            'ani' : self.x0['ani'].index,
-            'crp' : self.x0['crp'].index
-        }
 
     def make(self, use_cons='all', scale_power=[0,0], verbose=False):
         '''Creates constraints and defines optimisation problem'''
@@ -68,6 +49,9 @@ class GeoDistributor:
         elif not isinstance(use_cons,list):
             use_cons = [use_cons]
         use_cons = [str(e) for e in use_cons]
+
+        vprint('Getting x0 and making indexes ...')
+        self.get_x0()
 
         vprint('Creating demand vector ...')
         self.get_demand()
@@ -182,6 +166,31 @@ class GeoDistributor:
         
         # Allocate crop areas to uses
         self.allocate_crop_production_per_use()
+
+    def get_x0(self):
+        # Get x0
+        self.x0 = {
+            'ani' : self.regions.x0_animals.copy(),
+            'crp' : self.regions.x0_crops.copy()
+        }
+
+        # Define index for x
+        self.x_idx = {
+            'ani' : pd.MultiIndex.from_tuples(
+                    [(sp,br,ps,ss,re) for (sp,br,ps,ss) in self.herds.index for re in self.herds[(sp,br,ps,ss)].index],
+                    names=['species','breed','prod_system','sub_system','region']
+                    ),
+            'crp' : self.crops.index
+        }
+
+        # Sort x0['ani'] to match x['ani']
+        self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system').unique()]
+       
+        # Store x0 indexes
+        self.x0_idx = {
+            'ani' : self.x0['ani'].index,
+            'crp' : self.x0['crp'].index
+        }
 
     def get_demand(self):
         self.D = {
