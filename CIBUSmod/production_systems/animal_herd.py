@@ -5,6 +5,7 @@ import numpy as np
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import rgetattr, rsetattr
 from ..utils.misc import Container
+from ..utils.retriever import ParameterRetriever
 
 from .feed_mgmt import Feed
 from .manure_mgmt import Manure
@@ -917,3 +918,74 @@ class StaticAnimalHerd(Container):
 
     def __repr__(self):
         return AnimalHerd.__repr__(self).replace('AnimalHerd','StaticAnimalHerd')
+    
+def make_herds(
+        regions,
+        class_map = {
+            ('cattle', 'dairy') : 'CattleHerd',
+            ('cattle', 'beef') : 'CattleHerd',
+            ('pigs', 'none') : 'PigHerd',
+            ('poultry', 'broiler') : 'BroilerHerd',
+            ('horses', 'ponies and Icelandic horses') : 'HorseHerd',
+            ('horses', 'cold blooded horses') : 'HorseHerd',
+            ('horses', 'riding horses') : 'HorseHerd',
+            ('horses', 'trotters and racehorses') : 'HorseHerd'
+        }
+        ):
+    '''Helper function to instantiate AnimalHerd objects and put them in a pandas.Series.
+    
+    Parameters
+    ----------
+    regions : Regions object
+
+    Returns
+    -------
+    pandas.Series : A series containing AnimalHerd objects representing all animals
+                    in regions.x0_animals
+    '''
+
+    # Create Series to store AnimalHerd objects
+    herds = pd.Series(
+        data=[],
+        index=pd.MultiIndex(
+            levels=[[]]*4,
+            codes=[[]]*4,
+            names=['species','breed','prod_system','sub_system']
+        ),
+        dtype = object
+    )
+
+    for (sp,br,ps) in regions.x0_animals.groupby(['species','breed','prod_system']).sum().index:
+
+        if (sp,br) in class_map:
+            # Get sub-systems if any
+
+            sss = set(['none'])
+
+            herd_class_name = class_map[(sp,br)]
+            herd_class = globals()[herd_class_name]
+
+            tmp_par = ParameterRetriever(herd_class_name)
+
+            if 'f_sub_system' in tmp_par.data.index.names:
+                # If sub-systems are defined
+                sss = sss.union(
+                    tmp_par.get_unique(
+                        'sub_system',
+                        qry=f'(f_breed == "{br}" | f_breed.isna()) & (f_prod_system == "{ps}" | f_prod_system.isna())'
+                    )
+                )
+
+            for ss in sss:
+                herds.loc[(sp,br,ps,ss)] = \
+                herd_class(
+                    par = ParameterRetriever(herd_class_name),
+                    index = regions.x0_animals.index.get_level_values('region').unique(),
+                    breed = br,
+                    prod_system = ps,
+                    sub_system = ss
+                )
+        else:
+            print(f'{sp}, {br} not found in par_map. No AnimalHerd object created')
+
+    return herds
