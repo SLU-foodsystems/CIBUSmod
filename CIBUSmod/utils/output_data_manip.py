@@ -20,6 +20,7 @@ def concat_herds(herds):
     StaticAnimalHerd object'''
     res_herd = StaticAnimalHerd()
 
+    res_herd.id_attr = AnimalHerd.id_attr
     for attr in AnimalHerd.id_attr:
         setattr(res_herd,attr,'aggregated')
 
@@ -57,5 +58,7 @@ def concat_herds(herds):
         df = df.groupby(df.columns.names, axis=1).sum()
 
         rsetattr(res_herd,attr,df)
+    
+    res_herd.data_attr = data_attr_in_all
 
     return res_herd
