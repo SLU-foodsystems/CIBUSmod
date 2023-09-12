@@ -50,6 +50,19 @@ class PlantNutrientMgmt():
         vprint('Distributing manure ...')
         self.distribute_manure()
 
+        # TO BE ADDED: Sewedge sludge application (and other recirculated?)
+
+        vprint('Calculating mineral N application ...')
+        self.calculate_mineral_N_application()
+
+        vprint('Calculating N application losses ...') # Only NH3 YES?
+        self.calculate_N_application_losses(of='manure_TAN')
+        self.calculate_N_application_losses(of='mineral_N')
+
+        # TO BE ADDED: Soil N2O emissions
+        # TO BE ADDED: Other gasous emissions
+        # TO BE ADDED: Leaching
+
         vprint(type='end')
              
     def calculate_TAN_req(self):
@@ -97,7 +110,7 @@ class PlantNutrientMgmt():
         pdf = pd.DataFrame(
             data=1,
             index=yields.index,
-            columns=pd.Index(['food','non-food','feed','none'], name='use')
+            columns=area_per_use.columns
         )
 
         yields = pdf.mul(yields, axis=0)
@@ -123,7 +136,7 @@ class PlantNutrientMgmt():
 
         TAN_req = (TAN_rec * TAN_ley_adj * area_per_use).droplevel('po8')
 
-        self.crops.fertiliser.TAN_req = TAN_req
+        self.crops.fertiliser.TAN_req = TAN_req.sum(axis=1)
         self.crops.data_attr.update(['fertiliser.TAN_req'])
 
     def distribute_manure(self):
@@ -216,7 +229,7 @@ class PlantNutrientMgmt():
         # Create dataframes to track manure TAN available to spread and TAN
         # requirements that are not yet met.
         manure_TAN = herds.manure.TAN_to_spread.drop('grazing', level='MMS', axis=1)
-        TAN_req = self.crops.fertiliser.TAN_req.sum(axis=1)
+        TAN_req = self.crops.fertiliser.TAN_req
         manure_TAN_remaining = manure_TAN.copy()
         TAN_req_remaining = TAN_req.copy()
 
@@ -300,6 +313,114 @@ class PlantNutrientMgmt():
         
         self.crops.data_attr.update(['fertiliser.manure_TAN','fertiliser.manure_N'])
                 
+    def calculate_mineral_N_application(self):
+        # Mineral N application is assumed to cover additional
+        # TAN requirements after manure and other organic
+        # fertilisers have been applied. 
+
+        self.par.clear()
+
+        # Get share of fertiliser types
+        fertiliser_type_shares = \
+        self.par.get_from_frame(
+            'mineral_N_fertiliser_share',
+            pd.DataFrame(
+                index=self.crops.index,
+                columns=pd.Index(
+                    self.par.get_unique(
+                        'fertiliser_type',
+                        qry='parameter == "mineral_N_fertiliser_share"'
+                    ), name='fertiliser_type'
+                )
+            )
+        )/100
+
+        # Calculate TAN to apply 
+        TAN_to_apply = (
+            self.crops.fertiliser.TAN_req - 
+            # self.crops.fertiliser.organic_TAN.sum(axis=1) - !!! TO BE ADDED !!!
+            self.crops.fertiliser.manure_TAN.sum(axis=1)
+        ).clip(lower=0) # set to zero if manure supplies more than requirement
+
+        # Calculate mineral N fertiliser application
+        self.crops.fertiliser.mineral_N = \
+        fertiliser_type_shares.mul(
+            TAN_to_apply,
+            axis=0
+        ).fillna(0)
+        self.crops.data_attr.update(['fertiliser.mineral_N'])
+
+    def calculate_N_application_losses(self, of):
+        # Application losses of NH3-N calculated according to
+        # Tier 2 method described in 'Informative Inventory
+        # Report Sweden 2023 Submitted under the Convention
+        # on Long-Range Transboundary Air Pollution (UNECE CLRTAP)'
+        #
+        # NOTE: Potentially country specific method should be
+        # implemented to account for manure spreading technology
+        # and timing.
+
+        self.par.clear()
+
+        # Get and TAN application
+        TAN_appl = getattr(self.crops.fertiliser, of)
+
+        if of=='manure_TAN':
+            # Aggregate manure 
+            TAN_appl = (
+                TAN_appl
+                .groupby(['species','breed','animal','MMS'], axis=1)
+                .sum()
+            )
+
+        # Get compounds lost
+        compounds = \
+        self.par.get_unique(
+            'compound',
+            qry='parameter == "application_losses"'
+        )
+
+        if not isinstance(TAN_appl.columns,pd.MultiIndex):
+            # Make multiindex to fix problem with
+            # pandas reindex from single index
+            TAN_appl.columns = pd.MultiIndex.from_tuples([
+                (cols,) for cols in TAN_appl.columns
+            ], names=TAN_appl.columns.names)
+
+        # Add compounds to columns
+        TAN_appl = TAN_appl.reindex(
+            pd.MultiIndex.from_tuples([
+                cols + tuple([cp])
+                for cols in TAN_appl.columns
+                for cp in compounds
+            ], names=TAN_appl.columns.names+['compound']),
+            axis=1
+        )
+
+        # Get application losses (% of TAN) per fertiliser or animal/MMS
+        application_losses = pd.Series(
+            self.par.get(
+                'application_losses',
+                **TAN_appl.columns.to_frame().to_dict('list')
+            )/100,
+            index = TAN_appl.columns
+        )
+
+        # Calculate N loss
+        N_loss = TAN_appl.mul(
+            application_losses,
+            axis=1
+        )
+
+        # Store resulting N application losses [kg N]
+        attr_name = of.replace('TA','') + '_loss'
+        setattr(
+            self.crops.fertiliser,
+            attr_name,
+            N_loss
+        )
+        self.crops.data_attr.update(['fertiliser.'+attr_name])
+
 class Fertiliser(Container):
     '''Class to store fertiliser attributes in CropProduction obejcts'''
 
