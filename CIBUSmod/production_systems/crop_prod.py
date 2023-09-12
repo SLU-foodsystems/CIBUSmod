@@ -55,13 +55,6 @@ class CropProduction(object):
         Nothing. Stores output in pandas.DataFrames in the attrubutes: 'area', 'harvest', 'production' and 'by_products'
         '''
 
-        # Clear and set filters for ParameterRetriever
-        self.par.clear()
-        for i in self.index.names:
-            self.par.set(
-                **{i : self.index.get_level_values(i).values}
-            )
-
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='CropProduction')
 
@@ -73,18 +66,21 @@ class CropProduction(object):
         p = self.par.get
 
         vprint('Calculating harvest ...')
-        self.harvest = self.area * p('yield')
+        self.par.clear()
+        self.par.set(**self.index.to_frame().to_dict('list'))
+        self.harvest = self.area * p('yield') # [kg]
         self.data_attr.update(['harvest'])
 
         vprint('Calculating production ...')
         self.calculate_production()
 
+        vprint('Calculating crop residues ...')
+        self.calculate_crop_residues()
+
         vprint('Calculating seed demand ...')
         self.calculate_seed_demand()
 
-        # calculate NPK req
-        # calculate tractor energy
-        # calculate other inputs
+        # calculate other inputs???
 
         vprint(type='end')
 
@@ -129,27 +125,51 @@ class CropProduction(object):
         return obj
 
     def calculate_production(self):
+
+        self.par.clear()
+
+        # Get crop products
+        cps = self.par.get_unique('crop_prod') 
         
-        # Provide shorthand 'p()' to get parameters
+        # Calculate crop product production
+        production = self.par.get_from_frame(
+            'crop_to_prod',
+            pd.DataFrame(
+                index=self.index,
+                columns=pd.Index(cps, name='crop_prod')
+            )
+        ).mul(self.harvest, axis=0)
+
+        self.production = production # [kg]
+        self.data_attr.update(['production'])
+
+    def calculate_crop_residues(self):
+        self.par.clear()
         p = self.par.get
 
-        cps = self.par.get_unique('crop_prod') # Get crop products
-        bps = self.par.get_unique('by_prod') # Get by-products
+        # Calculate above and below ground crop residues from 
+        # share of harvested DM that are residues multiplied
+        # by DM-fraction and harvest 
+        self.par.set(**self.index.to_frame().to_dict('list'))
+        crop_residues = (
+            pd.DataFrame(
+                np.array([
+                    p('ag_resid'),
+                    p('bg_resid'),
+                ]).T,
+                index = self.index,
+                columns = ['above_ground','below_ground']
+            )
+            .mul(p('ag_resid'), axis=0)
+            .mul(self.harvest, axis=0)
+        )
 
-        # Calculate crop product production
-        production = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
-        production = self.par.get_from_frame('crop_to_prod', production).mul(self.harvest, axis=0)
-        self.par.remove('crop_prod')
-
-        # Calculate by-product generation
-        by_products = pd.DataFrame(index=self.index, columns=pd.Index(bps, name='by_prod'))
-        by_products = self.par.get_from_frame('crop_to_prod', by_products).mul(self.harvest, axis=0)
-        self.par.remove('by_prod')
-
-        self.production, self.by_products = (production, by_products)
-        self.data_attr.update(['production','by_products'])
+        self.crop_residues = crop_residues # [kg DM]
+        self.data_attr.update(['crop_residues'])
 
     def calculate_seed_demand(self):
+
+        self.par.clear()
 
         # Get crop products
         cps = self.par.get_unique('crop_prod', qry='parameter == "seed"') 

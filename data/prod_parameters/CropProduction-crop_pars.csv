@@ -1,0 +1,55 @@
+f_crop,crop_dm,ag_resid,bg_resid,crop_N,crop_P,crop_K,ag_resid_N,ag_resid_P,ag_resid_K,bg_resid_N,frac_renew,source,source crop,Fraction of dry matter content,Fraction of crop residues removed,
+"Wheat, winter",0.86,0.875,0.23,,,,0.0051,,,0.009,1,NIR 2022. Table 5.24,Winter wheat,0.86,0.12,
+"Wheat, spring",0.86,0.9625,0.28,,,,0.0044,,,0.009,1,NIR 2022. Table 5.24,Spring wheat,0.86,0.1,
+Rye,0.86,1.075,0.22,,,,0.0059,,,0.009,1,NIR 2022. Table 5.24,Winter rye,0.86,0.22,
+"Barley, winter",0.86,0.875,0.22,,,,0.0077,,,0.014,1,NIR 2022. Table 5.24,Winter barley,0.86,0.22,
+"Barley, spring",0.86,0.825,0.22,,,,0.0077,,,0.014,1,NIR 2022. Table 5.24,Spring barley,0.86,0.1,
+Oats,0.86,0.8875,0.25,,,,0.0073,,,0.008,1,NIR 2022. Table 5.24,Oats,0.86,0.1,
+"Triticale, winter",0.86,0.975,0.22,,,,0.0076,,,0.009,1,NIR 2022. Table 5.24,Triticale,0.86,0.12,
+"Triticale, spring",0.86,0.975,0.22,,,,0.0076,,,0.009,1,NIR 2022. Table 5.24,Triticale,0.86,0.12,
+Maize (corn),0.86,1,0.22,,,,0.0094,,,0.007,1,NIR 2022. Table 5.24,Maize,0.86,0.19,
+Mixed cereals,0.86,0.8625,0.22,,,,0.0075,,,0.009,1,NIR 2022. Table 5.24,Mixed grain,0.86,0.27,
+"Peas, dry",0.85,0.91,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Peas,0.85,0.014,
+"Peas, green",0.85,0.91,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Peas for conservation,0.85,0,
+"Broad beans and horse beans, dry",0.85,0.88,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Broad bean,0.85,0.014,
+"Beans, dry",0.85,0.91,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Brown bean,0.85,0.022,
+"Rapeseed, winter",0.91,1.71,0.22,,,,0.0107,,,0.009,1,NIR 2022. Table 5.24,Winter rape,0.91,0.055,
+"Rapeseed, spring",0.91,1.38,0.22,,,,0.0107,,,0.009,1,NIR 2022. Table 5.24,Spring rape,0.91,0.055,
+"Potatoes, table",0.2,0.4,0.2,,,,0.0325,,,0.014,1,NIR 2022. Table 5.24,Potato,0.2,0.013,
+"Potatoes, starch",0.2,0.4,0.2,,,,0.0325,,,0.014,1,NIR 2022. Table 5.24,Potato,0.2,0.013,
+Sugar beet,0.2,0.66,0.2,,,,0.0225,,,0.014,1,NIR 2022. Table 5.24,Sugar beets,0.2,0.007,
+Ley for seed,0.835,0.84,0.22,,,,0.0109,,,0.009,1,NIR 2022. Table 5.24,"Lay for seed, no clover",0.835,0.35,
+Ley for fodder,1,0.25,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Grass-clover mixtures,0.835,0,
+Ley for grazing,1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,0.835,0,
+Maize for forage and silage,1,0.04,0.54,,,,0.02,,,0.007,1,NIR 2022. Table 5.24,Green fodder (maize),0.3,0,
+Cereals for fodder,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.24,Green fodder (cereals),0.3,0,
+Other crops for fodder,1,0.15,0.54,,,,0.02,,,0.016,1,NIR 2022. Table 5.24,Green fodder (other),0.3,0,
+Semi-natural pastures,1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,0.835,0,
+Semi-natural meadows,1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,0.835,0,
+Onions,0.13,0.212927757,0.054499366,,,,0.0325,,,0.014,1,Jacobs et al 2020,onion,0.2,0,??
+Carrots,0.13,0.136579572,0.051068884,,,,0.0325,,,0.014,1,Jacobs et al 2020,carrot,0.2,0,??
+Other root vegetables,0.13,0.244473342,0.055916775,,,,0.0325,,,0.014,1,Jacobs et al 2020,beetroot,0.2,0,??
+Lettuce and spinach,0.13,0.18974359,0.51965812,,,,0.0325,,,0.014,1,Jacobs et al 2020,salad,0.2,0,??
+"Cabbages, cauliflowers and broccoli",0.13,0.546666667,0.675555556,,,,0.0325,,,0.014,1,Jacobs et al 2020,white cabbage & other,0.2,0,??
+Cucumbers,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Pumpkins and squash,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Herbs,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Other vegetables,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Strawberries,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Currants,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Other berries,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Apples,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Pears,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+Other fruit,,,,,,,,,,,1,Jacobs et al 2020,,0.2,0,??
+"Tomatoes, greenhouse",,,,,,,,,,,,,,0.2,0,??
+"Cucumbers, greenhouse",,,,,,,,,,,,,,0.2,0,??
+"Lettuce, greenhouse",,,,,,,,,,,,,,0.2,0,??
+"Other vegetables, greenhouse",,,,,,,,,,,,,,0.2,0,??
+"Herbs, greenhouse",,,,,,,,,,,,,,0.2,0,??
+"Strawberries, greenhouse",,,,,,,,,,,,,,0.2,0,??
+"Other berries, greenhouse",,,,,,,,,,,,,,0.2,0,??
+Fallow,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.24,Green fodder (cereals),0.3,0,??
+Energy grass,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.25,Green fodder (cereals),0.3,0,??
+Short rotation coppice,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.26,Green fodder (cereals),0.3,0,??
+Green manure,1,0.25,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.27,Grass-clover mixtures,0.835,0,??
+Ley not harvested,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.28,Green fodder (cereals),0.3,0,??
