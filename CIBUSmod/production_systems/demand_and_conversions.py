@@ -327,9 +327,10 @@ class DemandAndConversions(object):
         # Note: The method currently implemented will fail to handle a situation where the opposite is true, i.e. where
         # consumption of low fat products generates more cream than needed to cover consumption of high fat products.
         self.par.clear()
+        indeuce_export_of = 'Milk and products 1-2% fat'
         cream_to_raw_milk = 1/(self.par.get(
             'conv_factor_by',
-            food='Milk and products 1-2% fat',
+            food=indeuce_export_of,
             species='cattle',
             animal_prod='milk',
             by_prod='cream'
@@ -338,7 +339,7 @@ class DemandAndConversions(object):
         self.par.clear()
         raw_milk_to_skim_milk = self.par.get(
             'conv_factor_main',
-            food='Milk and products 1-2% fat',
+            food=indeuce_export_of,
             species='cattle',
             animal_prod='milk'
         )[0]/100
@@ -368,14 +369,14 @@ class DemandAndConversions(object):
         self.data_attr.update(['animal_prod_demand','animal_by_products'])
 
         # Add induced skim milk exports to export demand
-        self.export_demand = pd.concat([
-            self.export_demand,
+        self.export_demand = self.export_demand.add(
             pd.concat([
                 pd.concat([
                         induced_skim_milk_exports
                 ], keys=['export'], names=['food_group'])
-            ], keys=['Milk and products 1-2% fat'], names=['food'])
-        ])
+            ], keys=[indeuce_export_of], names=['food']),
+            fill_value=0
+        )
 
         # Handle demand for animal by-products !!!
 
