@@ -164,8 +164,17 @@ class CropProduction(object):
             .mul(self.harvest, axis=0)
         )
 
-        self.crop_residues = crop_residues # [kg DM]
-        self.data_attr.update(['crop_residues'])
+        # Store crop residue dataframe [kg DM]
+        self.crop_residues = crop_residues # 
+        
+        # Create series to keep track of harvested crop residues [kg DM]
+        self.harvested_crop_residues = \
+        pd.Series(
+            0,
+            index=self.index,
+        )
+        
+        self.data_attr.update(['crop_residues', 'harvested_crop_residues'])
 
     def calculate_seed_demand(self):
 

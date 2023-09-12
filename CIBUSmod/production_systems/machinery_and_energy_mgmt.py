@@ -192,7 +192,7 @@ class MachineryAndEnergyMgmt(object):
             E_final.loc[idx[:,:,sc[soil_class]],:] = (
                 (A * E_per_area.loc[soil_class,:]).mul(self.crops.area, axis=0) +
                 (A * E_per_mass.loc[soil_class,:]).mul(self.crops.harvest, axis=0) +
-                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.by_products['straw'], axis=0)
+                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.harvested_crop_residues, axis=0)
             )
 
         # Calculate energy requirements per energy source and store
