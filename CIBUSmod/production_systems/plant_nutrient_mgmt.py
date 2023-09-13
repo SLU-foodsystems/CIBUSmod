@@ -55,9 +55,17 @@ class PlantNutrientMgmt():
         vprint('Calculating mineral N application ...')
         self.calculate_mineral_N_application()
 
+        vprint('Calculating N in crop residues ...')
+        self.calculate_N_in_crop_residues()
+
         vprint('Calculating N application losses ...') # Only NH3 YES?
-        self.calculate_N_application_losses(of='manure_TAN')
         self.calculate_N_application_losses(of='mineral_N')
+        self.calculate_N_application_losses(of='manure_TAN')
+
+        vprint('Calculating N soil losses ...')
+        self.calculate_N_soil_losses(of='mineral_N')
+        self.calculate_N_soil_losses(of='manure_N')
+        self.calculate_N_soil_losses(of='crop_residues_N')
 
         # TO BE ADDED: Soil N2O emissions
         # TO BE ADDED: Other gasous emissions
@@ -350,6 +358,25 @@ class PlantNutrientMgmt():
         ).fillna(0)
         self.crops.data_attr.update(['fertiliser.mineral_N'])
 
+    def calculate_N_in_crop_residues(self):
+        # Calculate N in crop residues
+        self.crops.par.clear()
+        self.crops.par.set(**self.crops.index.to_frame().to_dict('list'))
+        p = self.crops.par.get
+
+        self.crops.fertiliser.crop_residues_N = (
+            pd.DataFrame(
+                np.array([
+                    p('ag_resid_N'),
+                    p('bg_resid_N'),
+                ]).T,
+                index = self.crops.index,
+                columns = pd.Index(['above ground','below ground'], name='residue')
+            )
+            .mul(self.crops.crop_residues)
+        )
+        self.crops.data_attr.update(['fertiliser.crop_residues_N'])
+
     def calculate_N_application_losses(self, of):
         # Application losses of NH3-N calculated according to
         # Tier 2 method described in 'Informative Inventory
@@ -362,7 +389,7 @@ class PlantNutrientMgmt():
 
         self.par.clear()
 
-        # Get and TAN application
+        # Get TAN application
         TAN_appl = getattr(self.crops.fertiliser, of)
 
         if of=='manure_TAN':
@@ -413,7 +440,76 @@ class PlantNutrientMgmt():
         )
 
         # Store resulting N application losses [kg N]
-        attr_name = of.replace('TA','') + '_loss'
+        attr_name = of.replace('TA','') + '_application_loss'
+        setattr(
+            self.crops.fertiliser,
+            attr_name,
+            N_loss
+        )
+        self.crops.data_attr.update(['fertiliser.'+attr_name])
+
+    def calculate_N_soil_losses(self, of):
+        
+        self.par.clear()
+
+        # Get soil loss parameter name
+        par_name = 'soil_losses_' + of.replace('_N','')
+
+        # Get N application
+        N_appl = getattr(self.crops.fertiliser, of)
+
+        if of=='manure_N':
+            # Aggregate manure 
+            N_appl = (
+                N_appl
+                .groupby(['species','breed','animal','MMS'], axis=1)
+                .sum()
+            )
+
+        # Get compounds lost
+        compounds = \
+        self.par.get_unique(
+            'compound',
+            qry=f'parameter == "{par_name}"'
+        )
+
+        if not isinstance(N_appl.columns,pd.MultiIndex):
+            # Make multiindex to fix problem with
+            # pandas reindex from single index
+            N_appl.columns = pd.MultiIndex.from_tuples([
+                (cols,) for cols in N_appl.columns
+            ], names=N_appl.columns.names)
+
+        # Add compounds to columns
+        N_appl = N_appl.reindex(
+            pd.MultiIndex.from_tuples([
+                cols + tuple([cp])
+                for cols in N_appl.columns
+                for cp in compounds
+            ], names=N_appl.columns.names+['compound']),
+            axis=1
+        )
+
+        # Get emission factors [% of N]
+        EF = (
+            pd.DataFrame(
+                1,
+                columns = N_appl.columns,
+                index = N_appl.index
+            )
+            .mul(
+                self.par.get(par_name, **N_appl.columns.to_frame().to_dict('list'))/100,
+                axis=1
+            )
+        )
+
+        # IMPLEMENT REGIONALISED EFs HERE!!!
+
+        # Apply emission factors
+        N_loss = N_appl * EF
+
+        # Store resulting N soil losses [kg N]
+        attr_name = of + '_soil_loss'
         setattr(
             self.crops.fertiliser,
             attr_name,

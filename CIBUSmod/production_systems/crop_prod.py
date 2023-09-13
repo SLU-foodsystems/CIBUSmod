@@ -158,9 +158,9 @@ class CropProduction(object):
                     p('bg_resid'),
                 ]).T,
                 index = self.index,
-                columns = ['above_ground','below_ground']
+                columns = pd.Index(['above ground','below ground'], name='residue')
             )
-            .mul(p('ag_resid'), axis=0)
+            .mul(p('crop_dm'), axis=0)
             .mul(self.harvest, axis=0)
         )
 
