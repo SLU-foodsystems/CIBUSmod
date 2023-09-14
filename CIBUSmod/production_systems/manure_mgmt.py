@@ -65,7 +65,10 @@ class ManureMgmt():
                 herd.manure = Manure()
       
         # Volatile solids (VS)
-        # To be included ...
+        vprint('Calculating VS excretion ...')
+        self.calculate_VS_excretion()
+        vprint('Calculating VS losses ...')
+        self.calculate_VS_losses()
 
         # Nitrogen (N) [kg N or TAN per year]
         vprint('Calculating N excretion ...')
@@ -109,7 +112,7 @@ class ManureMgmt():
             self.par.set(
                 species = herd.species,
                 breed = herd.breed
-                )
+            )
 
             # Get production systems, animals in herd
             pss = herd.heads.columns.get_level_values('prod_system').unique()
@@ -137,10 +140,48 @@ class ManureMgmt():
             herd.data_attr.update(['manure.N_excr'])
         
         return None
+    
+    def calculate_VS_excretion(self):
+
+        # Get manure management systems
+        mmss = self.par.get_unique('MMS')
+        
+        for herd in self.herds:
+
+            # Set species and breed filters for ParameterRetriever
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+            )
+
+            # Get production systems, animals in herd
+            pss = herd.heads.columns.get_level_values('prod_system').unique()
+            anis = herd.animals
+
+            # Create dataframe
+            VS_excr = pd.DataFrame(
+                index = herd.index,
+                columns = pd.MultiIndex.from_tuples(
+                    [(ps,ani,mms) for ps in pss for ani in anis for mms in mmss],
+                    names=['prod_system','animal','MMS']
+                    )
+                )
+            
+            # Calculate VS excretion
+            VS_excr.loc[:,:] = multiply_aligned(
+                (
+                    self.par.get_from_frame('manure_excr_VS',VS_excr)*365.25
+                    * self.par.get_from_frame('mms_share',VS_excr)/100
+                ),
+                herd.heads
+            )
+
+            herd.manure.VS_excr = VS_excr
+            herd.data_attr.update(['manure.VS_excr'])
+        
+        return None
         
     def calculate_N_losses(self):
-
-        p = self.par.get
         
         # Get manure management systems and compounds
         mmss = self.par.get_unique('MMS')
@@ -152,7 +193,7 @@ class ManureMgmt():
             self.par.set(
                 species = herd.species,
                 breed = herd.breed
-                )
+            )
 
             # Get production systems, animals in herd
             pss = herd.heads.columns.get_level_values('prod_system').unique()
@@ -164,8 +205,8 @@ class ManureMgmt():
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,ani,mms,cmp) for ps in pss for ani in anis for mms in mmss for cmp in cmps],
                     names=['prod_system','animal','MMS','compound']
-                    )
                 )
+            )
             
             # Calculate N losses
 
@@ -193,6 +234,54 @@ class ManureMgmt():
             herd.data_attr.update(['manure.N_loss'])
 
         return None
+    
+    def calculate_VS_losses(self):
+        # Get manure management systems and compounds
+        mmss = self.par.get_unique('MMS')
+
+        for herd in self.herds:
+
+            # Set species and breed filters for ParameterRetriever
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+            )
+
+            # Get production systems, animals in herd
+            pss = herd.heads.columns.get_level_values('prod_system').unique()
+            anis = herd.animals
+
+            # Create dataframe
+            df = pd.DataFrame(
+                index = herd.index,
+                columns = pd.MultiIndex.from_tuples(
+                    [(ps,ani,mms,'CH4') for ps in pss for ani in anis for mms in mmss],
+                    names=['prod_system','animal','MMS','compound']
+                )
+            )
+
+            # Calculate CH4 emissions using the IPCC Tier 2 method
+            # from maximum methane production (B0) and MCF
+            CH4_Tier2 = multiply_aligned(
+                self.par.get_from_frame('methane_B0',df)*0.67 *
+                self.par.get_from_frame('methane_MCF',df)/100,
+                herd.manure.VS_excr
+            ).replace({0:np.nan})
+
+            # Calculate CH4 emissins using the IPCC Tier 1 method
+            # from manure emissions per head and year
+            CH4_Tier1 = multiply_aligned(
+                self.par.get_from_frame('methane_per_head',df),
+                herd.heads
+            ).replace({0:np.nan})
+
+            # Take Tier 2 if possible otherwise Tier 1
+            VS_loss = CH4_Tier2.copy()
+            VS_loss.update(CH4_Tier1, overwrite=False)
+            VS_loss = VS_loss.fillna(0)
+
+            herd.manure.VS_loss = VS_loss
+            herd.data_attr.update(['manure.VS_loss'])
 
 class Manure(Container):
     '''Class to store manure attributes in AnimalHerd obejcts'''
