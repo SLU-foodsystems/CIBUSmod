@@ -437,6 +437,11 @@ class FeedMgmt():
                 # Calculate enteric methane emissions [kg CH4]
                 enteric_methane = herd.heads * self.par.get_from_frame('EF_enteric', herd.heads)
 
+            # Add compound to column index
+            enteric_methane.columns = pd.MultiIndex.from_tuples(
+                [(ps,an,'CH4bio') for ps,an in enteric_methane.columns],
+                names = ['prod_system', 'animal', 'compound']
+            )
             # Store enteric methane emissions [kg CH4]
             herd.enteric_methane = enteric_methane.fillna(0)
             herd.data_attr.update(['enteric_methane'])
