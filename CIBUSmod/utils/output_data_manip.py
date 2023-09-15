@@ -147,7 +147,7 @@ def get_GHG(output, CO2eq=True):
 
         # ENERGY USE EMISSIONS
         energy = (
-            output.loc[('none','2020'),'crp'].energy_use_emissions
+            output.loc[(scn,year),'crp'].energy_use_emissions
             .unstack('prod_system')
             .groupby('region').sum()
             .groupby(['prod_system','activity','compound'], axis=1)
@@ -182,5 +182,10 @@ def get_GHG(output, CO2eq=True):
                 res
                 .mul([to_CO2eq[cp] for cp in res.columns.get_level_values('compound')], axis=1)
             )
+        
+        try:
+            result = pd.concat([result,res], axis=1)
+        except NameError:
+            result = res
 
-        return res
+    return result
