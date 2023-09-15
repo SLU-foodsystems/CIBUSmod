@@ -60,6 +60,9 @@ class MachineryAndEnergyMgmt(object):
         vprint('Calculating energy use in stables (not implemented) ...')
         self.calculate_stables()
 
+        vprint('Calculating fuel use emissions ...')
+        self.calculate_combustion_emissions()
+
         vprint(type='end')
     
     def calculate_field_machinery(self):
@@ -220,10 +223,35 @@ class MachineryAndEnergyMgmt(object):
             (pf('energy_source_share',M)/100)
         )
 
-
-
     def calculate_stables(self):
         pass
+
+    def calculate_combustion_emissions(self):
+        
+        self.par.clear()
+
+        # Get energy use. kWh --> TJ
+        energy_use = self.crops.energy_use * 1000 * 3600 / 1e12
+
+        # Get compounds
+        cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')
+
+        energy_use = energy_use.reindex(
+            pd.MultiIndex.from_tuples(
+                [cols + (cp,) for cols in energy_use.columns for cp in cps],
+                names = energy_use.columns.names + ['compound'],
+            ),
+            axis=1
+        )
+
+        # Calculate emissions
+        emissions = energy_use.mul(
+            self.par.get('combustion_EF', **energy_use.columns.to_frame().to_dict('list')),
+            axis=1
+        )
+
+        self.crops.energy_use_emissions = emissions
+        self.crops.data_attr.update(['energy_use_emissions'])
 
     
 

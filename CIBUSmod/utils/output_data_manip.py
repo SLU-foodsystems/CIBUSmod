@@ -67,21 +67,26 @@ def get_GHG(output, CO2eq=True):
     
     # Conversion factors --------->
     to_GHG = {
-        'CH4' : 1,
+        'CO2' : 1,
+        'CH4bio' : 1,
+        'CH4fos' : 1,
         'N2O-N' : (44/28),
         'NH3-N' : 0.01 * (44/28),
 
     }
     # -----
     to_GHG_names = {
-        'CH4' : 'CH4',
+        'CO2' : 'CO2',
+        'CH4bio' : 'CH4bio',
+        'CH4fos' : 'CH4fos',
         'N2O-N' : 'N2O',
         'NH3-N' : 'N2Oind'
     }
     # -----
     to_CO2eq = {
         'CO2' : 1,
-        'CH4' : 25,
+        'CH4bio' : 25,
+        'CH4fos' : 26,
         'N2O' : 298,
         'N2Oind' : 298
     }
@@ -91,11 +96,11 @@ def get_GHG(output, CO2eq=True):
         # ENTERIC METHANE
         enteric = (
             output.loc[(scn,year),'ani'].enteric_methane
-            .groupby(['prod_system','species','breed'], axis=1)
+            .groupby(['prod_system','species','breed','compound'], axis=1)
             .sum()
         )
         enteric.columns = pd.MultiIndex.from_tuples(
-            [(ps,f'{sp}, {br}','CH4') for ps,sp,br in enteric.columns],
+            [(ps,f'{sp}, {br}',cp) for ps,sp,br,cp in enteric.columns],
             names = ['prod_system', 'item', 'compound']
         )
         enteric = pd.concat([enteric], keys=['enteric fermentation'], names=['process'], axis=1)
@@ -140,8 +145,20 @@ def get_GHG(output, CO2eq=True):
         )
         soils = pd.concat([soils], keys=['agricultural soils'], names=['process'], axis=1)
 
+        # ENERGY USE EMISSIONS
+        energy = (
+            output.loc[('none','2020'),'crp'].energy_use_emissions
+            .unstack('prod_system')
+            .groupby('region').sum()
+            .groupby(['prod_system','activity','compound'], axis=1)
+            .sum()
+            .rename_axis(['prod_system','item','compound'], axis=1)
+        )
+        energy = pd.concat([energy], keys=['energy use'], names=['process'], axis=1)
+
+        # Combine processes to 
         res = (
-            pd.concat([enteric,manure,soils], axis=1)
+            pd.concat([enteric,manure,soils,energy], axis=1)
             .groupby(['process','prod_system','item','compound'], axis=1)
             .sum()
         )
