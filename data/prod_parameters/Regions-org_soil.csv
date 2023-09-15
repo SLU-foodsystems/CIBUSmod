@@ -1,0 +1,213 @@
+f_region,f_land_use,share_org_soil
+111,cropland,9.122401542781631
+111,semi-natural grasslands,11.622578133042746
+321,cropland,10.379560350111674
+321,semi-natural grasslands,9.492846426250596
+112,cropland,8.822378667576311
+112,semi-natural grasslands,12.3300563997707
+312,cropland,11.059135887483274
+312,semi-natural grasslands,8.229709910301166
+322,cropland,10.204673747932667
+322,semi-natural grasslands,9.741697982589402
+431,cropland,6.033367888431337
+431,semi-natural grasslands,23.891602740870347
+311,cropland,11.068864219005858
+311,semi-natural grasslands,8.200204244578936
+421,cropland,6.8828209895698595
+421,semi-natural grasslands,20.73828135529056
+1911,cropland,5.929042829664542
+1911,semi-natural grasslands,5.002384124462962
+1921,cropland,7.172640329628951
+1921,semi-natural grasslands,6.046387261142915
+1922,cropland,10.904221657016338
+1922,semi-natural grasslands,8.08494620777837
+2121,cropland,3.8539905517367736
+2121,semi-natural grasslands,11.229104490527954
+411,cropland,5.601527250775948
+411,semi-natural grasslands,26.2
+422,cropland,5.6
+422,semi-natural grasslands,22.64563748809804
+521,cropland,6.812275845381527
+521,semi-natural grasslands,21.218605912003717
+1811,cropland,9.510197449871244
+1811,semi-natural grasslands,25.058616991727497
+511,cropland,7.2834134296083635
+511,semi-natural grasslands,18.984486124333984
+513,cropland,7.1
+513,semi-natural grasslands,19.7
+514,cropland,7.1
+514,semi-natural grasslands,19.7
+512,cropland,7.154951676149404
+512,semi-natural grasslands,19.528025223797968
+515,cropland,7.1
+515,semi-natural grasslands,19.7
+821,cropland,9.461556862758606
+821,semi-natural grasslands,6.433828194467352
+612,cropland,7.494413306587687
+612,semi-natural grasslands,3.924872712693327
+814,cropland,9.964827446226948
+814,semi-natural grasslands,5.286740751473957
+622,cropland,10.179318953892851
+622,semi-natural grasslands,5.6653402479581
+611,cropland,7.478962182130131
+611,semi-natural grasslands,3.7264808683869184
+1322,cropland,6.503060624714385
+1322,semi-natural grasslands,3.3537743102945736
+1511,cropland,3.6902417162583347
+1511,semi-natural grasslands,5.761778211826357
+621,cropland,17.20530293250365
+621,semi-natural grasslands,9.474494310563882
+1611,cropland,5.953694861746058
+1611,semi-natural grasslands,4.771907614450614
+1614,cropland,3.8116417234084405
+1614,semi-natural grasslands,5.684743390132636
+1612,cropland,3.613761489050419
+1612,semi-natural grasslands,5.9
+831,cropland,14.866542699748917
+831,semi-natural grasslands,10.33014416376511
+711,cropland,24.4
+711,semi-natural grasslands,16.2
+731,cropland,12.396526879930263
+731,semi-natural grasslands,12.903666638842822
+1131,cropland,10.037222463703124
+1131,semi-natural grasslands,10.139915788317438
+812,cropland,10.0
+812,semi-natural grasslands,5.1
+813,cropland,10.0
+813,semi-natural grasslands,5.1
+811,cropland,9.828653212938585
+811,semi-natural grasslands,5.112939083942831
+1011,cropland,4.302154981823233
+1011,semi-natural grasslands,8.523943118417018
+911,cropland,15.5
+911,semi-natural grasslands,2.2
+912,cropland,15.5
+912,semi-natural grasslands,2.2
+913,cropland,15.5
+913,semi-natural grasslands,2.2
+1112,cropland,3.004296517973838
+1112,semi-natural grasslands,11.365344002135704
+1123,cropland,3.0
+1123,semi-natural grasslands,11.4
+1124,cropland,3.7644866718784336
+1124,semi-natural grasslands,6.338691259776241
+1215,cropland,3.0
+1215,semi-natural grasslands,11.4
+1216,cropland,3.0
+1216,semi-natural grasslands,11.4
+1214,cropland,3.0
+1214,semi-natural grasslands,11.4
+1222,cropland,3.0
+1222,semi-natural grasslands,11.4
+1321,cropland,4.549571504497795
+1321,semi-natural grasslands,2.9406170846018744
+1213,cropland,3.0
+1213,semi-natural grasslands,11.4
+1111,cropland,3.0
+1111,semi-natural grasslands,11.4
+1121,cropland,3.0
+1121,semi-natural grasslands,11.4
+1221,cropland,3.0
+1221,semi-natural grasslands,11.4
+1211,cropland,3.0
+1211,semi-natural grasslands,11.4
+1122,cropland,3.0
+1122,semi-natural grasslands,11.4
+1212,cropland,3.0
+1212,semi-natural grasslands,11.4
+1311,cropland,4.6
+1311,semi-natural grasslands,2.6
+1331,cropland,4.378722796120099
+1331,semi-natural grasslands,3.0622607635922807
+1521,cropland,3.7166887973257925
+1521,semi-natural grasslands,5.451624451240139
+1621,cropland,3.6
+1621,semi-natural grasslands,5.9
+1622,cropland,3.6
+1622,semi-natural grasslands,5.9
+1613,cropland,3.6
+1613,semi-natural grasslands,5.9
+1623,cropland,3.6
+1623,semi-natural grasslands,5.9
+1617,cropland,4.12739501025323
+1617,semi-natural grasslands,9.390101960210702
+1615,cropland,3.6
+1615,semi-natural grasslands,5.9
+1421,cropland,3.6
+1421,semi-natural grasslands,5.9
+1616,cropland,3.6
+1616,semi-natural grasslands,5.9
+1512,cropland,3.6
+1512,semi-natural grasslands,5.9
+1721,cropland,2.186806351350632
+1721,semi-natural grasslands,4.81679949286299
+1722,cropland,2.2263394891575383
+1722,semi-natural grasslands,4.96785707683461
+1411,cropland,3.6
+1411,semi-natural grasslands,5.9
+1522,cropland,3.6
+1522,semi-natural grasslands,5.9
+1712,cropland,2.2609878485768435
+1712,semi-natural grasslands,5.127299849014353
+1412,cropland,3.6
+1412,semi-natural grasslands,5.9
+1723,cropland,5.480701657718938
+1723,semi-natural grasslands,18.203122015627176
+1711,cropland,1.8092091133627084
+1711,semi-natural grasslands,4.2
+1713,cropland,1.7
+1713,semi-natural grasslands,4.2
+1724,cropland,1.0345365826079433
+1724,semi-natural grasslands,0.4462443594187717
+1813,cropland,9.892862019836276
+1813,semi-natural grasslands,25.178105284507613
+2012,cropland,0.4750384352063258
+2012,semi-natural grasslands,0.27738297431410985
+1812,cropland,10.3
+1812,semi-natural grasslands,26.7
+1821,cropland,9.073866592080178
+1821,semi-natural grasslands,22.576389091075065
+1912,cropland,5.60109369654364
+1912,semi-natural grasslands,5.0
+2011,cropland,0.3051886886666071
+2011,semi-natural grasslands,0.5260336243782977
+2111,cropland,3.195889367727031
+2111,semi-natural grasslands,11.69663402773312
+2122,cropland,1.489266740323826
+2122,semi-natural grasslands,4.3599748690966065
+2331,cropland,0.8268707384191771
+2331,semi-natural grasslands,1.1803788423016033
+2019,cropland,0.0
+2019,semi-natural grasslands,0.0
+2221,cropland,1.1822087328404325
+2221,semi-natural grasslands,6.770859098740394
+2211,cropland,0.0
+2211,semi-natural grasslands,0.0
+2212,cropland,0.0
+2212,semi-natural grasslands,0.0
+2312,cropland,0.0
+2312,semi-natural grasslands,0.0
+2311,cropland,0.0
+2311,semi-natural grasslands,0.0
+2414,cropland,1.9752003128867075
+2414,semi-natural grasslands,0.0
+2415,cropland,1.9258629748930791
+2415,semi-natural grasslands,0.0
+2319,cropland,0.0
+2319,semi-natural grasslands,0.0
+2419,cropland,2.0
+2419,semi-natural grasslands,0.0
+2521,cropland,1.6982700758197722
+2521,semi-natural grasslands,0.0
+2411,cropland,2.0
+2411,semi-natural grasslands,0.0
+2412,cropland,2.0
+2412,semi-natural grasslands,0.0
+2413,cropland,2.0
+2413,semi-natural grasslands,0.0
+2511,cropland,1.5038941954781782
+2511,semi-natural grasslands,0.0
+2519,cropland,1.5488756688256218
+2519,semi-natural grasslands,0.0
+2512,cropland,1.5
+2512,semi-natural grasslands,0.0
