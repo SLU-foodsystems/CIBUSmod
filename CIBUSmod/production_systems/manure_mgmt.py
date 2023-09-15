@@ -255,7 +255,7 @@ class ManureMgmt():
             df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,ani,mms,'CH4') for ps in pss for ani in anis for mms in mmss],
+                    [(ps,ani,mms,'CH4bio') for ps in pss for ani in anis for mms in mmss],
                     names=['prod_system','animal','MMS','compound']
                 )
             )
