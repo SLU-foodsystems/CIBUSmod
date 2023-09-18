@@ -767,7 +767,7 @@ class GeoDistributor:
         col_idx = self.x_idx['crp']
 
         # Get dict for translating crop --> land use
-        rel = self.crops.par.get_rel('crop','land_use')
+        rel = self.par.get_rel('crop','land_use')
 
         # Data and corresponding row/col numbers for constructing matrix
         val = [1 if rel[cr] == land_use else 0 for cr,_,_ in col_idx]
@@ -910,9 +910,9 @@ class GeoDistributor:
         col_idx = self.x_idx['crp']
 
         # Get dict for translating crop --> land use
-        lu_rel = self.crops.par.get_rel('crop','land_use')
+        lu_rel = self.par.get_rel('crop','land_use')
         # Get dict for translating crop --> crop group
-        cg_rel = self.crops.par.get_rel('crop','crop_group')
+        cg_rel = self.par.get_rel('crop','crop_group')
 
         # To store data and corresponding row/col numbers for constructing matrix
         val = []
