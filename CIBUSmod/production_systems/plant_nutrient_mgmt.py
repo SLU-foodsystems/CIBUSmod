@@ -19,11 +19,12 @@ class PlantNutrientMgmt():
     par : ParameterRetriever object
     '''
 
-    def __init__(self,crops,herds,demand,par):
+    def __init__(self,demand,regions,crops,herds,par):
 
         self.par = par
-        self.crops = crops
         self.demand = demand
+        self.regions = regions
+        self.crops = crops
 
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -66,6 +67,7 @@ class PlantNutrientMgmt():
         self.calculate_N_soil_losses(of='mineral_N')
         self.calculate_N_soil_losses(of='manure_N')
         self.calculate_N_soil_losses(of='crop_residues_N')
+        self.calculate_organic_soil_N_losses()
 
         # TO BE ADDED: Soil N2O emissions
         # TO BE ADDED: Other gasous emissions
@@ -80,8 +82,8 @@ class PlantNutrientMgmt():
         yields = (self.crops.harvest / self.crops.area).fillna(0)
 
         # Calculate ley share per region
-        lu_rel = self.crops.par.get_rel('crop','land_use') # crop --> land_use
-        cg_rel = self.crops.par.get_rel('crop','crop_group') # crop --> crop_group
+        lu_rel = self.par.get_rel('crop','land_use') # crop --> land_use
+        cg_rel = self.par.get_rel('crop','crop_group') # crop --> crop_group
 
         ley_share = self.crops.area.to_frame()
         ley_share.loc[:,'lu'] = ley_share.index.get_level_values('crop').map(lu_rel)
@@ -516,6 +518,40 @@ class PlantNutrientMgmt():
             N_loss
         )
         self.crops.data_attr.update(['fertiliser.'+attr_name])
+
+    def calculate_organic_soil_N_losses(self):
+        
+        self.par.clear()
+        self.regions.par.clear()
+
+        # Get crop areas and append land_use
+        areas = self.crops.area.rename('area').to_frame()
+        rel = self.par.get_rel('crop','land_use')
+        areas['land_use'] = [rel[c] for c in areas.index.get_level_values('crop')]
+        areas = areas.set_index('land_use', append=True)['area']
+
+        # Get compounds lost
+        compounds = \
+        self.par.get_unique(
+            'compound',
+            qry=f'parameter == "soil_losses_organic_soils"'
+        )
+
+        # Construct dataframe
+        organic_soil_N_loss = pd.DataFrame(
+            index = areas.index,
+            columns = pd.Index(compounds, name='compound')
+        )
+
+        # Calculate emissions
+        organic_soil_N_loss = (
+            self.regions.par.get_from_frame('share_org_soil', organic_soil_N_loss)/100 *
+            self.par.get_from_frame('soil_losses_organic_soils', organic_soil_N_loss)
+        ).mul(areas, axis=0).droplevel('land_use')
+
+        self.crops.fertiliser.organic_soil_N_loss = organic_soil_N_loss
+        self.crops.data_attr.update(['fertiliser.organic_soil_N_loss'])
+
 
 class Fertiliser(Container):
     '''Class to store fertiliser attributes in CropProduction obejcts'''
