@@ -36,11 +36,36 @@ class ParameterRetriever:
     data_path_scenarios = None # Path to scenario data
 
     @classmethod
-    def set_data_folders(cls,default,scenarios):
+    def set_data_folders(cls,default,scenarios,relation_tables):
         # Set default data path
         cls.data_path_default = _path_from_str(default)
         # Set scenario data path
         cls.data_path_scenarios = _path_from_str(scenarios)
+
+        # Read relation tables
+        cls.relation_tables = pd.read_excel(
+            _path_from_str(relation_tables),
+            sheet_name=None
+        )
+
+    @classmethod
+    def get_rel(cls,from_col='',to_col=''):
+        '''Returns a dict with values in 'from_col' as keys and 'to_col' as values'''
+
+        try:
+            rel = cls.relation_tables[from_col]
+        except KeyError:
+            sheet_dict = {
+                c:t
+                for t in cls.relation_tables
+                for c in cls.relation_tables[t].columns
+            }
+            rel = cls.relation_tables[sheet_dict[from_col]]
+
+        if len(set(rel[from_col])) < len(set(rel[to_col])):
+            raise ValueError(f'Only one-to-one or many-to-one relations are allowed. Did you mean from_col={to_col}, to_col={from_col}?')
+        
+        return rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
     
     @classmethod
     def update_all_parameter_values(cls,scenario,year):
@@ -359,12 +384,6 @@ Parameters
         else:
             res = df['f_'+filter].unique() 
             return res[~pd.isna(res)]
-
-    def get_rel(self,from_col='',to_col=''):
-        '''Returns a dict with values in 'from_col' as keys and 'to_col' as values'''
-        if len(set(self.rel[from_col])) < len(set(self.rel[to_col])):
-            raise ValueError(f'Only one-to-one or many-to-one relations are allowed. Did you mean from_col={to_col}, to_col={from_col}?')
-        return self.rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
     
     def clear(self):
         for f in self.filters:
