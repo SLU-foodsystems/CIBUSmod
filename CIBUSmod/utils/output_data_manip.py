@@ -1,6 +1,8 @@
 import warnings
 import pandas as pd
 
+from ..utils.retriever import ParameterRetriever
+
 from ..production_systems.animal_herd import AnimalHerd
 from ..production_systems.animal_herd import StaticAnimalHerd
 from ..production_systems.feed_mgmt import Feed
@@ -127,20 +129,20 @@ def get_GHG(output, CO2eq=True):
         manure = pd.concat([manure], keys=['manure management'], names=['process'], axis=1)
 
         # AGRICULTURAL SOILS
+        rel = ParameterRetriever.get_rel('crop','crop_group2')
         soils = (
             pd.concat([
-                pd.concat([
-                    getattr(output.loc[(scn,year),'crp'].fertiliser, attr)
-                    .unstack('prod_system')
-                    .groupby(['prod_system','compound'], axis=1).sum()
-                    .groupby('region').sum()
-                ], keys=[attr.split('_N_')[0].replace('_',' ')], names=['item'], axis=1)
+                getattr(output.loc[(scn,year),'crp'].fertiliser, attr)
+                .groupby('compound', axis=1).sum()
+                .rename(rel, level='crop', axis=0)
+                .rename_axis(index={'crop':'item'})
+                .groupby(['region','prod_system','item']).sum()
+                .unstack(['prod_system','item'])
                 for attr in
                 ['manure_N_application_loss','manure_N_soil_loss',
                 'mineral_N_application_loss','mineral_N_soil_loss',
-                'crop_residues_N_soil_loss']
+                'crop_residues_N_soil_loss','organic_soil_N_loss']
             ], axis=1)
-            .rename(columns={'mineral':'mineral fertiliser'})
             .reorder_levels(['prod_system','item','compound'], axis=1)
         )
         soils = pd.concat([soils], keys=['agricultural soils'], names=['process'], axis=1)
@@ -148,11 +150,12 @@ def get_GHG(output, CO2eq=True):
         # ENERGY USE EMISSIONS
         energy = (
             output.loc[(scn,year),'crp'].energy_use_emissions
-            .unstack('prod_system')
-            .groupby('region').sum()
-            .groupby(['prod_system','activity','compound'], axis=1)
-            .sum()
-            .rename_axis(['prod_system','item','compound'], axis=1)
+            .groupby('compound', axis=1).sum()
+            .rename(rel, level='crop', axis=0)
+            .rename_axis(index={'crop':'item'})
+            .groupby(['region','prod_system','item']).sum()
+            .unstack(['prod_system','item'])
+            .reorder_levels(['prod_system','item','compound'], axis=1)
         )
         energy = pd.concat([energy], keys=['energy use'], names=['process'], axis=1)
 
