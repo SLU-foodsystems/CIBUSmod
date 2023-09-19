@@ -3,6 +3,7 @@ import numpy as np
 import os
 
 from ..utils.verbose_print import verbose_init
+from ..utils.misc import Container, rgetattr,rsetattr
 
 class Regions(object):
     '''Class that handles region attributes
@@ -47,6 +48,22 @@ class Regions(object):
         self.get_soil()
 
         vprint(type='end')
+
+    def make_static(self):
+        '''Returns a StaticRegions object that retains all data attributes but
+        has no methods or ParameterRetriever'''
+        
+        obj = StaticRegions()
+
+        obj.data_attr = self.data_attr.copy()
+
+        for attr in obj.data_attr:
+            if rgetattr(self, attr) is not None:
+                rsetattr(obj, attr, rgetattr(self, attr).copy())
+            else:
+                rsetattr(obj, attr, None)
+
+        return obj
 
     def get_x0(self):
 
@@ -236,3 +253,10 @@ def _point_in_polygon(point,polygon):
         p1x,p1y = p2x,p2y
 
     return inside
+
+class StaticRegions(Container):
+    '''Class used to create static copy of DemandAndConversions object. These stores all attributes except 'par'
+    but does not inherit any methods'''
+
+    def __repr__(self):
+        return Regions.__repr__(self)

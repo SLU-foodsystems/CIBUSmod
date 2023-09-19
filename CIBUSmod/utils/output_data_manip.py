@@ -3,8 +3,7 @@ import pandas as pd
 
 from ..utils.retriever import ParameterRetriever
 
-from ..production_systems.animal_herd import AnimalHerd
-from ..production_systems.animal_herd import StaticAnimalHerd
+from ..production_systems.animal_herd import AnimalHerd, StaticAnimalHerd
 from ..production_systems.feed_mgmt import Feed
 from ..production_systems.manure_mgmt import Manure
 
