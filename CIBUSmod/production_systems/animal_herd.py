@@ -169,7 +169,7 @@ animals              {self.animals}
             )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','broilers','total horses','meat','milk']
+        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','meat','milk']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -192,6 +192,8 @@ animals              {self.animals}
                 old_x = self.production.loc[:,(slice(None),'meat')].sum(axis=1)
         elif x_is == 'total horses':
             old_x = self.heads.sum(axis=1)
+        elif x_is == 'total hens':
+            old_x = self.heads.drop('laying chicks', level='animal', axis=1).sum(axis=1)
         else:
             old_x = self.heads.loc[:,(self.prod_system,x_is)]
         
@@ -267,9 +269,11 @@ animals              {self.animals}
                     for ps in pss
                     ], axis=1)
 
-        # Calculate egg production
+        # Calculate egg production [kg]
         if 'eggs' in prs:
-            pass
+            production.loc[:,(slice(None),slice(None),'eggs')] = \
+                pd.concat({'eggs': self.heads}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
+                np.array([p('egg_production', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
         
         # Calculate total number of heads
         if 'heads' in prs:
@@ -830,7 +834,164 @@ class BroilerHerd(AnimalHerd):
 
 
 class LayerHerd(AnimalHerd):
-    pass
+    AnimalHerd.__doc__.replace('animal','layer poultry')
+
+    def __init__(self,par,index,**kwargs):
+            
+        self.species = 'poultry'
+        self.breed = 'layer'
+        self.animals = ['laying chicks','laying hens (16-28 weeks)','laying hens (29-59 weeks)',
+                        'laying hens (>59 weeks)','breeding hens and roosters']
+
+        self.x_is = 'total hens'
+        
+        super().__init__(par,index,**kwargs)
+
+    def calculate_herd(self):
+        '''Calculates layer herd structure and slaugthers/losses based on x (i.e. number of
+        total laying hens on average over the year).
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Nothing.
+        Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
+
+        # Provide shorthand 'p()' to get parameters
+        p = self.par.get
+        s = self.par.set
+
+        idx_len = len(self.index)
+
+        # Get total number of hens (incl. parents).
+        total_hens = self.x
+
+        # Assume laying hens = total hens and adjust at the end
+        laying_hens = total_hens
+
+        # Distribute to age groups assuming distribution
+        # according to time spans
+        
+        s(animal='laying hens (16-28 weeks)')
+        laying_hens_16_28 = (
+            laying_hens * 
+            (p('weeks_in_stage')  / p('time_in_hen_house'))
+        )
+
+        s(animal='laying hens (29-59 weeks)')
+        laying_hens_29_59 = (
+            laying_hens * 
+            (p('weeks_in_stage') / p('time_in_hen_house'))
+        )
+
+        laying_hens_60 = (
+            laying_hens -
+            (laying_hens_16_28 + laying_hens_29_59)
+        )
+
+        # Calculate number of animals entering each stage
+        # assuming that mortality at each stage occurs
+        # after half of the time in the stage
+        s(animal='laying hens (16-28 weeks)')
+        inserted_laying_hens_16_28 = (
+            laying_hens_16_28 / 
+            (p('weeks_in_stage')/52) /
+            (1+0.5*p('mortality')/100)
+        )
+        lost_laying_hens_16_28 = inserted_laying_hens_16_28 * p('mortality')/100
+
+        s(animal='laying hens (29-59 weeks)')
+        inserted_laying_hens_29_59 = (
+            laying_hens_29_59 / 
+            (p('weeks_in_stage')/52) /
+            (1+0.5*p('mortality')/100)
+        )
+        lost_laying_hens_29_59 = inserted_laying_hens_29_59 * p('mortality')/100
+
+        s(animal='laying hens (>59 weeks)')
+        inserted_laying_hens_60 = (
+            laying_hens_60 / 
+            (p('weeks_in_stage')/52) /
+            (1+0.5*p('mortality')/100)
+        )
+        lost_laying_hens_60 = (
+            inserted_laying_hens_60 * p('mortality')/100 +
+            (
+                inserted_laying_hens_60 * 
+                (1 - p('mortality')/100) *
+                p('rejections_at_slaughter')/100
+            )
+        )
+        slaughtered_laying_hens_60 = inserted_laying_hens_60 - lost_laying_hens_60
+
+        s(animal='laying chicks')
+        inserted_chicks = (
+            inserted_laying_hens_16_28 /
+            (1 - p('mortality')/100)
+        )
+        chicks = (
+            inserted_chicks * 
+            (1 + 0.5 * p('mortality')/100) *
+            (p('weeks_in_stage') / 52)
+        )
+        lost_chicks = inserted_chicks * p('mortality')/100
+
+        # Calculate number of parent animals needed
+        self.par.remove('animal')
+        parents = inserted_chicks / p('chicks_per_breeding hen') * (1 + 1/p('roosters_per_breeding_hen'))
+
+        # Create zero arrays for animals with no assumed slaughter/losses
+        zeros = np.array([0]*idx_len)
+        slaughtered_chicks = zeros
+        slaughtered_laying_hens_16_28 = zeros
+        slaughtered_laying_hens_29_59 = zeros
+        slaughtered_parents = zeros
+        lost_parents = zeros
+
+        # Create output DataFrames
+        pss = [self.prod_system] # Output production systems (==[self.prod_system] as no redistribution of animals in this class)
+
+        empty_df = pd.DataFrame(
+            columns = pd.MultiIndex.from_tuples([(ps, ani) for ps in pss for ani in self.animals], names=['prod_system','animal']),
+            index = self.index,
+            dtype = 'float64'
+            )
+        heads, slaughter_n, lost_n  = (empty_df.copy(),empty_df.copy(),empty_df.copy())
+        # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
+        n = 0
+        for ps in pss:
+            sel = range(n*idx_len, (n+1)*idx_len)
+            heads.loc[:,(ps,slice(None))] = \
+                np.array([chicks[sel],laying_hens_16_28[sel],laying_hens_29_59[sel],
+                          laying_hens_60[sel],parents[sel]]).T
+            slaughter_n.loc[:,(ps,slice(None))] = \
+                np.array([slaughtered_chicks[sel],slaughtered_laying_hens_16_28[sel],slaughtered_laying_hens_29_59[sel],
+                          slaughtered_laying_hens_60[sel],slaughtered_parents[sel]]).T
+            lost_n.loc[:,(ps,slice(None))] = \
+                np.array([lost_chicks[sel],lost_laying_hens_16_28[sel],lost_laying_hens_29_59[sel],
+                          lost_laying_hens_60[sel],lost_parents[sel]]).T
+
+            n += 1
+
+        # Adjust to include parents in total hens (i.e. x = 1 --> parents + laying hens = 1)
+        adj_factor = total_hens / heads.drop('laying chicks', level='animal', axis=1).sum(axis=1)
+        heads = heads.mul(adj_factor, axis=0)
+        slaughter_n = slaughter_n.mul(adj_factor, axis=0)
+        lost_n = lost_n.mul(adj_factor, axis=0)
+
+        self.heads = heads
+        self.slaughtered_n = slaughter_n
+        self.lost_n = lost_n
+        self.data_attr.update(['heads','slaughtered_n','lost_n'])
+
+    def calculate_feed_req(self,ani):
+        
+        p = self.par.get
+        return p('feed_per_head')
+
 
 class HorseHerd(AnimalHerd):
     AnimalHerd.__doc__.replace('animal','horse')
@@ -925,6 +1086,7 @@ def make_herds(
             ('cattle', 'dairy') : 'CattleHerd',
             ('cattle', 'beef') : 'CattleHerd',
             ('pigs', 'none') : 'PigHerd',
+            ('poultry', 'layer') : 'LayerHerd',
             ('poultry', 'broiler') : 'BroilerHerd',
             ('horses', 'ponies and Icelandic horses') : 'HorseHerd',
             ('horses', 'cold blooded horses') : 'HorseHerd',

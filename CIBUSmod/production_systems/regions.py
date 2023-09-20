@@ -91,6 +91,8 @@ class Regions(object):
         x0_ani['species'] = \
         np.where(x0_ani['animal']=='slaktkycklingar','poultry',x0_ani['species'])
         x0_ani['species'] = \
+        np.where(x0_ani['animal']=='höns','poultry',x0_ani['species'])
+        x0_ani['species'] = \
         np.where(x0_ani['animal']=='hästar','horses',x0_ani['species'])
 
         # Add horse breeds
@@ -111,6 +113,8 @@ class Regions(object):
         np.where(x0_ani['animal']=='suggor för avel','none',x0_ani['breed'])
         x0_ani['breed'] = \
         np.where(x0_ani['animal']=='slaktkycklingar','broiler',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='höns','layer',x0_ani['breed'])
         x0_ani['breed'] = \
         np.where(x0_ani['animal']=='ponnyer','ponies and Icelandic horses',x0_ani['breed'])
         x0_ani['breed'] = \
