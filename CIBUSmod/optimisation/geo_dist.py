@@ -271,7 +271,8 @@ class GeoDistributor:
         if '3' in use_cons:
             CONS.append(self.A3.M @ x <= self.b3)
         if '4' in use_cons:
-            CONS.append(self.A4.M @ x <= self.b4)
+            pass
+            # Not used
         if '5' in use_cons:
             CONS.append(self.A5.M @ x <= 0)
         if '6' in use_cons:
@@ -337,15 +338,22 @@ class GeoDistributor:
     def make_C3(self):
         '''Creates C3: A3 @ x <= b3'''
 
-        self.A3 = self.make_A3_and_A4(land_use='cropland')
+        self.A3 = self.make_A3()
         
-        self.b3 = self.A3.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1 # NOTE: Implement cropland area limit factor from parameter
+        self.b3 = (
+            self.A3.M @ 
+            np.concatenate((
+                np.zeros(len(self.x_idx['ani'])),
+                self.x0['crp']
+            ))
+         ) * self.regions.par.get(
+            'max_land_use_factor',
+            **self.A3.rows.to_frame().to_dict('list')
+        )
 
     def make_C4(self):
-        '''Creates C4: A4 @ x <= b4'''
-
-        self.A4 = self.make_A3_and_A4(land_use='semi-natural grasslands')
-        self.b4 = self.A4.M @ np.concatenate((np.zeros(len(self.x_idx['ani'])),self.x0['crp'])) * 1 # NOTE: Implement SNG area limit factor from parameter
+        '''Not used'''
+        pass
 
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0'''
@@ -759,10 +767,18 @@ class GeoDistributor:
 
         return M
 
-    def make_A3_and_A4(self,land_use):
+    def make_A3(self):
 
+        # Get land uses to constrain
+        land_uses = self.regions.par.get_unique(
+            'land_use',
+            qry='parameter == "max_land_use_factor"'
+        )
         # Get row index from regions (re)
-        row_idx = self.x_idx['crp'].get_level_values('region').unique()
+        row_idx = pd.MultiIndex.from_product([
+            land_uses,
+            self.x_idx['crp'].get_level_values('region').unique()
+        ], names=['land_use','region'])
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx['crp']
 
@@ -770,9 +786,9 @@ class GeoDistributor:
         rel = self.par.get_rel('crop','land_use')
 
         # Data and corresponding row/col numbers for constructing matrix
-        val = [1 if rel[cr] == land_use else 0 for cr,_,_ in col_idx]
-        col_nr = list(range(len(col_idx)))
-        row_nr = [row_idx.get_loc((re)) for _,_,re in col_idx]
+        val = [1 if rel[cr] == lu else 0 for lu in land_uses for cr,_,_ in col_idx]
+        col_nr = list(range(len(col_idx))) * len(land_uses)
+        row_nr = [row_idx.get_loc((lu,re)) for lu in land_uses for _,_,re in col_idx]
 
         M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
         Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
