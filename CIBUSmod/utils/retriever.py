@@ -68,7 +68,7 @@ class ParameterRetriever:
         return rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
     
     @classmethod
-    def update_all_parameter_values(cls,scenario,year):
+    def update_all_parameter_values(cls,scenario=None,year=None):
         for pr in cls.instances:
             pr.update_parameter_values(scenario,year)
 
@@ -80,10 +80,6 @@ class ParameterRetriever:
         # Read parameter dataframe with all columns as str except the 'value' column
         path = os.path.join(self.data_path_default, self.name + '.xlsx')
         self.data = _read_xl(path,'default')
-        try:
-            self.rel = _read_xl(path,'relations')
-        except:
-            self.rel = None
 
         self.filters = []
         
@@ -225,7 +221,7 @@ Parameters
 
         return result.align(df, join='right')[0]
 
-    def update_parameter_values(self,scenario,year):
+    def update_parameter_values(self,scenario=None,year=None):
         '''Method to update parameter values in ParameterRetriever according to specified scenario and year.
         
         New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
@@ -251,12 +247,16 @@ Parameters
         -------
         Nothing. Updates ParameterRetriever parameter values.'''
 
+        # Get path to default data
+        def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
+
+        if scenario is None:
+            self.data = _read_xl(def_path,'default')
+            return
+
         year = int(year)
         if isinstance(scenario,str):
             scenario = [scenario]
-
-        # Get path to default data
-        def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
 
         # Read default parameter values
         data = _read_xl(def_path,'default')
