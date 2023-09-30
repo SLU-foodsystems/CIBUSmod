@@ -34,11 +34,18 @@ def map_from_series(ser, reg='sko', **kwargs):
     **kwargs
         passed on to geopandas.GeoDataFrame.plot()
     '''
+
+    default_style = {
+        'edgecolor' : 'none',
+        'column' : 'values',
+        'linewidth' : 0.1,
+        'legend' : True,
+    }
+
+    for key in default_style:
+        if key not in kwargs:
+            kwargs[key] = default_style[key]
+
     to_plot = MAP[reg].join(ser.rename('values'))
-    to_plot.plot(
-        edgecolor = 'none',
-        column='values',
-        linewidth = 0.1,
-        legend = True,
-        **kwargs
-    )
+
+    to_plot.plot(**kwargs)
