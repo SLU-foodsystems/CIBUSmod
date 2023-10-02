@@ -39,7 +39,7 @@ class GeoDistributor:
         self.herds = herds
         self.feed_mgmt = feed_mgmt
 
-    def make(self, use_cons='all', scale_power=[0,0], verbose=False):
+    def make(self, use_cons='all', scale_power=[0,0], verbose=False, **kwargs):
         '''Creates constraints and defines optimisation problem'''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
@@ -49,6 +49,8 @@ class GeoDistributor:
         elif not isinstance(use_cons,list):
             use_cons = [use_cons]
         use_cons = [str(e) for e in use_cons]
+        # Make sure that C7 is handled last
+        use_cons.append(use_cons.pop(use_cons.index('7')))
 
         vprint('Getting x0 and making indexes ...')
         self.get_x0()
@@ -65,10 +67,13 @@ class GeoDistributor:
         self.make_O1()
 
         # Make constraints
+        self.cons_add_exec = [] # List to store code sniplets for including constraints
         for nr in use_cons:
             fun = getattr(self,'make_C'+nr)
             vprint(f'Making constraint C{nr} ...')
-            fun()
+            fun(
+                **{k:v for k,v in kwargs.items() if 'C'+nr in k}
+            )
 
         # If C7 not included no variables are dropped
         if '7' not in use_cons:
@@ -263,22 +268,10 @@ class GeoDistributor:
         )
         OBJ = cvxpy.Minimize(O1)
 
+        # Append constraints
         CONS = []
-        if '1' in use_cons:
-            CONS.append(self.A1.M @ x == self.b1)
-        if '2' in use_cons:
-            CONS.append(self.A2.M @ x >= 0)
-        if '3' in use_cons:
-            CONS.append(self.A3.M @ x <= self.b3)
-        if '4' in use_cons:
-            pass
-            # Not used
-        if '5' in use_cons:
-            CONS.append(self.A5.M @ x <= 0)
-        if '6' in use_cons:
-            CONS.append(self.A6.M @ x <= 0)
-        if '7' in use_cons:
-            pass
+        for ex in self.cons_add_exec:
+            exec(ex)
 
         # Define problem
         self.problem = cvxpy.Problem(
@@ -318,6 +311,9 @@ class GeoDistributor:
         )
         self.b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
 
+        # Append code to include constraint when defining cvx problem
+        self.cons_add_exec.extend(['CONS.append(self.A1.M @ x == self.b1)'])
+
     def make_C2(self):
         '''Creates C2'''
 
@@ -335,6 +331,9 @@ class GeoDistributor:
             col_idx={'ani':self.A2_1.cols, 'crp':self.A2_2.cols}
         )
 
+        # Append code to include constraint when defining cvx problem
+        self.cons_add_exec.extend(['CONS.append(self.A2.M @ x >= 0)'])
+
     def make_C3(self):
         '''Creates C3: A3 @ x <= b3'''
 
@@ -350,6 +349,9 @@ class GeoDistributor:
             'max_land_use_factor',
             **self.A3.rows.to_frame().to_dict('list')
         )
+
+        # Append code to include constraint when defining cvx problem
+        self.cons_add_exec.extend(['CONS.append(self.A3.M @ x <= self.b3)'])
 
     def make_C4(self):
         '''Not used'''
@@ -370,11 +372,17 @@ class GeoDistributor:
             row_idx=self.A5_1.rows,
             col_idx={'ani':self.A5_1.cols, 'crp':self.A5_2.cols}
         )
+
+        # Append code to include constraint when defining cvx problem
+        self.cons_add_exec.extend(['CONS.append(self.A5.M @ x <= 0)'])
     
     def make_C6(self):
         '''Creates C6: A6 @ x <= 0'''
 
         self.A6 = self.make_A6()
+
+        # Append code to include constraint when defining cvx problem
+        self.cons_add_exec.extend(['CONS.append(self.A6.M @ x <= 0)'])
 
     def make_C7(self):
         '''Creates C7: Constrain crops to certain regions based on minimum growing degree days (GDD5).
@@ -382,6 +390,7 @@ class GeoDistributor:
 
         # This constraint is not implemented as a constraint in the solver but instead dropps
         # variables representing crops or animals that can't be present in a region. 
+        # IMPORTANT: This must be run after all other contraints have been defined!
         
         # Index of crops
         cr_idx = self.x_idx['crp']
@@ -461,15 +470,58 @@ class GeoDistributor:
         self.x_idx_short = {'ani':sel_an, 'crp':sel_cr}
         
         # Drop variables from objective and constraint matrices
-        for mat in ['P1','A1','A2','A3','A4','A5','A6']:
+        for mat in ['P1','A1','A2','A3','A4','A5','A6','A8']:
             try:
                 A = getattr(self,mat)
-            except:
+            except AttributeError:
                 continue
             else:
                 A.M = A.M[:,isel]
                 A.cols['ani'] = sel_an.copy()
                 A.cols['crp'] = sel_cr.copy()
+
+    def make_C8(
+            self,
+            C8_crp = None,
+            C8_ani = None,
+            C8_rel = '==',
+            C8_tol = 1e-4
+        ):
+        '''Creates C8: A8 @ x <rel> b8
+        Flexible constraint that constrains given crop areas and/or animal
+        numbers in relation to given values.
+        
+        Parameters
+        ----------
+        C8_crp : pandas.Series
+        C8_ani : pandas.Series
+        C8_rel : string | '==', '>=' or '<='
+        C8_tol : float
+
+        Returns
+        -------
+        None
+        '''
+
+        self.A8 = self.make_A8(C8_crp, C8_ani)
+        
+        if (C8_crp is not None) & (C8_ani is not None):
+            self.b8 = np.concatenate((C8_ani.values,C8_crp.values))
+        elif C8_crp is not None:
+            self.b8 = C8_crp.values
+        else:
+            self.b8 = C8_ani.values
+
+        # Append code to include constraint when defining cvx problem
+        if C8_rel == '==':
+            self.cons_add_exec.extend([
+                f'CONS.append(self.A8.M @ x >= self.b8 * {1-C8_tol})',
+                f'CONS.append(self.A8.M @ x <= self.b8 * {1+C8_tol})'
+            ])
+        else:
+            self.cons_add_exec.extend([
+                f'CONS.append(self.A8.M @ x {C8_rel} self.b8)'
+            ])
 
     def make_O1(self):
         
@@ -774,7 +826,7 @@ class GeoDistributor:
             'land_use',
             qry='parameter == "max_land_use_factor"'
         )
-        # Get row index from regions (re)
+        # Get row index from land uses and regions (lu,re)
         row_idx = pd.MultiIndex.from_product([
             land_uses,
             self.x_idx['crp'].get_level_values('region').unique()
@@ -954,6 +1006,40 @@ class GeoDistributor:
             scipy.sparse.hstack([Z,M]),
             row_idx,
             {'ani':self.x_idx['ani'],'crp':col_idx}
+        )
+
+        return M
+    
+    def make_A8(self, C8_crp, C8_ani):
+
+        # Get row index (cr,ps,re), (sp,br,ps,ss,re)
+        row_idx = {}
+        # Get col index (cr,ps,re), (sp,br,ps,ss,re)
+        col_idx = self.x_idx.copy()
+
+        MS = []
+        for ac in ['ani','crp']:
+            if eval('C8_'+ac) is not None:
+                row_idx[ac] = eval('C8_'+ac).index
+                # Create identity matrix from col_idx
+                n = len(col_idx[ac])
+                M = scipy.sparse.identity(n, format='csc')
+                # Drop rows to match row index
+                sel_rows = [col_idx[ac].get_loc(i) for i in row_idx[ac]]
+                M = M[sel_rows,:]
+                # Create zero matrix and hstack
+                if ac == 'ani':
+                    Z = scipy.sparse.csc_matrix((M.shape[0],len(col_idx['crp'])))
+                    MS.append(scipy.sparse.hstack([M,Z]))
+                else:
+                    Z = scipy.sparse.csc_matrix((M.shape[0],len(col_idx['ani'])))
+                    MS.append(scipy.sparse.hstack([Z,M]))
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.vstack(MS),
+            row_idx,
+            col_idx
         )
 
         return M
