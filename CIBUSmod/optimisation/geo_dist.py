@@ -43,6 +43,8 @@ class GeoDistributor:
         '''Creates constraints and defines optimisation problem'''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
+        
+        self.matrices = [] # Keep track of matrices created
 
         if use_cons == 'all':
             use_cons = [1,2,3,4,5,6,7]
@@ -312,6 +314,7 @@ class GeoDistributor:
         self.b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
 
         # Append code to include constraint when defining cvx problem
+        self.matrices.append('A1')
         self.cons_add_exec.extend(['CONS.append(self.A1.M @ x == self.b1)'])
 
     def make_C2(self):
@@ -332,6 +335,7 @@ class GeoDistributor:
         )
 
         # Append code to include constraint when defining cvx problem
+        self.matrices.append('A2')
         self.cons_add_exec.extend(['CONS.append(self.A2.M @ x >= 0)'])
 
     def make_C3(self):
@@ -339,18 +343,13 @@ class GeoDistributor:
 
         self.A3 = self.make_A3()
         
-        self.b3 = (
-            self.A3.M @ 
-            np.concatenate((
-                np.zeros(len(self.x_idx['ani'])),
-                self.x0['crp']
-            ))
-         ) * self.regions.par.get(
-            'max_land_use_factor',
-            **self.A3.rows.to_frame().to_dict('list')
-        )
+        self.b3 = np.array([
+            self.regions.max_land_use.loc[x[1],x[0]]
+            for x in self.A3.rows
+        ])
 
         # Append code to include constraint when defining cvx problem
+        self.matrices.append('A3')
         self.cons_add_exec.extend(['CONS.append(self.A3.M @ x <= self.b3)'])
 
     def make_C4(self):
@@ -374,6 +373,7 @@ class GeoDistributor:
         )
 
         # Append code to include constraint when defining cvx problem
+        self.matrices.append('A5')
         self.cons_add_exec.extend(['CONS.append(self.A5.M @ x <= 0)'])
     
     def make_C6(self):
@@ -382,6 +382,7 @@ class GeoDistributor:
         self.A6 = self.make_A6()
 
         # Append code to include constraint when defining cvx problem
+        self.matrices.append('A6')
         self.cons_add_exec.extend(['CONS.append(self.A6.M @ x <= 0)'])
 
     def make_C7(self):
@@ -470,7 +471,7 @@ class GeoDistributor:
         self.x_idx_short = {'ani':sel_an, 'crp':sel_cr}
         
         # Drop variables from objective and constraint matrices
-        for mat in ['P1','A1','A2','A3','A4','A5','A6','A8']:
+        for mat in self.matrices:
             try:
                 A = getattr(self,mat)
             except AttributeError:
@@ -489,39 +490,85 @@ class GeoDistributor:
         ):
         '''Creates C8: A8 @ x <rel> b8
         Flexible constraint that constrains given crop areas and/or animal
-        numbers in relation to given values.
-        
+        numbers in relation to given values. Constrains can be eiter equality
+        or max/min. Equality constraints (C8_rel = '==') are implemented as min
+        and max constraints with a relative tolerance of +/- C8_tol.
+
+        Multiple constraints can be created by supplying lists as parameters.
+
         Parameters
         ----------
-        C8_crp : pandas.Series
-        C8_ani : pandas.Series
-        C8_rel : string | '==', '>=' or '<='
-        C8_tol : float
+        C8_crp : (list of) pandas.Series
+            Crop areas to constrain to (index must match self.x_idx['crp'])
+        C8_ani : (list of) pandas.Series
+            Animal numbers to constrain to (index must match self.x_idx['ani'])
+        C8_rel : (list of) string
+            Type of constraint. Equality ('=='), minimum ('>=') or maximum ('<=')
+        C8_tol : (list of) float
 
         Returns
         -------
         None
         '''
+        pars = {
+            'C8_crp' : C8_crp,
+            'C8_ani' : C8_ani,
+            'C8_rel' : C8_rel,
+            'C8_tol' : C8_tol
+        }
+        pars_len = {p : len(pars[p]) if isinstance(pars[p],list) else 0 for p in pars}
+        pars_len_max = max(max(pars_len.values()),1)
 
-        self.A8 = self.make_A8(C8_crp, C8_ani)
+        if any([x>1 and x<pars_len_max for x in pars_len.values()]):
+            raise ValueError('Supplied lists must have the same length')
         
-        if (C8_crp is not None) & (C8_ani is not None):
-            self.b8 = np.concatenate((C8_ani.values,C8_crp.values))
-        elif C8_crp is not None:
-            self.b8 = C8_crp.values
-        else:
-            self.b8 = C8_ani.values
+        # Align lists
+        for p in pars:
+            if pars_len[p]<pars_len_max:
+                if pars_len[p]==1:
+                    pars[p] = pars[p] * pars_len_max
+                else:
+                    pars[p] = [pars[p]] * pars_len_max
 
-        # Append code to include constraint when defining cvx problem
-        if C8_rel == '==':
-            self.cons_add_exec.extend([
-                f'CONS.append(self.A8.M @ x >= self.b8 * {1-C8_tol})',
-                f'CONS.append(self.A8.M @ x <= self.b8 * {1+C8_tol})'
-            ])
-        else:
-            self.cons_add_exec.extend([
-                f'CONS.append(self.A8.M @ x {C8_rel} self.b8)'
-            ])
+        for i in range(pars_len_max):
+            # Make matrix (A8)
+            setattr(
+                self,
+                'A8_'+str(i),
+                self.make_A8(pars['C8_crp'][i], pars['C8_ani'][i])
+            )
+
+            # Make right hand vector (b8)
+            if (C8_crp[i] is not None) & (C8_ani[i] is not None):
+                setattr(
+                    self,
+                    'b8_'+str(i),
+                    np.concatenate((pars['C8_ani'][i].values,pars['C8_crp'][i].values))
+                )
+            elif C8_crp[i] is not None:
+                setattr(
+                    self,
+                    'b8_'+str(i),
+                    pars['C8_crp'][i].values
+                )
+            else:
+                setattr(
+                    self,
+                    'b8_'+str(i),
+                    pars['C8_ani'][i].values
+                )
+
+            # Append code to include constraint when defining cvx problem
+            self.matrices.append('A8_'+str(i))
+            if C8_rel[i] == '==':
+                self.cons_add_exec.extend([
+                    f'CONS.append(self.A8_{str(i)}.M @ x >= self.b8_{str(i)} * {1-pars["C8_tol"][i]})',
+                    f'CONS.append(self.A8_{str(i)}.M @ x <= self.b8_{str(i)} * {1+pars["C8_tol"][i]})'
+                ])
+            else:
+                self.cons_add_exec.extend([
+                    f'CONS.append(self.A8_{str(i)}.M @ x {pars["C8_rel"][i]} self.b8_{str(i)})'
+                ])
 
     def make_O1(self):
         
@@ -547,7 +594,8 @@ class GeoDistributor:
             col_idx={'ani':P1_1.cols, 'crp':P1_2.cols}
         )
         
-
+        self.matrices.append('P1')
+        
     def make_A1_1(self):
 
         # Get row index from animal product demand vector (ps,sp,ap)
@@ -822,10 +870,7 @@ class GeoDistributor:
     def make_A3(self):
 
         # Get land uses to constrain
-        land_uses = self.regions.par.get_unique(
-            'land_use',
-            qry='parameter == "max_land_use_factor"'
-        )
+        land_uses = self.regions.max_land_use.columns
         # Get row index from land uses and regions (lu,re)
         row_idx = pd.MultiIndex.from_product([
             land_uses,

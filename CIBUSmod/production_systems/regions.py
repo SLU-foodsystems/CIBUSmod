@@ -47,6 +47,10 @@ class Regions(object):
         self.get_climate()
         self.get_soil()
 
+        # Calculate max land use
+        vprint('Calculating maximum land use ...')
+        self.calculate_max_land_use()
+
         vprint(type='end')
 
     def make_static(self):
@@ -219,6 +223,29 @@ class Regions(object):
             )
         
         self.data_attr.update(['soil'])
+
+    def calculate_max_land_use(self):
+        # Get land uses with a maximum land use
+        land_uses = self.par.get_unique(
+            'land_use',
+            qry='parameter == "max_land_use_factor"'
+        )
+
+        # Calculate land use in x0
+        lu = (
+            self.x0_crops
+            .rename(self.par.get_rel('crop','land_use'))
+            .rename_axis(['land_use','prod_system','region'])
+            .groupby(['region','land_use'])
+            .sum()
+            .unstack()
+            .loc[:,land_uses]
+        )
+
+        # Calculate maximum land use
+        self.max_land_use = \
+        lu * self.par.get_from_frame('max_land_use_factor',lu)
+        self.data_attr.update(['max_land_use'])
 
 def _get_soil_class(x, txt_classes):
     for txt_class in txt_classes:
