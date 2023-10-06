@@ -147,7 +147,7 @@ def get_GHG(output, CO2eq=True):
         soils = pd.concat([soils], keys=['agricultural soils'], names=['process'], axis=1)
 
         # ENERGY USE EMISSIONS
-        energy = (
+        energy_crops = (
             output.loc[(scn,year),'crp'].energy_use_emissions
             .groupby('compound', axis=1).sum()
             .rename(rel, level='crop', axis=0)
@@ -156,6 +156,18 @@ def get_GHG(output, CO2eq=True):
             .unstack(['prod_system','item'])
             .reorder_levels(['prod_system','item','compound'], axis=1)
         )
+
+        energy_livestock = (
+            output.loc[(scn,year),'ani'].energy_use_emissions
+            .groupby(['prod_system','species','breed','compound'], axis=1)
+            .sum()
+        )
+        energy_livestock.columns = pd.MultiIndex.from_tuples(
+            [(ps,f'{sp}, {br}',cp) for ps,sp,br,cp in energy_livestock.columns],
+            names = ['prod_system', 'item', 'compound']
+        )
+
+        energy = pd.concat([energy_crops,energy_livestock], axis=1)
         energy = pd.concat([energy], keys=['energy use'], names=['process'], axis=1)
 
         # Combine processes to 

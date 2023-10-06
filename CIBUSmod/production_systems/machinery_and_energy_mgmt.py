@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container
 
 class MachineryAndEnergyMgmt(object):
     '''Class that handles calculation of energy requirements
@@ -38,7 +37,7 @@ class MachineryAndEnergyMgmt(object):
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='MachineryAndEnergyMgmt')
 
-        # Create dataframe to store energy use [kWh]
+        # Create dataframe to store energy use in crop production [kWh]
         self.crops.energy_use = pd.DataFrame(
             index = self.crops.index,
             columns = pd.MultiIndex.from_product([
@@ -52,12 +51,12 @@ class MachineryAndEnergyMgmt(object):
         self.calculate_field_machinery()
 
         vprint('Calculating energy use for grain drying (not implemented) ...')
-        self.calculate_field_machinery()
+        self.calculate_drying()
 
         vprint('Calculating energy use in greenhouses ...')
         self.calculate_greenhouses()
 
-        vprint('Calculating energy use in stables (not implemented) ...')
+        vprint('Calculating energy use in stables ...')
         self.calculate_stables()
 
         vprint('Calculating fuel use emissions ...')
@@ -224,36 +223,76 @@ class MachineryAndEnergyMgmt(object):
         )
 
     def calculate_stables(self):
-        pass
+
+        pf = self.par.get_from_frame
+        self.par.clear()
+
+        # Get stable energy use activities and energy sources
+        acs = self.par.get_unique('activity',qry="parameter.isin(['stable_energy_use_per_prod','stable_energy_use_per_head'])")
+        ess = self.par.get_unique('energy_source')
+
+        for herd in self.herds:
+
+            # Set species and breed filters for ParameterRetriever
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+            )
+
+            # Create dataframes of heads and production
+            heads = herd.heads.reindex(
+                columns = pd.MultiIndex.from_tuples(
+                    [(ps,an,ac,es) for ps,an in herd.heads.columns for ac in acs for es in ess],
+                    names=['prod_system','animal','activity','energy_source']
+                )
+            )
+            prod = herd.production.reindex(
+                columns = pd.MultiIndex.from_tuples(
+                    [(ps,an,ap,ac,es) for ps,an,ap in herd.production.columns for ac in acs for es in ess],
+                    names=['prod_system','animal','animal_prod','activity','energy_source']
+                )
+            )
+            
+            # Calculate energy use
+            energy_use = (
+
+                (heads * pf('stable_energy_use_per_head',heads)) +
+
+                (prod * pf('stable_energy_use_per_prod',prod))
+                .groupby(['prod_system','animal','activity','energy_source'], axis=1)
+                .sum()
+            )
+            
+            # Apply energy source share factors
+            energy_use = energy_use * (pf('energy_source_share', energy_use)/100)
+            
+            herd.energy_use = energy_use
+            herd.data_attr.update(['energy_use'])
 
     def calculate_combustion_emissions(self):
         
-        self.par.clear()
+        for item in [self.crops] + list(self.herds):
+            self.par.clear()
 
-        # Get energy use. kWh --> TJ
-        energy_use = self.crops.energy_use * 1000 * 3600 / 1e12
+            # Get energy use. kWh --> TJ
+            energy_use = item.energy_use * 1000 * 3600 / 1e12
 
-        # Get compounds
-        cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')
+            # Get compounds
+            cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')
 
-        energy_use = energy_use.reindex(
-            pd.MultiIndex.from_tuples(
-                [cols + (cp,) for cols in energy_use.columns for cp in cps],
-                names = energy_use.columns.names + ['compound'],
-            ),
-            axis=1
-        )
+            energy_use = energy_use.reindex(
+                pd.MultiIndex.from_tuples(
+                    [cols + (cp,) for cols in energy_use.columns for cp in cps],
+                    names = energy_use.columns.names + ['compound'],
+                ),
+                axis=1
+            )
 
-        # Calculate emissions
-        emissions = energy_use.mul(
-            self.par.get('combustion_EF', **energy_use.columns.to_frame().to_dict('list')),
-            axis=1
-        )
+            # Calculate emissions
+            emissions = energy_use.mul(
+                self.par.get('combustion_EF', **energy_use.columns.to_frame().to_dict('list')),
+                axis=1
+            )
 
-        self.crops.energy_use_emissions = emissions
-        self.crops.data_attr.update(['energy_use_emissions'])
-
-    
-
-class EnergyUse(Container):
-    '''Class to store energy use attributes'''
+            item.energy_use_emissions = emissions
+            item.data_attr.update(['energy_use_emissions'])
