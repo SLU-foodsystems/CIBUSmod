@@ -1,5 +1,44 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+
+def bar_stacked_grouped(
+    data,
+    ax,
+    cmap,
+    width = 0.7,
+    labbel_size = 11,
+    min_alpha = 0.5
+):
+    '''Plots a grouped and stacked bar chart from a pandas.DataFrame. Columns are taken
+    as categories (i.e. color), inner most index level as groups and remaining index levels
+    as x labels'''
+    
+    colors=plt.get_cmap(cmap).colors[0:len(data.columns)]
+    for i in range(len(data.columns)):
+        df = data.iloc[:,i::].sum(axis=1).unstack()
+        df.columns = ['_']*(len(df.columns)-1) + [data.columns[i]]
+        df.plot(kind='bar',width=width, ax=ax, color=colors[i], edgecolor='grey',legend=False)
+    
+    # Labels
+    df = data.sum(axis=1).unstack()
+    x = np.linspace(-width/4,width/4,len(df.columns))
+    y = df.iloc[0,:] + (df.max().max()*0.02)
+    s = df.columns
+    for i in range(len(x)):
+        plt.text(
+            x[i],y[i],s[i],
+            rotation = 'vertical',
+            rotation_mode = 'anchor',
+            va='center_baseline',
+            ha='left',
+            size=labbel_size
+        )
+    
+    # Make shade
+    hide_colors = [(1,1,1,a) for a in np.linspace(0,(1-min_alpha),len(df.columns))]
+    df.columns = ['_']*len(df.columns)
+    df.plot(kind='bar', width=width, color=hide_colors, legend=False, ax=ax)
 
 def waterfall(
     data,
@@ -9,6 +48,8 @@ def waterfall(
     color_neg = '#83D382',
     color_line = 'grey',
     width = 0.5,
+    label = 'percent',
+    label_size = 11,
     **kwargs
 ):
 
@@ -31,17 +72,28 @@ def waterfall(
     data_main.loc[~data.index.isin(breaks)] = np.nan
 
     data_chg = data.sum(axis=1).rename('tot').to_frame()
-    data_chg['_hide'] = 0
-    data_chg['_pos'] = 0
-    data_chg['_neg'] = 0
+    data_chg['_hide'] = np.nan
+    data_chg['_pos'] = np.nan
+    data_chg['_neg'] = np.nan
+    data_chg['_lab'] = np.nan
 
     for i in range(1,len(data_chg)-1):
+        # Calculate differance
         dif = data_chg.iloc[i,0] - data_chg.iloc[i-1,0]
-        if dif >= 0:
+        
+        #
+        if label == 'percent':
+            data_chg.iloc[i,4] = dif / data_chg.iloc[i-1,0] * 100
+        elif label == 'absolute':
+            data_chg.iloc[i,4] = dif
+        else:
+            pass
+        
+        if dif > 0:
             data_chg.iloc[i,2] = dif
             data_chg.iloc[i,1] = \
             data_chg.iloc[i-1,0]
-        else:
+        elif dif < 0:
             data_chg.iloc[i,3] = -dif
             data_chg.iloc[i,1] = \
             data_chg.iloc[i-1,0] + dif
@@ -54,7 +106,7 @@ def waterfall(
         **kwargs
     )
     
-    data_chg.iloc[:,[1,2,3]].plot(
+    data_chg.loc[:,['_hide','_pos','_neg']].plot(
         kind='bar',
         stacked=True,
         width=width,
@@ -62,7 +114,32 @@ def waterfall(
         color = [(0,0,0,0),color_pos,color_neg],
         legend = False
     )
-
+    
+    y_adj = data_main.max().max()*0.02
+    if label in ['percent','absolute']:
+        for i in range(len(data_chg)):
+            x=i
+            val = data_chg.iloc[i,4]
+            lab = f'{val:.1f}' if abs(val) < 10 else f'{val:.0f}'
+            if ~np.isnan(data_chg.iloc[i,2]):
+                y = data_chg.iloc[i,1] + data_chg.iloc[i,2] + y_adj
+                s='+'+lab+('%' if label == 'percent' else '')
+                plt.text(
+                    x,y,s,
+                    ha = 'center',
+                    va = 'bottom',
+                    size = label_size
+                )
+            elif ~np.isnan(data_chg.iloc[i,3]):
+                y = data_chg.iloc[i,1] - y_adj
+                s=lab+('%' if label == 'percent' else '')
+                plt.text(
+                    x,y,s,
+                    ha = 'center',
+                    va = 'top',
+                    size = label_size
+                )
+    
     for i in range(len(data)-1):
         y = [data_chg.iloc[i,0]]*2
         x = [i-width/2+0.02,i+1+width/2-0.02]
