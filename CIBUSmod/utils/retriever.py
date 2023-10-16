@@ -68,9 +68,20 @@ class ParameterRetriever:
         return rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
     
     @classmethod
-    def update_all_parameter_values(cls,scenario=None,year=None):
+    def update_all_parameter_values(cls,scenario=None,year=None,modules='all',pars='all'):
+
+        if modules != 'all':
+            if not isinstance(modules,list):
+                modules = [modules]
+        else:
+            modules = [m.name for m in cls.instances]
+
         for pr in cls.instances:
-            pr.update_parameter_values(scenario,year)
+            if pr.name in modules:
+                pr.update_parameter_values(scenario,year,pars)
+            else:
+                # Update to default data
+                pr.update_parameter_values()
 
     def __init__(self, name, **kwargs):
         
@@ -221,7 +232,7 @@ Parameters
 
         return result.align(df, join='right')[0]
 
-    def update_parameter_values(self,scenario=None,year=None):
+    def update_parameter_values(self,scenario=None,year=None,pars='all'):
         '''Method to update parameter values in ParameterRetriever according to specified scenario and year.
         
         New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
@@ -242,11 +253,18 @@ Parameters
             will override earlier scenarios if the same parameter value is changed in multiple scnearios.
         year : str or int
             Year to update parameter values to
+        pars : str or list of str
+            Parameters to update. If pars='all', all available parameters will be updated.
             
         Returns
         -------
         Nothing. Updates ParameterRetriever parameter values.'''
 
+        # Check pars input
+        if pars != 'all':
+            if not isinstance(pars,list):
+                pars = [pars]
+                
         # Get path to default data
         def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
 
@@ -282,6 +300,10 @@ Parameters
 
             # Read scenario parameter values
             scn_data = _read_xl(scn_path,self.name)
+
+            # Select parameters to update
+            if pars != 'all':
+                scn_data = scn_data[scn_data.index.get_level_values('parameter').isin(pars)]
                 
             # If xlsx and sheet was found but contained no parameters, move to next scenario
             if len(scn_data) == 0:
