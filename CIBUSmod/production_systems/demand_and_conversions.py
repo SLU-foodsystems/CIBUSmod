@@ -141,7 +141,7 @@ class DemandAndConversions(object):
         cons = self.par.get_from_frame('consumption',food_demand) * share_per_prod_system * share_per_origin
         # Convert to [kg/year] and factor in population
         self.food_demand = cons / 1000 * 365.25 * self.population * 1000000
-        self.data_attr.update(['population'])
+        self.data_attr.update(['population','food_demand'])
 
     def calculate_waste(self):
 
