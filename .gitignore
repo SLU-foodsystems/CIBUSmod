@@ -19,3 +19,4 @@ dev/
 
 # Model output files
 *.pkl
+*.bz2
