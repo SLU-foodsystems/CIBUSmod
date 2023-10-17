@@ -125,12 +125,6 @@ class PlantNutrientMgmt():
 
         yields = pdf.mul(yields, axis=0)
         ley_share = pdf.mul(ley_share, axis=0)
-
-        # Append po8 regions to index
-        region2po8 = self.par.get_rel('region','po8')
-        yields = yields.set_index(yields.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
-        ley_share = ley_share.set_index(ley_share.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
-        area_per_use = area_per_use.set_index(area_per_use.index.get_level_values('region').map(region2po8).rename('po8'), append=True)
         
         # Recommendation [kg TAN/ha]
         TAN_rec = (
@@ -144,7 +138,7 @@ class PlantNutrientMgmt():
             self.par.get_from_frame('N_ley_m',ley_share)
         )
 
-        TAN_req = (TAN_rec * TAN_ley_adj * area_per_use).droplevel('po8')
+        TAN_req = (TAN_rec * TAN_ley_adj * area_per_use)
 
         self.crops.fertiliser.TAN_req = TAN_req.sum(axis=1)
         self.crops.data_attr.update(['fertiliser.TAN_req'])

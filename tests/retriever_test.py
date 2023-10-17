@@ -9,13 +9,18 @@ from CIBUSmod.utils.retriever import ParameterRetriever
 # %% Set data folders and initialise retriever
 ParameterRetriever.set_data_folders(
     default = os.path.join('.'),
-    scenarios = os.path.join('.')
+    scenarios = os.path.join('.'),
+    relation_tables = os.path.join('.','retriever_test_rel.xlsx')
 )
 
 test = ParameterRetriever(
     name='retriever_test'
 )
 print(test.data)
+
+# %% Get relation
+assert test.get_rel('A','AG') == \
+{'a1': 'ag1', 'a2': 'ag1', 'a3': 'ag2', 'a4': 'ag2'}
 
 # %% Get default value without filter when other values are available
 test.clear()
@@ -61,15 +66,15 @@ assert test.get('three', A='a2',B='b2',C='c2') == 3.1
 test.clear()
 assert test.get('three', A='a2',B='b2',D='d2') == 3.2
 
-# No match --> NaN
+# No match --> NaN and warns
 test.clear()
 assert np.isnan(test.get('three', A='a1',B='b2',C='c2'))
 
-# Multiple matches --> NaN
+# Multiple matches --> NaN and warns
 test.clear()
 assert np.isnan(test.get('three', A='a2',B='b2',C='c2',D='d2'))
 
-# No filter + no default --> NaN
+# No filter + no default --> NaN and warns
 test.clear()
 assert np.isnan(test.get('five'))
 
@@ -157,4 +162,17 @@ assert test.get('three', A='a2', C='c2') == 31
 test.update_parameter_values(['retriever_test_scn3','retriever_test_scn4'],10)
 print(test.data)
 
-# %%
+# %% Translated filter columns
+test.update_parameter_values()
+test.clear()
+# If non-aggregated filter column defined take that
+assert test.get('eight', A='a1') == 8.0
+
+assert test.get('eight', A='a2') == 8.1
+assert np.isnan(test.get('eight', A='a3'))
+assert test.get('eight', A='a3', G='g1') == 8.2
+assert test.get('eight', A='a3', G='g1') == 8.2
+assert np.isnan(test.get('eight', A='a3', G='g4'))
+
+assert test.get('nine',A='a1',B='b1',G='g1') == 9.1
+assert test.get('nine',A='a3',B='b1',G='g4') == 9.2

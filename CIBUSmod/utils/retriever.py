@@ -45,7 +45,7 @@ class ParameterRetriever:
         # Read relation tables
         cls.relation_tables = pd.read_excel(
             _path_from_str(relation_tables),
-            sheet_name=None
+            sheet_name=None, dtype=str
         )
 
     @classmethod
@@ -477,25 +477,89 @@ def _read_xl(path,sheet):
 
                 df = pd.concat([df,df_csv])
 
-        if sheet!='relations':
-            # Only retain filter column(s), parameter column and value column(s)
-            index_cols = [c for c in df.columns if c.startswith("f_") or c=="val_is"]
-            value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
+        # Only retain filter column(s), parameter column and value column(s)
+        index_cols = [c for c in df.columns if c.startswith("f_") or c=="val_is"]
+        value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
 
-            df = (
-                df.loc[lambda d: d["parameter"].notnull()]
-                #.loc[lambda d: d["value"].notnull()]
-                .set_index(index_cols + ["parameter"])[value_cols]
-                .astype(float)
-            )
+        df = (
+            df.loc[lambda d: d["parameter"].notnull()]
+            #.loc[lambda d: d["value"].notnull()]
+            .set_index(index_cols + ["parameter"])[value_cols]
+            .astype(float)
+        )
 
-            # Raise error if duplicates found and print some usefull info
-            if df.index.duplicated().any():
-                dup = df.index[df.index.duplicated()].get_level_values("parameter")
-                n = min(len(dup),5)
-                str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
-                str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")
-                raise ValueError(str1+str2)
+        # Go thorough any filter columns with a ':', which indicates that these
+        # are expresed on som aggregated level and should be translated
+        # using relation tables.
+        rel_filters = [f for f in df.index.names if ':' in f]
+        if len(rel_filters)>0:
+            for rf in rel_filters:
+                # Get aggregated and target filter names
+                f_from = rf.split(':')[0].split('_')[1]
+                f_to = rf.split(':')[1]
+                rel = _inv_dict(ParameterRetriever.get_rel(f_to,f_from))
+
+                # If target filter column does not exist create it
+                if 'f_'+f_to not in df.index.names:
+                    df_ = df.to_frame()
+                    df_['f_'+f_to] = np.nan
+                    df_ = df_.set_index('f_'+f_to, append=True)
+                    df = df_['value']
+                
+                # Get rows
+                df_w_rf = df.loc[~df.index.get_level_values(rf).isna(),:]
+                df = df.loc[df.index.get_level_values(rf).isna(),:]
+
+                # Make sure that the target filter column is empty
+                if not df_w_rf.index.get_level_values('f_'+f_to).isna().all():
+                    raise Exception('Target filter column has values')
+
+                # Get index of relative filter and target filter
+                rf_i = df.index.names.index(rf)
+                tf_i = df.index.names.index('f_'+f_to)
+
+                # Create new df where data values are propagaed across target filter values
+                new_df = pd.Series(
+                    {
+                        tuple(
+                            list(idx[:tf_i]) +
+                            [f] +
+                            list(idx[tf_i+1:])
+                        ) : v
+                        for idx, v in zip(df_w_rf.index, df_w_rf.values)
+                        for f in rel[idx[rf_i]]
+                    },
+                    name = 'value'
+                )
+                new_df.index.names = df.index.names
+
+                # Remove any rows with identical filters as rows in the big df
+                sel = [
+                    tuple(
+                        list(idx[:rf_i]) +
+                        [np.nan] +
+                        list(idx[rf_i+1:])
+                    ) not in df.index
+                    for idx in
+                    new_df.index
+                ]
+                new_df = new_df[sel]
+
+                # Add new data to df and drop aggregated filter level
+                df = pd.concat([df,new_df])
+                df = df.droplevel(rf)
+
+            # Make sure that 'parameter' is the last level in index.
+            par_i = df.index.names.index('parameter')
+            df = df.reorder_levels(df.index.names[:par_i]+df.index.names[par_i+1:]+[df.index.names[par_i]])
+
+        # Raise error if duplicates found and print some usefull info
+        if df.index.duplicated().any():
+            dup = df.index[df.index.duplicated()].get_level_values("parameter")
+            n = min(len(dup),5)
+            str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
+            str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")
+            raise ValueError(str1+str2)
                 
 
         return df
@@ -636,3 +700,9 @@ def _get_parameter_values(data, selection, parameter):
         )
 
     return result.values
+
+def _inv_dict(x):
+    inv_x = {}
+    for k,v in x.items():
+        inv_x[v] = inv_x.get(v,[]) + [k]
+    return inv_x
