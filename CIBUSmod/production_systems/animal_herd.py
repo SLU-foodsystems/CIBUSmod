@@ -141,6 +141,9 @@ animals              {self.animals}
         vprint('Calculating production ...')
         self.calculate_production()
 
+        vprint('Calculating feed energy or DM requirements ...')
+        self.calculate_feed_req()
+
         vprint(type='end')
 
     def scale(self,new_x,x_is):
@@ -287,6 +290,48 @@ animals              {self.animals}
 
         self.production = production
         self.data_attr.update(['production'])
+
+    def calculate_feed_req(self):
+
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            **self.index.to_frame().to_dict('list')
+        )
+
+        # If herd has a method to calculate energy requirements of animals
+        # energy requirements are calculated from live weights, growth rates,
+        # gestation, lactation, etc. 
+        # Otherwise dry matter feed requirements are calculated from feed
+        # conversion ratios or a fixed feed intake per animal.
+        E_req = hasattr(self,'calculate_feed_E_req')
+
+        df = pd.DataFrame(
+            index = self.index,
+            columns = self.heads.columns
+            )
+
+        for ps,ani in df.columns:
+            self.par.set(
+                prod_system = ps,
+                animal = ani
+            )
+
+            # Calculate energy [MJ] or dry matter [kg DM] requirements per head and year
+            if E_req:
+                res = np.atleast_1d(self.calculate_feed_E_req(ani))
+            else:
+                res = np.atleast_1d(self.calculate_feed_DM_req(ani))
+
+            df.loc[:,(ps,ani)] = np.repeat(res,len(self.index)) if len(res)==1 else res
+
+        if E_req:
+            self.feed_E_req = df * self.heads # [MJ/year]
+            self.data_attr.update(['feed_E_req'])
+        else:
+            self.feed_DM_req = df * self.heads # [kg DM/year]
+            self.data_attr.update(['feed_DM_req'])
 
     def check_ration(self):
         '''Dummy method to pass feed ration feasibility check if a method is not provided in the species-specific sub-class'''
@@ -490,7 +535,7 @@ class CattleHerd(AnimalHerd):
         self.lost_n = lost_n
         self.data_attr.update(['heads','slaughtered_n','lost_n'])
 
-    def calculate_feed_energy_req(self,ani):
+    def calculate_feed_E_req(self,ani):
         '''Calculates Metabolizable Energy (ME) and water requrements for cattle based on
         Spörndly, R. (ed.). (2003). Fodertabeller för idisslare 2003. HUV Rapport 257. SLU'''
 
@@ -646,7 +691,7 @@ class PigHerd(AnimalHerd):
         self.lost_n = lost_n
         self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
-    def calculate_feed_energy_req(self,ani):
+    def calculate_feed_E_req(self,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
         [1] Simonsson, A. (2006). Fodermedel och näringsrekommendationer för gris. HUV Rapport 266. SLU
         [2] Göransson, L., Lindberg, J.E. (2011). Näringsrekommendationer ver. 2011.1 - Energi'''
@@ -822,7 +867,7 @@ class BroilerHerd(AnimalHerd):
         self.lost_n = lost_n
         self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
-    def calculate_feed_req(self,ani):
+    def calculate_feed_DM_req(self,ani):
 
         p = self.par.get
 
@@ -999,7 +1044,7 @@ class LayerHerd(AnimalHerd):
         self.lost_n = lost_n
         self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
-    def calculate_feed_req(self,ani):
+    def calculate_feed_DM_req(self,ani):
         
         p = self.par.get
         return p('feed_per_head')
@@ -1059,7 +1104,7 @@ class HorseHerd(AnimalHerd):
         self.lost_n = lost_n
         self.data_attr.update(['heads','slaughtered_n','lost_n'])
 
-    def calculate_feed_energy_req(self,ani):
+    def calculate_feed_E_req(self,ani):
 
         p = self.par.get
 

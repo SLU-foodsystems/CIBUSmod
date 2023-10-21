@@ -118,35 +118,7 @@ class FeedMgmt():
                     shares_per_feed.groupby(['prod_system','animal'], axis=1).sum().align(shares_per_feed)[0]
                 )
 
-            if hasattr(herd,'calculate_feed_energy_req'):
-                # If herd has a method to calculate energy requirements of animals
-                # energy requirements are calculated and feed demand is calculated
-                # from this and supplied feed rations.
-                df_energy = pd.DataFrame(
-                    index = herd.index,
-                    columns = pd.MultiIndex.from_tuples(
-                        [(ps,ani) for ps in pss for ani in anis],
-                        names=['prod_system','animal']
-                        )
-                    )
-
-                for ps in pss:
-                    for ani in anis:
-                        herd.par.clear()
-                        herd.par.set(
-                            species = herd.species,
-                            breed = herd.breed,
-                            prod_system = ps,
-                            animal = ani,
-                            **herd.index.to_frame().to_dict('list')
-                        )
-
-                        # Calculate energy requirements per animal
-                        E_req = np.atleast_1d(herd.calculate_feed_energy_req(ani))
-                        if len(E_req) == 1:
-                            E_req = E_req.repeat(len(herd.index))
-
-                        df_energy.loc[:,(ps,ani)] = E_req
+            if not hasattr(herd,'feed_DM_req'):
 
                 # Get energy content of feeds [MJ/kg DM]
                 E_per_feed = self.par.get_from_frame('feed_par_E',df_feeds)
@@ -155,57 +127,13 @@ class FeedMgmt():
                 E_per_DM = (shares_per_feed * E_per_feed).groupby(['prod_system','animal'], axis=1).sum()
 
                 # Calculate required DM 
-                DM_req = df_energy / E_per_DM
-
-                df_energy = df_energy.multiply(herd.heads, axis=1)
-                herd.feed.energy_req = df_energy.reindex(columns=herd.heads.columns.get_level_values('prod_system').unique(), level='prod_system')
-                herd.data_attr.update(['feed.energy_req'])
-            else:
-                # If herd does not have a method to calculate energy requirements of animals
-                # the dry matter feed requirements are calculated from feed conversion ratios
-                # or a fixed feed intake per animal.
-
-                df_feed_req = pd.DataFrame(
-                    index = herd.index,
-                    columns = pd.MultiIndex.from_tuples(
-                        [(ps,ani) for ps in pss for ani in anis],
-                        names=['prod_system','animal']
-                        )
-                    )
-                
-                for ps in pss:
-                    for ani in anis:
-                        herd.par.clear()
-                        herd.par.set(
-                            species = herd.species,
-                            breed = herd.breed,
-                            prod_system = ps,
-                            animal = ani,
-                            **herd.index.to_frame().to_dict('list')
-                        )
-
-                        # Calculate feed requirements per animal
-                        feed_req = np.atleast_1d(herd.calculate_feed_req(ani))
-                        if len(feed_req) == 1:
-                            feed_req = feed_req.repeat(len(herd.index))
-
-                        df_feed_req.loc[:,(ps,ani)] = feed_req
-                
-                # Get DM content of feeds [kg DM/kg]
-                DM_per_feed = self.par.get_from_frame('feed_par_DM',df_feeds)/100
-
-                # Calculate avg. DM in feed ration [MJ/kg DM]
-                ration_DM = (shares_per_feed * DM_per_feed).groupby(['prod_system','animal'], axis=1).sum()
-
-                # Calculate required DM 
-                DM_req = df_feed_req * ration_DM
+                herd.feed_DM_req = herd.feed_E_req / E_per_DM
+                herd.data_attr.update(['feed.consumption'])
 
             # Calculate and assign feed quantities [kg DM]
-            df_feeds.loc[:,:] = shares_per_feed * DM_req.align(shares_per_feed)[0]
+            df_feeds.loc[:,:] = shares_per_feed * herd.feed_DM_req.align(shares_per_feed)[0]
 
-            df_feeds = df_feeds.multiply(herd.heads, axis=1)
-
-            herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal') # kg DM
+            herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal') # [kg DM/year]
             herd.data_attr.update(['feed.consumption'])
 
     def calculate_ration_characteristics(self):
