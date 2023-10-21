@@ -1,0 +1,81 @@
+f_feed,f_species,f_animal,feed_par_DE,feed_par_E
+"ley silage, 1st cut",pigs,,,
+"ley silage, regrowth",pigs,,,
+other silage,pigs,,,
+hay,pigs,,,
+maize silage,pigs,,,
+grazing,pigs,,,
+wheat,pigs,,15.9,12.1
+barley,pigs,,14.8,11
+oats,pigs,,12.7,9
+triticale,pigs,,15.6,11.9
+rye,pigs,,0,11.3
+maize,pigs,,16.5,12.8
+peas,pigs,,16.1,11.2
+broad beans,pigs,,15.5,10.7
+rapeseed,pigs,,23.5,18
+linseed,pigs,,20.9,17.3
+vegetable oils,pigs,,34.5,29.8
+straw,pigs,,,
+soybeans,pigs,,,
+soybean meal,pigs,,16.8,9.3
+soybean protein concentrate,pigs,,17.3,9.7
+rapeseed meal,pigs,,13.3,7.1
+sunflower seed meal,pigs,,10.3,5.9
+palm kernel expeller,pigs,,8.4,5.4
+luzern meal,pigs,,,
+wheat bran,pigs,,10.8,7.2
+"wheat bran, fine",pigs,,17.5,8.7
+oat hulls,pigs,,,
+oat bran,pigs,,,
+"wheat distillers grain, dry",pigs,,13.9,8.1
+"wheat distillers grain, wet",pigs,,13.01720821,8.2
+barley brewers grain,pigs,,10.6,6.6
+maize gluten meal,pigs,,21.4,12.9
+sugar beet molasses,pigs,,13.1,8.7
+sugar beet pulp,pigs,,12.2,6.9
+whey,pigs,,15.20534605,12.4
+whey powder,pigs,,15.3,12.4
+potatoe protein,pigs,,20.8,11.1
+fish meal,pigs,,19.5,10.8
+minerals,pigs,,0,0
+"ley silage, 1st cut",pigs,sows,,
+"ley silage, regrowth",pigs,sows,,
+other silage,pigs,sows,,
+hay,pigs,sows,,
+maize silage,pigs,sows,,
+grazing,pigs,sows,,
+wheat,pigs,sows,,12.3
+barley,pigs,sows,,11.2
+oats,pigs,sows,,9.4
+triticale,pigs,sows,,12
+rye,pigs,sows,,11.5
+maize,pigs,sows,,13.2
+peas,pigs,sows,,11.5
+broad beans,pigs,sows,,10.9
+rapeseed,pigs,sows,,18.5
+linseed,pigs,sows,,17.5
+vegetable oils,pigs,sows,,29.8
+straw,pigs,sows,,
+soybeans,pigs,sows,,
+soybean meal,pigs,sows,,9.9
+soybean protein concentrate,pigs,sows,,10.3
+rapeseed meal,pigs,sows,,7.7
+sunflower seed meal,pigs,sows,,6.5
+palm kernel expeller,pigs,sows,,6.2
+luzern meal,pigs,sows,,
+wheat bran,pigs,sows,,7.8
+"wheat bran, fine",pigs,sows,,9.2
+oat hulls,pigs,sows,,
+oat bran,pigs,sows,,
+"wheat distillers grain, dry",pigs,sows,,8.7
+"wheat distillers grain, wet",pigs,sows,,8.9
+barley brewers grain,pigs,sows,,7.088888889
+maize gluten meal,pigs,sows,,13.3
+sugar beet molasses,pigs,sows,,9
+sugar beet pulp,pigs,sows,,8
+whey,pigs,sows,,12.2
+whey powder,pigs,sows,,12.2
+potatoe protein,pigs,sows,,11.3
+fish meal,pigs,sows,,10.8
+minerals,pigs,sows,,0

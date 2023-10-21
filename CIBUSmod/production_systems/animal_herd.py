@@ -623,7 +623,7 @@ class PigHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, slaughter_n, lost_n  = (empty_df.copy(),empty_df.copy(),empty_df.copy())
+        heads, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(4)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
@@ -631,6 +631,8 @@ class PigHerd(AnimalHerd):
             sel = range(n*idx_len, (n+1)*idx_len)
             heads.loc[:,(ps,slice(None))] = \
                 np.array([sows[sel],boars[sel],piglets[sel],gilts[sel],growers[sel],finishers[sel]]).T
+            inserted_n.loc[:,(ps,slice(None))] = \
+                np.array([(sows_to_slaughter+sows_lost)[sel],(boars_to_slaughter+boars_lost)[sel],tmp_piglets_born[sel],tmp_growers_to_recruitment[sel],tmp_piglets_delivered[sel],tmp_growers_to_finishing[sel]]).T
             slaughter_n.loc[:,(ps,slice(None))] = \
                 np.array([sows_to_slaughter[sel],boars_to_slaughter[sel],piglets_to_slaughter[sel],gilts_to_slaughter[sel],growers_to_slaughter[sel],finishers_to_slaughter[sel]]).T
             lost_n.loc[:,(ps,slice(None))] = \
@@ -639,9 +641,10 @@ class PigHerd(AnimalHerd):
             n += 1
 
         self.heads = heads
+        self.inserted_n = inserted_n
         self.slaughtered_n = slaughter_n
         self.lost_n = lost_n
-        self.data_attr.update(['heads','slaughtered_n','lost_n'])
+        self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
     def calculate_feed_energy_req(self,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
@@ -796,7 +799,7 @@ class BroilerHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, slaughter_n, lost_n  = (empty_df.copy(),empty_df.copy(),empty_df.copy())
+        heads, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(4)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
@@ -804,6 +807,8 @@ class BroilerHerd(AnimalHerd):
             sel = range(n*idx_len, (n+1)*idx_len)
             heads.loc[:,(ps,slice(None))] = \
                 np.array([broilers[sel],breeding_hens[sel],breeding_roosters[sel]]).T
+            inserted_n.loc[:,(ps,slice(None))] =\
+                np.array([inserted_broilers[sel],inserted_breeding_hens[sel],inserted_breeding_roosters[sel]]).T
             slaughter_n.loc[:,(ps,slice(None))] = \
                 np.array([slaughtered_broilers[sel],slaughtered_breeding_hens[sel],slaughtered_breeding_roosters[sel]]).T
             lost_n.loc[:,(ps,slice(None))] = \
@@ -812,9 +817,10 @@ class BroilerHerd(AnimalHerd):
             n += 1
 
         self.heads = heads
+        self.inserted_n = inserted_n
         self.slaughtered_n = slaughter_n
         self.lost_n = lost_n
-        self.data_attr.update(['heads','slaughtered_n','lost_n'])
+        self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
     def calculate_feed_req(self,ani):
 
@@ -950,6 +956,7 @@ class LayerHerd(AnimalHerd):
         slaughtered_laying_hens_29_59 = zeros
         slaughtered_parents = zeros
         lost_parents = zeros
+        inserted_parents = zeros
 
         # Create output DataFrames
         pss = [self.prod_system] # Output production systems (==[self.prod_system] as no redistribution of animals in this class)
@@ -959,7 +966,7 @@ class LayerHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, slaughter_n, lost_n  = (empty_df.copy(),empty_df.copy(),empty_df.copy())
+        heads, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(4)]
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
         for ps in pss:
@@ -967,6 +974,9 @@ class LayerHerd(AnimalHerd):
             heads.loc[:,(ps,slice(None))] = \
                 np.array([chicks[sel],laying_hens_16_28[sel],laying_hens_29_59[sel],
                           laying_hens_60[sel],parents[sel]]).T
+            inserted_n.loc[:,(ps,slice(None))] = \
+                np.array([inserted_chicks[sel],inserted_laying_hens_16_28[sel],inserted_laying_hens_29_59[sel],
+                          inserted_laying_hens_60[sel],inserted_parents[sel]]).T
             slaughter_n.loc[:,(ps,slice(None))] = \
                 np.array([slaughtered_chicks[sel],slaughtered_laying_hens_16_28[sel],slaughtered_laying_hens_29_59[sel],
                           slaughtered_laying_hens_60[sel],slaughtered_parents[sel]]).T
@@ -979,13 +989,15 @@ class LayerHerd(AnimalHerd):
         # Adjust to include parents in total hens (i.e. x = 1 --> parents + laying hens = 1)
         adj_factor = total_hens / heads.drop('laying chicks', level='animal', axis=1).sum(axis=1)
         heads = heads.mul(adj_factor, axis=0)
+        inserted_n = inserted_n.mul(adj_factor, axis=0)
         slaughter_n = slaughter_n.mul(adj_factor, axis=0)
         lost_n = lost_n.mul(adj_factor, axis=0)
 
         self.heads = heads
+        self.inserted_n = inserted_n
         self.slaughtered_n = slaughter_n
         self.lost_n = lost_n
-        self.data_attr.update(['heads','slaughtered_n','lost_n'])
+        self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
     def calculate_feed_req(self,ani):
         

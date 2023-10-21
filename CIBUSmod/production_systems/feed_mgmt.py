@@ -72,6 +72,8 @@ class FeedMgmt():
 
         vprint('Adjusting feed rations (not implemented) ...')
         self.redistribute_feeds()
+        vprint('Calculating feed ration characteristics ...')
+        self.calculate_ration_characteristics()
         vprint('Calculating enteric methane emissions ...')
         self.calculate_enteric_methane()
 
@@ -203,8 +205,51 @@ class FeedMgmt():
 
             df_feeds = df_feeds.multiply(herd.heads, axis=1)
 
-            herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal')
+            herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal') # kg DM
             herd.data_attr.update(['feed.consumption'])
+
+    def calculate_ration_characteristics(self):
+        '''Calculates ration characteristics'''
+        for herd in self.herds:
+            
+            # Set species and breed filters for ParameterRetriever
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+                )
+            
+            feed_DM = herd.feed.consumption
+            # Get dry matter intake [kg DM]
+            ration_DM = (
+                feed_DM
+                .groupby(['prod_system','animal'], axis=1)
+                .sum()
+            )
+
+            if herd.species == 'cattle':
+                pars = ['N','P','K','ASH','GE','DE','fat']
+            elif herd.species == 'sheep':
+                pars = ['N','P','K','ASH','GE','DE']
+            elif herd.species == 'horses':
+                pars = ['N','P','K','ASH','GE','DE']
+            elif herd.species == 'pigs':
+                pars = ['N','P','K','ASH','GE','DE']
+            elif herd.species == 'poultry':
+                pars = ['N','P','K','ASH','GE','AME']
+
+            for par in pars:
+                res = (
+                    (
+                        self.par.get_from_frame('feed_par_'+par,feed_DM)
+                        * feed_DM
+                    )
+                    .groupby(['prod_system','animal'], axis=1).sum()
+                    / ration_DM
+                )
+
+                setattr(herd.feed,'ration_'+par,res)
+                herd.data_attr.update(['feed.ration_'+par])
+
 
     def calculate_losses(self):
         '''Calculate feeds lost during storage and feeding and demand for feed products entering on-farm storage.
@@ -369,14 +414,16 @@ class FeedMgmt():
 
                 CH4_specific_energy = 55.6 # [MJ/kg]
 
-                # Get gross energy intake [MJ]
-                GE_intake = (
-                    (
-                        self.par.get_from_frame('feed_par_GE',herd.feed.consumption)
-                        * herd.feed.consumption
-                    )
-                    .groupby(['prod_system','animal'], axis=1).sum()
+                # Get dry matter intake [kg DM]
+                dry_matter_intake = (
+                    herd.feed.consumption
+                    .groupby(['prod_system','animal'], axis=1)
+                    .sum()
                 )
+
+
+                # Get gross energy intake [MJ]
+                GE_intake = herd.feed.ration_GE *  herd.feed.consumption.groupby(['prod_system','animal'], axis=1).sum()
 
                 if herd.species == 'cattle':
                     # Calculate Ym (i.e. % of gross energy intake resulting in mtehane
@@ -384,22 +431,8 @@ class FeedMgmt():
                     # Swedish emission factors for cattle to be used for calculations of
                     # greenhouse gases>> which is used in the Swedish NIR.
 
-                    # Get dry matter intake [kg DM]
-                    dry_matter_intake = (
-                        herd.feed.consumption
-                        .groupby(['prod_system','animal'], axis=1)
-                        .sum()
-                    )
-
                     # Get fat in ration [g/kg DM]
-                    fat_in_ration = (
-                        (
-                            self.par.get_from_frame('feed_par_fat',herd.feed.consumption)
-                            * herd.feed.consumption
-                        )
-                        .groupby(['prod_system','animal'], axis=1).sum()
-                        / dry_matter_intake
-                    )
+                    fat_in_ration = herd.feed.ration_fat
 
                     sel_rough = ['ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing']
 
