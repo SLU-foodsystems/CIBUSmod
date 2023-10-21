@@ -228,7 +228,7 @@ class MachineryAndEnergyMgmt(object):
         self.par.clear()
 
         # Get stable energy use activities and energy sources
-        acs = self.par.get_unique('activity',qry="parameter.isin(['stable_energy_use_per_prod','stable_energy_use_per_head'])")
+        acs = self.par.get_unique('activity',qry="parameter.isin(['stable_energy_use_per_head','stable_energy_use_per_inserted_head','stable_energy_use_per_prod'])")
         ess = self.par.get_unique('energy_source')
 
         for herd in self.herds:
@@ -239,28 +239,50 @@ class MachineryAndEnergyMgmt(object):
                 breed = herd.breed
             )
 
-            # Create dataframes of heads and production
+            # Create dataframes of heads, inserted heads and production
+            # and calculate energy use
             heads = herd.heads.reindex(
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,an,ac,es) for ps,an in herd.heads.columns for ac in acs for es in ess],
                     names=['prod_system','animal','activity','energy_source']
                 )
             )
+            energy_use_per_head = (
+                heads * 
+                pf('stable_energy_use_per_head',heads)
+            )
+
+            if 'inserted_n' in herd.data_attr:
+                inserted_heads = herd.inserted_n.reindex(
+                    columns = pd.MultiIndex.from_tuples(
+                        [(ps,an,ac,es) for ps,an in herd.inserted_n.columns for ac in acs for es in ess],
+                        names=['prod_system','animal','activity','energy_source']
+                    )
+                )
+                energy_use_per_inserted_head = (
+                    inserted_heads * 
+                    pf('stable_energy_use_per_inserted_head',inserted_heads)
+                )
+            else:
+                energy_use_per_inserted_head = 0
+
             prod = herd.production.reindex(
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,an,ap,ac,es) for ps,an,ap in herd.production.columns for ac in acs for es in ess],
                     names=['prod_system','animal','animal_prod','activity','energy_source']
                 )
             )
-            
-            # Calculate energy use
-            energy_use = (
-
-                (heads * pf('stable_energy_use_per_head',heads)) +
-
+            energy_use_per_prod = (
                 (prod * pf('stable_energy_use_per_prod',prod))
                 .groupby(['prod_system','animal','activity','energy_source'], axis=1)
                 .sum()
+            )
+
+            # Calculate energy use
+            energy_use = (
+                energy_use_per_head +
+                energy_use_per_inserted_head +
+                energy_use_per_prod
             )
             
             # Apply energy source share factors
