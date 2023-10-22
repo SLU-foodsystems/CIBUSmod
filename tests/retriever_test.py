@@ -2,6 +2,7 @@
 import sys
 import os
 import numpy as np
+from time import time
 # Add dirctory with model moduels to path
 sys.path.insert(0, os.path.join(os.getcwd(),'..'))
 from CIBUSmod.utils.retriever import ParameterRetriever
@@ -32,6 +33,10 @@ assert test.get('one',A='a2') == 1.1
 
 test.clear()
 assert test.get('one',F='a2') == 1.1
+
+# Filer not in data
+test.clear()
+assert test.get('one',H='h1') == 1.1
 
 # %% Get default value without filter with only one available
 test.clear()
@@ -77,6 +82,41 @@ assert np.isnan(test.get('three', A='a2',B='b2',C='c2',D='d2'))
 # No filter + no default --> NaN and warns
 test.clear()
 assert np.isnan(test.get('five'))
+
+# %% WIP
+import pandas as pd
+sel = test.selection.copy()
+sel_uni = sel.unique()
+
+data = pd.Series([1,2,3], index=sel_uni)
+data.reindex(sel)
+
+# %% Get multiple parameres 
+test.clear()
+tic = time()
+n = 100000
+res = np.all(
+    test.get(
+        'seven',
+        A=['a1','a2','a3']*n,
+        B=['b1','b2','b3']*n
+    ) == np.array([7.1,7.2,7.3]*n)
+)
+print(f'{time()-tic} sec')
+assert res
+
+# Filer not in data
+test.clear()
+tic = time()
+n = 100000
+res = np.all(
+    test.get(
+        'one',
+        H=['h1','h2','h3']*n
+    ) == np.array([1.1]*n)
+)
+print(f'{time()-tic} sec')
+assert res
 
 # %% Update from one scenario
 test.update_parameter_values('retriever_test_scn1',10)

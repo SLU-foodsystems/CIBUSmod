@@ -122,12 +122,9 @@ animals              {self.animals}
             species = self.species,
             breed = self.breed,
             prod_system = self.prod_system,
-            sub_system = self.sub_system
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
         )
-        for i in self.index.names:
-            self.par.set(
-                **{i : self.index.get_level_values(i).values}
-            )
 
         # Set x (i.e. nr of defining animals) to ones
         self.x = np.ones(len(self.index))
@@ -164,12 +161,9 @@ animals              {self.animals}
             species = self.species,
             breed = self.breed,
             prod_system = self.prod_system,
-            sub_system = self.sub_system
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
         )
-        for i in self.index.names:
-            self.par.set(
-                **{i : self.index.get_level_values(i).values}
-            )
         p = self.par.get
 
         valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','meat','milk']
@@ -232,6 +226,16 @@ animals              {self.animals}
         return obj
 
     def calculate_production(self):
+
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
         
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
@@ -266,9 +270,11 @@ animals              {self.animals}
         if 'milk' in prs:
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
-                    pd.concat({'milk': self.heads.loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
-                    (p('milk_prod', prod_system=ps) * p('milk_to_dairy', prod_system=ps)/100) * \
-                    (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7) \
+                    pd.concat({'milk': self.heads.loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
+                    (p('milk_prod', prod_system=ps) * p('milk_to_dairy', prod_system=ps)/100) *
+                    (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
+                    axis = 0
+                )
                     for ps in pss
                     ], axis=1)
 
@@ -293,10 +299,13 @@ animals              {self.animals}
 
     def calculate_feed_req(self):
 
+        # Clear and set filters for ParameterRetriever
         self.par.clear()
         self.par.set(
             species = self.species,
             breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
             **self.index.to_frame().to_dict('list')
         )
 
@@ -307,30 +316,33 @@ animals              {self.animals}
         # conversion ratios or a fixed feed intake per animal.
         E_req = hasattr(self,'calculate_feed_E_req')
 
-        df = pd.DataFrame(
-            index = self.index,
-            columns = self.heads.columns
-            )
+        df_req = pd.DataFrame(index = self.index, columns = self.heads.columns)
+        df_lwg = pd.DataFrame(index = self.index, columns = self.heads.columns)
 
-        for ps,ani in df.columns:
+        for ps,ani in df_req.columns:
             self.par.set(
                 prod_system = ps,
                 animal = ani
             )
 
-            # Calculate energy [MJ] or dry matter [kg DM] requirements per head and year
+            # Calculate feed energy [MJ] or dry matter [kg DM] requirements
+            # and live weight gains [kg LW] pear head and year
             if E_req:
-                res = np.atleast_1d(self.calculate_feed_E_req(ani))
+                req, lwg = self.calculate_feed_E_req(ani)
             else:
-                res = np.atleast_1d(self.calculate_feed_DM_req(ani))
+                req, lwg = self.calculate_feed_DM_req(ani)
 
-            df.loc[:,(ps,ani)] = np.repeat(res,len(self.index)) if len(res)==1 else res
+            df_req.loc[:,(ps,ani)] = req
+            df_lwg.loc[:,(ps,ani)] = lwg
+
+        self.lwg = df_lwg * self.heads # [kg LW/year]
+        self.data_attr.update(['lwg'])
 
         if E_req:
-            self.feed_E_req = df * self.heads # [MJ/year]
+            self.feed_E_req = df_req * self.heads # [MJ/year]
             self.data_attr.update(['feed_E_req'])
         else:
-            self.feed_DM_req = df * self.heads # [kg DM/year]
+            self.feed_DM_req = df_req * self.heads # [kg DM/year]
             self.data_attr.update(['feed_DM_req'])
 
     def check_ration(self):
@@ -365,6 +377,15 @@ class CattleHerd(AnimalHerd):
             The order of DataFrames are (heads, slaughtered_n, lost_n)    
             '''
 
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
         
@@ -390,7 +411,7 @@ class CattleHerd(AnimalHerd):
 
             # Update ofther filters from index (need to store and check 'filters_from_index' value!?!?!)
             for idx in self.index.names:
-                self.par.set(**{idx : list(self.index.get_level_values(idx))*len(to_ps)})
+                self.par.set(**{idx : list(self.index.get_level_values(idx))*(len(to_ps)+1)})
 
         else:
             redist = False
@@ -541,19 +562,28 @@ class CattleHerd(AnimalHerd):
 
         p = self.par.get
 
-        # Get average live weight [kg] and growth rate [kg/day] of animal
+        # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
+        # and get total average live weight gain (lwg) [kg/head/year] for calculating nutrient fixation
         if ani in ['cows','breeding bulls']:
             live_weight = p('live_weight')
             growth_rate = 0
+            if ani == 'cows':
+                # Add fetus live weight gain
+                lwg = (12/p('calving_interval')) * p('birth_weight', animal='calves')
+                self.par.set(animal=ani)
+            else:
+                lwg = 0
         elif ani == 'calves':
             live_weight_pre_weaning = (p('live_weight_weaning') + p('birth_weight')) / 2
             growth_rate_pre_weaning = (p('live_weight_weaning') - p('birth_weight')) / p('weaning_age')
             live_weight = (p('live_weight_1yr') + p('live_weight_weaning')) / 2
             growth_rate = (p('live_weight_1yr') - p('live_weight_weaning')) / (365.25 - p('weaning_age'))
+            lwg = p('live_weight_1yr') - p('birth_weight')
         else:
             live_weight = (p('live_weight_slaughter', animal=ani) + p('live_weight_1yr', animal='calves')) / 2
             growth_rate = (p('live_weight_slaughter', animal=ani) - p('live_weight_1yr', animal='calves')) / (p('slaughter_age', animal=ani) * 30.4 - 365.25)
             self.par.set(animal=ani)
+            lwg = growth_rate * 365.25
               
         # Daily ME req. for maintenance [MJ/day]
         E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
@@ -563,6 +593,9 @@ class CattleHerd(AnimalHerd):
             E_growth = 35 * growth_rate # (Tabell 1)
         else:
             E_growth = (growth_rate * (6.28 + 0.0188 * live_weight)) / ((1 - 0.3 * growth_rate) * 0.435) # (Tabell 4a)
+            if np.array(live_weight > 825).any() or np.array(growth_rate > 2).any():
+                warnings.warn(f'Growth energy equation defined up to 825 kg LW and 2.0 kg LWG/day.')
+
 
         if ani == 'cows':
             # ME req. for lactation [MJ/day]
@@ -590,8 +623,11 @@ class CattleHerd(AnimalHerd):
         # Adjust energy requirements based on factors for different animals and breeds and 
         # convert to MJ/year and add energy requirements for gestation
         E_req_final = (E_req * p('energy_adjustment_factor') + p('energy_adjustment_addend')) * 365.25 + E_gestation
+        
+        E_req_final = np.nan_to_num(E_req_final)
+        lwg = np.nan_to_num(lwg)
 
-        return np.nan_to_num(E_req_final)
+        return E_req_final, lwg
 
 class PigHerd(AnimalHerd):
     AnimalHerd.__doc__.replace('animal','pig')
@@ -617,6 +653,15 @@ class PigHerd(AnimalHerd):
         Nothing.
         Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
 
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
@@ -701,23 +746,31 @@ class PigHerd(AnimalHerd):
         # Get average live weight [kg] and growth rate [kg/day]
         if ani in ['sows','boars']:
             live_weight = p('live_weight')
-        # elif ani == 'gilts':
-        #     growth_rate_growing_period = (p('live_weight_slaughter') - p('live_weight_delivery')) / (p('growing_period') + p('finishing_period'))
-        #     live_weight_after_growing_period = p('live_weight_delivery') + growth_rate_growing_period * p('growing_period')
-        #     live_weight = (p('live_weight', ani='sows') + live_weight_after_growing_period) / 2
-        #     growth_rate = (p('live_weight', ani='sows') - live_weight_after_growing_period) / (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age'))
-        #     self.par.set(ani=ani)
+            if ani == 'sows':
+                # Add fetus live weight gain
+                lwg = p('litters_per_sow') * (p('live_per_litter') + p('dead_per_litter')) * p('birth_weight')
+            else:
+                lwg = 0
+        elif ani == 'gilts':
+            growth_rate_growing_period = (p('live_weight_slaughter') - p('live_weight_delivery')) / (p('growing_period') + p('finishing_period'))
+            live_weight_after_growing_period = p('live_weight_delivery') + growth_rate_growing_period * p('growing_period')
+            live_weight = (p('live_weight', animal='sows') + live_weight_after_growing_period) / 2
+            growth_rate = (p('live_weight', animal='sows') - live_weight_after_growing_period) / (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age'))
+            self.par.set(animal=ani)
+            lwg = growth_rate * 365.25
         elif ani == 'piglets':
             # live_weight_pre_weaning = (p('live_weight_weaning') + p('birth_weight')) / 2
             # growth_rate_pre_weaning = (p('live_weight_weaning') - p('birth_weight')) / p('weaning_age')
             live_weight = (p('live_weight_delivery') + p('live_weight_weaning')) / 2
             growth_rate = (p('live_weight_delivery') - p('live_weight_weaning')) / p('post_weaning_nursing_period')
+            lwg = (p('live_weight_delivery') - p('birth_weight')) / (p('weaning_age') + p('post_weaning_nursing_period')) * 365.25
         elif ani in ['growing pigs','finishing pigs']:
             growth_rate = (p('live_weight_slaughter') - p('live_weight_delivery')) / (p('growing_period') + p('finishing_period'))
             # if ani == 'growing pigs':
             #     live_weight = (p('live_weight_delivery') * 2 + growth_rate * p('growing_period')) / 2
             # else:
             #     live_weight = (p('live_weight_delivery') * 2 + growth_rate * p('growing_period') * 2 + growth_rate * p('finishing_period')) / 2
+            lwg = growth_rate * 365.25
             
         if ani == 'sows':
             E_weaning_to_insemination = 55 * (365.25 - (p('weaning_age') + p('gestation_period')) * p('litters_per_sow')) # [2] 50-60 MJ NEs/day
@@ -740,7 +793,10 @@ class PigHerd(AnimalHerd):
         if ani in ['growing pigs','finishing pigs']:
             E_req = p('feed_energy_per_growth') * growth_rate * 365.25
 
-        return np.nan_to_num(E_req)
+        E_req = np.nan_to_num(E_req)
+        lwg = np.nan_to_num(lwg)
+
+        return E_req, lwg
 
 class SheepHerd(AnimalHerd):
     pass
@@ -771,6 +827,15 @@ class BroilerHerd(AnimalHerd):
         Nothing.
         Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
 
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
@@ -868,7 +933,7 @@ class BroilerHerd(AnimalHerd):
         self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
     def calculate_feed_DM_req(self,ani):
-
+        
         p = self.par.get
 
         if ani=='broilers':
@@ -881,7 +946,9 @@ class BroilerHerd(AnimalHerd):
         else:
             feed_req = p('feed_per_animal') / ( p('slaughter_age') / 365.25 )
 
-        return(feed_req)
+        lwg = 0
+
+        return feed_req, lwg
 
 
 class LayerHerd(AnimalHerd):
@@ -911,6 +978,15 @@ class LayerHerd(AnimalHerd):
         Nothing.
         Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
 
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
         s = self.par.set
@@ -1047,7 +1123,12 @@ class LayerHerd(AnimalHerd):
     def calculate_feed_DM_req(self,ani):
         
         p = self.par.get
-        return p('feed_per_head')
+
+        feed_req = p('feed_per_head')
+
+        lwg = 0
+
+        return feed_req, lwg
 
 
 class HorseHerd(AnimalHerd):
@@ -1074,6 +1155,15 @@ class HorseHerd(AnimalHerd):
         Nothing.
         Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
 
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
@@ -1125,7 +1215,9 @@ class HorseHerd(AnimalHerd):
 
         E_req = E_maint * (1 + (f_acti + f_gest + f_lact))
 
-        return(E_req)
+        lwg = 0
+
+        return E_req, lwg
 
 class ReindeerHerd(AnimalHerd):
     pass

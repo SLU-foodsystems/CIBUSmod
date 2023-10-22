@@ -136,11 +136,9 @@ Parameters
         
         # Set filter values supplied
         for key, value in kwargs.items():
-            # Only care about filters that are in the filter columns 
-            if ('f_'+key in self.data.index.names):
-                if key not in self.filters: self.filters.append(key)
-                value = np.array([value]) if isinstance(value, str) else np.array(value)
-                setattr(self, key, value)
+            if key not in self.filters: self.filters.append(key)
+            value = np.array([value]) if isinstance(value, str) else np.array(value)
+            setattr(self, key, value)
         
         # Get length of filter values
         l = [len(getattr(self, f)) for f in self.filters]
@@ -663,6 +661,15 @@ def _select_allowing_any_k_defaults(data, index, k):
 
 def _get_parameter_values(data, selection, parameter):
 
+    if selection is not None:
+        selection = selection.copy()
+        # Drop filters not in data
+        for lvl in set(selection.names)-set(data.droplevel('parameter').index.names):
+            if (selection.nlevels > 1):
+                selection = selection.droplevel(lvl)
+            else:
+                selection = None
+
     # If no filters supplied check if only one value can be returned
     # else return NaN
     if selection is None:
@@ -673,8 +680,6 @@ def _get_parameter_values(data, selection, parameter):
             return result.values
         else:
             return np.array(EMPTY)
-        
-    selection = selection.copy()
 
     # Get the data subset for the parameter in question,
     # and use the default for each dimension not specified in the selection.
@@ -688,16 +693,21 @@ def _get_parameter_values(data, selection, parameter):
     
     assert problem_data.index.names == selection.names
 
+    # Get unique selections to imporve performance
+    selection_unique = selection.unique()
+
     # Start with an empty result
-    result = pd.Series(data=EMPTY, index=selection)
+    result = pd.Series(data=EMPTY, index=selection_unique)
 
     # Fill in the blanks by successively using k = 0, ..., n default values,
     # where n is the number of index columns in the full problem..
-    for k in range(len(selection.names) + 1):
+    for k in range(len(selection_unique.names) + 1):
         index_remainder = result[result.isnull()].index
         result = result.fillna(
             _select_allowing_any_k_defaults(problem_data, index_remainder, k)
         )
+
+    result = result.reindex(selection)
 
     return result.values
 
