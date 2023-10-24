@@ -76,6 +76,7 @@ class PlantNutrientMgmt():
         vprint(type='end')
              
     def calculate_TAN_req(self):
+        self.par.clear()
         idx=pd.IndexSlice
 
         # Get crop yields

@@ -19,7 +19,7 @@ vegetable oils,cattle,,36.6,36.6,1000
 straw,cattle,,7.6,6.6,20
 soybeans,cattle,,18.4,16.4,180
 soybean meal,cattle,,17.8,14.6,10
-soybean protein concentrate,cattle,,,,
+soybean protein concentrate,cattle,,18.19669298,13.4,17
 rapeseed meal,cattle,,14.6,12.2,46
 sunflower seed meal,cattle,,14.1,11.4,10
 palm kernel expeller,cattle,,15,13.4,97
@@ -28,14 +28,15 @@ wheat bran,cattle,,12.7,11,45
 "wheat bran, fine",cattle,,15.62761656,13.3,27
 oat hulls,cattle,,6.2,5.2,20
 oat bran,cattle,,8.4,7.2,32
+rye bran,cattle,,13.2,11.6,40
 "wheat distillers grain, dry",cattle,,15.7,13.3,45
 "wheat distillers grain, wet",cattle,,,,
 barley brewers grain,cattle,,13.6,11.6,80
-maize gluten meal,cattle,,,,
+maize gluten meal,cattle,,19.6,16,24
 sugar beet molasses,cattle,,14.1,12.4,0
 sugar beet pulp,cattle,,14.7,12.3,32
 whey,cattle,,15.1,13.6,10
-whey powder,cattle,,,,
+whey powder,cattle,,15.40488174,12.3,13
 potatoe protein,cattle,,19.7,15.5,33
-fish meal,cattle,,,,
+fish meal,cattle,,21.75054492,14.8,110
 minerals,cattle,,0,0,0

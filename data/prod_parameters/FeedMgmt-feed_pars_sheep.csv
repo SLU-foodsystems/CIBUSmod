@@ -19,7 +19,7 @@ vegetable oils,sheep,,36.6,36.6,1000
 straw,sheep,,7.6,6.6,20
 soybeans,sheep,,18.4,16.4,180
 soybean meal,sheep,,17.8,14.6,10
-soybean protein concentrate,sheep,,,,
+soybean protein concentrate,sheep,,18.19669298,13.4,17
 rapeseed meal,sheep,,14.6,12.2,46
 sunflower seed meal,sheep,,14.1,11.4,10
 palm kernel expeller,sheep,,15,13.4,97
@@ -28,14 +28,15 @@ wheat bran,sheep,,12.7,11,45
 "wheat bran, fine",sheep,,15.62761656,13.3,27
 oat hulls,sheep,,6.2,5.2,20
 oat bran,sheep,,8.4,7.2,32
+rye bran,sheep,,13.2,11.6,40
 "wheat distillers grain, dry",sheep,,15.7,13.3,45
 "wheat distillers grain, wet",sheep,,,,
 barley brewers grain,sheep,,13.6,11.6,80
-maize gluten meal,sheep,,,,
+maize gluten meal,sheep,,19.6,16,24
 sugar beet molasses,sheep,,14.1,12.4,0
 sugar beet pulp,sheep,,14.7,12.3,32
 whey,sheep,,15.1,13.6,10
-whey powder,sheep,,,,
+whey powder,sheep,,15.40488174,12.3,13
 potatoe protein,sheep,,19.7,15.5,33
-fish meal,sheep,,,,
+fish meal,sheep,,21.75054492,14.8,110
 minerals,sheep,,0,0,0
