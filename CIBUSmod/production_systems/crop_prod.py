@@ -69,7 +69,8 @@ class CropProduction(object):
         self.par.clear()
         self.par.set(**self.index.to_frame().to_dict('list'))
         self.harvest = self.area * p('yield') # [kg]
-        self.data_attr.update(['harvest'])
+        self.harvest_dm = self.harvest * p('crop_dm') # [kg DM]
+        self.data_attr.update(['harvest','harvest_dm'])
 
         vprint('Calculating production ...')
         self.calculate_production()

@@ -39,3 +39,10 @@ def multiply_aligned(left,right):
 # Function that converts a pandas.MultiIndex to a dict {level : level values}
 def multiindex_to_dict(idx:pd.MultiIndex):
     return {lvl:[val for val in idx.get_level_values(lvl)] for lvl in idx.names}
+
+# Invert a dictionary
+def inv_dict(x):
+    inv_x = {}
+    for k,v in x.items():
+        inv_x[v] = inv_x.get(v,[]) + [k]
+    return inv_x

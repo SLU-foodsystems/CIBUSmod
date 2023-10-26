@@ -312,11 +312,12 @@ class PlantNutrientMgmt():
         # Apply shares to manure dataframes
         self.crops.fertiliser.manure_TAN = manure_TAN_application # [kg TAN]
         self.crops.fertiliser.manure_N = herds.manure.N_to_spread.multiply(share_manure_per_crop) # [kg N]
+        self.crops.fertiliser.manure_C = herds.manure.C_to_spread.multiply(share_manure_per_crop) # [kg C]
         # self.crops.fertiliser.manure_P =  # [kg P]
         # self.crops.fertiliser.manure_K =  # [kg K]
         # self.crops.fertiliser.manure_VS =  # [kg VS]
         
-        self.crops.data_attr.update(['fertiliser.manure_TAN','fertiliser.manure_N'])
+        self.crops.data_attr.update(['fertiliser.manure_TAN','fertiliser.manure_N','fertiliser.manure_C'])
                 
     def calculate_mineral_N_application(self):
         # Mineral N application is assumed to cover additional

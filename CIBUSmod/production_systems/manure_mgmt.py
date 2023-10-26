@@ -158,6 +158,9 @@ class ManureMgmt():
         return None
     
     def calculate_VS_losses(self):
+
+        idx = pd.IndexSlice
+
         # Get manure management systems and compounds
         mmss = self.par.get_unique('MMS')
 
@@ -172,23 +175,24 @@ class ManureMgmt():
             # Get production systems, animals in herd
             pss = herd.heads.columns.get_level_values('prod_system').unique()
             anis = herd.animals
+            css = ['CH4bio','CO2bio']
 
             # Create dataframe
             df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,ani,mms,'CH4bio') for ps in pss for ani in anis for mms in mmss],
+                    [(ps,ani,mms,cs) for ps in pss for ani in anis for mms in mmss for cs in css],
                     names=['prod_system','animal','MMS','compound']
                 )
             )
 
             # Calculate CH4 emissions using the IPCC Tier 2 method
             # from maximum methane production (B0) and MCF
-            CH4_Tier2 = multiply_aligned(
-                self.par.get_from_frame('methane_B0',df)*0.67 *
-                self.par.get_from_frame('methane_MCF',df)/100,
-                herd.manure.VS_excr
-            ).replace({0:np.nan})
+            CH4_loss = (
+                herd.manure.VS_excr *
+                (self.par.get_from_frame('methane_B0',herd.manure.VS_excr)*0.67) *
+                (self.par.get_from_frame('methane_MCF',herd.manure.VS_excr)/100)
+            )
 
             if False:
                 # Calculate CH4 emissins using the IPCC Tier 1 method
@@ -203,10 +207,26 @@ class ManureMgmt():
                 VS_loss.update(CH4_Tier1, overwrite=False)
                 VS_loss = VS_loss.fillna(0)
 
-            VS_loss = CH4_Tier2
+            # Calculate C and CO2 losses
+            C_excr = herd.manure.VS_excr * (self.par.get_from_frame('manure_VS_C',herd.manure.VS_excr)/100)
+            C_loss_tot = C_excr * (self.par.get_from_frame('C_loss',C_excr)/100)
+            C_to_spread = C_excr - C_loss_tot
+
+            C_loss_CH4 = CH4_loss * (12/(12+1*4))
+            C_loss_CO2 = C_loss_tot - C_loss_CH4
+            CO2_loss = C_loss_CO2 * ((12+16*2)/12)
+
+            # Put results in dataframe
+            df.loc[:,idx[:,:,:,'CH4bio']] = \
+            CH4_loss.reindex(df.xs('CH4bio', level='compound', axis=1, drop_level=False).columns, axis=1)
+            df.loc[:,idx[:,:,:,'CO2bio']] = \
+            CO2_loss.reindex(df.xs('CO2bio', level='compound', axis=1, drop_level=False).columns, axis=1)
+
+            VS_loss = df
 
             herd.manure.VS_loss = VS_loss
-            herd.data_attr.update(['manure.VS_loss'])
+            herd.manure.C_to_spread = C_to_spread
+            herd.data_attr.update(['manure.VS_loss','manure.C_to_spread'])
         
     def calculate_N_excretion(self):
 

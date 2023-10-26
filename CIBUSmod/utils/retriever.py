@@ -6,6 +6,8 @@ import numpy as np
 import itertools
 from openpyxl import load_workbook
 
+from .misc import inv_dict
+
 EMPTY = float("nan")
 
 class ParameterRetriever:
@@ -495,7 +497,7 @@ def _read_xl(path,sheet):
                 # Get aggregated and target filter names
                 f_from = rf.split(':')[0].split('_')[1]
                 f_to = rf.split(':')[1]
-                rel = _inv_dict(ParameterRetriever.get_rel(f_to,f_from))
+                rel = inv_dict(ParameterRetriever.get_rel(f_to,f_from))
 
                 # If target filter column does not exist create it
                 if 'f_'+f_to not in df.index.names:
@@ -710,9 +712,3 @@ def _get_parameter_values(data, selection, parameter):
     result = result.reindex(selection)
 
     return result.values
-
-def _inv_dict(x):
-    inv_x = {}
-    for k,v in x.items():
-        inv_x[v] = inv_x.get(v,[]) + [k]
-    return inv_x

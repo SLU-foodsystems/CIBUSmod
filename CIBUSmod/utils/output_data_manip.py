@@ -7,7 +7,7 @@ from ..production_systems.animal_herd import AnimalHerd, StaticAnimalHerd
 from ..production_systems.feed_mgmt import Feed
 from ..production_systems.manure_mgmt import Manure
 
-from ..utils.misc import rgetattr,rsetattr
+from ..utils.misc import rgetattr,rsetattr,inv_dict
 
 def concat_herds(herds):
     '''Combines multiple AnimalHerd objects
@@ -203,3 +203,55 @@ def get_GHG(output, CO2eq=True):
             result = res
 
     return result
+
+def to_ICBM(output):
+    ''''''
+    cropland = inv_dict(ParameterRetriever.get_rel('crop','land_use'))['cropland']
+    for par in ['area','harvest','manure']:
+        for scn, year in output.index:
+            if par == 'area':
+                res = (
+                    output.loc[(scn,year),'crp']
+                    .area.loc[(cropland,slice(None),slice(None))]
+                )
+                res = pd.concat([res], keys=['area_ha'], names=['par'])
+            elif par == 'harvest':
+                res = (
+                    output.loc[(scn,year),'crp']
+                    .harvest_dm.loc[(cropland,slice(None),slice(None))]
+                )
+                res = pd.concat([res], keys=['harvest_kgdm'], names=['par'])
+            elif par == 'manure':
+                res = (
+                    output.loc[(scn,year),'crp']
+                    .fertiliser.manure_C.loc[(cropland,slice(None),slice(None)),:]
+                    .groupby('species', axis=1).sum().stack()
+                )
+                res.index.names = res.index.names[0:3]+['par']
+                res = res.rename({sp:'manure_'+sp+'_kgC' for sp in res.index.get_level_values('par').unique()})
+
+            res = pd.concat([res], keys=[year], names=['year'])
+            res = pd.concat([res], keys=[scn], names=['scn'])
+
+            try:
+                result = pd.concat([result,res], axis=0)
+            except NameError:
+                result = res
+
+        y0 = result.index.get_level_values('year').astype(int).min()
+        yend = result.index.get_level_values('year').astype(int).max()
+
+        result = result.unstack('year').reindex(columns=pd.Index([str(y) for y in range(y0,yend+1)], name='year'))
+        result.columns = result.columns.astype(int)
+        result = result.interpolate(axis=1)
+
+        result = result.stack().unstack('par')
+        
+        try:
+            comb_result = pd.concat([comb_result,result], axis=1)
+            del(result)
+        except NameError:
+            comb_result = result
+            del(result)
+    
+    return comb_result
