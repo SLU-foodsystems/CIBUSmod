@@ -495,7 +495,7 @@ def _read_xl(path,sheet):
         if len(rel_filters)>0:
             for rf in rel_filters:
                 # Get aggregated and target filter names
-                f_from = rf.split(':')[0].split('_')[1]
+                f_from = rf.split(':')[0][2:]
                 f_to = rf.split(':')[1]
                 rel = inv_dict(ParameterRetriever.get_rel(f_to,f_from))
 
