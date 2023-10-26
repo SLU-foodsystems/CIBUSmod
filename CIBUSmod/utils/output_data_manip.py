@@ -206,8 +206,11 @@ def get_GHG(output, CO2eq=True):
 
 def to_ICBM(output):
     ''''''
+    output = output.copy()
     cropland = inv_dict(ParameterRetriever.get_rel('crop','land_use'))['cropland']
+    first_par = True
     for par in ['area','harvest','manure']:
+        first_scnyear = True
         for scn, year in output.index:
             if par == 'area':
                 res = (
@@ -233,10 +236,11 @@ def to_ICBM(output):
             res = pd.concat([res], keys=[year], names=['year'])
             res = pd.concat([res], keys=[scn], names=['scn'])
 
-            try:
-                result = pd.concat([result,res], axis=0)
-            except NameError:
+            if first_scnyear:
                 result = res
+                first_scnyear = False
+            else:
+                result = pd.concat([result,res], axis=0)
 
         y0 = result.index.get_level_values('year').astype(int).min()
         yend = result.index.get_level_values('year').astype(int).max()
@@ -247,11 +251,10 @@ def to_ICBM(output):
 
         result = result.stack().unstack('par')
         
-        try:
-            comb_result = pd.concat([comb_result,result], axis=1)
-            del(result)
-        except NameError:
+        if first_par:
             comb_result = result
-            del(result)
+            first_par = False
+        else:
+            comb_result = pd.concat([comb_result,result], axis=1)
     
     return comb_result
