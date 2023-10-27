@@ -18,4 +18,4 @@ from .production_systems.machinery_and_energy_mgmt import MachineryAndEnergyMgmt
 from .optimisation.geo_dist import GeoDistributor
 
 # Import functions to get output data
-from .utils.output_data_manip import get_GHG, to_ICBM
+from .utils.output_data_manip import get_attr, get_GHG, to_ICBM

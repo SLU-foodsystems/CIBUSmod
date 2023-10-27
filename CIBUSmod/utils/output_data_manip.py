@@ -64,6 +64,94 @@ def concat_herds(herds):
 
     return res_herd
 
+def get_attr(
+    output,
+    module,
+    attr,
+    groupby=[]
+):
+    '''Get specified data attribute from output.
+    
+    Parameters
+    ----------
+    output : Output or pandas.DataFrame
+        CIBUSmod outputs
+    module : str
+        Module to get output from: 'dem', 'reg', 'crp' or 'ani'
+    attr : str
+        data attribute to get
+    groupby : str, list or dict
+        If supplied data is grouped and aggregated by these index/column levels.
+        If not supplied data is summed over all index/columns
+        If a dict is supplied relation tables are used
+        
+    Returns
+    -------
+    pandas.DataFrame or Series with scenario (scn) and year as index and <groupby>
+    as columns.
+    '''
+    
+    if isinstance(groupby,str):
+        groupby = [groupby]
+    if isinstance(groupby,dict):
+        rel = groupby
+        groupby = list(groupby)
+    else:
+        rel = {}
+        
+    d = []
+    for idx in output.index:
+        x = rgetattr(output.loc[idx,module],attr)
+        
+        ig = [g for g in groupby if g in x.index.names]
+        if isinstance(x,pd.DataFrame):
+            cg = [g for g in groupby if g in x.columns.names]
+        else:
+            cg = None
+        
+        for lvl in [g for g in ig if g in rel]:
+            x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), level=lvl)
+        if cg is not None:
+            for lvl in [g for g in cg if g in rel]:
+                x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), axis=1, level=lvl)
+        
+        if len(ig)>0:
+            x = x.groupby(ig).sum()
+        else:
+            x = x.sum()
+
+        if isinstance(x,pd.DataFrame) and cg is not None:
+            if len(cg)>0:
+                x = x.groupby(cg, axis=1).sum()
+            else:
+                x = x.sum(axis=1)
+        elif isinstance(x,pd.Series):
+            if cg is not None:
+                if len(cg)>0:
+                    x = x.groupby(cg).sum()
+                    print(x)
+                else:
+                    x = x.sum()
+
+        if isinstance(x,pd.DataFrame):
+            x = x.stack(list(range(x.columns.nlevels)))
+        if not isinstance(x,pd.Series):
+            x = pd.Series(x)
+
+        d.append(x)
+
+    data = pd.concat(d, axis=1).T
+    data.index = output.index
+
+    if len(data.columns) == 1:
+        data = data.iloc[:,0]
+        data.name = attr
+        
+    if len(groupby)>1:
+        data = data.reorder_levels(groupby, axis=1)
+
+    return data
+
 def get_GHG(output, CO2eq=True):
     
     # Conversion factors --------->
