@@ -118,7 +118,9 @@ class FeedMgmt():
                     shares_per_feed.groupby(['prod_system','animal'], axis=1).sum().align(shares_per_feed)[0]
                 )
 
-            if not hasattr(herd,'feed_DM_req'):
+            # If herd has feed energy requirements calculate dry
+            # matter requirements from energy requirements
+            if hasattr(herd,'feed_E_req'):
 
                 # Get energy content of feeds [MJ/kg DM]
                 E_per_feed = self.par.get_from_frame('feed_par_E',df_feeds)
