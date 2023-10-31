@@ -68,7 +68,7 @@ def get_attr(
     output,
     module,
     attr,
-    groupby=[]
+    groupby='all'
 ):
     '''Get specified data attribute from output.
     
@@ -77,12 +77,13 @@ def get_attr(
     output : Output or pandas.DataFrame
         CIBUSmod outputs
     module : str
-        Module to get output from: 'dem', 'reg', 'crp' or 'ani'
+        Module to get output from: 'DemandAndConversions', 'Regions', 'CropProduction' or 'AnimalHerd'
     attr : str
         data attribute to get
     groupby : str, list or dict
-        If supplied data is grouped and aggregated by these index/column levels.
-        If not supplied data is summed over all index/columns
+        If str or list data is grouped and aggregated by these index/column levels.
+        If 'all' data is not aggregated
+        If 'none'  data is summed over all index/columns
         If a dict is supplied relation tables are used
         
     Returns
@@ -90,64 +91,101 @@ def get_attr(
     pandas.DataFrame or Series with scenario (scn) and year as index and <groupby>
     as columns.
     '''
+
+    short_hands = {
+        'D':'DemandAndConversions', 'R':'Regions',
+        'C':'CropProduction', 'A':'AnimalHerd'
+    }
+    if module not in short_hands.values():
+        try:
+            module = short_hands[module.upper()]
+        except KeyError:
+            raise ValueError('module not found')
+    if groupby == 'all':
+        groupby = []
+        dont_agg = True
+    else:
+        dont_agg = False
+    if groupby == 'none':
+        groupby = []
     
     if isinstance(groupby,str):
         groupby = [groupby]
     if isinstance(groupby,dict):
-        rel = groupby
+        rel = {k:v for k,v in groupby.items() if v is not None and k != v}
         groupby = list(groupby)
     else:
         rel = {}
         
     d = []
     for idx in output.index:
+        # Get attribute
         x = rgetattr(output.loc[idx,module],attr)
         
+        # Get index levels to group by
         ig = [g for g in groupby if g in x.index.names]
         if isinstance(x,pd.DataFrame):
+            # Get column levels to group by
             cg = [g for g in groupby if g in x.columns.names]
         else:
             cg = None
         
         for lvl in [g for g in ig if g in rel]:
+            # Rename index based on relation table
             x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), level=lvl)
         if cg is not None:
             for lvl in [g for g in cg if g in rel]:
+                # Rename columns based on relation table
                 x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), axis=1, level=lvl)
         
         if len(ig)>0:
+            # Group by index levels and aggregate
             x = x.groupby(ig).sum()
-        else:
+        elif not dont_agg:
+            # Aggregate across all index levels
             x = x.sum()
 
         if isinstance(x,pd.DataFrame) and cg is not None:
             if len(cg)>0:
+                # Group by column levels and aggregate
                 x = x.groupby(cg, axis=1).sum()
-            else:
+            elif not dont_agg:
+                # Aggregate across all column levels
                 x = x.sum(axis=1)
         elif isinstance(x,pd.Series):
             if cg is not None:
                 if len(cg)>0:
+                    # Group by column (now index) levels and aggregate
                     x = x.groupby(cg).sum()
-                    print(x)
-                else:
+                elif not dont_agg:
+                    # Aggregate across all column (now index) levels
                     x = x.sum()
 
         if isinstance(x,pd.DataFrame):
-            x = x.stack(list(range(x.columns.nlevels)))
+            nlevels = x.columns.nlevels
+            if nlevels == 1 and isinstance(x.columns,pd.MultiIndex):
+                # Fix problem with single-level MultiIndex stacking by
+                # converting to Index
+                x.columns = x.columns.get_level_values(0)
+            # Stack dataframe to sries
+            x = x.stack(list(range(nlevels)))
         if not isinstance(x,pd.Series):
+            # If float returned create series
             x = pd.Series(x)
 
         d.append(x)
 
+    # Combine and transpose
     data = pd.concat(d, axis=1).T
     data.index = output.index
 
     if len(data.columns) == 1:
+        # If only one column. Make series with attr as name
         data = data.iloc[:,0]
         data.name = attr
         
     if len(groupby)>1:
+        # Reorder column levels as specified in groupby
         data = data.reorder_levels(groupby, axis=1)
 
     return data
@@ -184,7 +222,7 @@ def get_GHG(output, CO2eq=True):
     for scn, year in output.index:
         # ENTERIC METHANE
         enteric = (
-            output.loc[(scn,year),'ani'].enteric_methane
+            output.loc[(scn,year),'AnimalHerd'].enteric_methane
             .groupby(['prod_system','species','breed','compound'], axis=1)
             .sum()
         )
@@ -198,12 +236,12 @@ def get_GHG(output, CO2eq=True):
         manure = (
             pd.concat([
                 # N losses
-                output.loc[(scn,year),'ani']
+                output.loc[(scn,year),'AnimalHerd']
                 .manure.N_loss
                 .groupby(['prod_system','species','breed','compound'], axis=1)
                 .sum(),
                 # VS losses
-                output.loc[(scn,year),'ani']
+                output.loc[(scn,year),'AnimalHerd']
                 .manure.VS_loss
                 .groupby(['prod_system','species','breed','compound'], axis=1)
                 .sum()
@@ -219,7 +257,7 @@ def get_GHG(output, CO2eq=True):
         rel = ParameterRetriever.get_rel('crop','crop_group2')
         soils = (
             pd.concat([
-                getattr(output.loc[(scn,year),'crp'].fertiliser, attr)
+                getattr(output.loc[(scn,year),'CropProduction'].fertiliser, attr)
                 .groupby('compound', axis=1).sum()
                 .rename(rel, level='crop', axis=0)
                 .rename_axis(index={'crop':'item'})
@@ -236,7 +274,7 @@ def get_GHG(output, CO2eq=True):
 
         # ENERGY USE EMISSIONS
         energy_crops = (
-            output.loc[(scn,year),'crp'].energy_use_emissions
+            output.loc[(scn,year),'CropProduction'].energy_use_emissions
             .groupby('compound', axis=1).sum()
             .rename(rel, level='crop', axis=0)
             .rename_axis(index={'crop':'item'})
@@ -246,7 +284,7 @@ def get_GHG(output, CO2eq=True):
         )
 
         energy_livestock = (
-            output.loc[(scn,year),'ani'].energy_use_emissions
+            output.loc[(scn,year),'AnimalHerd'].energy_use_emissions
             .groupby(['prod_system','species','breed','compound'], axis=1)
             .sum()
         )
@@ -302,19 +340,19 @@ def to_ICBM(output):
         for scn, year in output.index:
             if par == 'area':
                 res = (
-                    output.loc[(scn,year),'crp']
+                    output.loc[(scn,year),'CropProduction']
                     .area.loc[(cropland,slice(None),slice(None))]
                 )
                 res = pd.concat([res], keys=['area_ha'], names=['par'])
             elif par == 'harvest':
                 res = (
-                    output.loc[(scn,year),'crp']
+                    output.loc[(scn,year),'CropProduction']
                     .harvest_dm.loc[(cropland,slice(None),slice(None))]
                 )
                 res = pd.concat([res], keys=['harvest_kgdm'], names=['par'])
             elif par == 'manure':
                 res = (
-                    output.loc[(scn,year),'crp']
+                    output.loc[(scn,year),'CropProduction']
                     .fertiliser.manure_C.loc[(cropland,slice(None),slice(None)),:]
                     .groupby('species', axis=1).sum().stack()
                 )
