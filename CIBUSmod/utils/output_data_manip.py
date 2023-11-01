@@ -3,9 +3,9 @@ import pandas as pd
 
 from ..utils.retriever import ParameterRetriever
 
-from ..production_systems.animal_herd import AnimalHerd, StaticAnimalHerd
-from ..production_systems.feed_mgmt import Feed
-from ..production_systems.manure_mgmt import Manure
+from ..main_modules.animal_herd import AnimalHerd, StaticAnimalHerd
+from ..mgmt_modules.feed_mgmt import Feed
+from ..mgmt_modules.manure_mgmt import Manure
 
 from ..utils.misc import rgetattr,rsetattr,inv_dict
 

@@ -7,8 +7,8 @@ from ..utils.misc import rgetattr, rsetattr
 from ..utils.misc import Container
 from ..utils.retriever import ParameterRetriever
 
-from .feed_mgmt import Feed
-from .manure_mgmt import Manure
+from ..mgmt_modules.feed_mgmt import Feed
+from ..mgmt_modules.manure_mgmt import Manure
 
 class AnimalHerd(object):
     '''Class that handels animal herd structure, feed requirements, production etc.

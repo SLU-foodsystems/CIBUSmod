@@ -38,15 +38,17 @@ class ParameterRetriever:
     data_path_scenarios = None # Path to scenario data
 
     @classmethod
-    def set_data_folders(cls,default,scenarios,relation_tables):
+    def set_data_folder(cls,path):
+        # Set data path
+        cls.data_path = _path_from_str(path)
         # Set default data path
-        cls.data_path_default = _path_from_str(default)
+        cls.data_path_default = os.path.join(cls.data_path,'default')
         # Set scenario data path
-        cls.data_path_scenarios = _path_from_str(scenarios)
+        cls.data_path_scenarios = os.path.join(cls.data_path,'scenarios')
 
         # Read relation tables
         cls.relation_tables = pd.read_excel(
-            _path_from_str(relation_tables),
+            os.path.join(cls.data_path,'relation_tables.xlsx'),
             sheet_name=None, dtype=str
         )
 

@@ -2,10 +2,10 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from ..production_systems.demand_and_conversions import DemandAndConversions
-from ..production_systems.regions import Regions
-from ..production_systems.crop_prod import CropProduction
-from ..production_systems.animal_herd import AnimalHerd
+from ..main_modules.demand_and_conversions import DemandAndConversions
+from ..main_modules.regions import Regions
+from ..main_modules.crop_prod import CropProduction
+from ..main_modules.animal_herd import AnimalHerd
 
 from .output_data_manip import \
     concat_herds, \
