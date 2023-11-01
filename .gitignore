@@ -17,6 +17,9 @@ __pycache__/
 # Folder with temp dev files
 dev/
 
+# Ecoinvent files
+data/ecoinvent/*
+
 # Model output files
 *.pkl
 *.bz2
