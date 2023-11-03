@@ -167,6 +167,9 @@ class PlantNutrientMgmt():
         #       up to X% of crop TAN requirements, where X is defined by parameter
         #       'manure_TAN_max'.
         #
+        # 4.    Distribute any remaining manure after (3) to conventional areas
+        #       in the region based on TAN requirements. 
+        #
         # NOTE: This method of distributing manure does not produce reliable results
         # in terms of ammount of manure applied on different crops, but focus on distribution
         # across production systems. E.g. it is likely to assume that manure on cattle
