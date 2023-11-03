@@ -8,11 +8,7 @@ sys.path.insert(0, os.path.join(os.getcwd(),'..'))
 from CIBUSmod.utils.retriever import ParameterRetriever
 
 # %% Set data folders and initialise retriever
-ParameterRetriever.set_data_folders(
-    default = os.path.join('.'),
-    scenarios = os.path.join('.'),
-    relation_tables = os.path.join('.','retriever_test_rel.xlsx')
-)
+ParameterRetriever.set_data_folder(os.path.join('./retriever_test_data'))
 
 test = ParameterRetriever(
     name='retriever_test'
@@ -83,17 +79,43 @@ assert np.isnan(test.get('three', A='a2',B='b2',C='c2',D='d2'))
 test.clear()
 assert np.isnan(test.get('five'))
 
-# %% WIP
-import pandas as pd
-sel = test.selection.copy()
-sel_uni = sel.unique()
-
-data = pd.Series([1,2,3], index=sel_uni)
-data.reindex(sel)
-
 # %% Get multiple parameres 
 test.clear()
 tic = time()
+
+n = 30000
+res = np.all(
+    test.get(
+        'seven',
+        A=['a1']*n,
+        B=['b1']*n
+    ) == np.array([7.1]*n)
+)
+print(f'30,000*1: {round(time()-tic,3)} sec')
+assert res
+
+n = 300000
+res = np.all(
+    test.get(
+        'seven',
+        A=['a1']*n,
+        B=['b1']*n
+    ) == np.array([7.1]*n)
+)
+print(f'300,000*1: {round(time()-tic,3)} sec')
+assert res
+
+n = 10000
+res = np.all(
+    test.get(
+        'seven',
+        A=['a1','a2','a3']*n,
+        B=['b1','b2','b3']*n
+    ) == np.array([7.1,7.2,7.3]*n)
+)
+print(f'10,000*3: {round(time()-tic,3)} sec')
+assert res
+
 n = 100000
 res = np.all(
     test.get(
@@ -102,7 +124,7 @@ res = np.all(
         B=['b1','b2','b3']*n
     ) == np.array([7.1,7.2,7.3]*n)
 )
-print(f'{time()-tic} sec')
+print(f'100,000*3: {round(time()-tic,3)} sec')
 assert res
 
 # Filer not in data
@@ -115,7 +137,7 @@ res = np.all(
         H=['h1','h2','h3']*n
     ) == np.array([1.1]*n)
 )
-print(f'{time()-tic} sec')
+print(f'Unused filters: {round(time()-tic,3)} sec')
 assert res
 
 # %% Update from one scenario
@@ -216,3 +238,5 @@ assert np.isnan(test.get('eight', A='a3', G='g4'))
 
 assert test.get('nine',A='a1',B='b1',G='g1') == 9.1
 assert test.get('nine',A='a3',B='b1',G='g4') == 9.2
+
+# %%
