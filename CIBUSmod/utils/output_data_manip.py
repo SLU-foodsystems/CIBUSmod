@@ -140,7 +140,7 @@ def get_attr(
         
         if len(ig)>0:
             # Group by index levels and aggregate
-            x = x.groupby(ig).sum()
+            x = x.groupby(ig if len(ig)>1 else ig[0]).sum()
         elif not dont_agg:
             # Aggregate across all index levels
             x = x.sum()
@@ -148,7 +148,7 @@ def get_attr(
         if isinstance(x,pd.DataFrame) and cg is not None:
             if len(cg)>0:
                 # Group by column levels and aggregate
-                x = x.groupby(cg, axis=1).sum()
+                x = x.groupby(cg if len(cg)>1 else cg[0], axis=1).sum()
             elif not dont_agg:
                 # Aggregate across all column levels
                 x = x.sum(axis=1)
@@ -156,7 +156,7 @@ def get_attr(
             if cg is not None:
                 if len(cg)>0:
                     # Group by column (now index) levels and aggregate
-                    x = x.groupby(cg).sum()
+                    x = x.groupby(cg if len(cg)>1 else cg[0]).sum()
                 elif not dont_agg:
                     # Aggregate across all column (now index) levels
                     x = x.sum()
