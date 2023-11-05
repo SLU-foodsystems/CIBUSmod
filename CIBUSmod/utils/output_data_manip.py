@@ -190,8 +190,22 @@ def get_attr(
         data = data.reorder_levels(groupby, axis=1)
 
     if interpolate:
-        # Interpolate to yearly data (to be implemented)
-        pass
+        # Interpolate to yearly data
+        
+        # Create new index with all years represented
+        new_idx = pd.MultiIndex.from_tuples(
+            [
+                (scn,str(year))
+                for scn in data.index.get_level_values('scn').unique()
+                for year in range(
+                    min(data.loc[scn].index.astype(int)),
+                    max(data.loc[scn].index.astype(int))+1
+                )
+            ],
+            names = ['scn','year']
+        )
+        # Reindex and interpolate
+        data = data.reindex(new_idx).interpolate()
 
     return data
 
