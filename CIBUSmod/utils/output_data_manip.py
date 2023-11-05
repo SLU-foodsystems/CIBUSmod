@@ -68,7 +68,8 @@ def get_attr(
     output,
     module,
     attr,
-    groupby='all'
+    groupby = 'all',
+    interpolate = False
 ):
     '''Get specified data attribute from output.
     
@@ -188,9 +189,91 @@ def get_attr(
         # Reorder column levels as specified in groupby
         data = data.reorder_levels(groupby, axis=1)
 
+    if interpolate:
+        # Interpolate to yearly data (to be implemented)
+        pass
+
     return data
 
-def get_GHG(output, CO2eq=True):
+def get_emissions(output, interpolate=False):
+    # Define emissions processes and corresponding modules
+    # and data attributes
+    prs = {
+        'enteric fermentation' : {
+            'module' : ['AnimalHerd'],
+            'attr' : ['enteric_methane']
+        },
+        'manure management' : {
+            'module' : ['AnimalHerd'],
+            'attr' : ['manure.N_loss',
+                      'manure.VS_loss']
+        },
+        'energy use' : {
+            'module' : ['AnimalHerd',
+                        'CropProduction'],
+            'attr' : ['energy_use_emissions',
+                      'energy_use_supply_chain_emissions']
+        },
+        'fertiliser production' : {
+            'module' : ['CropProduction'],
+            'attr' : ['fertiliser.mineral_N_supply_chain_emissions']
+        },
+        'agricultural soils' : {
+            'module' : ['CropProduction'],
+            'attr' : ['fertiliser.manure_N_application_loss',
+                      'fertiliser.manure_N_soil_loss',
+                      'fertiliser.mineral_N_application_loss',
+                      'fertiliser.mineral_N_soil_loss',
+                      'fertiliser.crop_residues_N_soil_loss',
+                      'fertiliser.organic_soil_N_loss']
+        }
+    }
+
+    d = []
+
+    for pr in prs:
+        mds = prs[pr]['module']
+        ats = prs[pr]['attr']
+        for md in mds:
+            for at in ats:
+                if md == 'CropProduction':
+                    df = output.get_attr(
+                        module = 'CropProduction',
+                        attr = at,
+                        groupby = {'prod_system':None, 'crop':'crop_group2',
+                                   'region':None, 'compound':None},
+                        interpolate = interpolate
+                    )
+                    df = df.rename_axis(columns = {'crop' : 'item'})
+                elif md == 'AnimalHerd':
+                    df = output.get_attr(
+                        module = 'AnimalHerd',
+                        attr = at,
+                        groupby = ['prod_system','species',
+                                   'breed','region','compound'],
+                        interpolate = interpolate
+                    )
+                    df.columns = pd.MultiIndex.from_tuples(
+                        [(ps,f'{sp}, {br}',re,cp) for ps,sp,br,re,cp in df.columns],
+                        names = ['prod_system', 'item',
+                                 'region', 'compound']
+                    )
+
+                df = pd.concat([df], keys=[pr], names=['process'], axis=1)
+                d += [df]
+
+    res = pd.concat(d, axis=1)
+    res = (
+        res.groupby(
+            ['process','prod_system', 'item',
+             'region', 'compound'],
+            axis=1
+        ).sum()
+    )
+    
+    return res
+
+def get_GHG(output, CO2eq=True, interpolate=False):
     
     # Conversion factors --------->
     to_GHG = {
@@ -220,138 +303,29 @@ def get_GHG(output, CO2eq=True):
     }
     # <--------------------------
     
-    for scn, year in output.index:
-        # ENTERIC METHANE
-        enteric = (
-            output.loc[(scn,year),'AnimalHerd'].enteric_methane
-            .groupby(['prod_system','species','breed','compound'], axis=1)
-            .sum()
-        )
-        enteric.columns = pd.MultiIndex.from_tuples(
-            [(ps,f'{sp}, {br}',cp) for ps,sp,br,cp in enteric.columns],
-            names = ['prod_system', 'item', 'compound']
-        )
-        enteric = pd.concat([enteric], keys=['enteric fermentation'], names=['process'], axis=1)
+    # Get emissions
+    res = get_emissions(output, interpolate = interpolate)
 
-        # MANURE MANAGEMENT
-        manure = (
-            pd.concat([
-                # N losses
-                output.loc[(scn,year),'AnimalHerd']
-                .manure.N_loss
-                .groupby(['prod_system','species','breed','compound'], axis=1)
-                .sum(),
-                # VS losses
-                output.loc[(scn,year),'AnimalHerd']
-                .manure.VS_loss
-                .groupby(['prod_system','species','breed','compound'], axis=1)
-                .sum()
-            ], axis=1)
-        )
-        manure.columns = pd.MultiIndex.from_tuples(
-            [(ps,f'{sp}, {br}',cp) for ps,sp,br,cp in manure.columns],
-            names = ['prod_system', 'item', 'compound']
-        )
-        manure = pd.concat([manure], keys=['manure management'], names=['process'], axis=1)
+    # Get only GHGs and compunds with indirect GHG emissions
+    res = res.loc[:,res.columns.isin(to_GHG, level='compound')]
 
-        # AGRICULTURAL SOILS
-        rel = ParameterRetriever.get_rel('crop','crop_group2')
-        soils = (
-            pd.concat([
-                getattr(output.loc[(scn,year),'CropProduction'].fertiliser, attr)
-                .groupby('compound', axis=1).sum()
-                .rename(rel, level='crop', axis=0)
-                .rename_axis(index={'crop':'item'})
-                .groupby(['region','prod_system','item']).sum()
-                .unstack(['prod_system','item'])
-                for attr in
-                ['manure_N_application_loss','manure_N_soil_loss',
-                'mineral_N_application_loss','mineral_N_soil_loss',
-                'crop_residues_N_soil_loss','organic_soil_N_loss']
-            ], axis=1)
-            .reorder_levels(['prod_system','item','compound'], axis=1)
-        )
-        soils = pd.concat([soils], keys=['agricultural soils'], names=['process'], axis=1)
+    # Convert to GHG emissions
+    res = (
+        res
+        .mul([to_GHG[cp] for cp in res.columns.get_level_values('compound')], axis=1)
+        .rename(to_GHG_names, axis=1)
+        .groupby(res.columns.names, axis=1)
+        .sum()
+    )
 
-        # ENERGY USE EMISSIONS
-        # crops
-        energy_crops = (
-            output.loc[(scn,year),'CropProduction'].energy_use_emissions
-            .groupby('compound', axis=1).sum()
-            .rename(rel, level='crop', axis=0)
-            .rename_axis(index={'crop':'item'})
-            .groupby(['region','prod_system','item']).sum()
-            .unstack(['prod_system','item'])
-            .reorder_levels(['prod_system','item','compound'], axis=1)
-        )
-
-        # livestock
-        energy_livestock = (
-            output.loc[(scn,year),'AnimalHerd'].energy_use_emissions
-            .groupby(['prod_system','species','breed','compound'], axis=1)
-            .sum()
-        )
-        energy_livestock.columns = pd.MultiIndex.from_tuples(
-            [(ps,f'{sp}, {br}',cp) for ps,sp,br,cp in energy_livestock.columns],
-            names = ['prod_system', 'item', 'compound']
-        )
-
-        # combine
-        energy = pd.concat([energy_crops,energy_livestock], axis=1)
-        energy = pd.concat([energy], keys=['energy use'], names=['process'], axis=1)
-
-        # INPUTS SUPPLY CHAIN EMISSIONS
-        # crops
-        inputs_crops = (
-            output.loc[(scn,year),'CropProduction'].input_supply_chain_emissions
-            .groupby('compound', axis=1).sum()
-            .rename(rel, level='crop', axis=0)
-            .rename_axis(index={'crop':'item'})
-            .groupby(['region','prod_system','item']).sum()
-            .unstack(['prod_system','item'])
-            .reorder_levels(['prod_system','item','compound'], axis=1)
-            .sort_index(axis=1)
-        )
-        inputs_crops = pd.concat([inputs_crops], keys=['inputs'], names=['process'], axis=1)
-        
-        # livestock
-
-        # combine
-        inputs = inputs_crops
-
-        # COMBINE ALL PROCESSES
-        res = (
-            pd.concat([enteric,manure,soils,energy,inputs], axis=1)
-            .groupby(['process','prod_system','item','compound'], axis=1)
-            .sum()
-        )
-
-        # Get only GHGs and compunds with indirect GHG emissions
-        res = res.loc[:,res.columns.isin(to_GHG, level='compound')]
-
-        # Convert to GHG emissions
+    if CO2eq:
+        # Calculate CO2 equivalents
         res = (
             res
-            .mul([to_GHG[cp] for cp in res.columns.get_level_values('compound')], axis=1)
-            .rename(to_GHG_names, axis=1)
+            .mul([to_CO2eq[cp] for cp in res.columns.get_level_values('compound')], axis=1)
         )
 
-        res = pd.concat([res], keys=[year], names=['year'], axis=1)
-        res = pd.concat([res], keys=[scn], names=['scn'], axis=1)
-
-        if CO2eq:
-            # Calculate CO2 equivalents
-            res = (
-                res
-                .mul([to_CO2eq[cp] for cp in res.columns.get_level_values('compound')], axis=1)
-            )
-        
-        try:
-            result = pd.concat([result,res], axis=1)
-        except NameError:
-            result = res
-
-    return result
+    return res
 
 def to_ICBM(output):
     ''''''

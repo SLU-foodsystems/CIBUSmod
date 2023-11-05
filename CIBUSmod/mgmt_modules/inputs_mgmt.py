@@ -2,6 +2,7 @@ import os
 import pandas as pd
 
 from ..utils.verbose_print import verbose_init
+from ..utils.misc import rgetattr, rsetattr
 
 from ecoinvent_interface import Settings, EcoinventProcess, ProcessFileType
 import xml.dom.minidom as minidom
@@ -48,9 +49,11 @@ class InputsMgmt(object):
             )
         
         path = os.path.join(self.par.data_path,'ecoinvent')
-        self.get_ei_data(ecoinvent_settings, path)
+        self.get_ecoinvent_data(ecoinvent_settings, path)
 
-    def get_ei_data(self, ecoinvent_settings, path):
+        self.get_data()
+
+    def get_ecoinvent_data(self, ecoinvent_settings, path):
         
         ei_version = ecoinvent_settings['version']
         ei_model = ecoinvent_settings['system_model']
@@ -99,22 +102,10 @@ class InputsMgmt(object):
         # Scale from ecoinvent unit to 'input' unit (according to parameter Excel sheet)
         df = df * self.par.get_from_frame('input_to_ecoinvent',df)
         
-        self.data = df
-        
-    def calculate(self, verbose=False):
-        
-        # Define functions to print progress messages if verbose==True
-        vprint = verbose_init(verbose, id_str='InputsMgmt')
-        vprint('Calculating supply chain emissions for food processing inputs (NOT IMPLEMENTED) ...')
-        self.calculate_demand()
-        
-        vprint('Calculating supply chain emissions for crop production inputs  ...')
-        self.calculate_crops()
-        
-        vprint('Calculating supply chain emissions for animal herd inputs (NOT IMPLEMENTED)  ...')
-        self.calculate_herds()
-        
-    def calculate_crops(self):
+        # Store full ecoinvent LCI data with metadata
+        self.ecoinvent_data = df
+
+    def get_data(self):
         # Translation from ecoinvent elementary flow names to names
         # used in CIBUSmod.
         # CHANGE TO USE ECOINVENT NAMES IN FUTURE!
@@ -125,45 +116,73 @@ class InputsMgmt(object):
             'Dinitrogen monoxide' : 'N2O',
         }
 
-        # Get quantities of inputs used
-        input_use = pd.concat([
-            self.crops.energy_use.groupby('energy_source', axis=1).sum().rename_axis('input', axis=1),
-            self.crops.fertiliser.mineral_N.groupby('fertiliser_type', axis=1).sum().rename_axis('input', axis=1)
-        ], axis=1)
-
-        input_use_stacked = input_use.stack()
-
-        input_supply_chain_emissions = (
-            (
-                self.data
-                # Select only compounds used and rename. HANDLE ALL COMPOUNDS IN FUTURE!
-                .loc[:,self.data.columns.get_level_values('compound').isin(translate_compounds)]
-                .rename(translate_compounds, axis=1)
-                # Drop all index levels except 'input'
-                .droplevel(self.data.index.names[1:])
-                # Group and sum by compund. For compounds used now all emissions
-                # are to 'air'. Different compartments will need to ba handled
-                # later on
-                .groupby('compound', axis=1).sum()
-                # Reindex to align with 'input_use_stacked'
-                .reindex(input_use_stacked.index.get_level_values('input'))
-                .set_index(input_use_stacked.index)
-            )
-            # Multiply emissions by use volumes
-            .mul(input_use_stacked, axis=0)
-            .unstack('input')
-            .reorder_levels([1,0], axis=1)
-            .sort_index(axis=1)
+        # Simplified data to use in calculations
+        self.data = (
+            self.ecoinvent_data
+            # Select only compounds used and rename. HANDLE ALL COMPOUNDS IN FUTURE!
+            .loc[:,self.ecoinvent_data.columns.get_level_values('compound').isin(translate_compounds)]
+            .rename(translate_compounds, axis=1)
+            # Drop all index levels except 'input'
+            .droplevel(self.ecoinvent_data.index.names[1:])
+            # Group and sum by compund. For compounds used now all emissions
+            # are to 'air'. Different compartments will need to ba handled
+            # later on
+            .groupby('compound', axis=1).sum()
+            .stack()
+        )
+        
+    def calculate(self, verbose=False):
+        
+        # Define functions to print progress messages if verbose==True
+        vprint = verbose_init(verbose, id_str='InputsMgmt')
+        vprint('Calculating supply chain emissions for food processing inputs (NOT IMPLEMENTED) ...')
+        
+        vprint('Calculating supply chain emissions for crop production inputs  ...')
+        self.calculate_emissions(
+            module = self.crops,
+            attr = 'energy_use',
+            inputs_in_col = 'energy_source'
+        )
+        self.calculate_emissions(
+            module = self.crops,
+            attr = 'fertiliser.mineral_N',
+            inputs_in_col = 'fertiliser_type'
+        )
+        
+        vprint('Calculating supply chain emissions for animal herd inputs (NOT IMPLEMENTED)  ...')
+        for h in self.herds:
+            self.calculate_emissions(
+            module = h,
+            attr = 'energy_use',
+            inputs_in_col = 'energy_source'
         )
 
-        self.crops.input_supply_chain_emissions = input_supply_chain_emissions
-        self.crops.data_attr.update(['input_supply_chain_emissions'])
-        
-    def calculate_herds(self):
-        pass
+    def calculate_emissions(self, module, attr:str, inputs_in_col:str):
     
-    def calculate_demand(self):
-        pass
+        data = rgetattr(module,attr)
+        
+        # Add compunds to input use dataframe
+        res = data.reindex(
+            pd.MultiIndex.from_tuples(
+                [idx+tuple([cp]) for idx in data.columns for cp in self.data.index.get_level_values('compound').unique()],
+                names = data.columns.names + ['compound']
+            ),
+            axis = 1
+        )
+
+        # Get LCI data (emissions per unit input) and reindex to match input use dataframe
+        lci = (
+            self.data
+            .rename_axis([inputs_in_col,'compound'])
+            .reindex(res.columns.droplevel([c for c in res.columns.names if c not in [inputs_in_col,'compound'] ]))
+        )
+        lci.index = res.columns
+        
+        # Multiply input use by emissins
+        res = res.mul(lci, axis=1)
+        
+        rsetattr(module, attr+'_supply_chain_emissions', res)
+        module.data_attr.update([attr+'_supply_chain_emissions'])
 
 def _ei_connect(ei_version,ei_model):
 
