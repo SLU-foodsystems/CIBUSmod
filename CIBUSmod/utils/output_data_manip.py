@@ -69,7 +69,9 @@ def get_attr(
     module,
     attr,
     groupby = 'all',
-    interpolate = False
+    interpolate = False,
+    keep_duplicate_levels = 'index',
+    suffixes = ('_idx','_col')
 ):
     '''Get specified data attribute from output.
     
@@ -81,18 +83,26 @@ def get_attr(
         Module to get output from: 'DemandAndConversions', 'Regions', 'CropProduction' or 'AnimalHerd'
     attr : str
         data attribute to get
-    groupby : str, list or dict
+    groupby : str, list or dict, default 'all'
         If str or list data is grouped and aggregated by these index/column levels.
         If 'all' data is not aggregated
         If 'none'  data is summed over all index/columns
         If a dict is supplied relation tables are used
+    interpolate : Bool, default True
+        If True interpolate between defined years
+    keep_duplicate_levels: {'index','columns','both'}, default 'index'
+        If the same groupby level is in both index and columns of data attribute
+        then keep level on the specified axis. If 'both', both levels are
+        retained and renamed with 'suffixes'
+    suffixes : itterable of len 2, default ('_idx','_col')
+        Suffixes to use for index and column levels if 'keep_duplicate_levels' is 'both'
         
     Returns
     -------
     pandas.DataFrame or Series with scenario (scn) and year as index and <groupby>
     as columns.
     '''
-
+    
     short_hands = {
         'D':'DemandAndConversions', 'R':'Regions',
         'C':'CropProduction', 'A':'AnimalHerd'
@@ -102,11 +112,14 @@ def get_attr(
             module = short_hands[module.upper()]
         except KeyError:
             raise ValueError('module not found')
+    
+    # Get first scn and year
+    x = rgetattr(output.iloc[0].loc[module],attr)
+
     if groupby == 'all':
-        groupby = []
-        dont_agg = True
-    else:
-        dont_agg = False
+        groupby = list(x.index.names)
+        if isinstance(x,pd.DataFrame):
+            groupby += [lvl for lvl in x.columns.names if lvl not in groupby]
     if groupby == 'none':
         groupby = []
     
@@ -118,14 +131,64 @@ def get_attr(
     else:
         rel = {}
         
+    # Check for duplicate groupby levels in both index and
+    # columns and if 'keep_duplicate_levels' is 'both', add
+    # suffixes in data and groupby list
+    if isinstance(x, pd.DataFrame):
+        idx_col_same = \
+        [lvl for lvl in groupby if lvl in x.index.names and lvl in x.columns.names]
+    else:
+        idx_col_same = []
+    if len(idx_col_same)>0:
+        if keep_duplicate_levels == 'both':
+            new_groupby = []
+            idx_rename = {}
+            col_rename = {}
+            idx_drop = None
+            col_drop = None
+            for lvl in groupby:
+                if lvl in idx_col_same:
+                    idx_rename.update({lvl:lvl+suffixes[0]})
+                    col_rename.update({lvl:lvl+suffixes[1]})
+                    new_groupby += [lvl+suffixes[0]]
+                    new_groupby += [lvl+suffixes[1]]
+                else:
+                    new_groupby += [lvl]
+            groupby = new_groupby
+        elif keep_duplicate_levels == 'index':
+            idx_rename = None
+            col_rename = None
+            idx_drop = None
+            col_drop = idx_col_same
+        elif keep_duplicate_levels == 'columns':
+            idx_rename = None
+            col_rename = None
+            idx_drop = idx_col_same
+            col_drop = None
+        else:
+            raise ValueError("'keep_duplicate_levels' must be one of {'index','columns','both'}")
+    else:
+        idx_rename = None
+        col_rename = None
+        idx_drop = None
+        col_drop = None
+        
     d = []
     for idx in output.index:
         # Get attribute
         x = rgetattr(output.loc[idx,module],attr)
         
+        # Drop or add suffixes to handle duplicate levels in index and columns
+        if idx_rename is not None:
+            x = x.rename_axis(index=idx_rename, columns=col_rename)
+        if idx_drop is not None:
+            x = x.droplevel(idx_drop)
+        if col_drop is not None:
+            x = x.droplevel(col_drop, axis=1)
+        
         # Get index levels to group by
         ig = [g for g in groupby if g in x.index.names]
-        if isinstance(x,pd.DataFrame):
+        if isinstance(x, pd.DataFrame):
             # Get column levels to group by
             cg = [g for g in groupby if g in x.columns.names]
         else:
@@ -142,7 +205,7 @@ def get_attr(
         if len(ig)>0:
             # Group by index levels and aggregate
             x = x.groupby(ig if len(ig)>1 else ig[0]).sum()
-        elif not dont_agg:
+        else:
             # Aggregate across all index levels
             x = x.sum()
 
@@ -150,7 +213,7 @@ def get_attr(
             if len(cg)>0:
                 # Group by column levels and aggregate
                 x = x.groupby(cg if len(cg)>1 else cg[0], axis=1).sum()
-            elif not dont_agg:
+            else:
                 # Aggregate across all column levels
                 x = x.sum(axis=1)
         elif isinstance(x,pd.Series):
@@ -158,7 +221,7 @@ def get_attr(
                 if len(cg)>0:
                     # Group by column (now index) levels and aggregate
                     x = x.groupby(cg if len(cg)>1 else cg[0]).sum()
-                elif not dont_agg:
+                else:
                     # Aggregate across all column (now index) levels
                     x = x.sum()
 
@@ -185,13 +248,13 @@ def get_attr(
         data = data.iloc[:,0]
         data.name = attr
         
-    if len(groupby)>1:
+    if isinstance(data, pd.DataFrame) and data.columns.nlevels>1:
         # Reorder column levels as specified in groupby
-        data = data.reorder_levels(groupby, axis=1)
+        data = data.reorder_levels([g for g in groupby if g in data.columns.names], axis=1)
 
     if interpolate:
         # Interpolate to yearly data
-        
+
         # Create new index with all years represented
         new_idx = pd.MultiIndex.from_tuples(
             [
@@ -343,55 +406,30 @@ def get_GHG(output, CO2eq=True, interpolate=False):
 
 def to_ICBM(output):
     ''''''
-    output = output.copy()
-    cropland = inv_dict(ParameterRetriever.get_rel('crop','land_use'))['cropland']
-    first_par = True
-    for par in ['area','harvest','manure']:
-        first_scnyear = True
-        for scn, year in output.index:
-            if par == 'area':
-                res = (
-                    output.loc[(scn,year),'CropProduction']
-                    .area.loc[(cropland,slice(None),slice(None))]
-                )
-                res = pd.concat([res], keys=['area_ha'], names=['par'])
-            elif par == 'harvest':
-                res = (
-                    output.loc[(scn,year),'CropProduction']
-                    .harvest_dm.loc[(cropland,slice(None),slice(None))]
-                )
-                res = pd.concat([res], keys=['harvest_kgdm'], names=['par'])
-            elif par == 'manure':
-                res = (
-                    output.loc[(scn,year),'CropProduction']
-                    .fertiliser.manure_C.loc[(cropland,slice(None),slice(None)),:]
-                    .groupby('species', axis=1).sum().stack()
-                )
-                res.index.names = res.index.names[0:3]+['par']
-                res = res.rename({sp:'manure_'+sp+'_kgC' for sp in res.index.get_level_values('par').unique()})
-
-            res = pd.concat([res], keys=[year], names=['year'])
-            res = pd.concat([res], keys=[scn], names=['scn'])
-
-            if first_scnyear:
-                result = res
-                first_scnyear = False
-            else:
-                result = pd.concat([result,res], axis=0)
-
-        y0 = result.index.get_level_values('year').astype(int).min()
-        yend = result.index.get_level_values('year').astype(int).max()
-
-        result = result.unstack('year').reindex(columns=pd.Index([str(y) for y in range(y0,yend+1)], name='year'))
-        result.columns = result.columns.astype(int)
-        result = result.interpolate(axis=1)
-
-        result = result.stack().unstack('par')
-        
-        if first_par:
-            comb_result = result
-            first_par = False
-        else:
-            comb_result = pd.concat([comb_result,result], axis=1)
+    ats = ['area','harvest_dm','fertiliser.manure_C']
+    d = []
+    for at in ats:
+        df = (
+            output
+            .get_attr(
+                module = 'CropProduction',
+                attr = at,
+                groupby = ['crop','prod_system','region','species'],
+                interpolate=True
+            )
+            .stack(['crop','prod_system','region'])
+            .reorder_levels(['scn','crop','prod_system','region','year'])
+            .sort_index()
+        )
+        if at == 'area':
+            df = df.rename('area_ha')
+        if at == 'harvest_dm':
+            df = df.rename('harvest_kgdm')
+        if at == 'fertiliser.manure_C':
+            df = df.rename({sp:'manure_'+sp+'_kgC' for sp in df.columns}, axis=1)
+            
+        d += [df]
     
-    return comb_result
+    res = pd.concat(d, axis=1)
+    
+    return res
