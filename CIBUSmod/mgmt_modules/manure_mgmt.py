@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, multiply_aligned
+from ..utils.misc import Container, multiply_aligned, rgetattr, rsetattr
 
 class ManureMgmt():
     '''Class that takes a (list of) AnimalHerd object(s) and calculates manure excretion and losses.'''
@@ -72,9 +72,18 @@ class ManureMgmt():
 
         # Nitrogen (N) [kg N or TAN per year]
         vprint('Calculating N excretion ...')
-        self.calculate_N_excretion()
+        self.calculate_NPK_excretion(compound = 'N')
         vprint('Calculating N losses ...')
         self.calculate_N_losses()
+
+        # Phosphorous (P)
+        vprint('Calculating P excretion ...')
+        self.calculate_NPK_excretion(compound = 'P')
+
+        # Potassioum (K)
+        vprint('Calculating K excretion ...')
+        self.calculate_NPK_excretion(compound = 'K')
+
         vprint('Calculating N available to spread ...')
         for herd in self.herds:
             # Set species and breed filters for ParameterRetriever
@@ -92,12 +101,6 @@ class ManureMgmt():
             herd.manure.N_to_spread = N_to_spread
             herd.manure.TAN_to_spread = TAN_to_spread
             herd.data_attr.update(['manure.N_to_spread','manure.TAN_to_spread'])
-
-        # Phosphorous (P)
-        # To be included ...
-
-        # Potassioum (K)
-        # To be included ...
 
         vprint(type='end')
 
@@ -228,7 +231,7 @@ class ManureMgmt():
             herd.manure.C_to_spread = C_to_spread
             herd.data_attr.update(['manure.VS_loss','manure.C_to_spread'])
         
-    def calculate_N_excretion(self):
+    def calculate_NPK_excretion(self, compound):
 
         # Get manure management systems
         mmss = self.par.get_unique('MMS')
@@ -236,6 +239,7 @@ class ManureMgmt():
         for herd in self.herds:
 
             # Set species and breed filters for ParameterRetriever
+            self.par.clear()
             self.par.set(
                 species = herd.species,
                 breed = herd.breed
@@ -246,7 +250,7 @@ class ManureMgmt():
             anis = herd.animals
 
             # Create dataframe
-            N_excr = pd.DataFrame(
+            excr_df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,ani,mms) for ps in pss for ani in anis for mms in mmss],
@@ -254,17 +258,64 @@ class ManureMgmt():
                     )
                 )
             
-            # Calculate N excretion
-            N_excr.loc[:,:] = multiply_aligned(
-                (
-                    self.par.get_from_frame('manure_excr_N',N_excr)
-                    * self.par.get_from_frame('mms_share',N_excr)/100
-                ),
-                herd.heads
-            )
+            if herd.species in ['cattle', 'sheep', 'pigs']:
+                # Calculate N excretion based on mass balance
 
-            herd.manure.N_excr = N_excr
-            herd.data_attr.update(['manure.N_excr'])
+                # Nutrient in feed input (including storage and feeding losses)
+                # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
+                feed = (
+                    herd.feed.demand
+                    .groupby(['prod_system','animal'], axis=1)
+                    .sum() *
+                    (rgetattr(herd, 'feed.ration_' + compound) / 100)
+                )
+
+                # Nutrients in bedding materials
+                # !!! TO BE ADDED !!!
+                bedding = 0
+
+                # Nutrients in live weight gain
+                lwg = (
+                    herd.lwg *
+                    self.par.get_from_frame(compound + '_in_LW', herd.lwg)
+                )
+
+                # Nutrients in products (excl. meat)
+                prod = (
+                    (
+                        herd.production
+                        .drop('meat', level='animal_prod', axis=1) *
+                        self.par.get_from_frame(
+                            compound + '_in_prod',
+                            herd.production
+                            .drop('meat', level='animal_prod', axis=1)
+                        )
+                    )
+                    .groupby(['prod_system','animal'], axis=1)
+                    .sum()
+                )
+
+                excr_df.loc[:,:] = multiply_aligned(
+                    self.par.get_from_frame('mms_share',excr_df)/100,
+                    (feed + bedding - lwg - prod)
+                )
+
+            else:
+                # Calculate N excretion from fixed factor per head
+                excr_df.loc[:,:] = multiply_aligned(
+                    (
+                        self.par.get_from_frame('manure_excr_'+compound,excr_df)
+                        * self.par.get_from_frame('mms_share',excr_df)/100
+                    ),
+                    herd.heads
+                )
+
+            rsetattr(
+                herd,
+                'manure.' + compound + '_excr',
+                excr_df
+            )
+            herd.data_attr.update(['manure.' + compound + '_excr'])
         
         return None
     
