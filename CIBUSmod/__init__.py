@@ -1,5 +1,5 @@
 from .utils.retriever import ParameterRetriever
-from .utils.output import Output
+from .utils.output import Session, Output
 
 # Import main modules
 from .main_modules.regions import Regions

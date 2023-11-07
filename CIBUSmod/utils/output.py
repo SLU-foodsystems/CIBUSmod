@@ -1,7 +1,9 @@
 import warnings
 import numpy as np
 import pandas as pd
+import os
 
+from .retriever import ParameterRetriever
 from ..main_modules.demand_and_conversions import DemandAndConversions
 from ..main_modules.regions import Regions
 from ..main_modules.crop_prod import CropProduction
@@ -11,6 +13,59 @@ from .output_data_manip import \
     concat_herds, \
     get_attr, get_GHG, to_ICBM
 
+class Session(object):
+    '''
+    
+    Parameters
+    ----------
+    name : str
+        Session name
+    data_path : str
+        '''
+
+    def __init__(self, name, data_path, output_from_file=False, output_df=None):
+        
+        self.name = name
+
+        self.data_path = _path_from_str(data_path)
+        ParameterRetriever.set_data_folder(self.data_path)
+
+        if output_from_file:
+            self.output = Output.from_file(os.path.join(self.data_path, 'output'))
+        else:
+            self.output = Output(output_df)
+
+        self.scenarios = {}
+
+    def add_scenario(self, name, scenario=None, modules='all', pars='all', years=None):
+
+        if not isinstance(years,list):
+            years = [years]
+        
+        self.scenarios.update(
+            {
+                name : {
+                    'scenario' : scenario,
+                    'modules' : modules,
+                    'pars' : pars,
+                    'years' : years
+                }
+            }
+        )
+
+    def read_output(self):
+        self.output = Output.from_file(os.path.join(self.data_path, 'output', 'out_'+self.name+'.bz2'))
+
+    def save_output(self):
+        self.output.save_file(os.path.join(self.data_path, 'output', 'out_'+self.name+'.bz2'))
+
+    def show_scenarios(self):
+
+        print(pd.DataFrame(
+            self.scenarios,
+            index = ['scenario','modules','pars','years']
+        ).T)
+        
 class Output(pd.DataFrame):
     '''A pandas.DataFrame augmented with methods to store and retrieve
     model output data.'''
@@ -112,3 +167,9 @@ def _isiterable(obj):
         return True
     except TypeError:
         return False
+    
+def _path_from_str(str):
+    path = ''
+    for word in str.split('/'):
+        path = os.path.join(path, word)
+    return path
