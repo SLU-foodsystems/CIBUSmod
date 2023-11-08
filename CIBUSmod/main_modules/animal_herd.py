@@ -317,7 +317,6 @@ animals              {self.animals}
         E_req = hasattr(self,'calculate_feed_E_req')
 
         df_req = pd.DataFrame(index = self.index, columns = self.heads.columns)
-        df_lwg = pd.DataFrame(index = self.index, columns = self.heads.columns)
 
         for ps,ani in df_req.columns:
             self.par.set(
@@ -326,17 +325,12 @@ animals              {self.animals}
             )
 
             # Calculate feed energy [MJ] or dry matter [kg DM] requirements
-            # and live weight gains [kg LW] pear head and year
             if E_req:
-                req, lwg = self.calculate_feed_E_req(ani)
+                req = self.calculate_feed_E_req(ps,ani)
             else:
-                req, lwg = self.calculate_feed_DM_req(ani)
+                req = self.calculate_feed_DM_req(ps,ani)
 
             df_req.loc[:,(ps,ani)] = req
-            df_lwg.loc[:,(ps,ani)] = lwg
-
-        self.lwg = df_lwg * self.heads # [kg LW/year]
-        self.data_attr.update(['lwg'])
 
         if E_req:
             self.feed_E_req = df_req * self.heads # [MJ/year]
@@ -470,7 +464,7 @@ class CattleHerd(AnimalHerd):
         # No. dead female calves
         tmp_female_calves2dead = tmp_female_calves_born - tmp_female2weaned_before_redist + tmp_female2weaned - tmp_female2end
         
-        # No. female calves --> recruitments heifers
+        # No. female calves --> recruitment heifers
         tmp_calves2recruitment = cows * p('recruitment_rate')/100
 
         # No. calves slaughtered before 1 year
@@ -528,6 +522,63 @@ class CattleHerd(AnimalHerd):
         steers2slaughter = tmp_calves2steer
         bulls2slaughter = tmp_calves2bull
 
+        # CALCULATE LIVE WEIGHT GAINS
+        # These are in terms of total weight gain in the herd
+        # per animal category and year [kg/year]
+        lw_calves_start = p('birth_weight', animal='calves')
+        lw_calves_weaning = p('live_weight_weaning', animal='calves') # kg/head
+        lw_calves_slaughter = p('live_weight_slaughter', animal='calves')
+
+        lwg_heifers = (
+            # For recruitment
+            (
+                (p('live_weight', animal='cows') - lw_calves_weaning) / 
+                (p('AFC', animal='heifers')*30.44 - p('weaning_age', animal='calves'))
+            ) * #  -> kg/head/day
+            tmp_calves2recruitment * ((p('AFC')-12)/12) + # -> kg/day
+            # For slaughter
+            (
+                (p('live_weight_slaughter', animal='heifers') - lw_calves_weaning) / 
+                (p('slaughter_age', animal='heifers')*30.44 - p('weaning_age', animal='calves'))
+            ) * # -> kg/head/day
+            tmp_calves2heifer * ((p('slaughter_age',animal='heifers')-12)/12) # -> kg/day
+        ) * 365.25 # -> kg/year
+
+        lwg_steers = (
+            (p('live_weight_slaughter', animal='steers') - lw_calves_weaning) / 
+            (p('slaughter_age', animal='steers')*30.44 - p('weaning_age', animal='calves')) # -> kg/head/day
+        ) * steers * 365.2 # -> kg/year
+
+        lwg_bulls = (
+            (p('live_weight_slaughter', animal='bulls') - lw_calves_weaning) / 
+            (p('slaughter_age', animal='bulls')*30.44 - p('weaning_age', animal='calves')) # -> kg/head/day
+        ) * bulls * 365.25 # -> kg/year
+
+        lw_calves_1yr = (
+            ((lwg_heifers + lwg_steers + lwg_bulls) / (heifers + steers + bulls) / 365.25) # -> kg/head/day
+            * (365.25 - p('weaning_age', animal='calves')) # -> kg/head
+            + lw_calves_weaning # -> kg/head
+        )
+
+        lwg_calves = (
+            (
+                # Calves reaching 1 year
+                (lw_calves_1yr - lw_calves_start) * # -> kg/head
+                (tmp_calves2recruitment + tmp_calves2heifer +
+                tmp_calves2heifer + tmp_calves2steer + tmp_calves2bull) # -> kg/year
+                +
+                # Calves to slaughter
+                (lw_calves_slaughter - lw_calves_start) /  # -> kg/head
+                p('slaughter_age', animal='calves') * 12 * # -> kg/head/year
+                tmp_calves2slaughter # -> kg/year
+            ) / (tmp_calves2recruitment + tmp_calves2heifer + tmp_calves2slaughter +
+             tmp_calves2heifer + tmp_calves2steer + tmp_calves2bull) # -> kg/head/year
+        ) * calves # -> kg/year
+
+        # lwg for cows includes fetus growth
+        lwg_cows = (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') * cows # -> kg/year
+        lwg_breeding_bulls = np.zeros(len(cows))
+
         # Create output DataFrames
         pss = [self.prod_system]+list(to_ps) if redist else [self.prod_system] # Output production systems (==[self.prod_system] if no redistribution of animals)
 
@@ -536,54 +587,84 @@ class CattleHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, slaughter_n, lost_n  = (empty_df.copy(),empty_df.copy(),empty_df.copy())
+        heads, lwg, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
         for ps in pss:
             sel = range(n*idx_len, (n+1)*idx_len)
+
             heads.loc[:,(ps,slice(None))] = \
-                np.array([cows[sel],breeding_bulls[sel],calves[sel],heifers[sel],steers[sel],bulls[sel]]).T
-            slaughter_n.loc[:,(ps,slice(None))] = \
-                np.array([cows2slaughter[sel],breeding_bulls2slaughter[sel],calves2slaughter[sel],heifers2slaughter[sel],steers2slaughter[sel],bulls2slaughter[sel]]).T
+                np.array([
+                    cows[sel], 
+                    breeding_bulls[sel], 
+                    calves[sel], 
+                    heifers[sel], 
+                    steers[sel], 
+                    bulls[sel]
+                ]).T
+            
+            lwg.loc[:,(ps,slice(None))] = \
+                np.array([
+                    lwg_cows[sel], 
+                    lwg_breeding_bulls[sel], 
+                    lwg_calves[sel], 
+                    lwg_heifers[sel], 
+                    lwg_steers[sel], 
+                    lwg_bulls[sel]
+                ]).T
+            
+            slaughtered_n.loc[:,(ps,slice(None))] = \
+                np.array([
+                    cows2slaughter[sel], 
+                    breeding_bulls2slaughter[sel], 
+                    calves2slaughter[sel], 
+                    heifers2slaughter[sel], 
+                    steers2slaughter[sel], 
+                    bulls2slaughter[sel]
+                ]).T
+            
             lost_n.loc[:,(ps,slice(None))] = \
-                np.array([cows2lost[sel],breeding_bulls2lost[sel],calves2lost[sel],heifers2lost[sel],steers2lost[sel],bulls2lost[sel]]).T
+                np.array([
+                    cows2lost[sel],
+                    breeding_bulls2lost[sel],
+                    calves2lost[sel],
+                    heifers2lost[sel],
+                    steers2lost[sel],
+                    bulls2lost[sel]
+                ]).T
 
             n += 1
         
         self.heads = heads
-        self.slaughtered_n = slaughter_n
+        self.lwg = lwg
+        self.slaughtered_n = slaughtered_n
         self.lost_n = lost_n
-        self.data_attr.update(['heads','slaughtered_n','lost_n'])
+        self.data_attr.update(['heads','lwg','slaughtered_n','lost_n'])
 
-    def calculate_feed_E_req(self,ani):
+    def calculate_feed_E_req(self,ps,ani):
         '''Calculates Metabolizable Energy (ME) and water requrements for cattle based on
         Spörndly, R. (ed.). (2003). Fodertabeller för idisslare 2003. HUV Rapport 257. SLU'''
 
         p = self.par.get
 
         # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
-        # and get total average live weight gain (lwg) [kg/head/year] for calculating nutrient fixation
         if ani in ['cows','breeding bulls']:
             live_weight = p('live_weight')
-            growth_rate = 0
+            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
             if ani == 'cows':
-                # Add fetus live weight gain
-                lwg = (12/p('calving_interval')) * p('birth_weight', animal='calves')
-                self.par.set(animal=ani)
-            else:
-                lwg = 0
+                 # Subtract fetus growth
+                 growth_rate -= (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') / 365.25
+                 self.par.set(animal = ani)
         elif ani == 'calves':
+            live_weight_1yr = p('birth_weight') + self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)]
             live_weight_pre_weaning = (p('live_weight_weaning') + p('birth_weight')) / 2
             growth_rate_pre_weaning = (p('live_weight_weaning') - p('birth_weight')) / p('weaning_age')
-            live_weight = (p('live_weight_1yr') + p('live_weight_weaning')) / 2
-            growth_rate = (p('live_weight_1yr') - p('live_weight_weaning')) / (365.25 - p('weaning_age'))
-            lwg = p('live_weight_1yr') - p('birth_weight')
+            live_weight = (live_weight_1yr + p('live_weight_weaning')) / 2
+            growth_rate = (live_weight_1yr - p('live_weight_weaning')) / (365.25 - p('weaning_age'))
         else:
-            live_weight = (p('live_weight_slaughter', animal=ani) + p('live_weight_1yr', animal='calves')) / 2
-            growth_rate = (p('live_weight_slaughter', animal=ani) - p('live_weight_1yr', animal='calves')) / (p('slaughter_age', animal=ani) * 30.4 - 365.25)
-            self.par.set(animal=ani)
-            lwg = growth_rate * 365.25
+            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
+            live_weight = (2*p('live_weight_slaughter') - growth_rate * (p('slaughter_age')*30.44 - 365.25)) / 2
               
         # Daily ME req. for maintenance [MJ/day]
         E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
@@ -625,9 +706,8 @@ class CattleHerd(AnimalHerd):
         E_req_final = (E_req * p('energy_adjustment_factor') + p('energy_adjustment_addend')) * 365.25 + E_gestation
         
         E_req_final = np.nan_to_num(E_req_final)
-        lwg = np.nan_to_num(lwg)
 
-        return E_req_final, lwg
+        return E_req_final
 
 class PigHerd(AnimalHerd):
     AnimalHerd.__doc__.replace('animal','pig')
@@ -672,7 +752,7 @@ class PigHerd(AnimalHerd):
         tmp_piglets_weaned = tmp_piglets_born * (1 - p('mortality_0towean')/100)
         tmp_piglets_delivered = tmp_piglets_weaned * (1 - p('mortality_weantodelivery')/100)
         
-        piglets_lost = (sows * p('litters_per_sow') * p('dead_per_litter')) + (tmp_piglets_delivered - tmp_piglets_born)
+        piglets_lost = (sows * p('litters_per_sow') * p('dead_per_litter')) + (tmp_piglets_born - tmp_piglets_delivered)
 
         # Calculate avg. number of live piglets assuming a 50% weight on lost animals
         piglets = (
@@ -705,6 +785,33 @@ class PigHerd(AnimalHerd):
         boars_lost = np.zeros(len(sows))
         gilts_lost = np.zeros(len(sows))
 
+        # CALCULATE LIVE WEIGHT GAINS
+        # These are in terms of total weight gain in the herd
+        # per animal category and year [kg/year]
+
+        # Assumes same growth rate for growers and finishers
+        growth_rate_growers_and_finishers = (
+            (p('live_weight_slaughter') - p('live_weight_delivery')) / 
+            (p('growing_period') + p('finishing_period'))
+        ) # kg/head/day
+        live_weight_after_growing_period = (
+            p('live_weight_delivery') + 
+            growth_rate_growers_and_finishers * p('growing_period')
+        ) # kg/head
+        
+        lwg_piglets = (p('live_weight_delivery') - p('birth_weight')) / (p('weaning_age') + p('post_weaning_nursing_period')) * 365.25
+        lwg_growers = growth_rate_growers_and_finishers * growers * 365.25
+        lwg_finishers = growth_rate_growers_and_finishers * finishers * 365.25
+        lwg_gilts = (
+            (p('live_weight', animal='sows') - live_weight_after_growing_period) / 
+            (p('age_at_first_farrowing') - p('growing_period') - 
+             p('post_weaning_nursing_period') - p('weaning_age'))
+        ) * gilts * 365.25
+
+        # lwg for sows includes growth of fetus
+        lwg_sows = p('litters_per_sow') * (p('live_per_litter') + p('dead_per_litter')) * p('birth_weight') * sows
+        lwg_boars = np.zeros(len(sows))
+
         # Create output DataFrames
         pss = [self.prod_system] # Output production systems (==[self.prod_system] as no redistribution of animals in this class)
 
@@ -713,30 +820,73 @@ class PigHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(4)]
+        heads, lwg, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(5)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
         for ps in pss:
             sel = range(n*idx_len, (n+1)*idx_len)
+
             heads.loc[:,(ps,slice(None))] = \
-                np.array([sows[sel],boars[sel],piglets[sel],gilts[sel],growers[sel],finishers[sel]]).T
+                np.array([
+                    sows[sel],
+                    boars[sel],
+                    piglets[sel],
+                    gilts[sel],
+                    growers[sel],
+                    finishers[sel]
+                ]).T
+            
+            lwg.loc[:,(ps,slice(None))] = \
+                np.array([
+                    lwg_sows[sel],
+                    lwg_boars[sel],
+                    lwg_piglets[sel],
+                    lwg_gilts[sel],
+                    lwg_growers[sel],
+                    lwg_finishers[sel]
+                ]).T
+            
             inserted_n.loc[:,(ps,slice(None))] = \
-                np.array([(sows_to_slaughter+sows_lost)[sel],(boars_to_slaughter+boars_lost)[sel],tmp_piglets_born[sel],tmp_growers_to_recruitment[sel],tmp_piglets_delivered[sel],tmp_growers_to_finishing[sel]]).T
+                np.array([
+                    (sows_to_slaughter+sows_lost)[sel],
+                    (boars_to_slaughter+boars_lost)[sel],
+                    tmp_piglets_born[sel],
+                    tmp_growers_to_recruitment[sel],
+                    tmp_piglets_delivered[sel],
+                    tmp_growers_to_finishing[sel]
+                ]).T
+            
             slaughter_n.loc[:,(ps,slice(None))] = \
-                np.array([sows_to_slaughter[sel],boars_to_slaughter[sel],piglets_to_slaughter[sel],gilts_to_slaughter[sel],growers_to_slaughter[sel],finishers_to_slaughter[sel]]).T
+                np.array([
+                    sows_to_slaughter[sel],
+                    boars_to_slaughter[sel],
+                    piglets_to_slaughter[sel],
+                    gilts_to_slaughter[sel],
+                    growers_to_slaughter[sel],
+                    finishers_to_slaughter[sel]
+                ]).T
+            
             lost_n.loc[:,(ps,slice(None))] = \
-                np.array([sows_lost[sel],boars_lost[sel],piglets_lost[sel],gilts_lost[sel],growers_lost[sel],finishers_lost[sel]]).T
+                np.array([
+                    sows_lost[sel],
+                    boars_lost[sel],
+                    piglets_lost[sel],
+                    gilts_lost[sel],
+                    growers_lost[sel],
+                    finishers_lost[sel]
+                ]).T
 
             n += 1
 
         self.heads = heads
+        self.lwg = lwg
         self.inserted_n = inserted_n
         self.slaughtered_n = slaughter_n
         self.lost_n = lost_n
-        self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
+        self.data_attr.update(['heads','lwg','inserted_n','slaughtered_n','lost_n'])
 
-    def calculate_feed_E_req(self,ani):
+    def calculate_feed_E_req(self,ps,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
         [1] Simonsson, A. (2006). Fodermedel och näringsrekommendationer för gris. HUV Rapport 266. SLU
         [2] Göransson, L., Lindberg, J.E. (2011). Näringsrekommendationer ver. 2011.1 - Energi'''
@@ -746,31 +896,17 @@ class PigHerd(AnimalHerd):
         # Get average live weight [kg] and growth rate [kg/day]
         if ani in ['sows','boars']:
             live_weight = p('live_weight')
-            if ani == 'sows':
-                # Add fetus live weight gain
-                lwg = p('litters_per_sow') * (p('live_per_litter') + p('dead_per_litter')) * p('birth_weight')
-            else:
-                lwg = 0
         elif ani == 'gilts':
-            growth_rate_growing_period = (p('live_weight_slaughter') - p('live_weight_delivery')) / (p('growing_period') + p('finishing_period'))
-            live_weight_after_growing_period = p('live_weight_delivery') + growth_rate_growing_period * p('growing_period')
-            live_weight = (p('live_weight', animal='sows') + live_weight_after_growing_period) / 2
-            growth_rate = (p('live_weight', animal='sows') - live_weight_after_growing_period) / (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age'))
-            self.par.set(animal=ani)
-            lwg = growth_rate * 365.25
+            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
+            live_weight = (
+                2*p('live_weight', animal='sows') - 
+                growth_rate * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age'))
+            ) / 2
         elif ani == 'piglets':
-            # live_weight_pre_weaning = (p('live_weight_weaning') + p('birth_weight')) / 2
-            # growth_rate_pre_weaning = (p('live_weight_weaning') - p('birth_weight')) / p('weaning_age')
-            live_weight = (p('live_weight_delivery') + p('live_weight_weaning')) / 2
+            # After weaning
             growth_rate = (p('live_weight_delivery') - p('live_weight_weaning')) / p('post_weaning_nursing_period')
-            lwg = (p('live_weight_delivery') - p('birth_weight')) / (p('weaning_age') + p('post_weaning_nursing_period')) * 365.25
         elif ani in ['growing pigs','finishing pigs']:
-            growth_rate = (p('live_weight_slaughter') - p('live_weight_delivery')) / (p('growing_period') + p('finishing_period'))
-            # if ani == 'growing pigs':
-            #     live_weight = (p('live_weight_delivery') * 2 + growth_rate * p('growing_period')) / 2
-            # else:
-            #     live_weight = (p('live_weight_delivery') * 2 + growth_rate * p('growing_period') * 2 + growth_rate * p('finishing_period')) / 2
-            lwg = growth_rate * 365.25
+            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
             
         if ani == 'sows':
             E_weaning_to_insemination = 55 * (365.25 - (p('weaning_age') + p('gestation_period')) * p('litters_per_sow')) # [2] 50-60 MJ NEs/day
@@ -794,9 +930,8 @@ class PigHerd(AnimalHerd):
             E_req = p('feed_energy_per_growth') * growth_rate * 365.25
 
         E_req = np.nan_to_num(E_req)
-        lwg = np.nan_to_num(lwg)
 
-        return E_req, lwg
+        return E_req
 
 class SheepHerd(AnimalHerd):
     pass
@@ -909,30 +1044,50 @@ class BroilerHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(4)]
+        heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
         for ps in pss:
             sel = range(n*idx_len, (n+1)*idx_len)
+
             heads.loc[:,(ps,slice(None))] = \
-                np.array([broilers[sel],breeding_hens[sel],breeding_roosters[sel]]).T
+                np.array([
+                    broilers[sel],
+                    breeding_hens[sel],
+                    breeding_roosters[sel]
+                ]).T
+            
             inserted_n.loc[:,(ps,slice(None))] =\
-                np.array([inserted_broilers[sel],inserted_breeding_hens[sel],inserted_breeding_roosters[sel]]).T
-            slaughter_n.loc[:,(ps,slice(None))] = \
-                np.array([slaughtered_broilers[sel],slaughtered_breeding_hens[sel],slaughtered_breeding_roosters[sel]]).T
+                np.array([
+                    inserted_broilers[sel],
+                    inserted_breeding_hens[sel],
+                    inserted_breeding_roosters[sel]
+                ]).T
+            
+            slaughtered_n.loc[:,(ps,slice(None))] = \
+                np.array([
+                    slaughtered_broilers[sel],
+                    slaughtered_breeding_hens[sel],
+                    slaughtered_breeding_roosters[sel]
+                ]).T
+            
             lost_n.loc[:,(ps,slice(None))] = \
-                np.array([lost_broilers[sel],lost_breeding_hens[sel],lost_breeding_roosters[sel]]).T
+                np.array([
+                    lost_broilers[sel],
+                    lost_breeding_hens[sel],
+                    lost_breeding_roosters[sel]
+                ]).T
 
             n += 1
 
         self.heads = heads
         self.inserted_n = inserted_n
-        self.slaughtered_n = slaughter_n
+        self.slaughtered_n = slaughtered_n
         self.lost_n = lost_n
         self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
-    def calculate_feed_DM_req(self,ani):
+    def calculate_feed_DM_req(self,ps,ani):
         
         p = self.par.get
 
@@ -946,9 +1101,7 @@ class BroilerHerd(AnimalHerd):
         else:
             feed_req = p('feed_per_animal') / ( p('slaughter_age') / 365.25 )
 
-        lwg = 0
-
-        return feed_req, lwg
+        return feed_req
 
 
 class LayerHerd(AnimalHerd):
@@ -1087,23 +1240,47 @@ class LayerHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(4)]
+        heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
         for ps in pss:
             sel = range(n*idx_len, (n+1)*idx_len)
+
             heads.loc[:,(ps,slice(None))] = \
-                np.array([chicks[sel],laying_hens_16_28[sel],laying_hens_29_59[sel],
-                          laying_hens_60[sel],parents[sel]]).T
+                np.array([
+                    chicks[sel],
+                    laying_hens_16_28[sel],
+                    laying_hens_29_59[sel],
+                    laying_hens_60[sel],
+                    parents[sel]
+                ]).T
+            
             inserted_n.loc[:,(ps,slice(None))] = \
-                np.array([inserted_chicks[sel],inserted_laying_hens_16_28[sel],inserted_laying_hens_29_59[sel],
-                          inserted_laying_hens_60[sel],inserted_parents[sel]]).T
-            slaughter_n.loc[:,(ps,slice(None))] = \
-                np.array([slaughtered_chicks[sel],slaughtered_laying_hens_16_28[sel],slaughtered_laying_hens_29_59[sel],
-                          slaughtered_laying_hens_60[sel],slaughtered_parents[sel]]).T
+                np.array([
+                    inserted_chicks[sel],
+                    inserted_laying_hens_16_28[sel],
+                    inserted_laying_hens_29_59[sel],
+                    inserted_laying_hens_60[sel],
+                    inserted_parents[sel]
+                ]).T
+            
+            slaughtered_n.loc[:,(ps,slice(None))] = \
+                np.array([
+                    slaughtered_chicks[sel],
+                    slaughtered_laying_hens_16_28[sel],
+                    slaughtered_laying_hens_29_59[sel],
+                    slaughtered_laying_hens_60[sel],
+                    slaughtered_parents[sel]
+                ]).T
+            
             lost_n.loc[:,(ps,slice(None))] = \
-                np.array([lost_chicks[sel],lost_laying_hens_16_28[sel],lost_laying_hens_29_59[sel],
-                          lost_laying_hens_60[sel],lost_parents[sel]]).T
+                np.array([
+                    lost_chicks[sel],
+                    lost_laying_hens_16_28[sel],
+                    lost_laying_hens_29_59[sel],
+                    lost_laying_hens_60[sel],
+                    lost_parents[sel]
+                ]).T
 
             n += 1
 
@@ -1111,24 +1288,22 @@ class LayerHerd(AnimalHerd):
         adj_factor = total_hens / heads.drop('laying chicks', level='animal', axis=1).sum(axis=1)
         heads = heads.mul(adj_factor, axis=0)
         inserted_n = inserted_n.mul(adj_factor, axis=0)
-        slaughter_n = slaughter_n.mul(adj_factor, axis=0)
+        slaughtered_n = slaughtered_n.mul(adj_factor, axis=0)
         lost_n = lost_n.mul(adj_factor, axis=0)
 
         self.heads = heads
         self.inserted_n = inserted_n
-        self.slaughtered_n = slaughter_n
+        self.slaughtered_n = slaughtered_n
         self.lost_n = lost_n
         self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
 
-    def calculate_feed_DM_req(self,ani):
+    def calculate_feed_DM_req(self,ps,ani):
         
         p = self.par.get
 
         feed_req = p('feed_per_head')
 
-        lwg = 0
-
-        return feed_req, lwg
+        return feed_req
 
 
 class HorseHerd(AnimalHerd):
@@ -1185,7 +1360,7 @@ class HorseHerd(AnimalHerd):
             .mul(total_horses, axis=0)
         )
 
-        # Assume no slaughter and losses for now
+        # Assume no slaughter and losses for now...
         slaughtered_n = heads * 0
         lost_n = heads * 0
 
@@ -1194,7 +1369,7 @@ class HorseHerd(AnimalHerd):
         self.lost_n = lost_n
         self.data_attr.update(['heads','slaughtered_n','lost_n'])
 
-    def calculate_feed_E_req(self,ani):
+    def calculate_feed_E_req(self,ps,ani):
 
         p = self.par.get
 
@@ -1215,9 +1390,7 @@ class HorseHerd(AnimalHerd):
 
         E_req = E_maint * (1 + (f_acti + f_gest + f_lact))
 
-        lwg = 0
-
-        return E_req, lwg
+        return E_req
 
 class ReindeerHerd(AnimalHerd):
     pass

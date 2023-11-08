@@ -1,6 +1,7 @@
 import warnings
 import pandas as pd
 import numpy as np
+from zmq import has
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import Container, multiply_aligned, rgetattr, rsetattr
@@ -235,7 +236,7 @@ class ManureMgmt():
 
         # Get manure management systems
         mmss = self.par.get_unique('MMS')
-        
+
         for herd in self.herds:
 
             # Set species and breed filters for ParameterRetriever
@@ -257,14 +258,15 @@ class ManureMgmt():
                     names=['prod_system','animal','MMS']
                     )
                 )
-            
-            if herd.species in ['cattle', 'sheep', 'pigs']:
+
+            if hasattr(herd,'lwg'):
                 # Calculate N excretion based on mass balance
 
-                # Nutrient in feed input (including storage and feeding losses)
+                # Nutrient in feed input (excl. storage and feeding losses)
+                # SOME LOSSES SHOULD BE INCLUDED!! 
                 # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
                 feed = (
-                    herd.feed.demand
+                    herd.feed.consumption
                     .groupby(['prod_system','animal'], axis=1)
                     .sum() *
                     (rgetattr(herd, 'feed.ration_' + compound) / 100)
@@ -277,19 +279,17 @@ class ManureMgmt():
                 # Nutrients in live weight gain
                 lwg = (
                     herd.lwg *
-                    self.par.get_from_frame(compound + '_in_LW', herd.lwg)
+                    self.par.get_from_frame(compound + '_in_LW', herd.lwg)/1000
                 )
 
                 # Nutrients in products (excl. meat)
                 prod = (
                     (
-                        herd.production
-                        .drop('meat', level='animal_prod', axis=1) *
+                        herd.production *
                         self.par.get_from_frame(
                             compound + '_in_prod',
                             herd.production
-                            .drop('meat', level='animal_prod', axis=1)
-                        )
+                        )/1000
                     )
                     .groupby(['prod_system','animal'], axis=1)
                     .sum()
@@ -316,7 +316,7 @@ class ManureMgmt():
                 excr_df
             )
             herd.data_attr.update(['manure.' + compound + '_excr'])
-        
+
         return None
     
     def calculate_N_losses(self):
