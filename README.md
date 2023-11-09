@@ -15,9 +15,10 @@ cd CIBUSmod
 python -m venv .venv --clear --upgrade-deps --prompt 'CIBUSmod-venv'
 .venv\Scripts\activate
 pip install --upgrade pip
-pip install jupyterlab "pandas<2" scipy==1.10 matplotlib cvxpy geopandas openpyxl jinja2 ipykernel
+pip install jupyterlab ipykernel "pandas<2" scipy==1.10 matplotlib cvxpy geopandas openpyxl ecoinvent-interface jinja2 
 ipython kernel install --user --name="CIBUSmod-venv"
 jupyter notebook
+
 ```
 Once jupyter notebook is started, navigate to the `notebooks` folder and open one of the notebooks. Make sure that the `CIBUSmod-venv` kernel is selected via `Kernel > Change kernel > CIBUSmod-venv`. Run the notebook. That's it!
 
