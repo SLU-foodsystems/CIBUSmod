@@ -302,7 +302,8 @@ def get_emissions(output, interpolate=False):
                       'fertiliser.mineral_N_application_loss',
                       'fertiliser.mineral_N_soil_loss',
                       'fertiliser.crop_residues_N_soil_loss',
-                      'fertiliser.organic_soil_N_loss']
+                      'fertiliser.organic_soil_N_loss',
+                      'fertiliser.leaching_N']
         }
     }
 
@@ -359,7 +360,9 @@ def get_GHG(output, CO2eq=True, interpolate=False):
         'CH4fos' : 1,
         'N2O' : 1,
         'N2O-N' : (44/28),
-        'NH3-N' : 0.01 * (44/28),
+        'NH3-N' : 0.010 * (44/28), # IPCC 2019 Guidelines Table 11.3
+        'NOx-N' : 0.010 * (44/28), # IPCC 2019 Guidelines Table 11.3
+        'NO3-N' : 0.011 * (44/28), # IPCC 2019 Guidelines Table 11.3
 
     }
     # -----
@@ -368,7 +371,9 @@ def get_GHG(output, CO2eq=True, interpolate=False):
         'CH4bio' : 'CH4bio',
         'CH4fos' : 'CH4fos',
         'N2O-N' : 'N2O',
-        'NH3-N' : 'N2Oind'
+        'NH3-N' : 'N2Oind',
+        'NOx-N' : 'N2Oind',
+        'NO3-N' : 'N2Oind'
     }
     # -----
     to_CO2eq = {

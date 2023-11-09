@@ -69,6 +69,9 @@ class PlantNutrientMgmt():
         self.calculate_N_soil_losses(of='crop_residues_N')
         self.calculate_organic_soil_N_losses()
 
+        vprint('Calculating N leaching ...')
+        self.calculate_leaching_N()
+
         # TO BE ADDED: Soil N2O emissions
         # TO BE ADDED: Other gasous emissions
         # TO BE ADDED: Leaching
@@ -550,6 +553,47 @@ class PlantNutrientMgmt():
 
         self.crops.fertiliser.organic_soil_N_loss = organic_soil_N_loss
         self.crops.data_attr.update(['fertiliser.organic_soil_N_loss'])
+
+    def calculate_leaching_N(self):
+
+        # Get compounds leached
+        compounds = self.par.get_unique('compound', qry = 'parameter == "N_leaching_frac"')
+
+        # Get N additions from fertiliser, manure and crop residues
+        N_add = pd.concat([
+            self.crops.fertiliser.mineral_N
+            .sum(axis=1).rename('fertiliser'),
+            self.crops.fertiliser.manure_N
+            .sum(axis=1).rename('manure'),
+            self.crops.fertiliser.crop_residues_N
+            .sum(axis=1).rename('crop residues')
+        ], axis=1).rename_axis(columns = 'source')
+
+        # Create output dataframe
+        df = pd.DataFrame(
+            index = N_add.index,
+            columns = pd.MultiIndex.from_tuples(
+                [(s,c) for s in N_add.columns for c in compounds],
+                names = ['source','compound']
+            )
+        )
+
+        # Add land use class as index
+        lu_rel = self.par.get_rel('crop','land_use')
+        df['land_use'] = [lu_rel[c] for c in df.index.get_level_values('crop')]
+        df = df.set_index('land_use', append=True)
+
+        # Apply leacing factors
+        leaching_N = multiply_aligned(
+            self.par.get_from_frame('N_leaching_frac', df),
+            N_add
+        )
+        
+        # Drop 'land_use' from index
+        leaching_N = leaching_N.droplevel('land_use')
+
+        self.crops.fertiliser.leaching_N = leaching_N
+        self.crops.data_attr.update(['fertiliser.leaching_N'])
 
 
 class Fertiliser(Container):
