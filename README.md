@@ -5,7 +5,7 @@ CIBUSmod is a food systems model currently under development at the Department o
 Check out [this notebook](https://github.com/SLU-foodsystems/CIBUSmod/blob/main/notebooks/run_scn.ipynb) for an example run of the model and some outputs. This reflects the model in it's current state and will be continuosly updated as the work progresses.
 
 # Installing and running CIBUSmod (Windows)
-Open a new `Comman Prompt` and run the commands below. This will download the CIBUSmod code, create and activate a new virtual environment, install all python packages needed to run the model, and finally start jupyter notebook.
+Open a new `Command Prompt` and run the commands below. This will download the CIBUSmod code, create and activate a new virtual environment, install all python packages needed to run the model, and finally start jupyter notebook.
 
 ```
 cd <directory to place CIBUSmod>
