@@ -13,7 +13,7 @@ git clone https://github.com/SLU-foodsystems/CIBUSmod
 cd CIBUSmod
 python -m venv .venv --clear --upgrade-deps --prompt 'CIBUSmod-venv'
 .venv\Scripts\activate
-pip install "pandas<2" scipy==1.10 matplotlib cvxpy geopandas openpyxl jinja2 ipykernel
+pip install jupyterlab "pandas<2" scipy==1.10 matplotlib cvxpy geopandas openpyxl jinja2 ipykernel
 ipython kernel install --user --name="CIBUSmod-venv"
 jupyter notebook
 ```
