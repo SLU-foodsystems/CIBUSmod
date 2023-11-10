@@ -54,10 +54,17 @@ class Session(object):
         )
 
     def read_output(self):
-        self.output = Output.from_file(os.path.join(self.data_path, 'output', 'out_'+self.name+'.bz2'))
+        path = os.path.join(self.data_path, 'output')
+        self.output = Output.from_file(os.path.join(path, 'out_'+self.name+'.bz2'))
 
     def save_output(self):
-        self.output.save_file(os.path.join(self.data_path, 'output', 'out_'+self.name+'.bz2'))
+        path = os.path.join(self.data_path, 'output')
+        
+        # Create output folder if it does not exist
+        if not os.path.isdir(path):
+            os.mkdir(path)
+
+        self.output.save_file(os.path.join(path, 'out_'+self.name+'.bz2'))
 
     def show_scenarios(self):
 

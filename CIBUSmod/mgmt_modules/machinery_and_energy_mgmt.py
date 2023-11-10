@@ -39,6 +39,7 @@ class MachineryAndEnergyMgmt(object):
 
         # Create dataframe to store energy use in crop production [kWh]
         self.crops.energy_use = pd.DataFrame(
+            0,
             index = self.crops.index,
             columns = pd.MultiIndex.from_product([
                 ['field machinery', 'grain drying', 'greenhouses'],

@@ -58,6 +58,10 @@ class InputsMgmt(object):
         ei_version = ecoinvent_settings['version']
         ei_model = ecoinvent_settings['system_model']
         
+        # Create ecoinvent folder if it does not already exist
+        if not os.path.isdir(path):
+            os.mkdir(path)
+
         # Get available ecoinvent xml files
         files_available = os.listdir(path)
         
