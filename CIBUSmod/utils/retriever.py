@@ -47,10 +47,7 @@ class ParameterRetriever:
         cls.data_path_scenarios = os.path.join(cls.data_path,'scenarios')
 
         # Read relation tables
-        cls.relation_tables = pd.read_excel(
-            os.path.join(cls.data_path,'relation_tables.xlsx'),
-            sheet_name=None, dtype=str
-        )
+        cls.update_relation_tables()
 
     @classmethod
     def get_rel(cls,from_col='',to_col=''):
@@ -70,6 +67,13 @@ class ParameterRetriever:
             raise ValueError(f'Only one-to-one or many-to-one relations are allowed. Did you mean from_col={to_col}, to_col={from_col}?')
         
         return rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
+
+    @classmethod
+    def update_relation_tables(cls):
+        cls.relation_tables = pd.read_excel(
+            os.path.join(cls.data_path,'relation_tables.xlsx'),
+            sheet_name=None, dtype=str
+        )
     
     @classmethod
     def update_all_parameter_values(cls,scenario=None,year=None,modules='all',pars='all'):
