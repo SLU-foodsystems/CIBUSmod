@@ -1141,9 +1141,12 @@ class GeoDistributor:
             .groupby(['region','prod_system','crop_prod']).sum()
         )
 
+        # Get concatenated herds
+        con_herds = concat_herds(self.herds)
+
         # Get crop product demand for feed per region
         feed_demand = (
-            concat_herds(self.herds)
+            con_herds
             .feed.crop_product_demand
             .xs('domestic', level='origin', axis=1)
             .groupby(['species','breed','sub_system','prod_system','crop_prod'], axis=1).sum()
@@ -1227,13 +1230,134 @@ class GeoDistributor:
             self.crops.production
         ).groupby('demand', axis=1).sum()
 
+        # Adjust based use allocation based on FeedMgmt 'max_crop_in_crop_prod' paramter
+        # used to e.g. limite the share of grazing that can be supplied from semi-natural
+        # grasslands for different animals
+
+        # Get maximum inclusion of crops in crop_prod per animal herd
+        max_feed_from_crop = (
+            con_herds
+            .feed.max_supply_from_crop
+            .groupby(['species','breed','sub_system','prod_system','crop_prod','crop'], axis=1).sum()
+            .stack(['prod_system','crop_prod','crop'])
+            .fillna(0)
+        ).reorder_levels(['crop_prod','crop','prod_system','region'])
+        max_feed_from_crop.columns = max_feed_from_crop.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
+
+        crop_production_per_use_adjusted = crop_production_per_use.copy()
+
+        # Get crop products with a max 
+        # feed from crop constraints
+        crop_prods_w_max_feed = (
+            max_feed_from_crop
+            .index
+            .get_level_values('crop_prod')
+            .unique()
+        )
+
+        for cp in crop_prods_w_max_feed:
+
+            # Get crops supplying crop product cp
+            crs = (
+                self.crops.index.get_level_values('crop')
+                [self.crops.production.loc[:,cp]>0].unique()
+            )
+            
+            # Get crops supplying crop product cp with 
+            # a max feed from crop constraints
+            crs_w_max_feed = (
+                max_feed_from_crop
+                .loc[cp]
+                .index
+                .get_level_values('crop')
+                .unique()
+            )
+
+            # Get crops supplying crop product cp without 
+            # a max feed from crop constraints
+            crs_wo_max_feed = list(set(crs) - set(crs_w_max_feed))
+            
+            if len(crs_wo_max_feed)<0:
+                warnings.warn(f"All crops for crop_prod {cp} constrained with 'max_crop_in_crop_prod'. This may cause strange results")
+            
+            for cr in crs_w_max_feed:
+                crop_production_per_use_adjusted.loc[[cr],max_feed_from_crop.columns] = (
+                    max_feed_from_crop
+                    .xs(cp)
+                    .loc[[cr]]
+                    .transform(
+                        lambda x: x/x.sum(),
+                        axis=1
+                    )
+                    .mul(
+                        self.crops.production
+                        .loc[[cr],cp],
+                        axis=0
+                    )
+                )
+
+                assert np.isclose(
+                    crop_production_per_use_adjusted.loc[cr].sum().sum(),
+                    crop_production_per_use.loc[cr].sum().sum()
+                )
+
+            for cr in crs_wo_max_feed:
+                crop_production_per_use_adjusted.loc[[cr],max_feed_from_crop.columns] = (
+                    (
+                        # Share of cp per use
+                        total_demand_shares
+                        .xs(cp, level='crop_prod')
+                        .loc[:,max_feed_from_crop.columns]
+                        .transform(lambda x: x/x.sum(), axis=1)
+                        
+                        # Total use of cp
+                        .mul(
+                            crop_production_per_use
+                            .loc[crs,max_feed_from_crop.columns]
+                            .sum(axis=1)
+                            .groupby(['prod_system','region'])
+                            .sum(),
+                            axis = 0
+                        )
+                        -
+                        # Supply of cp from crs_w_max_feed
+                        crop_production_per_use_adjusted
+                        .loc[crs_w_max_feed,max_feed_from_crop.columns]
+                        .groupby(['prod_system','region'])
+                        .sum()
+                    )
+                
+                    # Share cr of crs_wo_max_feed
+                    .mul(
+                        crop_production_per_use
+                        .loc[[cr],max_feed_from_crop.columns]
+                        .sum(axis=1)
+                        /
+                        crop_production_per_use
+                        .loc[crs_wo_max_feed,max_feed_from_crop.columns]
+                        .sum(axis=1)
+                        .groupby(['prod_system','region'])
+                        .sum(),
+                        axis = 0
+                    )
+                    .reorder_levels(['crop','prod_system','region'])
+                    .sort_index()
+                )
+
+                assert np.isclose(
+                    crop_production_per_use_adjusted.loc[cr].sum().sum(),
+                    crop_production_per_use.loc[cr].sum().sum()
+                )
+
+        assert (crop_production_per_use_adjusted>-1e-6).all().all() 
+
         assert np.isclose(
-            crop_production_per_use.sum(axis=1),
+            crop_production_per_use_adjusted.sum(axis=1),
             self.crops.production.sum(axis=1)
         ).all()
 
         # Store dataframe as attribute
-        self.crops.production_per_use = crop_production_per_use
+        self.crops.production_per_use = crop_production_per_use_adjusted
         self.crops.data_attr.update(['production_per_use'])
 
 class IndexedMatrix():
