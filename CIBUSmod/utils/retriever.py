@@ -86,7 +86,16 @@ class ParameterRetriever:
 
         for pr in cls.instances:
             if pr.name in modules:
-                pr.update_parameter_values(scenario,year,pars)
+                if isinstance(pars, dict):
+                    try:
+                        pars_ = pars[pr.name]
+                    except KeyError:
+                        # If module not in pars dict all pars are updated
+                        pars_ = 'all'
+                else:
+                    pars_ = pars
+
+                pr.update_parameter_values(scenario,year,pars_)
             else:
                 # Update to default data
                 pr.update_parameter_values()
