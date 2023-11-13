@@ -7,7 +7,7 @@ from ..main_modules.animal_herd import AnimalHerd, StaticAnimalHerd
 from ..mgmt_modules.feed_mgmt import Feed
 from ..mgmt_modules.manure_mgmt import Manure
 
-from ..utils.misc import rgetattr,rsetattr
+from ..utils.misc import rgetattr, rsetattr, inv_dict
 
 def get_attr(
     output,
@@ -406,5 +406,9 @@ def to_ICBM(output):
         d += [df]
     
     res = pd.concat(d, axis=1)
+
+    # Only select cropland
+    sel_crops = inv_dict(ParameterRetriever.get_rel('crop','land_use'))['cropland']
+    res = res.loc[(slice(None), sel_crops),:]
     
     return res
