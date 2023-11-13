@@ -58,38 +58,46 @@ class Session(object):
 | CIBUSmod SESSION |
 *------------------*
 '''
+
         str1 = '''Scenarios
 ---------
-''' + \
-        str(pd.DataFrame(
-            self.scenarios,
-            index = ['scenario','modules','pars','years']
-        ).T) + \
-        '\n'
-
-        str2 = '''Output
-------
 '''
-        for scn in self.output.index.get_level_values('scn').unique():
-            years = self.output.loc[scn].index.get_level_values('year')
+        scns = list(self.scenarios.keys())
+        scns += [
+            s for s
+            in self.output.index.get_level_values('scn').unique()
+            if s not in scns
+        ]
+        for scn in scns:
+            try:
+                years = self.scenarios[scn]['years']
+                in_scenarios = True
+                if scn in self.output.index.get_level_values('scn'):
+                    in_output = True
+                else:
+                    in_output = False
+            except KeyError:    
+                years = self.output.loc[scn].index.get_level_values('year')
+                in_scenarios = False
+                in_output = True
             nyears = len(years)
             if nyears>1:
                 years = [years[0], years[-1]]
-            str2 += (
-f'''{scn}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}
+            str1 += (
+f'''{scn if in_scenarios else '('+scn+')'}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}{' - calculated' if in_output else ''}
 '''
             )
 
-        str3 = ''
+        str2 = ''
         for i,module in enumerate(self.output.columns):
-            str3 += (
+            str2 += (
 f'''{module}:
 {', '.join(self.output.iloc[0,i].data_attr)}
 
 '''
             )
             
-        return '\n'.join([str0, str1, str2, str3])
+        return '\n'.join([str0, str1, str2])
 
     def add_scenario(self, name, scenario=None, modules='all', pars='all', years=None):
 
