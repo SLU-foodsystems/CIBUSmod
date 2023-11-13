@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, rgetattr,rsetattr
+from ..utils.misc import Container, rgetattr, rsetattr
 
 class Regions(object):
     '''Class that handles region attributes

@@ -1,7 +1,6 @@
 import warnings
 import pandas as pd
 import numpy as np
-from zmq import has
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import Container, multiply_aligned, rgetattr, rsetattr
@@ -266,7 +265,7 @@ class ManureMgmt():
                 # SOME LOSSES SHOULD BE INCLUDED!! 
                 # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
                 feed = (
-                    herd.feed.consumption
+                    herd.feed.demand
                     .groupby(['prod_system','animal'], axis=1)
                     .sum() *
                     (rgetattr(herd, 'feed.ration_' + compound) / 100)

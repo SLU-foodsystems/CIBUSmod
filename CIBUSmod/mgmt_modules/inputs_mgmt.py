@@ -160,6 +160,8 @@ class InputsMgmt(object):
             attr = 'energy_use',
             inputs_in_col = 'energy_source'
         )
+            
+        vprint(type='end')
 
     def calculate_emissions(self, module, attr:str, inputs_in_col:str):
     

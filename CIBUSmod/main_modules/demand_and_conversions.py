@@ -4,7 +4,6 @@ import numpy as np
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import rgetattr, rsetattr
-from ..utils.misc import multiindex_to_dict
 from ..utils.misc import multiply_aligned
 from ..utils.misc import Container
 from ..utils.retriever import ParameterRetriever

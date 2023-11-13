@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr, multiply_aligned
-from ..utils.output_data_manip import concat_herds
+from ..utils.misc import multiply_aligned
+from ..main_modules.animal_herd import concat_herds
 from ..utils.misc import Container
 
 class PlantNutrientMgmt():
@@ -351,7 +351,7 @@ class PlantNutrientMgmt():
         TAN_to_apply = (
             self.crops.fertiliser.TAN_req - 
             # self.crops.fertiliser.organic_TAN.sum(axis=1) - !!! TO BE ADDED !!!
-            self.crops.fertiliser.manure_TAN.sum(axis=1)
+            self.crops.fertiliser.manure_TAN.drop('grazing', level='MMS', axis=1).sum(axis=1)
         ).clip(lower=0) # set to zero if manure supplies more than requirement
 
         # Calculate mineral N fertiliser application

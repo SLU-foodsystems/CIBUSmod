@@ -1473,3 +1473,59 @@ def make_herds(
             print(f'{sp}, {br} not found in par_map. No AnimalHerd object created')
 
     return herds
+
+    
+def concat_herds(herds):
+    '''Combines multiple AnimalHerd objects
+    
+    Parameters
+    ----------
+    herds : itterable of AnimalHerd objects
+    
+    Returns
+    -------
+    StaticAnimalHerd object'''
+    res_herd = StaticAnimalHerd()
+
+    res_herd.id_attr = AnimalHerd.id_attr
+    for attr in AnimalHerd.id_attr:
+        setattr(res_herd,attr,'aggregated')
+
+    res_herd.feed = Feed()
+    res_herd.manure = Manure()
+
+    # Check presence of data attributes in AnimalHerd objects
+    # Only attributes present in all AnimalHerd objects are 
+    # retained in the combined StaticAnimalHerd object
+    data_attr_union = set.union(*[set(h.data_attr) for h in herds])
+    data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
+    data_attr_in_some = data_attr_union - data_attr_in_all
+    if len(data_attr_in_some) > 0:
+        pass
+        # Should a warning be printed here?
+        # warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
+
+    # Go through data attributes and concatenate
+    for attr in data_attr_in_all:
+
+        df = pd.concat(
+            [
+                pd.concat({herd.species : 
+                    pd.concat({herd.breed :
+                        pd.concat({herd.sub_system : rgetattr(herd,attr)},
+                            names=['sub_system'],axis=1)},
+                        names=['breed'],axis=1)},
+                    names=['species'],axis=1)
+                if rgetattr(herd,attr) is not None else None for herd in herds
+            ],
+            axis=1
+        )
+
+        # Group and sum columns to avoid duplicates
+        df = df.groupby(df.columns.names, axis=1).sum()
+
+        rsetattr(res_herd,attr,df)
+    
+    res_herd.data_attr = data_attr_in_all
+
+    return res_herd

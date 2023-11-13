@@ -1,5 +1,5 @@
 from .utils.retriever import ParameterRetriever
-from .utils.output import Session, Output
+from .utils.session import Session
 
 # Import main modules
 from .main_modules.regions import Regions
@@ -17,6 +17,3 @@ from .mgmt_modules.inputs_mgmt import InputsMgmt
 
 # Import geo distiributor
 from .optimisation.geo_dist import GeoDistributor
-
-# Import functions to get output data
-from .utils.output_data_manip import get_attr, get_GHG, to_ICBM

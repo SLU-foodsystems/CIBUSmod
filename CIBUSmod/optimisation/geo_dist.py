@@ -9,7 +9,7 @@ import time
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned
-from ..utils.output_data_manip import concat_herds
+from ..main_modules.animal_herd import concat_herds
 
 class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given demand (D) and a number of constraints
