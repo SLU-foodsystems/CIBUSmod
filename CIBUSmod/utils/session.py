@@ -84,7 +84,7 @@ class Session(object):
             if nyears>1:
                 years = [years[0], years[-1]]
             str1 += (
-f'''{scn if in_scenarios else '('+scn+')'}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}{' - calculated' if in_output else ''}
+f'''{scn if in_scenarios else '('+scn+')'}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}{' [calculated]' if in_output else ''}{' [only in output]' if not in_scenarios else ''}
 '''
             )
 
