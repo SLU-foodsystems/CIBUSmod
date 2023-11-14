@@ -166,7 +166,7 @@ class CropProduction(object):
         )
 
         # Store crop residue dataframe [kg DM]
-        self.crop_residues = crop_residues # 
+        self.crop_residues = crop_residues
         
         # Create series to keep track of harvested crop residues [kg DM]
         self.harvested_crop_residues = \

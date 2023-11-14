@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr
+from ..utils.misc import rgetattr, rsetattr, multiply_aligned
 from ..utils.misc import Container
 from ..utils.retriever import ParameterRetriever
 
@@ -336,11 +336,7 @@ animals              {self.animals}
             self.data_attr.update(['feed_E_req'])
         else:
             self.feed_DM_req = df_req * self.heads # [kg DM/year]
-            self.data_attr.update(['feed_DM_req'])
-
-    def check_ration(self):
-        '''Dummy method to pass feed ration feasibility check if a method is not provided in the species-specific sub-class'''
-        pass
+            self.data_attr.update(['feed_DM_req'])        
 
 class StaticAnimalHerd(Container):
     '''Class used to create static copys of animal her objects. These stores all attributes except 'par'

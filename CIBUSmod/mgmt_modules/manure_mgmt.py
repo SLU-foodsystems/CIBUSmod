@@ -6,11 +6,25 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import Container, multiply_aligned, rgetattr, rsetattr
 
 class ManureMgmt():
-    '''Class that takes a (list of) AnimalHerd object(s) and calculates manure excretion and losses.'''
+    '''Management module that calculates animal manure excretion and losses.
+    
+    Parameters
+    ----------
+    herds : pd.Series of AnimalHerd objects
+    feed_mgmt : FeedMgmt object
+    par : ParameterRetriever object
+    **kwargs : 
+    '''
 
-    def __init__(self,herds,par,**kwargs):
+    def __init__(
+            self,
+            herds,
+            feed_mgmt,
+            par
+        ):
         
         self.par = par
+
         if isinstance(herds, pd.Series):
             self.herds = herds
         else:
@@ -21,6 +35,8 @@ class ManureMgmt():
                     names=['species','breed','prod_system','sub_system']
                 )
             )
+             
+        self.feed_mgmt = feed_mgmt
 
         self.check_index()
 
@@ -31,13 +47,6 @@ class ManureMgmt():
             for n in range(len(self.herds)-1):
                 if (self.herds[n].index != self.herds[n+1].index).any():
                     raise Exception('Indexes does not match across herds!')
-    
-    def make_df(self,df_dict):
-        col_levels = ['species','breed','prod_system','animal','mms','compound']
-        df = pd.DataFrame.from_dict(df_dict)
-        df.columns = pd.MultiIndex.from_tuples(df.columns, names=col_levels[:len(df.columns[0])])
-        
-        return df
     
     def calculate(self, verbose=False):
         '''Calculates all manure excretion and losses.
@@ -63,6 +72,9 @@ class ManureMgmt():
         for herd in self.herds:
             if not hasattr(herd,'manure'):
                 herd.manure = Manure()
+
+        # Calculate bedding material use
+        self.calculate_bedding_material_use()
       
         # Volatile solids (VS)
         vprint('Calculating VS excretion ...')
@@ -103,6 +115,73 @@ class ManureMgmt():
             herd.data_attr.update(['manure.N_to_spread','manure.TAN_to_spread'])
 
         vprint(type='end')
+
+    def calculate_bedding_material_use(self):
+        '''Calculate use of bedding materials'''
+        
+        # Clear ParameterRetriever filters 
+        self.par.clear()
+        self.feed_mgmt.par.clear()
+        idx = pd.IndexSlice
+
+        # Get manure management systems
+        mmss = self.par.get_unique('MMS')
+        # Get types of bedding materials used
+        fes = self.par.get_unique('feed', qry='parameter == "bedding_material_use"')
+
+        for herd in self.herds:
+
+            # Set species and breed filters
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed
+            )
+            
+            # Create dataframe
+            df = pd.DataFrame(
+                index = herd.index,
+                columns = pd.MultiIndex.from_tuples(
+                    [tuple(list(i) + [mms,fe]) for i in herd.heads.columns for mms in mmss for fe in fes],
+                    names = herd.heads.columns.names + ['MMS','feed']
+                )
+            )
+            
+            # Calculate bedding material use [kg DM/year]
+            DM = multiply_aligned(
+                self.par.get_from_frame('bedding_material_use', df) *
+                (self.par.get_from_frame('mms_share', df)/100) *
+                365.25,
+                herd.heads
+            )
+            # Set bedding material use during grazing to zero
+            DM.loc[:,(slice(None),slice(None),['grazing'],slice(None))] *= 0
+            
+            # Calculate nitrogen,phosphorous and potassium in bedding materials
+            N = ( # [kg N/year]
+                DM
+                .mul(self.feed_mgmt.par.get_from_frame('feed_par_N', df)/100)
+                .groupby(['prod_system','animal','MMS'], axis=1)
+                .sum()
+            )
+            P = ( # [kg P/year]
+                DM
+                .mul(self.feed_mgmt.par.get_from_frame('feed_par_P', df)/100)
+                .groupby(['prod_system','animal','MMS'], axis=1)
+                .sum()
+            )
+            K = ( # [kg K/year]
+                DM
+                .mul(self.feed_mgmt.par.get_from_frame('feed_par_K', df)/100)
+                .groupby(['prod_system','animal','MMS'], axis=1)
+                .sum()
+            )
+
+            # Store data attributes
+            herd.bedding_material_DM = DM # [kg DM/year]
+            herd.bedding_material_N = N # [kg N/year]
+            herd.bedding_material_P = P # [kg P/year]
+            herd.bedding_material_K = K # [kg K/year]
+            herd.data_attr.update(['bedding_material_DM','bedding_material_N','bedding_material_P','bedding_material_K'])
 
     def calculate_VS_excretion(self):
         '''Calculate VS excretion'''
@@ -272,8 +351,7 @@ class ManureMgmt():
                 )
 
                 # Nutrients in bedding materials
-                # !!! TO BE ADDED !!!
-                bedding = 0
+                bedding = rgetattr(herd, 'bedding_material_' + compound)
 
                 # Nutrients in live weight gain
                 lwg = (
@@ -294,14 +372,18 @@ class ManureMgmt():
                     .sum()
                 )
 
-                excr_df.loc[:,:] = multiply_aligned(
+                # Calculate excretion from animals
+                excr_df = multiply_aligned(
                     self.par.get_from_frame('mms_share',excr_df)/100,
-                    (feed + bedding - lwg - prod)
+                    (feed - lwg - prod)
                 )
+
+                # Add nutrients in bedding materials
+                excr_df = excr_df + bedding
 
             else:
                 # Calculate N excretion from fixed factor per head
-                excr_df.loc[:,:] = multiply_aligned(
+                excr_df = multiply_aligned(
                     (
                         self.par.get_from_frame('manure_excr_'+compound,excr_df)
                         * self.par.get_from_frame('mms_share',excr_df)/100
