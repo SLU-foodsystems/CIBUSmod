@@ -20,7 +20,10 @@ class Container(object):
 # Some helper functions for pandas objects
 
 # Function that aligns and multiplies two dataframes
-def multiply_aligned(left,right):
+def multiply_aligned(
+        left : pd.DataFrame,
+        right : pd.DataFrame
+    ) -> pd.DataFrame:
     '''Note: 'left' should be "bigger" than 'right'. I.e. contain
     more or the same number of levels in index and/or columns
     than 'right'''
@@ -37,12 +40,22 @@ def multiply_aligned(left,right):
     return multiplied
 
 # Function that converts a pandas.MultiIndex to a dict {level : level values}
-def multiindex_to_dict(idx:pd.MultiIndex):
+def multiindex_to_dict(idx : pd.MultiIndex) -> dict:
+    '''Creates a dict from pandas.MultiIndex'''
     return {lvl:[val for val in idx.get_level_values(lvl)] for lvl in idx.names}
 
 # Invert a dictionary
-def inv_dict(x):
+def inv_dict(x : dict) -> dict:
+    '''Invert dictionary'''
     inv_x = {}
     for k,v in x.items():
         inv_x[v] = inv_x.get(v,[]) + [k]
     return inv_x
+
+# Check index for pd.Series of AnimalHerds
+def check_index(herds : pd.Series) -> None:
+    '''Raises Exception if all AnimalHerd indexes are not the same'''
+    if len(herds)>0:
+        for n in range(len(herds)-1):
+            if (herds[n].index != herds[n+1].index).any():
+                raise Exception('Indexes does not match across herds!')
