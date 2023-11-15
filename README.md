@@ -27,4 +27,10 @@ jupyter lab
 ```
 Once jupyter lab is started, navigate to the `notebooks` folder and open one of the notebooks. Make sure that the `CIBUSmod-venv` kernel is selected via `Kernel > Change kernel > CIBUSmod-venv`. Run the notebook. That's it!
 
-After quitting jupyter lab and returning to the `Command Prompt`, type `deactivate` to exit the virtual environment.
+After quitting jupyter lab and returning to the `Command Prompt`, type `deactivate`, or simply close the `Command Prompt`, to exit the virtual environment, 
+
+Next time, you open a new `Command Prompt`, `cd` to the `CIBUSmod` directory and activate the virtual invironment before starting `jupyter lab`.
+```
+.venv\Scripts\activate
+jupyter lab
+```
