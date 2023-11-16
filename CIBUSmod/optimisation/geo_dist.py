@@ -7,29 +7,36 @@ import scipy
 
 import time
 
+from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
+
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned
 from ..main_modules.animal_herd import concat_herds
 
 class GeoDistributor:
-    '''Class that handles the distribution of animals and crops across regions for a given demand (D) and a number of constraints
-    by minimising deviation from an initial distribution of animal heads and crop areas (x0) .
+    '''Class that handles the distribution of animals and crops across regions for a given
+    demand and a number of constraints by minimising deviation from an initial distribution
+    of crop areas and animal heads (x0).
     
     Parameters
     ----------
     par : ParameterRetriever object
-    x0 : dict of pandas.Series
-        A dict of pandas series representing emand for animald (D['ani']) and crop products (D['crp'])
-        x0['ani'].index should be on the form (species, breed, production system, region)
-        x0['crp'].index should be on the form (*land use*, *crop group* ,crop, production system, region)
+    regions : Regions object
     demand : DemandAndConversions object
-    herds : pandas.Series of AnimalHerd objects
     crops : CropProduction object
-        
-    Attributes
-    ----------'''
+    herds : pandas.Series of AnimalHerd objects
+    feed_mgmt : FeedMgmt object
+    par : ParameterRetriever object
+    '''
 
-    def __init__(self,par,regions,demand,crops,herds,feed_mgmt):
+    def __init__(
+            self,
+            regions:Regions,
+            demand:DemandAndConversions,
+            crops:CropProduction,
+            herds:pd.Series,
+            feed_mgmt:FeedMgmt,
+            par:ParameterRetriever):
         
         self.par = par
 
@@ -39,8 +46,35 @@ class GeoDistributor:
         self.herds = herds
         self.feed_mgmt = feed_mgmt
 
-    def make(self, use_cons='all', scale_power=[0,0], verbose=False, **kwargs):
-        '''Creates constraints and defines optimisation problem'''
+    def make(
+            self,
+            use_cons:list|str = 'all',
+            scale_power:int = 0.4,
+            verbose:bool = False,
+            **kwargs
+            ):
+        '''Creates constraints and defines optimisation problem
+        
+        Parameters
+        ----------
+        use_cons : list or str, default 'all'
+            List of numbers corresponding to the constraints to be used. For descriptions
+            of each constraint see ?GeoDistributor.make_C<nr>
+        scale_power : int, default 0.4
+            Power used to calculate scaling factors for the optimisation.
+            scale_power=0 -> minimise absolute difference in crop areas/animal numbers
+            scale_poqer=1 -> minimise relative difference in crop areas/animal numbers
+            See ?GeoDistributor.calculate_scaling_factors for details
+        verbose : bool, default False
+            Print progress messages
+        **kwargs
+            Keyword agruments to be passed on to the GeoDistributor.make_C<nr> methods.
+            These are on the form 'C<nr>_<arg>'.
+
+        Returns
+        -------
+        None
+        '''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
         
@@ -86,26 +120,46 @@ class GeoDistributor:
 
         vprint(type='end')
 
-    def solve(self, solver_settings='default', apply_solution=True, verbose=False):
-        '''Solve optimisation problem'''
+    def solve(
+            self,
+            # Default solver settings
+            #
+            # OSQP
+            # ----
+            # Settings for OSQP available at https://osqp.org/docs/interfaces/solver_settings.html
+            # Using a too high tolerance (eps_abs, eps_rel) leads to large relative deviations
+            # from x0 for crops with small areas, but a low tolerance increases time to find solution.
+            solver_settings:dict|list = {
+                'solver' : 'OSQP',
+                'max_iter' : 200000,
+                'eps_abs' : 5e-6,
+                'eps_rel' : 5e-6,
+                'verbose' : False
+            },
+            apply_solution:bool = True,
+            verbose:bool = False
+            ) -> None:
+        '''Solve optimisation problem
+        
+        Parameters
+        ----------
+        solver_settings : dict, list of dicts
+            Dict of keyword arguments to be passed on to cvxpy.Problem.solve()
+            If a list of dicts is supplied the method will move to the next dict
+            of solver settings if the previous ones failed.
+            If not supplied default values are used.
+        apply_solution : bool, default True
+            Update CropProduction and AnimalHerd objects according to the found
+            solution via the the method GeoDistributor.apply_solution()
+        verbose : bool, default False
+            Print progress messages
+
+        Returns
+        -------
+        None
+        '''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.solve')
-
-        # Default solver settings
-        #
-        # OSQP
-        # ----
-        # Settings for OSQP available at https://osqp.org/docs/interfaces/solver_settings.html
-        # Using a too high tolerance (eps_abs, eps_rel) leads to large relative deviations
-        # from x0 for crops with small areas, but a low tolerance increases time to find solution.
-        if solver_settings=='default':
-            solver_settings = {
-                'solver':'OSQP',
-                'max_iter':200000,
-                'eps_abs':1e-6,
-                'eps_rel':1e-6,
-                'verbose':False
-            }
         
         # If a list of alternative solver/settings is not supplied
         # make a one element list
@@ -156,6 +210,8 @@ class GeoDistributor:
 
         vprint(type='end')
 
+        return None
+
     def apply_solution(self, x=None):
         '''Update CropProduction and AnumalHerds according to found solution'''
 
@@ -200,6 +256,8 @@ class GeoDistributor:
         }
 
     def get_demand(self):
+        '''
+        '''
         self.D = {
             'ani' : self.demand.animal_prod_demand.sum(axis=1),
             'crp' : self.demand.crop_prod_demand.sum(axis=1)
@@ -220,10 +278,9 @@ class GeoDistributor:
         }
 
     def calculate_scaling_factors(self,scale_power=0):
-        '''Calculates scaling factor to apply to x and x0 in objective O1
-        as f = (mean(x0)/x0) ^ scale_power. In cases where f = inf
-        (i.e. x0 = 0) f is set to the maximum value  where f != inf.
-        scale_power = 0 gives no scaling.
+        '''Calculates scaling factor to apply to x and x0 in objective O1 as f = (mean(x0)/x0) ^ scale_power.
+        In cases where f = inf (i.e. x0 = 0) f is set to the maximum value  where f != inf. scale_power = 0
+        gives no scaling.
         '''
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
@@ -239,7 +296,7 @@ class GeoDistributor:
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
         self.scale_f = scale_f
 
-    def define_cvx_problem(self,use_cons):
+    def define_cvx_problem(self):
         
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
@@ -283,8 +340,9 @@ class GeoDistributor:
 
     def make_C1(self):
         '''Creates C1: A1 @ x == b1
-        Production must meet demand. A1 @ x gives production and b1 is
-        national demand per animal/crop product (D)
+
+        Main constraint to ensure that production exactly meets demand. Crop and animal products without any
+        demand remain unconstrained. Demand is calculated in the 'DemandAndConversions' module.
         '''
 
         # Animal product demand
@@ -318,7 +376,12 @@ class GeoDistributor:
         self.cons_add_exec.extend(['CONS.append(self.A1.M @ x == self.b1)'])
 
     def make_C2(self):
-        '''Creates C2'''
+        '''Creates C2: A2 @ x >= 0
+        
+        Constrain the maximum area per 'land_use' in each region. The maximum area is set relative to areas
+        in x0 via the parameter 'max_land_use_factor' in the 'Regions' module. A 'max_land_use_factor' of 1
+        implies that areas can't exceed current areas in each region.
+        '''
 
         # Regional feed demand for crop products
         self.A2_1 = self.make_A2_1()
@@ -339,7 +402,12 @@ class GeoDistributor:
         self.cons_add_exec.extend(['CONS.append(self.A2.M @ x >= 0)'])
 
     def make_C3(self):
-        '''Creates C3: A3 @ x <= b3'''
+        '''Creates C3: A3 @ x <= b3
+        
+        Constraint the share of feed demand for different crop products that must be met regionally.
+        The minimum share is set via the parameter 'share_regional' in the 'FeedMgmt' module and can differ
+        for different animals.
+        '''
 
         self.A3 = self.make_A3()
         
@@ -357,7 +425,17 @@ class GeoDistributor:
         pass
 
     def make_C5(self):
-        '''Creates C5: A5 @ x <= 0'''
+        '''Creates C5: A5 @ x <= 0
+        
+        Constrain the maxuimum share of a crop product demand for feed that can be supplied by a
+        particular crop. This constraint is used to constraint the share of 'grazing' that can be
+        supplied by 'Semi-natural pastures', but can be used to constrain e.g. share of wheat for
+        feed from winter/spring variaties. 
+
+        The maxuimum share is set via the parameter 'max_crop_in_crop_prod' in the 'FeedMgmt'
+        module and can differ for different animal.
+        '''
+
         # Maximum supply of crop product(s) from crop(s)
         self.A5_1 = self.make_A5_1()
         # Production of crop products
@@ -377,17 +455,34 @@ class GeoDistributor:
         self.cons_add_exec.extend(['CONS.append(self.A5.M @ x <= 0)'])
     
     def make_C6(self):
-        '''Creates C6: A6 @ x <= 0'''
+        '''Creates C6: A6 @ x <= 0
+        
+        Constrain the maximum share of cropland devoted to a given crop group in a given region in a
+        given production system. The maximum share is set on 'crop_group' level via the parameter
+        'max_in_rot' in the 'CropProduction' module.
+        
+        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the relation tables.
+        '''
 
+        # Note to future:
+        # - Would it be usefull with a constraint for minimum share?
+        # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
+        
         self.A6 = self.make_A6()
 
         # Append code to include constraint when defining cvx problem
         self.matrices.append('A6')
         self.cons_add_exec.extend(['CONS.append(self.A6.M @ x <= 0)'])
 
-    def make_C7(self):
-        '''Creates C7: Constrain crops to certain regions based on minimum growing degree days (GDD5).
-        Also constrains animals with regional demand for crops that can't be grown in a region'''
+    def make_C7(self) -> None:
+        '''Creates C7: Drops variables
+
+        Constrain crops to certain regions based on minimum growing degree days (GDD5). The minimim 
+        GDD5 for different crops is set with the parameter 'min_GDD5' in the 'CropProduction' module.
+        The number of GDD5 in each region is defined by the parameter 'GDD' in the 'Regions' module.
+        
+        This constraint also indirectly constrains animals with regional demand for crops that can't
+        be grown in a  (see ?make_C2).'''
 
         # This constraint is not implemented as a constraint in the solver but instead dropps
         # variables representing crops or animals that can't be present in a region. 
@@ -481,16 +576,19 @@ class GeoDistributor:
                 A.cols['ani'] = sel_an.copy()
                 A.cols['crp'] = sel_cr.copy()
 
+        return None
+
     def make_C8(
             self,
-            C8_crp = None,
-            C8_ani = None,
-            C8_rel = '==',
-            C8_tol = 1e-4
+            C8_crp: pd.DataFrame | None = None ,
+            C8_ani: pd.DataFrame | None = None,
+            C8_rel: str = '==',
+            C8_tol: float = 1e-4
         ):
         '''Creates C8: A8 @ x <rel> b8
+
         Flexible constraint that constrains given crop areas and/or animal
-        numbers in relation to given values. Constrains can be eiter equality
+        numbers in relation to given values. Constraints can be eiter equality
         or max/min. Equality constraints (C8_rel = '==') are implemented as min
         and max constraints with a relative tolerance of +/- C8_tol.
 
@@ -510,6 +608,7 @@ class GeoDistributor:
         -------
         None
         '''
+
         pars = {
             'C8_crp' : C8_crp,
             'C8_ani' : C8_ani,
@@ -569,6 +668,8 @@ class GeoDistributor:
                 self.cons_add_exec.extend([
                     f'CONS.append(self.A8_{str(i)}.M @ x {pars["C8_rel"][i]} self.b8_{str(i)})'
                 ])
+
+        return None
 
     def make_O1(self):
         
@@ -998,14 +1099,6 @@ class GeoDistributor:
         return M
     
     def make_A6(self):
-        '''Creates A-matrix for C6:
-        
-        Constrain the maximum share of cropland devoted to a given crop group
-        in a given region in a given production system.
-
-        Note to future:
-        - Would it be usefull with a constraint for minimum share?
-        - Deal with crops assumed not to be in rotation by putting 0 in the matrix'''
 
         self.crops.par.clear()
 
