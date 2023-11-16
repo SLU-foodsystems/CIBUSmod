@@ -177,11 +177,11 @@ class ManureMgmt():
             )
 
             # Store data attributes
-            herd.bedding_material_DM = DM # [kg DM/year]
+            herd.bedding_material = DM # [kg DM/year]
             herd.bedding_material_N = N # [kg N/year]
             herd.bedding_material_P = P # [kg P/year]
             herd.bedding_material_K = K # [kg K/year]
-            herd.data_attr.update(['bedding_material_DM','bedding_material_N','bedding_material_P','bedding_material_K'])
+            herd.data_attr.update(['bedding_material','bedding_material_N','bedding_material_P','bedding_material_K'])
 
     def calculate_VS_excretion(self):
         '''Calculate VS excretion'''
@@ -233,6 +233,8 @@ class ManureMgmt():
                 )
             )
             VS_excr = VS_excr * self.par.get_from_frame('mms_share',VS_excr)/100
+
+            # ADD BEDDING TO VS EXCRETION!!!
 
             herd.manure.VS_excr = VS_excr
             herd.data_attr.update(['manure.VS_excr'])

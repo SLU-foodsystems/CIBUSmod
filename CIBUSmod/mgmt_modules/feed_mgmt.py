@@ -62,6 +62,8 @@ class FeedMgmt():
         self.calculate_max_crop_in_crop_prod()
         vprint('Calculating demand for by-products ...')
         self.calculate_product_demand(of='by_prod')
+        vprint('Calculating demand for crop residues ...')
+        self.calculate_product_demand(of='crop_resid')
 
         vprint(type='end')
 
@@ -277,8 +279,10 @@ class FeedMgmt():
                 )
 
             # Set attribute feed.<crop/by>_product_demand
-            rsetattr(herd,'feed.'+of+'uct_demand',result_df)
-            herd.data_attr.update(['feed.'+of+'uct_demand'])
+            attr_name = 'feed.' + of + ('ue_demand' if of == 'crop_resid' else 'uct_demand')
+            unit = 'kg DM' if of == 'crop_resid' else 'kg' # For later use
+            rsetattr(herd, attr_name, result_df)
+            herd.data_attr.update([attr_name])
 
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice

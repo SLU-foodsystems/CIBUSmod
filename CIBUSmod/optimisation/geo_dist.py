@@ -116,7 +116,7 @@ class GeoDistributor:
             self.x_idx_short = {'ani':self.x_idx['ani'].copy(), 'crp':self.x_idx['crp'].copy()}
 
         vprint('Defining problem ...')
-        self.define_cvx_problem(use_cons)
+        self.define_cvx_problem()
 
         vprint(type='end')
 

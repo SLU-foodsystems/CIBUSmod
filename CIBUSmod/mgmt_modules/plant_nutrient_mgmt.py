@@ -368,7 +368,17 @@ class PlantNutrientMgmt():
         self.crops.par.set(**self.crops.index.to_frame().to_dict('list'))
         p = self.crops.par.get
 
-        self.crops.fertiliser.crop_residues_N = (
+        # Get crop residues
+        crop_residues = self.crops.crop_residues.copy()
+
+        # Subtract harvested crop residues
+        crop_residues.loc[:,['above ground']] = (
+            crop_residues.loc[:,['above ground']]
+            .sub(self.crops.crop_residues_harvest.sum(axis=1), axis=0)
+        )
+
+        # Get N in crop residue DM and multiply by total crop residues left in field
+        crop_residues_N = (
             pd.DataFrame(
                 np.array([
                     p('ag_resid_N'),
@@ -377,8 +387,10 @@ class PlantNutrientMgmt():
                 index = self.crops.index,
                 columns = pd.Index(['above ground','below ground'], name='residue')
             )
-            .mul(self.crops.crop_residues)
+            .mul(crop_residues)
         )
+
+        self.crops.fertiliser.crop_residues_N = crop_residues_N
         self.crops.data_attr.update(['fertiliser.crop_residues_N'])
 
     def calculate_N_application_losses(self, of):

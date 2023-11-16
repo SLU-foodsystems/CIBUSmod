@@ -1,5 +1,9 @@
 import functools
 import pandas as pd
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..main_modules.animal_herd import AnimalHerd
 
 # Functions to set and get nested attributes
 def rsetattr(obj, attr, val):
@@ -52,7 +56,41 @@ def inv_dict(x : dict) -> dict:
         inv_x[v] = inv_x.get(v,[]) + [k]
     return inv_x
 
-# Check index for pd.Series of AnimalHerds
+def index_to_multi(obj: pd.Index | pd.DataFrame | pd.Series) -> pd.MultiIndex | pd.DataFrame | pd.Series:
+    '''Converts pandas.Index/DataFrame/Series to (have) a 1 level pandas.MultiIndex'''
+    if isinstance(obj, pd.Index):
+        return pd.MultiIndex.from_tuples(
+            [(i,) for i in obj],
+            names=obj.names
+        )
+    elif isinstance(obj, pd.DataFrame) or isinstance(obj, pd.Series):
+        if not isinstance(obj.index, pd.Index):
+            raise TypeError('DataFrame or Series must have a pandas.Index, not a pandas.MultiIndex')
+        obj = obj.copy()
+        obj.index = pd.MultiIndex.from_tuples(
+            [(i,) for i in obj.index],
+            names=obj.index.names
+        )
+        return obj
+
+def fix_herds(herds : "AnimalHerd | list | pd.Series") -> pd.Series:
+    '''Convert herds to pd.Series if list or AnimalHerd object supplied and check index
+    across AnimalHerd objects'''
+    if isinstance(herds, pd.Series):
+        herds = herds
+    else:
+        if not isinstance(herds, list):
+            herds = [herds]
+        herds = pd.Series(
+            data=herds,
+            index=pd.MultiIndex.from_tuples(
+                [(h.species,h.breed,h.prod_system,h.sub_system) for h in herds],
+                names=['species','breed','prod_system','sub_system']
+            )
+        )
+    check_index(herds)
+    return herds
+
 def check_index(herds : pd.Series) -> None:
     '''Raises Exception if all AnimalHerd indexes are not the same'''
     if len(herds)>0:

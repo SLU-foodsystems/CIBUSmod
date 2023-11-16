@@ -14,6 +14,7 @@ from .mgmt_modules.feed_mgmt import FeedMgmt
 from .mgmt_modules.plant_nutrient_mgmt import PlantNutrientMgmt
 from .mgmt_modules.machinery_and_energy_mgmt import MachineryAndEnergyMgmt
 from .mgmt_modules.inputs_mgmt import InputsMgmt
+from .mgmt_modules.crop_residue_mgmt import CropResidueMgmt
 
 # Import geo distiributor
 from .optimisation.geo_dist import GeoDistributor
