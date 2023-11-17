@@ -381,7 +381,7 @@ def to_ICBM(output):
     Returns
     -------
     pandas.DataFrame'''
-    ats = ['area','harvest_dm','fertiliser.manure_C']
+    ats = ['area','harvest_dm','crop_residues_harvest','fertiliser.manure_C']
     d = []
     for at in ats:
         df = (
@@ -400,6 +400,8 @@ def to_ICBM(output):
             df = df.rename('area_ha')
         if at == 'harvest_dm':
             df = df.rename('harvest_kgdm')
+        if at == 'crop_residues_harvest':
+            df = df.rename('crop_residues_harvest_kgdm')
         if at == 'fertiliser.manure_C':
             df = df.rename({sp:'manure_'+sp+'_kgC' for sp in df.columns}, axis=1)
             
