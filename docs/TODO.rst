@@ -6,7 +6,11 @@ Validation and default parameters
 - Check rapeseed
 - Check induced skim milk exports
 - CattleHerd: Too much grazing adjust feed rations
-- MachineryAndEnergyMgmt: Check 
+- MachineryAndEnergyMgmt: Check energy use in stables
+
+Overarching
+-----------
+- Structure data attributes and keep track of units
 
 ParameterRetriever
 ------------------
