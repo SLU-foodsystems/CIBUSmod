@@ -190,11 +190,35 @@ class LayerHerd(AnimalHerd):
         slaughtered_n = slaughtered_n.mul(adj_factor, axis=0)
         lost_n = lost_n.mul(adj_factor, axis=0)
 
-        self.heads = heads
-        self.inserted_n = inserted_n
-        self.slaughtered_n = slaughtered_n
-        self.lost_n = lost_n
-        self.data_attr.update(['heads','inserted_n','slaughtered_n','lost_n'])
+        # Add data attributes
+        self.data_attr.add(
+            heads,
+            name = 'heads',
+            unit = 'heads',
+            orig = 'LayerHerd',
+            desc = 'Total average number of heads over a year'
+        )
+        self.data_attr.add(
+            inserted_n,
+            name = 'inserted_n',
+            unit = 'heads/year',
+            orig = 'LayerHerd',
+            desc = 'Total number of heads inserted'
+        )
+        self.data_attr.add(
+            slaughtered_n,
+            name = 'slaughtered_n',
+            unit = 'heads/year',
+            orig = 'LayerHerd',
+            desc = 'Total number of heads slaughtered'
+        )
+        self.data_attr.add(
+            lost_n,
+            name = 'lost_n',
+            unit = 'heads/year',
+            orig = 'LayerHerd',
+            desc = 'Total number of heads lost'
+        )
 
     def calculate_feed_DM_req(self,ps,ani):
         

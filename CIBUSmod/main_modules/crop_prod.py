@@ -3,8 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr
-from ..utils.misc import Container
+from ..utils.misc import Container, DataAttr, rgetattr, rsetattr
 
 from ..mgmt_modules.plant_nutrient_mgmt import Fertiliser
 
@@ -37,7 +36,7 @@ class CropProduction(object):
     def __init__(self,par,index):
 
         # Set to keep track of data attributes that have been assigned
-        self.data_attr = set()
+        self.data_attr = DataAttr(self)
         
         self.par = par
         self.index = index
@@ -59,18 +58,39 @@ class CropProduction(object):
         vprint = verbose_init(verbose, id_str='CropProduction')
 
         # Set areas to ones
-        self.area = pd.Series(np.ones(len(self.index)), index=self.index)
-        self.data_attr.update(['area'])
+        self.data_attr.add(
+            pd.Series(np.ones(len(self.index)), index=self.index),
+            name = 'area',
+            unit = 'ha or m2',
+            orig = 'CropProduction',
+            desc = 'Crop areas in ha (or m2 for greenhouse crops)'
+        )
 
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
         vprint('Calculating harvest ...')
+
         self.par.clear()
         self.par.set(**self.index.to_frame().to_dict('list'))
-        self.harvest = self.area * p('yield') # [kg]
-        self.harvest_dm = self.harvest * p('crop_dm') # [kg DM]
-        self.data_attr.update(['harvest','harvest_dm'])
+        harvest = self.area * p('yield') # [kg]
+        harvest_dm = harvest * p('crop_dm') # [kg DM]
+
+        # Add data attributes
+        self.data_attr.add(
+            harvest,
+            name = 'harvest',
+            unit = 'kg/year',
+            orig = 'CropProduction',
+            desc = 'Total crop harvest in "natural" water content (see CropProduction parameter sheet)'
+        )
+        self.data_attr.add(
+            harvest_dm,
+            name = 'harvest_dm',
+            unit = 'kg DM/year',
+            orig = 'CropProduction',
+            desc = 'Total crop harvest in dry matter'
+        )
 
         vprint('Calculating production ...')
         self.calculate_production()
@@ -104,8 +124,13 @@ class CropProduction(object):
         old_x = self.area
         
         for attr in self.data_attr:
-            if rgetattr(self, attr) is not None:
-                rsetattr(self, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
+            if self.data_attr[attr]['scalable']:
+                if rgetattr(self, attr) is not None:
+                    self.data_attr.add(
+                        rgetattr(self, attr).mul(new_x/old_x, axis=0),
+                        name = attr,
+                        **self.data_attr[attr]
+                    )
     
     def make_static(self):
         '''Returns a StaticCropProduction object that retains all data attributes but
@@ -115,13 +140,14 @@ class CropProduction(object):
 
         obj.index = self.index.copy()
         obj.fertiliser = Fertiliser()
-        obj.data_attr = self.data_attr.copy()
 
-        for attr in obj.data_attr:
+        obj.data_attr = DataAttr(obj)
+
+        for attr in self.data_attr:
             if rgetattr(self, attr) is not None:
-                rsetattr(obj, attr, rgetattr(self, attr).copy())
+                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
             else:
-                rsetattr(obj, attr, None)
+                obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
 
@@ -141,8 +167,14 @@ class CropProduction(object):
             )
         ).mul(self.harvest, axis=0)
 
-        self.production = production # [kg]
-        self.data_attr.update(['production'])
+        # Add data attribute
+        self.data_attr.add(
+            production,
+            name = 'production',
+            unit = 'kg/year',
+            orig = 'CropProduction',
+            desc = 'Total production of crop products'
+        )
 
     def calculate_crop_residues(self):
         self.par.clear()
@@ -165,17 +197,14 @@ class CropProduction(object):
             .mul(self.harvest, axis=0)
         )
 
-        # Store crop residue dataframe [kg DM]
-        self.crop_residues = crop_residues
-        
-        # Create series to keep track of harvested crop residues [kg DM]
-        self.harvested_crop_residues = \
-        pd.Series(
-            0,
-            index=self.index,
+        # Add data attribute
+        self.data_attr.add(
+            crop_residues,
+            name = 'crop_residues',
+            unit = 'kg DM/year',
+            orig = 'CropProduction',
+            desc = 'Generated above and below ground crop residues whether or not harvested'
         )
-        
-        self.data_attr.update(['crop_residues', 'harvested_crop_residues'])
 
     def calculate_seed_demand(self):
 
@@ -184,10 +213,18 @@ class CropProduction(object):
         # Get crop products
         cps = self.par.get_unique('crop_prod', qry='parameter == "seed"') 
 
-        # Create dataframe
-        seed_demand = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
-        self.seed_demand = self.par.get_from_frame('seed', seed_demand).mul(self.area, axis=0)
-        self.data_attr.update(['seed_demand'])
+        # Create dataframe and calculate seed demand
+        df = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
+        seed_demand = self.par.get_from_frame('seed', df).mul(self.area, axis=0)
+
+        # Add data attribute
+        self.data_attr.add(
+            seed_demand,
+            name = 'seed_demand',
+            unit = 'kg/year',
+            orig = 'CropProduction',
+            desc = 'Demand for seeds'
+        )
 
 class StaticCropProduction(Container):
     '''Class used to create static copys of animal her objects. These stores all attributes except 'par'

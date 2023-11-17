@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned
+from ..utils.misc import multiply_aligned, rgetattr
 from ..main_modules.animal_herd import concat_herds
 from ..utils.misc import Container
 
@@ -144,8 +144,14 @@ class PlantNutrientMgmt():
 
         TAN_req = (TAN_rec * TAN_ley_adj * area_per_use)
 
-        self.crops.fertiliser.TAN_req = TAN_req.sum(axis=1)
-        self.crops.data_attr.update(['fertiliser.TAN_req'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            TAN_req.sum(axis=1),
+            name = 'fertiliser.TAN_req',
+            unit = 'kg TAN/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Crop plant available nitrogen (TAN) requirements to be covered by fertiliser/manure application'
+        )
 
     def distribute_manure(self):
         # Generated manure is allocated to different crop areas based
@@ -315,15 +321,24 @@ class PlantNutrientMgmt():
             .fillna(0)
         )
 
-        # Apply shares to manure dataframes
-        self.crops.fertiliser.manure_TAN = manure_TAN_application # [kg TAN]
-        self.crops.fertiliser.manure_N = herds.manure.N_to_spread.multiply(share_manure_per_crop) # [kg N]
-        self.crops.fertiliser.manure_C = herds.manure.C_to_spread.multiply(share_manure_per_crop) # [kg C]
-        # self.crops.fertiliser.manure_P =  # [kg P]
-        # self.crops.fertiliser.manure_K =  # [kg K]
-        # self.crops.fertiliser.manure_VS =  # [kg VS]
-        
-        self.crops.data_attr.update(['fertiliser.manure_TAN','fertiliser.manure_N','fertiliser.manure_C'])
+        # Apply shares to manure dataframes and add data attributes
+        self.crops.data_attr.add(
+            manure_TAN_application,
+            name = 'fertiliser.manure_TAN',
+            unit = 'kg TAN/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Plant available nitrogen (TAN) in applied manure'
+        )
+
+        for element in ['N', 'C']: # ['VS'(?), 'P', 'K'] to be added ...
+            res = rgetattr(herds, f'manure.{element}_to_spread').multiply(share_manure_per_crop)
+            self.crops.data_attr.add(
+                res,
+                name = f'fertiliser.manure_{element}',
+                unit = f'kg {element}/year',
+                orig = 'PlantNutrientMgmt',
+                desc = f'{_elem_to_name[element].capitalize()} in applied manure'
+            )
                 
     def calculate_mineral_N_application(self):
         # Mineral N application is assumed to cover additional
@@ -355,12 +370,20 @@ class PlantNutrientMgmt():
         ).clip(lower=0) # set to zero if manure supplies more than requirement
 
         # Calculate mineral N fertiliser application
-        self.crops.fertiliser.mineral_N = \
+        fertiliser_mineral_N = \
         fertiliser_type_shares.mul(
             TAN_to_apply,
             axis=0
         ).fillna(0)
-        self.crops.data_attr.update(['fertiliser.mineral_N'])
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            fertiliser_mineral_N,
+            name = 'fertiliser.mineral_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Nitrogen (N) in applied fertilisers'
+        )
 
     def calculate_N_in_crop_residues(self):
         # Calculate N in crop residues
@@ -390,8 +413,14 @@ class PlantNutrientMgmt():
             .mul(crop_residues)
         )
 
-        self.crops.fertiliser.crop_residues_N = crop_residues_N
-        self.crops.data_attr.update(['fertiliser.crop_residues_N'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            crop_residues_N,
+            name = 'fertiliser.crop_residues_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
+        )
 
     def calculate_N_application_losses(self, of):
         # Application losses of NH3-N calculated according to
@@ -455,14 +484,15 @@ class PlantNutrientMgmt():
             axis=1
         )
 
-        # Store resulting N application losses [kg N]
-        attr_name = of.replace('TA','') + '_application_loss'
-        setattr(
-            self.crops.fertiliser,
-            attr_name,
-            N_loss
+        # Store resulting N application losses [kg N]      
+        attr_name = 'fertiliser.' + of.replace('TA','') + '_application_loss'
+        self.crops.data_attr.add(
+            N_loss,
+            name = attr_name,
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = f'Losses of nitrogen (N) from {"mineral fertiliser" if "mineral" in of else "manure"} application'
         )
-        self.crops.data_attr.update(['fertiliser.'+attr_name])
 
     def calculate_N_soil_losses(self, of):
         
@@ -525,13 +555,14 @@ class PlantNutrientMgmt():
         N_loss = N_appl * EF
 
         # Store resulting N soil losses [kg N]
-        attr_name = of + '_soil_loss'
-        setattr(
-            self.crops.fertiliser,
-            attr_name,
-            N_loss
+        attr_name = 'fertiliser.' + of + '_soil_loss'
+        self.crops.data_attr.add(
+            N_loss,
+            name = attr_name,
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = f'Soil losses of nitrogen (N) from {"applied mineral fertilisers" if "mineral" in of else "applied and deposited manure" if "manure" in of else "crop residues"}'
         )
-        self.crops.data_attr.update(['fertiliser.'+attr_name])
 
     def calculate_organic_soil_N_losses(self):
         
@@ -563,8 +594,13 @@ class PlantNutrientMgmt():
             self.par.get_from_frame('soil_losses_organic_soils', organic_soil_N_loss)
         ).mul(areas, axis=0).droplevel('land_use')
 
-        self.crops.fertiliser.organic_soil_N_loss = organic_soil_N_loss
-        self.crops.data_attr.update(['fertiliser.organic_soil_N_loss'])
+        self.crops.data_attr.add(
+            organic_soil_N_loss,
+            name = 'fertiliser.organic_soil_N_loss',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Soil losses of nitrogen (N) from organic soils'
+        )
 
     def calculate_leaching_N(self):
 
@@ -604,12 +640,25 @@ class PlantNutrientMgmt():
         # Drop 'land_use' from index
         leaching_N = leaching_N.droplevel('land_use')
 
-        self.crops.fertiliser.leaching_N = leaching_N
-        self.crops.data_attr.update(['fertiliser.leaching_N'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            leaching_N,
+            name = 'fertiliser.leaching_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Losses of nitrogen (N) via leaching'
+        )
 
 
 class Fertiliser(Container):
     '''Class to store fertiliser attributes in CropProduction obejcts'''
+
+_elem_to_name = {
+    'C' : 'carbon (C)',
+    'N' : 'nitrogen (N)',
+    'P' : 'phosphorous (P)',
+    'K' : 'potassium (P)'
+}
 
 def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
 

@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr, multiply_aligned
-from ..utils.misc import Container
+from ..utils.misc import Container, DataAttr, rgetattr, rsetattr
 from ..utils.retriever import ParameterRetriever
 
 from ..mgmt_modules.feed_mgmt import Feed
@@ -78,7 +77,7 @@ class AnimalHerd(object):
     def __init__(self,par,index,**kwargs):
 
         # Set to keep track of data attributes that have been assigned
-        self.data_attr = set()
+        self.data_attr = DataAttr(self)
         
         self.par = par
         self.index = index
@@ -195,8 +194,13 @@ animals              {self.animals}
         
         # Update data attributes
         for attr in self.data_attr:
-            if rgetattr(self, attr) is not None:
-                rsetattr(self, attr, rgetattr(self, attr).mul(new_x/old_x, axis=0))
+            if self.data_attr[attr]['scalable']:
+                if rgetattr(self, attr) is not None:
+                    self.data_attr.add(
+                        rgetattr(self, attr).mul(new_x/old_x, axis=0),
+                        name = attr,
+                        **self.data_attr[attr]
+                    )
     
     def make_static(self):
         '''Returns a StaticAnimalHerd object that retains all ID and data attributes but
@@ -209,18 +213,19 @@ animals              {self.animals}
         obj.feed = Feed()
         obj.manure = Manure()
         obj.id_attr = self.id_attr.copy()
-        obj.data_attr = self.data_attr.copy()
+
+        obj.data_attr = DataAttr(obj)
 
         # Set ID attributes
         for attr in obj.id_attr:
             setattr(obj,attr,getattr(self,attr))
         
         # Set data attributes
-        for attr in obj.data_attr:
+        for attr in self.data_attr:
             if rgetattr(self, attr) is not None:
-                rsetattr(obj, attr, rgetattr(self, attr).copy())
+                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
             else:
-                rsetattr(obj, attr, None)
+                obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
 
@@ -293,8 +298,14 @@ animals              {self.animals}
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)
 
-        self.production = production
-        self.data_attr.update(['production'])
+        # Add data attribute
+        self.data_attr.add(
+            production,
+            name = 'production',
+            unit = 'kg/year',
+            orig = 'AnimalHerd',
+            desc = 'Total production of animal products'
+        )
 
     def calculate_feed_req(self):
 
@@ -330,13 +341,24 @@ animals              {self.animals}
                 req = self.calculate_feed_DM_req(ps,ani)
 
             df_req.loc[:,(ps,ani)] = req
-
+        
+        # Add data attribute
         if E_req:
-            self.feed_E_req = df_req * self.heads # [MJ/year]
-            self.data_attr.update(['feed_E_req'])
+            self.data_attr.add(
+                df_req * self.heads,
+                name = 'feed_E_req',
+                unit = 'MJ/year',
+                orig = 'AnimalHerd',
+                desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
+            )   
         else:
-            self.feed_DM_req = df_req * self.heads # [kg DM/year]
-            self.data_attr.update(['feed_DM_req'])        
+            self.data_attr.add(
+                df_req * self.heads,
+                name = 'feed_DM_req',
+                unit = 'kg DM/year',
+                orig = 'AnimalHerd',
+                desc = 'Total feed requirements in terms of dry matter'
+            )      
 
 class StaticAnimalHerd(Container):
     '''Class used to create static copys of animal her objects. These stores all attributes except 'par'
@@ -444,6 +466,8 @@ def concat_herds(herds):
     res_herd.feed = Feed()
     res_herd.manure = Manure()
 
+    res_herd.data_attr = DataAttr(res_herd)
+
     # Check presence of data attributes in AnimalHerd objects
     # Only attributes present in all AnimalHerd objects are 
     # retained in the combined StaticAnimalHerd object
@@ -474,8 +498,11 @@ def concat_herds(herds):
         # Group and sum columns to avoid duplicates
         df = df.groupby(df.columns.names, axis=1).sum()
 
-        rsetattr(res_herd,attr,df)
-    
-    res_herd.data_attr = data_attr_in_all
+        # Add data attribute
+        metadata = herds[0].data_attr[attr]
+        if 'Herd' in metadata['orig'] and metadata['orig'] != 'AnimalHerd':
+            # Replace specific herd module name
+            metadata['orig'] = '<Spec.>Herd'
+        res_herd.data_attr.add(df, name=attr, **metadata)
 
     return res_herd

@@ -3,22 +3,17 @@ import numpy as np
 import os
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, rgetattr, rsetattr
+from ..utils.misc import DataAttr, Container, rgetattr, rsetattr
 
 class Regions(object):
     '''Class that handles region attributes
 
     Parameters
     ----------
-    x0 : 
-    par : 
-
-    Attributes set on init
-    ----------------------
-    index : 
+    par : ParameterRetriever object
 
     Attributes set by Regions.calculate()
-    --------------------------------------------
+    -------------------------------------
     climate :
     soil :
     '''
@@ -26,7 +21,7 @@ class Regions(object):
     def __init__(self,par):
 
         # Set to keep track of data attributes that have been assigned
-        self.data_attr = set()
+        self.data_attr = DataAttr(self)
         
         self.par = par
 
@@ -59,13 +54,13 @@ class Regions(object):
         
         obj = StaticRegions()
 
-        obj.data_attr = self.data_attr.copy()
+        obj.data_attr = DataAttr(obj)
 
-        for attr in obj.data_attr:
+        for attr in self.data_attr:
             if rgetattr(self, attr) is not None:
-                rsetattr(obj, attr, rgetattr(self, attr).copy())
+                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
             else:
-                rsetattr(obj, attr, None)
+                obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
 
@@ -138,9 +133,22 @@ class Regions(object):
 
         x0_ani = x0_ani.fillna(0)
 
-        self.x0_crops = x0_crp
-        self.x0_animals = x0_ani
-        self.data_attr.update(['x0_crops','x0_animals'])
+        self.data_attr.add(
+            x0_crp,
+            name = 'x0_crops',
+            unit = 'ha or m2',
+            orig = 'Regions',
+            desc = 'Baseline crop areas in ha (or m2 for greenhouse crops)',
+            scalable = False
+        )
+        self.data_attr.add(
+            x0_ani,
+            name = 'x0_animals',
+            unit = 'heads',
+            orig = 'Regions',
+            desc = 'Baseline numbers of defining animals per animal production system',
+            scalable = False
+        )
 
 
     def get_climate(self):
@@ -152,12 +160,21 @@ class Regions(object):
         self.par.set(**index.to_frame().to_dict('list'))
 
         # Get climate parameters
-        self.climate = pd.DataFrame(
+        climate = pd.DataFrame(
             np.array([p('GDD5')]).T,
             index = index,
             columns = ['GDD5']
         )
-        self.data_attr.update(['climate'])
+
+        # Add data attribute
+        self.data_attr.add(
+            climate,
+            name = 'climate',
+            unit = 'GDD5 : days*C',
+            orig = 'Regions',
+            desc = 'GDD5 : Growing degree days',
+            scalable = False
+        )
 
     def get_soil(self):
 
@@ -168,7 +185,7 @@ class Regions(object):
         self.par.set(**index.to_frame().to_dict('list'))
 
         # Get soil parameters
-        self.soil = pd.DataFrame(
+        soil = pd.DataFrame(
             np.array([
                 p('soil_clay'),
                 p('soil_silt'),
@@ -215,14 +232,22 @@ class Regions(object):
         }
 
         # Get texture class per region
-        self.soil['class'] = \
-            self.soil.apply(
+        soil['class'] = \
+            soil.apply(
                 _get_soil_class,
                 txt_classes=txt_classes,
                 axis=1
             )
         
-        self.data_attr.update(['soil'])
+        # Add data attribute
+        self.data_attr.add(
+            soil,
+            name = 'soil',
+            unit = 'clay/silt/sand/OM : %, pH/class : -',
+            orig = 'Regions',
+            desc = 'Soil characteristics',
+            scalable = False
+        )
 
     def calculate_max_land_use(self):
         # Get land uses with a maximum land use
@@ -243,9 +268,17 @@ class Regions(object):
         )
 
         # Calculate maximum land use
-        self.max_land_use = \
-        lu * self.par.get_from_frame('max_land_use_factor',lu)
-        self.data_attr.update(['max_land_use'])
+        max_land_use = lu * self.par.get_from_frame('max_land_use_factor',lu)
+        
+        # Add data attribute
+        self.data_attr.add(
+            max_land_use,
+            name = 'max_land_use',
+            unit = 'ha or m2',
+            orig = 'Regions',
+            desc = 'Maximum allowed land use per land use class in ha (or m2 for greenhouse crops)',
+            scalable = False
+        )
 
 def _get_soil_class(x, txt_classes):
     for txt_class in txt_classes:

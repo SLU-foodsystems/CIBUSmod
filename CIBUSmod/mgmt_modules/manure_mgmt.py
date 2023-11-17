@@ -84,17 +84,17 @@ class ManureMgmt():
 
         # Nitrogen (N) [kg N or TAN per year]
         vprint('Calculating N excretion ...')
-        self.calculate_NPK_excretion(compound = 'N')
+        self.calculate_NPK_excretion(element = 'N')
         vprint('Calculating N losses ...')
         self.calculate_N_losses()
 
         # Phosphorous (P)
         vprint('Calculating P excretion ...')
-        self.calculate_NPK_excretion(compound = 'P')
+        self.calculate_NPK_excretion(element = 'P')
 
         # Potassioum (K)
         vprint('Calculating K excretion ...')
-        self.calculate_NPK_excretion(compound = 'K')
+        self.calculate_NPK_excretion(element = 'K')
 
         vprint('Calculating N available to spread ...')
         for herd in self.herds:
@@ -110,9 +110,21 @@ class ManureMgmt():
             # Calculate plant available nitrogen available to spread
             TAN_to_spread = N_to_spread * self.par.get_from_frame('TAN_share',N_to_spread)/100
 
-            herd.manure.N_to_spread = N_to_spread
-            herd.manure.TAN_to_spread = TAN_to_spread
-            herd.data_attr.update(['manure.N_to_spread','manure.TAN_to_spread'])
+            # Add data attributes
+            herd.data_attr.add(
+                N_to_spread,
+                name = 'manure.N_to_spread',
+                unit = 'kg N/year',
+                orig = 'ManureMgmt',
+                desc = 'Total nitrogen (N) in manure available to spread after stable and storage losses'
+            )
+            herd.data_attr.add(
+                TAN_to_spread,
+                name = 'manure.TAN_to_spread',
+                unit = 'kg TAN/year',
+                orig = 'ManureMgmt',
+                desc = 'Total plant available nitrogen (TAN) in manure available to spread after stable and storage losses'
+            )
 
         vprint(type='end')
 
@@ -176,12 +188,15 @@ class ManureMgmt():
                 .sum()
             )
 
-            # Store data attributes
-            herd.bedding_material = DM # [kg DM/year]
-            herd.bedding_material_N = N # [kg N/year]
-            herd.bedding_material_P = P # [kg P/year]
-            herd.bedding_material_K = K # [kg K/year]
-            herd.data_attr.update(['bedding_material','bedding_material_N','bedding_material_P','bedding_material_K'])
+            # Add data attributes
+            for df, element in zip([DM,N,P,K], ['DM','N','P','K']):
+                herd.data_attr.add(
+                    df,
+                    name = f'bedding_material{"_"+element if not element=="DM" else ""}',
+                    unit = f'kg {element}/year',
+                    orig = 'ManureMgmt',
+                    desc = 'Bedding material use' + ((' in terms of ' + element) if not element=='DM' else '')
+                )
 
     def calculate_VS_excretion(self):
         '''Calculate VS excretion'''
@@ -236,8 +251,14 @@ class ManureMgmt():
 
             # ADD BEDDING TO VS EXCRETION!!!
 
-            herd.manure.VS_excr = VS_excr
-            herd.data_attr.update(['manure.VS_excr'])
+            # Add data attribute
+            herd.data_attr.add(
+                VS_excr,
+                name = 'manure.VS_excr',
+                unit = 'kg VS/year',
+                orig = 'ManureMgmt',
+                desc = 'Manure volatile solids (VS) excretion'
+            )
         
         return None
     
@@ -308,11 +329,23 @@ class ManureMgmt():
 
             VS_loss = df
 
-            herd.manure.VS_loss = VS_loss
-            herd.manure.C_to_spread = C_to_spread
-            herd.data_attr.update(['manure.VS_loss','manure.C_to_spread'])
+            # Add data attributes
+            herd.data_attr.add(
+                VS_loss,
+                name = 'manure.VS_loss',
+                unit = 'kg/year',
+                orig = 'ManureMgmt',
+                desc = 'Manure losses of C-containing compounds in stables and during manure storage'
+            )
+            herd.data_attr.add(
+                C_to_spread,
+                name = 'manure.C_to_spread',
+                unit = 'kg C/year',
+                orig = 'ManureMgmt',
+                desc = 'Carbon (C) in manure available to spread'
+            )
         
-    def calculate_NPK_excretion(self, compound):
+    def calculate_NPK_excretion(self, element):
 
         # Get manure management systems
         mmss = self.par.get_unique('MMS')
@@ -349,16 +382,16 @@ class ManureMgmt():
                     herd.feed.demand
                     .groupby(['prod_system','animal'], axis=1)
                     .sum() *
-                    (rgetattr(herd, 'feed.ration_' + compound) / 100)
+                    (rgetattr(herd, 'feed.ration_' + element) / 100)
                 )
 
                 # Nutrients in bedding materials
-                bedding = rgetattr(herd, 'bedding_material_' + compound)
+                bedding = rgetattr(herd, 'bedding_material_' + element)
 
                 # Nutrients in live weight gain
                 lwg = (
                     herd.lwg *
-                    self.par.get_from_frame(compound + '_in_LW', herd.lwg)/1000
+                    self.par.get_from_frame(element + '_in_LW', herd.lwg)/1000
                 )
 
                 # Nutrients in products (excl. meat)
@@ -366,7 +399,7 @@ class ManureMgmt():
                     (
                         herd.production *
                         self.par.get_from_frame(
-                            compound + '_in_prod',
+                            element + '_in_prod',
                             herd.production
                         )/1000
                     )
@@ -387,18 +420,20 @@ class ManureMgmt():
                 # Calculate N excretion from fixed factor per head
                 excr_df = multiply_aligned(
                     (
-                        self.par.get_from_frame('manure_excr_'+compound,excr_df)
+                        self.par.get_from_frame('manure_excr_'+element,excr_df)
                         * self.par.get_from_frame('mms_share',excr_df)/100
                     ),
                     herd.heads
                 )
 
-            rsetattr(
-                herd,
-                'manure.' + compound + '_excr',
-                excr_df
+            # Add data attribute
+            herd.data_attr.add(
+                excr_df,
+                name = f'manure.{element}_excr',
+                unit = f'kg {element}/year',
+                orig = 'ManureMgmt',
+                desc = f'Manure {_elem_to_name[element]} excretion'
             )
-            herd.data_attr.update(['manure.' + compound + '_excr'])
 
         return None
     
@@ -421,7 +456,7 @@ class ManureMgmt():
             anis = herd.animals
 
             # Create dataframe
-            herd.manure.N_loss = pd.DataFrame(
+            df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,ani,mms,cmp) for ps in pss for ani in anis for mms in mmss for cmp in cmps],
@@ -433,28 +468,40 @@ class ManureMgmt():
 
             # Get share of total N that is available (this only applies to NOx-N and N2 losses
             # TAN_share=1 for other compounds
-            TAN_share = self.par.get_from_frame('TAN_share',herd.manure.N_loss)/100
+            TAN_share = self.par.get_from_frame('TAN_share',df)/100
             TAN_share.loc[:,~TAN_share.columns.get_level_values('compound').isin(['NOx-N','N2'])] = 1
 
             # Get N excr and propagate values to all compound columns
-            N_excr = herd.manure.N_excr.align(herd.manure.N_loss)[0].reindex(index=herd.manure.N_loss.index, columns=herd.manure.N_loss.columns)
+            N_excr = herd.manure.N_excr.align(df)[0].reindex(index=df.index, columns=df.columns)
 
 
             loss_stable = (
-                self.par.get_from_frame('loss_stable',herd.manure.N_loss)/100
+                self.par.get_from_frame('loss_stable', df)/100
                 * N_excr
             )
 
             loss_storage = (
-                self.par.get_from_frame('loss_storage',herd.manure.N_loss)/100
+                self.par.get_from_frame('loss_storage', df)/100
                 * TAN_share
                 * (N_excr - loss_stable)
             )
 
-            herd.manure.N_loss.loc[:,:] = loss_stable + loss_storage
-            herd.data_attr.update(['manure.N_loss'])
+            # Add data attribute
+            herd.data_attr.add(
+                loss_stable + loss_storage,
+                name = 'manure.N_loss',
+                unit = 'kg N/year',
+                orig = 'ManureMgmt',
+                desc = 'Manure losses of N-containing compounds in stables and during manure storage'
+            )
 
         return None
+    
+_elem_to_name = {
+    'N' : 'nitrogen (N)',
+    'P' : 'phosphorous (P)',
+    'K' : 'potassium (P)'
+}
 
 class Manure(Container):
     '''Class to store manure attributes in AnimalHerd obejcts'''

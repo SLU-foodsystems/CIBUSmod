@@ -187,8 +187,14 @@ class InputsMgmt(object):
         # Multiply input use by emissins
         res = res.mul(lci, axis=1)
         
-        rsetattr(module, attr+'_supply_chain_emissions', res)
-        module.data_attr.update([attr+'_supply_chain_emissions'])
+        # Add data attribute
+        module.data_attr.add(
+            res,
+            name = attr+'_supply_chain_emissions',
+            unit = 'kg/year',
+            orig = 'InputsMgmt',
+            desc = 'Supply chain emissions from input/energy use'
+        )
 
 def _ei_connect(ei_version,ei_model):
 

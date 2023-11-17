@@ -67,8 +67,14 @@ class CropResidueMgmt():
             .mul(crop_residues, axis=0)
         )
         
-        self.crops.crop_residues_harvestable = crop_residues_harvestable # [kg DM]
-        self.crops.data_attr.update(['crop_residues_harvestable'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            crop_residues_harvestable,
+            name = 'crop_residues_harvestable',
+            unit = 'kg DM/year',
+            orig = 'CropResidueMgmt',
+            desc = 'Potentially harvestable crop residues'
+        )
 
         return None
 
@@ -131,7 +137,13 @@ class CropResidueMgmt():
         assert np.isclose(total_demand.sum(), crop_residues_harvest.sum())
         assert (crop_residues_harvest<=self.crops.crop_residues_harvestable).all().all()
         
-        self.crops.crop_residues_harvest = crop_residues_harvest # [kg DM]
-        self.crops.data_attr.update(['crop_residues_harvest'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            crop_residues_harvest,
+            name = 'crop_residues_harvest',
+            unit = 'kg DM/year',
+            orig = 'CropResidueMgmt',
+            desc = 'Harvested crop residues'
+        )
 
         return None

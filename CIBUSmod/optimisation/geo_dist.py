@@ -1449,9 +1449,15 @@ class GeoDistributor:
             self.crops.production.sum(axis=1)
         ).all()
 
-        # Store dataframe as attribute
-        self.crops.production_per_use = crop_production_per_use_adjusted
-        self.crops.data_attr.update(['production_per_use'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            crop_production_per_use_adjusted,
+            name = 'production_per_use',
+            unit = 'kg/year',
+            orig = 'GeoDistributor',
+            desc = 'Total crop production distributed across different uses'
+        )
+
 
 class IndexedMatrix():
     '''Class to store pandas.Index/MultiIndex alongside a sparse

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr, multiply_aligned
+from ..utils.misc import rgetattr, rsetattr, multiply_aligned, fix_herds
 from ..utils.misc import Container
 
 class FeedMgmt():
@@ -20,20 +20,7 @@ class FeedMgmt():
         
         self.par = par
 
-        if isinstance(herds, pd.Series):
-            self.herds = herds
-        else:
-             if not isinstance(herds, list):
-                 herds = [herds]
-             self.herds = pd.Series(
-                data=herds,
-                index=pd.MultiIndex.from_tuples(
-                    [(h.species,h.breed,h.prod_system,h.sub_system) for h in herds],
-                    names=['species','breed','prod_system','sub_system']
-                )
-            )
-
-        self.check_index()
+        self.herds = fix_herds(herds)
 
         self.index = list(self.herds)[0].index
 
@@ -55,13 +42,17 @@ class FeedMgmt():
         
         vprint('Calculating feed consumption ...')
         self.calculate_feed_consumption()
+
         vprint('Calculating feed losses ...')
         self.calculate_losses()
+
         vprint('Calculating demand for crop products ...')
         self.calculate_product_demand(of='crop_prod')
         self.calculate_max_crop_in_crop_prod()
+
         vprint('Calculating demand for by-products ...')
         self.calculate_product_demand(of='by_prod')
+
         vprint('Calculating demand for crop residues ...')
         self.calculate_product_demand(of='crop_resid')
 
@@ -74,8 +65,10 @@ class FeedMgmt():
 
         vprint('Adjusting feed rations (not implemented) ...')
         self.redistribute_feeds()
+
         vprint('Calculating feed ration characteristics ...')
         self.calculate_ration_characteristics()
+
         vprint('Calculating enteric methane emissions ...')
         self.calculate_enteric_methane()
 
@@ -130,15 +123,26 @@ class FeedMgmt():
                 # Calculate avg. energy in feed ration [MJ/kg DM]
                 E_per_DM = (shares_per_feed * E_per_feed).groupby(['prod_system','animal'], axis=1).sum()
 
-                # Calculate required DM 
-                herd.feed_DM_req = herd.feed_E_req / E_per_DM
-                herd.data_attr.update(['feed.consumption'])
+                # Calculate required DM and add data attribute
+                herd.data_attr.add(
+                    herd.feed_E_req / E_per_DM,
+                    name = 'feed_DM_req',
+                    unit = 'kg DM/year',
+                    orig = 'FeedMgmt',
+                    desc = 'Total feed requirements in terms of dry matter'
+                )
 
             # Calculate and assign feed quantities [kg DM]
             df_feeds.loc[:,:] = shares_per_feed * herd.feed_DM_req.align(shares_per_feed)[0]
 
-            herd.feed.consumption = df_feeds.reindex(columns=herd.animals, level='animal') # [kg DM/year]
-            herd.data_attr.update(['feed.consumption'])
+            # Add data attribute
+            herd.data_attr.add(
+                df_feeds.reindex(columns=herd.animals, level='animal'),
+                name = 'feed.consumption',
+                unit = 'kg DM/year',
+                orig = 'FeedMgmt',
+                desc = 'Total feed consumption per feed'
+            )
 
     def calculate_ration_characteristics(self):
         '''Calculates ration characteristics'''
@@ -179,8 +183,14 @@ class FeedMgmt():
                     / ration_DM
                 )
 
-                setattr(herd.feed,'ration_'+par,res)
-                herd.data_attr.update(['feed.ration_'+par])
+                # Add data attribute
+                herd.data_attr.add(
+                    res,
+                    name = 'feed.ration_'+par,
+                    unit = 'MJ' if par in ['GE','DE'] else '%',
+                    orig = 'FeedMgmt',
+                    desc = 'Ration '+par+' content'
+                )
 
 
     def calculate_losses(self):
@@ -200,10 +210,29 @@ class FeedMgmt():
             feed_to_storage = feed_to_feeding * ( 1 / ( 1 - self.par.get_from_frame('storage_losses', feed_to_feeding)/100 ) )
             storage_losses = feed_to_storage - feed_to_feeding
 
-            herd.feed.demand = feed_to_storage
-            herd.feed.storage_losses = storage_losses
-            herd.feed.feeding_losses = feeding_losses
-            herd.data_attr.update(['feed.demand','feed.storage_losses','feed.feeding_losses'])
+            # Add data attributes
+            herd.data_attr.add(
+                feed_to_storage,
+                name = 'feed.demand',
+                unit = 'kg DM/year',
+                orig = 'FeedMgmt',
+                desc = 'Demand for feed after accounting for storage and feeding losses'
+            )
+            herd.data_attr.add(
+                storage_losses,
+                name = 'feed.storage_losses',
+                unit = 'kg DM/year',
+                orig = 'FeedMgmt',
+                desc = 'Losses of feed during storage'
+            )
+            herd.data_attr.add(
+                feeding_losses,
+                name = 'feed.feeding_losses',
+                unit = 'kg DM/year',
+                orig = 'FeedMgmt',
+                desc = 'Losses of feed during feeding'
+            )
+
           
     def calculate_product_demand(self, of='crop_prod'):
 
@@ -278,11 +307,14 @@ class FeedMgmt():
                     axis=1
                 )
 
-            # Set attribute feed.<crop/by>_product_demand
-            attr_name = 'feed.' + of + ('ue_demand' if of == 'crop_resid' else 'uct_demand')
-            unit = 'kg DM' if of == 'crop_resid' else 'kg' # For later use
-            rsetattr(herd, attr_name, result_df)
-            herd.data_attr.update([attr_name])
+            # Add data attributes
+            herd.data_attr.add(
+                result_df,
+                name = 'feed.' + of + ('ue_demand' if of == 'crop_resid' else 'uct_demand'),
+                unit = 'kg DM/year' if of == 'crop_resid' else 'kg/year',
+                orig = 'FeedMgmt',
+                desc = f'Demand for {"crop products" if of == "crop_prod" else "by-products" if of=="by_prod" else "crop residues"} for feed'
+            )
 
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
@@ -319,12 +351,24 @@ class FeedMgmt():
                     sub_system=herd.sub_system
                 )).groupby(['prod_system','crop_prod','crop'], axis=1).sum()/100
 
-                herd.feed.max_supply_from_crop = res
-                herd.data_attr.update(['feed.max_supply_from_crop'])
+                # Add data attribute
+                herd.data_attr.add(
+                    res,
+                    name = 'feed.max_supply_from_crop',
+                    unit = 'kg',
+                    orig = 'FeedMgmt',
+                    desc = 'Maximum supply of feed from crop. Used in GeoDistributor constraint'
+                )
 
             else:
-                herd.feed.max_supply_from_crop = None
-                herd.data_attr.update(['feed.max_supply_from_crop'])
+                # Add data attribute
+                herd.data_attr.add(
+                    None,
+                    name = 'feed.max_supply_from_crop',
+                    unit = 'kg/year',
+                    orig = 'FeedMgmt',
+                    desc = 'Maximum supply of feed from crop. Used in GeoDistributor constraint'
+                )
 
     def redistribute_feeds(self):
         # IMPLEMENT METHOD TO REDISTRIBUTE FEEDS
@@ -412,13 +456,17 @@ class FeedMgmt():
                 [(ps,an,'CH4bio') for ps,an in enteric_methane.columns],
                 names = ['prod_system', 'animal', 'compound']
             )
+
             # Store enteric methane emissions [kg CH4]
-            herd.enteric_methane = enteric_methane.fillna(0)
-            herd.data_attr.update(['enteric_methane'])
+            herd.data_attr.add(
+                enteric_methane.fillna(0),
+                name = 'enteric_methane',
+                unit = 'kg/year',
+                orig = 'FeedMgmt',
+                desc = 'Emissions of methane (CH4) from enteric fermentation'
+            )
 
             self.par.clear()
-
-
 
 class Feed(Container):
     '''Class to store feed attributes in AnimalHerd obejcts'''

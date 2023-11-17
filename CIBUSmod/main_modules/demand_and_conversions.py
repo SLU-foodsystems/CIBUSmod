@@ -3,9 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr
-from ..utils.misc import multiply_aligned
-from ..utils.misc import Container
+from ..utils.misc import Container, DataAttr, rgetattr, rsetattr, multiply_aligned
 from ..utils.retriever import ParameterRetriever
 
 ixsl = pd.IndexSlice
@@ -42,7 +40,7 @@ class DemandAndConversions(object):
     def __init__(self, par: ParameterRetriever):
 
         # Set to keep track of data attributes that have been assigned
-        self.data_attr = set()
+        self.data_attr = DataAttr(self)
 
         self.par = par
 
@@ -91,13 +89,13 @@ class DemandAndConversions(object):
         
         obj = StaticDemandAndConversions()
 
-        obj.data_attr = self.data_attr.copy()
+        obj.data_attr = DataAttr(obj)
 
-        for attr in obj.data_attr:
+        for attr in self.data_attr:
             if rgetattr(self, attr) is not None:
-                rsetattr(obj, attr, rgetattr(self, attr).copy())
+                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
             else:
-                rsetattr(obj, attr, None)
+                obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
 
@@ -105,8 +103,16 @@ class DemandAndConversions(object):
 
         self.par.clear()
 
-        self.population = self.par.get('population')[0]
-        self.data_attr.update(['population'])
+        population = self.par.get('population')[0]
+
+        # Add data attribute
+        self.data_attr.add(
+            population,
+            name = 'population',
+            unit = 'millions',
+            orig = 'DemandAndConversions',
+            desc = 'Human population'
+        )
 
     def calculate_food_demand(self):
 
@@ -138,9 +144,16 @@ class DemandAndConversions(object):
 
         # Get consumption (g/day)
         cons = self.par.get_from_frame('consumption',food_demand) * share_per_prod_system * share_per_origin
-        # Convert to [kg/year] and factor in population
-        self.food_demand = cons / 1000 * 365.25 * self.population * 1000000
-        self.data_attr.update(['population','food_demand'])
+
+        # Add data attribute
+        self.data_attr.add(
+            # Convert to [kg/year] and factor in population
+            cons / 1000 * 365.25 * self.population * 1000000,
+            name = 'food_demand',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Demand for food per production system and origin (domestic, imported)'
+        )
 
     def calculate_waste(self):
 
@@ -172,9 +185,21 @@ class DemandAndConversions(object):
         waste['processing'] = food_to_processing['domestic'] - food_to_retail['domestic'] 
         # waste = waste.droplevel('food_group')
 
-        self.food_demand_to_processing = food_to_processing
-        self.waste = waste
-        self.data_attr.update(['food_demand_to_processing','waste'])
+        # Add data attributes
+        self.data_attr.add(
+            food_to_processing,
+            name = 'food_demand_to_processing',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Food demand after accounting for household, retail and processing wastes'
+        )
+        self.data_attr.add(
+            waste,
+            name = 'waste',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Household, retail and processing wastes'
+        )
 
     def get_non_food_and_export_demand(self):
 
@@ -214,10 +239,21 @@ class DemandAndConversions(object):
         non_food_demand.loc[:] = self.par.get('non_food_demand',**non_food_demand.index.to_frame().to_dict('list')) * 1000
         export_demand.loc[:] = self.par.get('export_demand',**export_demand.index.to_frame().to_dict('list')) * 1000
 
-        # Store as data attributes
-        self.non_food_demand = non_food_demand
-        self.export_demand = export_demand
-        self.data_attr.update(['non_food_demand','export_demand'])
+        # Add data attributes
+        self.data_attr.add(
+            non_food_demand,
+            name = 'non_food_demand',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Demand for non-food uses'
+        )
+        self.data_attr.add(
+            export_demand,
+            name = 'export_demand',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Demand for exports'
+        )
         
 
     def calculate_crop_product_demand(self):
@@ -265,10 +301,21 @@ class DemandAndConversions(object):
         crop_prod_demand = crop_prod_demand.stack('crop_prod').groupby(['prod_system','crop_prod']).sum()
         crop_by_products = crop_by_products.stack(['crop_prod','by_prod']).groupby(['prod_system','crop_prod','by_prod']).sum()
 
-        # Store dataframes
-        self.crop_prod_demand = crop_prod_demand
-        self.crop_by_products = crop_by_products
-        self.data_attr.update(['crop_prod_demand','crop_by_products'])
+        # Add data attributes
+        self.data_attr.add(
+            crop_prod_demand,
+            name = 'crop_prod_demand',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Demand for crop products'
+        )
+        self.data_attr.add(
+            crop_by_products,
+            name = 'crop_by_products',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Generated crop by-products'
+        )
 
     def calculate_animal_product_demand(self):
 
@@ -362,10 +409,21 @@ class DemandAndConversions(object):
         animal_prod_demand = animal_prod_demand[animal_prod_demand.index.get_level_values('animal_prod') != 'cream']
         animal_by_products = animal_by_products[animal_by_products.index.get_level_values('by_prod')!='cream'].rename({'cream':'milk'})
 
-        # Store dataframes
-        self.animal_prod_demand = animal_prod_demand
-        self.animal_by_products = animal_by_products
-        self.data_attr.update(['animal_prod_demand','animal_by_products'])
+        # Add data attributes
+        self.data_attr.add(
+            animal_prod_demand,
+            name = 'animal_prod_demand',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Demand for animal products'
+        )
+        self.data_attr.add(
+            animal_by_products,
+            name = 'animal_by_products',
+            unit = 'kg/year',
+            orig = 'DemandAndConversions',
+            desc = 'Generated animal by-products'
+        )
 
         # Add induced skim milk exports to export demand
         self.export_demand = self.export_demand.add(

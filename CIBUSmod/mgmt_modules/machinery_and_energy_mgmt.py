@@ -38,7 +38,7 @@ class MachineryAndEnergyMgmt(object):
         vprint = verbose_init(verbose, id_str='MachineryAndEnergyMgmt')
 
         # Create dataframe to store energy use in crop production [kWh]
-        self.crops.energy_use = pd.DataFrame(
+        energy_use = pd.DataFrame(
             0,
             index = self.crops.index,
             columns = pd.MultiIndex.from_product([
@@ -46,7 +46,14 @@ class MachineryAndEnergyMgmt(object):
                 self.par.get_unique('energy_source')
             ], names=['activity','energy_source'])
         )
-        self.crops.data_attr.update(['energy_use'])
+        # Add data attribute
+        self.crops.data_attr.add(
+            energy_use,
+            name = 'energy_use',
+            unit = 'kWh/year',
+            orig = 'MachineryAndEnergyMgmt',
+            desc = 'Energy use for field machinery, grain drying and greenhouses'
+        )
 
         vprint('Calculating energy use in field machinery ...')
         self.calculate_field_machinery()
@@ -195,7 +202,7 @@ class MachineryAndEnergyMgmt(object):
             E_final.loc[idx[:,:,sc[soil_class]],:] = (
                 (A * E_per_area.loc[soil_class,:]).mul(self.crops.area, axis=0) +
                 (A * E_per_mass.loc[soil_class,:]).mul(self.crops.harvest, axis=0) +
-                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.harvested_crop_residues, axis=0)
+                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.crop_residues_harvest.sum(axis=1), axis=0)
             )
 
         # Calculate energy requirements per energy source and store
@@ -289,16 +296,22 @@ class MachineryAndEnergyMgmt(object):
             # Apply energy source share factors
             energy_use = energy_use * (pf('energy_source_share', energy_use)/100)
             
-            herd.energy_use = energy_use
-            herd.data_attr.update(['energy_use'])
+            # Add data attribute
+            herd.data_attr.add(
+                energy_use,
+                name = 'energy_use',
+                unit = 'kWh/year',
+                orig = 'MachineryAndEnergyMgmt',
+                desc = 'Energy use in stables'
+            )
 
     def calculate_combustion_emissions(self):
         
-        for item in [self.crops] + list(self.herds):
+        for module in [self.crops] + list(self.herds):
             self.par.clear()
 
             # Get energy use. kWh --> TJ
-            energy_use = item.energy_use * 1000 * 3600 / 1e12
+            energy_use = module.energy_use * 1000 * 3600 / 1e12
 
             # Get compounds
             cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')
@@ -317,5 +330,11 @@ class MachineryAndEnergyMgmt(object):
                 axis=1
             )
 
-            item.energy_use_emissions = emissions
-            item.data_attr.update(['energy_use_emissions'])
+            # Add data attribute
+            module.data_attr.add(
+                energy_use,
+                name = 'energy_use_emissions',
+                unit = 'kg/year',
+                orig = 'MachineryAndEnergyMgmt',
+                desc = 'Direct combustion emissions from energy use (excl. supply chain)'
+            )

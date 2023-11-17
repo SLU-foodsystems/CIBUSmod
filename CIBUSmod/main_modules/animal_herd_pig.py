@@ -114,7 +114,7 @@ class PigHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, lwg, inserted_n, slaughter_n, lost_n  = [empty_df.copy() for i in range(5)]
+        heads, lwg, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(5)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
         n = 0
@@ -151,7 +151,7 @@ class PigHerd(AnimalHerd):
                     tmp_growers_to_finishing[sel]
                 ]).T
             
-            slaughter_n.loc[:,(ps,slice(None))] = \
+            slaughtered_n.loc[:,(ps,slice(None))] = \
                 np.array([
                     sows_to_slaughter[sel],
                     boars_to_slaughter[sel],
@@ -173,12 +173,42 @@ class PigHerd(AnimalHerd):
 
             n += 1
 
-        self.heads = heads
-        self.lwg = lwg
-        self.inserted_n = inserted_n
-        self.slaughtered_n = slaughter_n
-        self.lost_n = lost_n
-        self.data_attr.update(['heads','lwg','inserted_n','slaughtered_n','lost_n'])
+        # Add data attributes
+        self.data_attr.add(
+            heads,
+            name = 'heads',
+            unit = 'heads',
+            orig = 'PigHerd',
+            desc = 'Total average number of heads over a year'
+        )
+        self.data_attr.add(
+            lwg,
+            name = 'lwg',
+            unit = 'kg LW',
+            orig = 'PigHerd',
+            desc = 'Total live weight gains used in calculating nutrient retention in animals'
+        )
+        self.data_attr.add(
+            inserted_n,
+            name = 'inserted_n',
+            unit = 'heads/year',
+            orig = 'PigHerd',
+            desc = 'Total number of heads inserted'
+        )
+        self.data_attr.add(
+            slaughtered_n,
+            name = 'slaughtered_n',
+            unit = 'heads/year',
+            orig = 'PigHerd',
+            desc = 'Total number of heads slaughtered'
+        )
+        self.data_attr.add(
+            lost_n,
+            name = 'lost_n',
+            unit = 'heads/year',
+            orig = 'PigHerd',
+            desc = 'Total number of heads lost'
+        )
 
     def calculate_feed_E_req(self,ps,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on

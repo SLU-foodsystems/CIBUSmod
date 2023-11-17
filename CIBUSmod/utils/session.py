@@ -54,13 +54,14 @@ class Session(object):
 
     def __repr__(self):
         
-        str0 = f'''*------------------*
+        str0 = f'''+------------------+
 | CIBUSmod SESSION |
-*------------------*
++------------------+
+Name: {self.name}
 '''
 
-        str1 = '''Scenarios
----------
+        str1 = '''SCENARIOS
+=========
 '''
         scns = list(self.scenarios.keys())
         scns += [
@@ -84,15 +85,18 @@ class Session(object):
             if nyears>1:
                 years = [years[0], years[-1]]
             str1 += (
-f'''{scn if in_scenarios else '('+scn+')'}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}{' [calculated]' if in_output else ''}{' [only in output]' if not in_scenarios else ''}
+f'''{scn if in_scenarios else '('+scn+')'}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}{' [has output]' if in_output else ''}{' [is defined]' if in_scenarios else ''}
 '''
             )
 
-        str2 = ''
+        str2 = '''OUTPUT DATA
+===========
+'''
         for i,module in enumerate(self.output.columns):
             str2 += (
-f'''{module}:
-{', '.join(self.output.iloc[0,i].data_attr)}
+f'''{module}
+{'-'*len(module)}
+{self.output.iloc[0,i].data_attr}
 
 '''
             )

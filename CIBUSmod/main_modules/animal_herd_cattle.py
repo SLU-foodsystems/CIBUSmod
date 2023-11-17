@@ -297,11 +297,35 @@ class CattleHerd(AnimalHerd):
 
             n += 1
         
-        self.heads = heads
-        self.lwg = lwg
-        self.slaughtered_n = slaughtered_n
-        self.lost_n = lost_n
-        self.data_attr.update(['heads','lwg','slaughtered_n','lost_n'])
+        # Add data attributes
+        self.data_attr.add(
+            heads,
+            name = 'heads',
+            unit = 'heads',
+            orig = 'CattleHerd',
+            desc = 'Total average number of heads over a year'
+        )
+        self.data_attr.add(
+            lwg,
+            name = 'lwg',
+            unit = 'kg LW',
+            orig = 'CattleHerd',
+            desc = 'Total live weight gains used in calculating nutrient retention in animals'
+        )
+        self.data_attr.add(
+            slaughtered_n,
+            name = 'slaughtered_n',
+            unit = 'heads/year',
+            orig = 'CattleHerd',
+            desc = 'Total number of heads slaughtered'
+        )
+        self.data_attr.add(
+            lost_n,
+            name = 'lost_n',
+            unit = 'heads/year',
+            orig = 'CattleHerd',
+            desc = 'Total number of heads lost'
+        )
 
     def calculate_feed_E_req(self,ps,ani):
         '''Calculates Metabolizable Energy (ME) and water requrements for cattle based on
