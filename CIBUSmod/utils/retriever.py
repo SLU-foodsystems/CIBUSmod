@@ -309,9 +309,13 @@ Parameters
                 # If file does not exist print warning and continue
                 warnings.warn(f"No xlsx file found for '{scn}' on path {scn_path}")
                 continue
-            if not self.name in load_workbook(scn_path, read_only=True).sheetnames:
+
+            wb = load_workbook(scn_path, read_only=True)
+            if not self.name in wb.sheetnames:
                 # If sheet does not exist don't update anything
+                wb._archive.close()
                 continue
+            wb._archive.close()
 
             # Read scenario parameter values
             scn_data = _read_xl(scn_path,self.name)
