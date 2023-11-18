@@ -332,7 +332,7 @@ class MachineryAndEnergyMgmt(object):
 
             # Add data attribute
             module.data_attr.add(
-                energy_use,
+                emissions,
                 name = 'energy_use_emissions',
                 unit = 'kg/year',
                 orig = 'MachineryAndEnergyMgmt',
