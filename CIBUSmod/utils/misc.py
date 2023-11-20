@@ -16,12 +16,6 @@ def rgetattr(obj, attr, *args):
         return getattr(obj, attr, *args)
     return functools.reduce(_getattr, [obj] + attr.split('.'))
 
-class Container(object):
-    '''Class that is only for storing arbitrary attributes in a nested way.'''
-    def new(self):
-        obj = type(self).__new__(self.__class__)
-        return obj
-
 class DataAttr(object):
     '''Class that assigns data attributes on main modules and keeps track of metadata.
     
@@ -133,6 +127,28 @@ class DataAttr(object):
 
         return None
     
+    def get(self, attr:str):
+        '''Get data attribute
+        
+        Parameters
+        ----------
+        attr : str
+            Data attribute to get
+            
+        Returns
+        -------
+        Data attribute, usually a pandas.DataFrame or pandas.Series'''
+
+        res = rgetattr(self.parent, attr)
+
+        return res
+
+class Container(object):
+    '''Class that is only for storing arbitrary attributes in a nested way.'''
+    def new(self):
+        obj = type(self).__new__(self.__class__)
+        return obj
+
 # Some helper functions for pandas objects
 
 # Function that aligns and multiplies two dataframes
