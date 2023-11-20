@@ -220,12 +220,18 @@ class GeoDistributor:
 
         # Update CropProduction
         self.crops.scale(x['crp'])
+
         # Update AnumalHerds
-        for h in self.herds:
-            h.scale(
-                x['ani'].loc[(h.species,h.breed,h.prod_system,h.sub_system)],
-                x_is = h.x_is
-            )
+        with warnings.catch_warnings():
+            # Ignore pandas peformance warning. Performance not a problem
+            # here but the issue could probably be solved by sorting x['ani']
+            warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+
+            for h in self.herds:
+                h.scale(
+                    x['ani'].loc[(h.species,h.breed,h.prod_system,h.sub_system)],
+                    x_is = h.x_is
+                )
         
         # Allocate crop areas to uses
         self.allocate_crop_production_per_use()
