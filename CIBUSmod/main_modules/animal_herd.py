@@ -182,22 +182,22 @@ animals              {self.animals}
         # Get 'old_x'
         if x_is in ['milk','meat']:
             if x_is == 'milk':
-                old_x = self.production.loc[:,(slice(None),'milk')].sum(axis=1)
+                old_x = self.data_attr.get('production').loc[:,(slice(None),'milk')].sum(axis=1)
             elif x_is == 'meat':
-                old_x = self.production.loc[:,(slice(None),'meat')].sum(axis=1)
+                old_x = self.data_attr.get('production').loc[:,(slice(None),'meat')].sum(axis=1)
         elif x_is == 'total horses':
-            old_x = self.heads.sum(axis=1)
+            old_x = self.data_attr.get('heads').sum(axis=1)
         elif x_is == 'total hens':
-            old_x = self.heads.drop('laying chicks', level='animal', axis=1).sum(axis=1)
+            old_x = self.data_attr.get('heads').drop('laying chicks', level='animal', axis=1).sum(axis=1)
         else:
-            old_x = self.heads.loc[:,(self.prod_system,x_is)]
+            old_x = self.data_attr.get('heads').loc[:,(self.prod_system,x_is)]
         
         # Update data attributes
         for attr in self.data_attr:
             if self.data_attr[attr]['scalable']:
-                if rgetattr(self, attr) is not None:
+                if self.data_attr.get(attr) is not None:
                     self.data_attr.add(
-                        rgetattr(self, attr).mul(new_x/old_x, axis=0),
+                        self.data_attr.get(attr).mul(new_x/old_x, axis=0),
                         name = attr,
                         **self.data_attr[attr]
                     )
@@ -222,8 +222,8 @@ animals              {self.animals}
         
         # Set data attributes
         for attr in self.data_attr:
-            if rgetattr(self, attr) is not None:
-                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
+            if self.data_attr.get(attr) is not None:
+                obj.data_attr.add(data=self.data_attr.get(attr).copy(), name=attr, **self.data_attr[attr])
             else:
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
@@ -254,7 +254,7 @@ animals              {self.animals}
             prs.append('heads')
 
         # Get ouput production systems
-        pss = self.heads.columns.get_level_values('prod_system').unique()
+        pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
         # Get animals
         anis = self.animals
 
@@ -266,7 +266,7 @@ animals              {self.animals}
         
         # Calculate meat production [kg CW]
         production.loc[:,(slice(None),slice(None),'meat')] = \
-            pd.concat({'meat': self.slaughtered_n}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
+            pd.concat({'meat': self.data_attr.get('slaughtered_n')}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
             np.array([p('slaughter_weight', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
 
         # Calculate raw milk production [kg ECM]
@@ -274,7 +274,7 @@ animals              {self.animals}
         if 'milk' in prs:
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
-                    pd.concat({'milk': self.heads.loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
+                    pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
                     (p('milk_prod', prod_system=ps) * p('milk_to_dairy', prod_system=ps)/100) *
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
                     axis = 0
@@ -285,13 +285,13 @@ animals              {self.animals}
         # Calculate egg production [kg]
         if 'eggs' in prs:
             production.loc[:,(slice(None),slice(None),'eggs')] = \
-                pd.concat({'eggs': self.heads}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
+                pd.concat({'eggs': self.data_attr.get('heads')}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
                 np.array([p('egg_production', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
         
         # Calculate total number of heads
         if 'heads' in prs:
             production.loc[:,(slice(None),slice(None),'heads')] = (
-                pd.concat({'heads': self.heads}, names=['animal_prod'], axis=1)
+                pd.concat({'heads': self.data_attr.get('heads')}, names=['animal_prod'], axis=1)
                 .reorder_levels(['prod_system','animal','animal_prod'], axis=1)
             )
         
@@ -326,7 +326,7 @@ animals              {self.animals}
         # conversion ratios or a fixed feed intake per animal.
         E_req = hasattr(self,'calculate_feed_E_req')
 
-        df_req = pd.DataFrame(index = self.index, columns = self.heads.columns)
+        df_req = pd.DataFrame(index = self.index, columns = self.data_attr.get('heads').columns)
 
         for ps,ani in df_req.columns:
             self.par.set(
@@ -481,28 +481,33 @@ def concat_herds(herds):
 
     # Go through data attributes and concatenate
     for attr in data_attr_in_all:
+        scalable = herds[0].data_attr[attr]['scalable']
+        # Only include scalable data attributes for now...
+        # Potentially rethink aggregation to be
+        # able to include also non-scalable data
+        if scalable:
 
-        df = pd.concat(
-            [
-                pd.concat({herd.species : 
-                    pd.concat({herd.breed :
-                        pd.concat({herd.sub_system : rgetattr(herd,attr)},
-                            names=['sub_system'],axis=1)},
-                        names=['breed'],axis=1)},
-                    names=['species'],axis=1)
-                if rgetattr(herd,attr) is not None else None for herd in herds
-            ],
-            axis=1
-        )
+            df = pd.concat(
+                [
+                    pd.concat({herd.species : 
+                        pd.concat({herd.breed :
+                            pd.concat({herd.sub_system : herd.data_attr.get(attr)},
+                                names=['sub_system'],axis=1)},
+                            names=['breed'],axis=1)},
+                        names=['species'],axis=1)
+                    if herd.data_attr.get(attr) is not None else None for herd in herds
+                ],
+                axis=1
+            )
 
-        # Group and sum columns to avoid duplicates
-        df = df.groupby(df.columns.names, axis=1).sum()
+            # Group and sum columns to avoid duplicates
+            df = df.groupby(df.columns.names, axis=1).sum()
 
-        # Add data attribute
-        metadata = herds[0].data_attr[attr]
-        if 'Herd' in metadata['orig'] and metadata['orig'] != 'AnimalHerd':
-            # Replace specific herd module name
-            metadata['orig'] = '<Spec.>Herd'
-        res_herd.data_attr.add(df, name=attr, **metadata)
+            # Add data attribute
+            metadata = herds[0].data_attr[attr]
+            if 'Herd' in metadata['orig'] and metadata['orig'] != 'AnimalHerd':
+                # Replace specific herd module name
+                metadata['orig'] = '<Spec.>Herd'
+            res_herd.data_attr.add(df, name=attr, **metadata)
 
     return res_herd

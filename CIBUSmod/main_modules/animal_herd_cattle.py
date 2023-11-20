@@ -17,20 +17,8 @@ class CattleHerd(AnimalHerd):
         super().__init__(par,index,**kwargs)
         
     def calculate_herd(self):
-        '''Calculates cattle herd structure and slaughters based on the number of cows.
-        
-        Parameters
-        ----------
-        cows : pandas.Series
-            A pandas series contaning the number of cows.
-        **kwargs : str or list
-            Keyword arguments to be passed on as filters to the ParameterRetriever.
-
-        Returns
-        -------
-        tuple of pandas.DataFrames
-            The order of DataFrames are (heads, slaughtered_n, lost_n)    
-            '''
+        '''Calculates cattle herd structure and slaughters as a fraction of the number of cows. 
+        '''
 
         # Clear and set filters for ParameterRetriever
         self.par.clear()
@@ -336,19 +324,19 @@ class CattleHerd(AnimalHerd):
         # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
         if ani in ['cows','breeding bulls']:
             live_weight = p('live_weight')
-            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
+            growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             if ani == 'cows':
                  # Subtract fetus growth
                  growth_rate -= (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') / 365.25
                  self.par.set(animal = ani)
         elif ani == 'calves':
-            live_weight_1yr = p('birth_weight') + self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)]
+            live_weight_1yr = p('birth_weight') + self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)]
             live_weight_pre_weaning = (p('live_weight_weaning') + p('birth_weight')) / 2
             growth_rate_pre_weaning = (p('live_weight_weaning') - p('birth_weight')) / p('weaning_age')
             live_weight = (live_weight_1yr + p('live_weight_weaning')) / 2
             growth_rate = (live_weight_1yr - p('live_weight_weaning')) / (365.25 - p('weaning_age'))
         else:
-            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
+            growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             live_weight = (2*p('live_weight_slaughter') - growth_rate * (p('slaughter_age')*30.44 - 365.25)) / 2
               
         # Daily ME req. for maintenance [MJ/day]
