@@ -127,7 +127,6 @@ f'''{module}
         ):
         
         for arg in args:
-            pass
 
             if isinstance(arg, DemandAndConversions):
                 # Demand
