@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, DataAttr, rgetattr, rsetattr
+from ..utils.misc import Container, DataAttr
 
 from ..mgmt_modules.plant_nutrient_mgmt import Fertiliser
 
@@ -73,7 +73,7 @@ class CropProduction(object):
 
         self.par.clear()
         self.par.set(**self.index.to_frame().to_dict('list'))
-        harvest = self.area * p('yield') # [kg]
+        harvest = self.data_attr.get('area') * p('yield') # [kg]
         harvest_dm = harvest * p('crop_dm') # [kg DM]
 
         # Add data attributes
@@ -121,13 +121,13 @@ class CropProduction(object):
             if (new_x.index != self.index).any():
                 raise TypeError('Index of x does not match index!')
 
-        old_x = self.area
+        old_x = self.data_attr.get('area')
         
         for attr in self.data_attr:
             if self.data_attr[attr]['scalable']:
-                if rgetattr(self, attr) is not None:
+                if self.data_attr.get(attr) is not None:
                     self.data_attr.add(
-                        rgetattr(self, attr).mul(new_x/old_x, axis=0),
+                        self.data_attr.get(attr).mul(new_x/old_x, axis=0),
                         name = attr,
                         **self.data_attr[attr]
                     )
@@ -144,8 +144,8 @@ class CropProduction(object):
         obj.data_attr = DataAttr(obj)
 
         for attr in self.data_attr:
-            if rgetattr(self, attr) is not None:
-                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
+            if self.data_attr.get(attr) is not None:
+                obj.data_attr.add(data=self.data_attr.get(attr).copy(), name=attr, **self.data_attr[attr])
             else:
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
@@ -165,7 +165,7 @@ class CropProduction(object):
                 index=self.index,
                 columns=pd.Index(cps, name='crop_prod')
             )
-        ).mul(self.harvest, axis=0)
+        ).mul(self.data_attr.get('harvest'), axis=0)
 
         # Add data attribute
         self.data_attr.add(
@@ -194,7 +194,7 @@ class CropProduction(object):
                 columns = pd.Index(['above ground','below ground'], name='residue')
             )
             .mul(p('crop_dm'), axis=0)
-            .mul(self.harvest, axis=0)
+            .mul(self.data_attr.get('harvest'), axis=0)
         )
 
         # Add data attribute
@@ -215,7 +215,7 @@ class CropProduction(object):
 
         # Create dataframe and calculate seed demand
         df = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
-        seed_demand = self.par.get_from_frame('seed', df).mul(self.area, axis=0)
+        seed_demand = self.par.get_from_frame('seed', df).mul(self.data_attr.get('area'), axis=0)
 
         # Add data attribute
         self.data_attr.add(
