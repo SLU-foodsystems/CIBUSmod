@@ -1,9 +1,5 @@
 # THIS W.I.P. TRYING TO USE A SQLITE DATABASE TO STORE OUTPUTS INSTEAD OF HAVING
-# EVERYTHING IN MEMORY. RUNS INTO PROBLES WITH SOME DATAFRAMES HAVING > 2000 COLUMNS
-# POT. SOLUTIONS:
-#    1) Each AnimalHerd object as separate module and concat after reading from db
-#    2) Rethink data structure and drop zero columns (some work but might save a lot of space)
-
+# EVERYTHING IN MEMORY. 
 
 import warnings
 import sqlite3
@@ -333,6 +329,10 @@ def _db_write_data(data, module, attr, scn, year, db_path):
             # Flatten MultiIndex columns
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = ['::'.join(c) for c in data.columns]
+            # Drop zero columns to avoid >2000 cols sqlite limit
+            # and store columns to reindex when reading
+            idxcol.update({'columns' : '::::'.join(data.columns)})
+            data = data.loc[:, (data != 0).any(axis=0)]
 
     # Write data and metadata
     con = sqlite3.connect(db_path)
@@ -366,10 +366,19 @@ def _db_read_data(module, attr, scn, year, db_path):
             pd.read_sql_query(f'SELECT * from "{table}"', con)
             .set_index(idxcol['index_names'].split('::'))
         )
-        data.columns = pd.MultiIndex.from_tuples(
-            [tuple(c.split('::')) for c in data.columns],
-            names = idxcol['columns_names'].split('::')
-        )
+        # Restore columns droped while writing to db
+        data = data.reindex(idxcol['columns'].split('::::'), axis=1, fill_value=0)
+        # Restore column (Multi)Index
+        if '::' in idxcol['columns_names']:
+            data.columns = pd.MultiIndex.from_tuples(
+                [tuple(c.split('::')) for c in data.columns],
+                names = idxcol['columns_names'].split('::')
+            )
+        else:
+            data.columns = pd.Index(
+                data.columns,
+                name = idxcol['columns_names']
+            )
         
     con.close()
     
