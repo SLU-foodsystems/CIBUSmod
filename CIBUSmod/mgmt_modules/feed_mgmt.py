@@ -189,7 +189,8 @@ class FeedMgmt():
                     name = 'feed.ration_'+par,
                     unit = 'MJ' if par in ['GE','DE'] else '%',
                     orig = 'FeedMgmt',
-                    desc = 'Ration '+par+' content'
+                    desc = 'Ration '+par+' content',
+                    scalable = False
                 )
 
 
@@ -355,7 +356,7 @@ class FeedMgmt():
                 herd.data_attr.add(
                     res,
                     name = 'feed.max_supply_from_crop',
-                    unit = 'kg',
+                    unit = 'kg/year',
                     orig = 'FeedMgmt',
                     desc = 'Maximum supply of feed from crop. Used in GeoDistributor constraint'
                 )
