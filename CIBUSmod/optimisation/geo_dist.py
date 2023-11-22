@@ -1379,29 +1379,30 @@ class GeoDistributor:
             if len(crs_wo_max_feed)<0:
                 warnings.warn(f"All crops for crop_prod {cp} constrained with 'max_crop_in_crop_prod'. This may cause strange results")
             
-            for cr in crs_w_max_feed:
-                crop_production_per_use_adjusted.loc[[cr],max_feed_from_crop.columns] = (
+            for cr_w in crs_w_max_feed:
+            
+                crop_production_per_use_adjusted.loc[[cr_w],max_feed_from_crop.columns] = (
                     max_feed_from_crop
                     .xs(cp)
-                    .loc[[cr]]
+                    .loc[[cr_w]]
                     .transform(
                         lambda x: x/x.sum(),
                         axis=1
                     )
                     .mul(
                         self.crops.production
-                        .loc[[cr],cp],
+                        .loc[[cr_w],cp],
                         axis=0
                     )
                 )
 
                 assert np.isclose(
-                    crop_production_per_use_adjusted.loc[cr].sum().sum(),
-                    crop_production_per_use.loc[cr].sum().sum()
+                    crop_production_per_use_adjusted.loc[cr_w].sum().sum(),
+                    crop_production_per_use.loc[cr_w].sum().sum()
                 )
 
-            for cr in crs_wo_max_feed:
-                crop_production_per_use_adjusted.loc[[cr],max_feed_from_crop.columns] = (
+            for cr_wo in crs_wo_max_feed:
+                crop_production_per_use_adjusted.loc[[cr_wo],max_feed_from_crop.columns] = (
                     (
                         # Share of cp per use
                         total_demand_shares
@@ -1429,7 +1430,7 @@ class GeoDistributor:
                     # Share cr of crs_wo_max_feed
                     .mul(
                         crop_production_per_use
-                        .loc[[cr],max_feed_from_crop.columns]
+                        .loc[[cr_wo],max_feed_from_crop.columns]
                         .sum(axis=1)
                         /
                         crop_production_per_use
@@ -1444,18 +1445,16 @@ class GeoDistributor:
                 )
 
                 assert np.isclose(
-                    crop_production_per_use_adjusted.loc[cr].sum().sum(),
-                    crop_production_per_use.loc[cr].sum().sum()
+                    crop_production_per_use_adjusted.loc[cr_wo].sum().sum(),
+                    crop_production_per_use.loc[cr_wo].sum().sum()
                 )
 
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # !! THESE ASSERTIONS FAIL SOMETIMES NEED TO CHECK WHY AND FIX !!
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # assert not (crop_production_per_use_adjusted<-1e-4).any().any() 
+        assert not (crop_production_per_use_adjusted<-1e-4).any().any() 
 
-        # assert abs(
-        #     crop_production_per_use_adjusted.sum(axis=1)-self.crops.production.sum(axis=1)
-        # ).max() < 50
+        assert abs(
+            crop_production_per_use_adjusted.sum(axis=1)-self.crops.production.sum(axis=1)
+        ).max() < 10
+
 
         # Add data attribute
         self.crops.data_attr.add(
