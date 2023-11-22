@@ -1,5 +1,5 @@
 from .utils.retriever import ParameterRetriever
-from .utils.session import Session
+from .utils.session_db import Session
 
 # Import main modules
 from .main_modules.regions import Regions
@@ -18,3 +18,6 @@ from .mgmt_modules.crop_residue_mgmt import CropResidueMgmt
 
 # Import geo distiributor
 from .optimisation.geo_dist import GeoDistributor
+
+# Import output data manipulation functions
+from .utils.output_data_manip_db import get_emissions, get_GHG

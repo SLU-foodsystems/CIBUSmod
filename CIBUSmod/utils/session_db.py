@@ -11,19 +11,36 @@ from ..main_modules.regions import Regions
 from ..main_modules.crop_prod import CropProduction
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
-from .output_data_manip import \
-    get_attr, get_emissions, get_GHG, to_ICBM
-
-
 class Session(object):
-    '''
+    '''Class that handles the definition of scenarios and storing/retrieving
+    output data from a database (SQLite) file.
     
     Parameters
     ----------
     name : str
         Session name
     data_path : str
-        '''
+
+    When a new Session object is initialised it checks if the file '<data_path>/output/<name>.sqlite' exists
+    and if so connects to that database and any outputs within it.
+
+    Printing the Session object will show information on defined scenarios and output data.
+
+    Main methods
+    ------------
+    .add_scenario()     Defines a new scenario.
+    .remove_scenario()  Removes a scenario (including any associated output data).
+    .iterate()          Used to iterate over scenarios and years.
+    .store()            Stores a model run in the output database.
+    .clean()            Cleans up the database file (see note)
+    .get_attr()         Get output data
+
+    Note: The database file grows quite large if there are many scenarios and years. Perhaps the data stored in
+    the output database should be limited but for now most things calculated in a model run is stored as
+    output. Removing scenarios does not immediatly reduce the database file size. If many scenarios have been
+    added and removed use .clean() to defragment the database and (potentially) reduce its filesize.
+    
+    '''
 
     def __init__(self, name, data_path):
         
@@ -89,13 +106,45 @@ f'''{module}
         return '\n'.join([str0, str1, str2])
 
     def add_scenario(self, name, scenario=None, modules='all', pars='all', years='nd'):
-        '''Adds a scenario'''
+        '''Adds a scenario to the Session object
+        
+        Parameters
+        ----------
+        name : str
+            Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
+        scenario : None or (list of) str with scenario Excel sheet name(s), default None
+            Name of scenaro Excel sheet(s) to use. If None default data are used
+            If a list is supplied data is uppdated based on all scenario Excel sheets but if
+            the same parameter is updated in several Excel sheets only the latest one in the
+            list will have an effect.
+        modules : 'all' or (list of) str with module names, default 'all'
+            Modules to be updated. If 'all', all modules will be updated otherwise only the
+            modules specified will be updated according to the scenario Excel file(s)
+        pars : 'all' or (list of) str with parameter names
+                or dict with module:[parameter(s)], default 'all'
+            Parameters to be updated. If 'all', all parameters are updated otherwise only the
+            specified parameters are updated (see examples)
+
+            Example 1:
+            pars = ['par_A', 'par_B']
+            This will only update 'par_A' and 'par_B' across all modules
+
+            Example 2:
+            pars = {'Mod1' : ['par_A', 'par_B'], 'Mod2' : 'par_C'}
+            This will only update 'par_A' and 'par_B' in module 'Mod1', only update 'par_C'
+            in 'Mod2' and all parameters in any other module.
+        years : (list of) str
+            Years to be run
+
+        '''
 
         if name in self.scenarios:
             print(f'A scenario with the name {name} already exists .remove_scenario() first.')
         
         if not isinstance(years, list):
             years = [years]
+
+        years = [str(y) for y in years]
         
         self.scenarios.update(
             {
@@ -113,7 +162,14 @@ f'''{module}
         return None
 
     def remove_scenario(self, name):
-        '''Removes named scenario including all output data'''
+        '''Removes named scenario including all output data
+        
+        Parameters
+        ----------
+        name : str
+            Name of scenario to be removed
+        
+        '''
 
         if name in self.scenarios:
             if name in _db_get_scn_in_data(self.db_path):
@@ -157,7 +213,7 @@ f'''{module}
 
         return None
 
-    def iterate(self, subset='not run'):
+    def iterate(self, subset='no output'):
         '''Iterates over scenarios and years
         
         Parameters
@@ -167,13 +223,21 @@ f'''{module}
             If 'no output', only scenarios without outputs are iterated over
             If (list of) scenario name(s) are provided those scenarios are iterated over
         
-        Use example
-        -----------
-        for scn, year in Session.iterate():
-            <-- CIBUSmod run code -->'''
+        Example:
+        for scn, year in obj.iterate():
+        
+            <-- CIBUSmod run code -->
+            
+            obj.store(
+                scn = scn,
+                year = year,
+                ...
+            )
+            
+        '''
         
         if subset == 'no output':
-            w_output = _db_get_scn_in_data()
+            w_output = _db_get_scn_in_data(self.db_path)
             scns = [s for s in self.scenarios if s not in w_output]
         elif subset == 'all':
             scns = self.scenarios.keys()
@@ -200,9 +264,10 @@ f'''{module}
             Scenario name
         year : str
             Year
-        *args : CIBUSmod main moduels
+        *args : CIBUSmod main moduels / iterable of AnimalHerd objects
             Pass in the modules to store output data for
-            '''
+            
+        '''
 
         print(f'Writing output data to {self.db_path}')
         
