@@ -1,6 +1,3 @@
-# THIS W.I.P. TRYING TO USE A SQLITE DATABASE TO STORE OUTPUTS INSTEAD OF HAVING
-# EVERYTHING IN MEMORY. 
-
 import warnings
 import sqlite3
 import numpy as np
@@ -8,6 +5,7 @@ import pandas as pd
 import os
 
 from .retriever import ParameterRetriever
+from .misc import DataAttr
 from ..main_modules.demand_and_conversions import DemandAndConversions
 from ..main_modules.regions import Regions
 from ..main_modules.crop_prod import CropProduction
@@ -57,39 +55,33 @@ Name: {self.name}
 =========
 '''
         scns = list(self.scenarios.keys())
-        scns += [
-            s for s
-            in self.output.index.get_level_values('scn').unique()
-            if s not in scns
-        ]
+        tables = _db_get_tables(self.db_path)
+
         for scn in scns:
-            try:
-                years = self.scenarios[scn]['years']
-                in_scenarios = True
-                if scn in self.output.index.get_level_values('scn'):
-                    in_output = True
-                else:
-                    in_output = False
-            except KeyError:    
-                years = self.output.loc[scn].index.get_level_values('year')
-                in_scenarios = False
-                in_output = True
+            years = self.scenarios[scn]['years']
             nyears = len(years)
+            if any([f'${scn}' in t for t in tables]):
+                output_status = 'has output'
+            else:
+                output_status = 'no output'
             if nyears>1:
                 years = [years[0], years[-1]]
             str1 += (
-f'''{scn if in_scenarios else '('+scn+')'}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}{' [has output]' if in_output else ''}{' [is defined]' if in_scenarios else ''}
+f'''{scn}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}[{output_status}]
 '''
             )
 
         str2 = '''OUTPUT DATA
 ===========
 '''
-        for i,module in enumerate(self.output.columns):
+        modules = [t.replace('__metadata','') for t in tables if '__metadata' in t]
+        for i,module in enumerate(modules):
+            data_attr = DataAttr(0)
+            data_attr.dict = _db_read_metadata(module, self.db_path)
             str2 += (
 f'''{module}
 {'-'*len(module)}
-{self.output.iloc[0,i].data_attr}
+{data_attr}
 
 '''
             )
@@ -97,8 +89,12 @@ f'''{module}
         return '\n'.join([str0, str1, str2])
 
     def add_scenario(self, name, scenario=None, modules='all', pars='all', years='nd'):
+        '''Adds a scenario'''
 
-        if not isinstance(years,list):
+        if name in self.scenarios:
+            print(f'A scenario with the name {name} already exists .remove_scenario() first.')
+        
+        if not isinstance(years, list):
             years = [years]
         
         self.scenarios.update(
@@ -117,11 +113,78 @@ f'''{module}
         return None
 
     def remove_scenario(self, name):
-        
-        del self.scenarios[name]
-        _db_write_scn(self.scenarios, self.db_path)
-        
+        '''Removes named scenario including all output data'''
+
+        if name in self.scenarios:
+            if name in _db_get_scn_in_data(self.db_path):
+                ui = input('This scenario has output data that will also be removed. Proceed? (Y/n)')
+                if ui.capitalize() == 'Y':
+                    # Remove all output data from scenario
+                    modules = _db_get_modules_in_data(ss.db_path)
+                    years = ss.scenarios[scn]['years']
+                    
+                    for module in modules:
+                        attrs = _db_get_attr_in_data(module, ss.db_path)
+                        for attr in attrs:
+                            for year in years:
+                                _db_drop_data(
+                                    module = module,
+                                    attr = attr,
+                                    scn = scn,
+                                    year = year,
+                                    db_path = ss.db_path
+                                )
+
+                    # If no more scenarios with output data also drop metadata
+                    if len(_db_get_scn_in_data(self.db_path)) == 0:
+                        _db_drop_all_metadata(self.db_path)
+                else:
+                    return None
+                    
+            del self.scenarios[name]
+            _db_write_scn(self.scenarios, self.db_path)
+            
+        else:
+            raise ValueError(f'Scenario {name} does not exist')
+
         return None
+
+    def clean(self):
+        '''Cleans up database file (i.e. VACUUM;)'''
+
+        print(f'Cleaning {self.db_path}. This may take a while...')
+        _db_vacuum(self.db_path)
+
+        return None
+
+    def iterate(self, subset='not run'):
+        '''Iterates over scenarios and years
+        
+        Parameters
+        ----------
+        subset : 'all', 'no output' (default) or (list of) scenario name(s)
+            If 'all', all scenarios are iterated over
+            If 'no output', only scenarios without outputs are iterated over
+            If (list of) scenario name(s) are provided those scenarios are iterated over
+        
+        Use example
+        -----------
+        for scn, year in Session.iterate():
+            <-- CIBUSmod run code -->'''
+        
+        if subset == 'no output':
+            w_output = _db_get_scn_in_data()
+            scns = [s for s in self.scenarios if s not in w_output]
+        elif subset == 'all':
+            scns = self.scenarios.keys()
+        elif isinstance(subset, str):
+            scns = [subset]
+        elif _isiterable(subset):
+            scns = subset
+            
+        for scn in scns:
+            for year in self.scenarios[scn]['years']:
+                yield (scn,year)
 
     def store(
             self,
@@ -129,105 +192,275 @@ f'''{module}
             year,
             *args
         ):
+        '''Write output data to database file.
+        
+        Parameters
+        ----------
+        scn : str
+            Scenario name
+        year : str
+            Year
+        *args : CIBUSmod main moduels
+            Pass in the modules to store output data for
+            '''
 
-        scn = 'base year'
-        year = '2020'
+        print(f'Writing output data to {self.db_path}')
         
         for arg in args:
 
-            if isinstance(arg, DemandAndConversions):
-                # Demand
-                module = 'DemandAndConversions'
-                _db_write_metadata(
-                    metadata=arg.data_attr.dict,
-                    module=module,
-                    db_path=self.db_path
-                )
-                for attr in arg.data_attr:
-                    if arg.data_attr[attr]['scalable']:
-                        print(module,attr)
-                        _db_write_data(
-                            data=arg.data_attr.get(attr),
-                            module=module,
-                            attr=attr,
-                            scn=scn,
-                            year=year,
-                            db_path=self.db_path
-                        )
-
-            elif isinstance(arg, Regions):
-                # Regions
-                module = 'Regions'
-                _db_write_metadata(
-                    metadata=arg.data_attr.dict,
-                    module=module,
-                    db_path=self.db_path
-                )
-                for attr in arg.data_attr:
-                    if arg.data_attr[attr]['scalable']:
-                        print(module,attr)
-                        _db_write_data(
-                            data=arg.data_attr.get(attr),
-                            module=module,
-                            attr=attr,
-                            scn=scn,
-                            year=year,
-                            db_path=self.db_path
-                        )
-                    
-            elif isinstance(arg, CropProduction):
-                # Crops
-                module = 'CropProduction'
-                _db_write_metadata(
-                    metadata=arg.data_attr.dict,
-                    module=module,
-                    db_path=self.db_path
-                )
-                for attr in arg.data_attr:
-                    if arg.data_attr[attr]['scalable']:
-                        print(module,attr)
-                        _db_write_data(
-                            data=arg.data_attr.get(attr),
-                            module=module,
-                            attr=attr,
-                            scn=scn,
-                            year=year,
-                            db_path=self.db_path
-                        )
-                    
-            elif _isiterable(arg):
+            if _isiterable(arg):
                 if np.all([isinstance(h,AnimalHerd) for h in arg]):
-                    # Animals
-                    module = 'AnimalHerd'
-                    all_herds = concat_herds(
-                        arg.apply(lambda x: x.make_static())
-                    )
-                    _db_write_metadata(
-                        metadata=all_herds.data_attr.dict,
-                        module=module,
-                        db_path=self.db_path
-                    )
-                    for attr in all_herds.data_attr:
-                        if all_herds.data_attr[attr]['scalable']:
-                            print(module,attr)
-                            _db_write_data(
-                                data=all_herds.data_attr.get(attr),
-                                module=module,
-                                attr=attr,
-                                scn=scn,
-                                year=year,
-                                db_path=self.db_path
-                            )
-                    
+                    arg = concat_herds(arg)
                 else:
-                    print('Iterable of non-AnimalHerd objects ignored')
-            else:
-                print(type(arg),'ignored')
+                    warnings.warn('Iterable of non-AnimalHerd objects ignored')
 
-    def iterate(self):
-        for scn in self.scenarios:
-            for year in self.scenarios[scn]['years']:
-                yield (scn,year)
+            if hasattr(arg, 'module_name') and hasattr(arg, 'data_attr'):
+
+                module = arg.module_name
+                
+                _db_write_metadata(
+                    metadata=arg.data_attr.dict,
+                    module=module,
+                    db_path=self.db_path
+                )
+                
+                for attr in arg.data_attr:
+                    if arg.data_attr[attr]['scalable']:
+                        _db_write_data(
+                            data=_get_check_and_clean(arg, module, attr),
+                            module=module,
+                            attr=attr,
+                            scn=scn,
+                            year=year,
+                            db_path=self.db_path
+                        )
+
+            else:
+                warnings.warn(f'{type(arg)} ignored')
+
+    def get_attr(
+        self,
+        module,
+        attr,
+        groupby = 'all',
+        interpolate = False,
+        keep_duplicate_levels = 'index',
+        suffixes = ('_idx','_col')
+    ):
+        '''Get specified data attribute from output.
+        
+        Parameters
+        ----------
+        module : str
+            Module to get output from: 'DemandAndConversions', 'Regions', 'CropProduction' or 'AnimalHerd'
+        attr : str
+            data attribute to get
+        groupby : str, list or dict, default 'all'
+            If str or list data is grouped and aggregated by these index/column levels.
+            If 'all' data is not aggregated
+            If 'none'  data is summed over all index/columns
+            If a dict is supplied relation tables are used
+        interpolate : Bool, default True
+            If True interpolate between defined years
+        keep_duplicate_levels: {'index','columns','both'}, default 'index'
+            If the same groupby level is in both index and columns of data attribute
+            then keep level on the specified axis. If 'both', both levels are
+            retained and renamed with 'suffixes'
+        suffixes : itterable of len 2, default ('_idx','_col')
+            Suffixes to use for index and column levels if 'keep_duplicate_levels' is 'both'
+            
+        Returns
+        -------
+        pandas.DataFrame or Series with scenario (scn) and year as index and <groupby>
+        as columns.
+        '''
+        
+        short_hands = {
+            'D':'DemandAndConversions', 'R':'Regions',
+            'C':'CropProduction', 'A':'AnimalHerd'
+        }
+        if module not in short_hands.values():
+            try:
+                module = short_hands[module.upper()]
+            except KeyError:
+                raise ValueError('Invalid module name')
+        
+        # Get first scn and year
+        scn = list(self.scenarios.keys())[0]
+        year = self.scenarios[scn]['years'][0]
+        x = _db_read_data(
+            module = module,
+            attr = attr,
+            scn = scn,
+            year = year,
+            db_path = self.db_path
+        )
+    
+        if groupby == 'all':
+            groupby = list(x.index.names)
+            if isinstance(x,pd.DataFrame):
+                groupby += [lvl for lvl in x.columns.names if lvl not in groupby]
+        if groupby == 'none':
+            groupby = []
+        
+        if isinstance(groupby,str):
+            groupby = [groupby]
+        if isinstance(groupby,dict):
+            rel = {k:v for k,v in groupby.items() if v is not None and k != v}
+            groupby = list(groupby)
+        else:
+            rel = {}
+            
+        # Check for duplicate groupby levels in both index and
+        # columns and if 'keep_duplicate_levels' is 'both', add
+        # suffixes in data and groupby list
+        if isinstance(x, pd.DataFrame):
+            idx_col_same = \
+            [lvl for lvl in groupby if lvl in x.index.names and lvl in x.columns.names]
+        else:
+            idx_col_same = []
+        if len(idx_col_same)>0:
+            if keep_duplicate_levels == 'both':
+                new_groupby = []
+                idx_rename = {}
+                col_rename = {}
+                idx_drop = None
+                col_drop = None
+                for lvl in groupby:
+                    if lvl in idx_col_same:
+                        idx_rename.update({lvl:lvl+suffixes[0]})
+                        col_rename.update({lvl:lvl+suffixes[1]})
+                        new_groupby += [lvl+suffixes[0]]
+                        new_groupby += [lvl+suffixes[1]]
+                    else:
+                        new_groupby += [lvl]
+                groupby = new_groupby
+            elif keep_duplicate_levels == 'index':
+                idx_rename = None
+                col_rename = None
+                idx_drop = None
+                col_drop = idx_col_same
+            elif keep_duplicate_levels == 'columns':
+                idx_rename = None
+                col_rename = None
+                idx_drop = idx_col_same
+                col_drop = None
+            else:
+                raise ValueError("'keep_duplicate_levels' must be one of {'index','columns','both'}")
+        else:
+            idx_rename = None
+            col_rename = None
+            idx_drop = None
+            col_drop = None
+
+        data_index = pd.MultiIndex.from_tuples(
+            [(scn, year) for scn in self.scenarios for year in self.scenarios[scn]['years']],
+            names = ['scn', 'year']
+        )
+        d = []
+        for scn, year in data_index:
+            # Get attribute
+            x = _db_read_data(
+                module = module,
+                attr = attr,
+                scn = scn,
+                year = year,
+                db_path = self.db_path
+            )
+            
+            # Drop or add suffixes to handle duplicate levels in index and columns
+            if idx_rename is not None:
+                x = x.rename_axis(index=idx_rename, columns=col_rename)
+            if idx_drop is not None:
+                x = x.droplevel(idx_drop)
+            if col_drop is not None:
+                x = x.droplevel(col_drop, axis=1)
+            
+            # Get index levels to group by
+            ig = [g for g in groupby if g in x.index.names]
+            if isinstance(x, pd.DataFrame):
+                # Get column levels to group by
+                cg = [g for g in groupby if g in x.columns.names]
+            else:
+                cg = None
+            
+            for lvl in [g for g in ig if g in rel]:
+                # Rename index based on relation table
+                x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), level=lvl)
+            if cg is not None:
+                for lvl in [g for g in cg if g in rel]:
+                    # Rename columns based on relation table
+                    x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), axis=1, level=lvl)
+            
+            if len(ig)>0:
+                # Group by index levels and aggregate
+                x = x.groupby(ig if len(ig)>1 else ig[0]).sum()
+            else:
+                # Aggregate across all index levels
+                x = x.sum()
+    
+            if isinstance(x,pd.DataFrame) and cg is not None:
+                if len(cg)>0:
+                    # Group by column levels and aggregate
+                    x = x.groupby(cg if len(cg)>1 else cg[0], axis=1).sum()
+                else:
+                    # Aggregate across all column levels
+                    x = x.sum(axis=1)
+            elif isinstance(x,pd.Series):
+                if cg is not None:
+                    if len(cg)>0:
+                        # Group by column (now index) levels and aggregate
+                        x = x.groupby(cg if len(cg)>1 else cg[0]).sum()
+                    else:
+                        # Aggregate across all column (now index) levels
+                        x = x.sum()
+    
+            if isinstance(x,pd.DataFrame):
+                nlevels = x.columns.nlevels
+                if nlevels == 1 and isinstance(x.columns,pd.MultiIndex):
+                    # Fix problem with single-level MultiIndex stacking by
+                    # converting to Index
+                    x.columns = x.columns.get_level_values(0)
+                # Stack dataframe to sries
+                x = x.stack(list(range(nlevels)))
+            if not isinstance(x,pd.Series):
+                # If float returned create series
+                x = pd.Series(x)
+    
+            d.append(x)
+    
+        # Combine and transpose
+        data = pd.concat(d, axis=1).T
+        data.index = data_index
+    
+        if len(data.columns) == 1:
+            # If only one column. Make series with attr as name
+            data = data.iloc[:,0]
+            data.name = attr
+            
+        if isinstance(data, pd.DataFrame) and data.columns.nlevels>1:
+            # Reorder column levels as specified in groupby
+            data = data.reorder_levels([g for g in groupby if g in data.columns.names], axis=1)
+    
+        if interpolate:
+            # Interpolate to yearly data
+    
+            # Create new index with all years represented
+            new_idx = pd.MultiIndex.from_tuples(
+                [
+                    (scn,str(year))
+                    for scn in data.index.get_level_values('scn').unique()
+                    for year in range(
+                        min(data.loc[scn].index.astype(int)),
+                        max(data.loc[scn].index.astype(int))+1
+                    )
+                ],
+                names = ['scn','year']
+            )
+            # Reindex and interpolate
+            data = data.reindex(new_idx).interpolate()
+    
+        return data
 
 def _path_from_str(str):
     path = ''
@@ -241,6 +474,34 @@ def _isiterable(obj):
         return True
     except TypeError:
         return False
+
+def _get_check_and_clean(module, module_name, attr, zero_tol=1e-6):
+
+    data = module.data_attr.get(attr).copy()
+    
+    if isinstance(data, pd.Series|pd.DataFrame):
+        
+        if data.isna().any().any():
+            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set zero')
+            data = data.fillna(0)
+        if (data < -zero_tol).any().any():
+            warnings.warn(f'Negative values of down to {data.min().min()} {module.data_attr[attr]["unit"]} in {module_name}.{attr}. Set to zero')
+        data = data.where(data >= zero_tol, 0)
+        
+    elif isinstance(data, np.float_):
+        
+        if np.isnan(data):
+            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set zero')
+            data = 0
+        if data < -zero_tol:
+            warnings.warn(f'Negative value of {data} {module.data_attr[attr]["unit"]} in {module_name}.{attr}. Set to zero')
+        if data < zero_tol:
+            data = 0
+
+    else:
+        raise TypeError('Data should be pandas.Series, pandas.DataFrame or numpy.float')
+        
+    return data
             
 # SQLITE DATABASE FUNCTIONS
 
@@ -283,6 +544,10 @@ def _db_read_scn(db_path):
         }
         for k in scn_dict_flat
     }
+
+    for scn in scn_dict:
+        if not isinstance(scn_dict[scn]['years'], list):
+            scn_dict[scn]['years'] = [scn_dict[scn]['years']]
     
     return scn_dict
 
@@ -384,6 +649,53 @@ def _db_read_data(module, attr, scn, year, db_path):
     
     return data
 
+def _db_drop_data(module, attr, scn, year, db_path):
+
+    # Get table name
+    table = f'"{module}${attr}${scn}${year}"'
+    table_idxcol = f'"{module}${attr}${scn}${year}__idxcol"'
+
+    # Connect to sqlite
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    # Drop table
+    cur.execute(f"DROP TABLE {table}")
+    cur.execute(f"DROP TABLE {table_idxcol}")
+    
+    
+    # commit close
+    con.commit()
+    con.close()
+
+    return None
+
+def _db_drop_all_metadata(db_path):
+
+    # Get metadata tables
+    tables = [t for t in _db_get_tables(db_path) if '__metadata' in t]
+
+    # Connect to sqlite
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    for table in tables:
+        # Drop table
+        cur.execute(f"DROP TABLE {table}")
+
+    # commitand close
+    con.commit()
+    con.close()
+
+    return None
+
+def _db_vacuum(db_path):
+
+    # Connect to sqlite, vacuum and close
+    con = sqlite3.connect(db_path)
+    con.execute("VACUUM;")
+    con.close()
+    
 def _db_get_tables(db_path):
     
     # Connect and read
@@ -391,7 +703,23 @@ def _db_get_tables(db_path):
     cur = con.cursor()
     cur.execute("""SELECT name FROM sqlite_master 
     WHERE type='table';""")
-    res = cur.fetchall()
+    res = [t[0] for t in cur.fetchall()]
     con.close()
 
     return res
+
+def _db_get_modules_in_data(db_path):
+    tables = _db_get_tables(db_path)
+    return [t.replace('__metadata','') for t in tables if '__metadata' in t]
+
+def _db_get_attr_in_data(module, db_path):
+    tables = _db_get_tables(db_path)
+    return list(np.unique(np.array([t.split('$')[1] for t in tables if '$' in t and t.split('$')[0] == module])))
+
+def _db_get_scn_in_data(db_path):
+    tables = _db_get_tables(db_path)
+    return list(np.unique(np.array([t.split('$')[2] for t in tables if '$' in t])))
+
+def _db_get_years_in_data(scn, db_path):
+    tables = _db_get_tables(db_path)
+    list(np.unique(np.array([t.split('$')[3] for t in tables if '$' in t and t.split('$')[2] == scn and '__idxcol' not in t])))
