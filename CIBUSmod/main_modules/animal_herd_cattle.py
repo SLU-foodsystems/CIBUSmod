@@ -52,7 +52,7 @@ class CattleHerd(AnimalHerd):
             self.par.remove(list(self.index.names + ['prod_system']))
             self.par.set(prod_system = [self.prod_system]*idx_len + [ps for ps in to_ps for n in range(idx_len)])
 
-            # Update ofther filters from index (need to store and check 'filters_from_index' value!?!?!)
+            # Update ofther filters from index
             for idx in self.index.names:
                 self.par.set(**{idx : list(self.index.get_level_values(idx))*(len(to_ps)+1)})
 
@@ -79,8 +79,8 @@ class CattleHerd(AnimalHerd):
         tmp_female2weaned = tmp_female_calves_born * (1-p('mortality_female_0towean')/100)
 
         # Handle redistribution of calves from one production system to another.
-        tmp_male2weaned_before_redist = tmp_male2weaned
-        tmp_female2weaned_before_redist = tmp_female2weaned
+        tmp_male2weaned_before_redist = tmp_male2weaned.copy()
+        tmp_female2weaned_before_redist = tmp_female2weaned.copy()
 
         if redist:
             # Redistribute calves across production systems

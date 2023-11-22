@@ -443,6 +443,9 @@ class ManureMgmt():
 
             C_loss_CH4 = CH4_loss * (12/(12+1*4))
             C_loss_CO2 = C_loss_tot - C_loss_CH4
+            # Set negative CO2 loss to zero. Occurs if parameter 'C_loss' yields lower
+            # C losses than calculated methane emissions (e.g. for MMS=grazing)
+            C_loss_CO2 = C_loss_CO2.where(C_loss_CO2 > 0, 0)
             CO2_loss = C_loss_CO2 * ((12+16*2)/12)
 
             # Put results in dataframe

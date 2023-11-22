@@ -6,17 +6,15 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import DataAttr, Container, rgetattr, rsetattr
 
 class Regions(object):
-    '''Class that handles region attributes
+    '''Class that handles region attributes such as soil and climate paramters as well as the baseline
+    crop areas and animal numbers (x0) and parameters to control maximum land use.
 
     Parameters
     ----------
     par : ParameterRetriever object
-
-    Attributes set by Regions.calculate()
-    -------------------------------------
-    climate :
-    soil :
     '''
+
+    module_name = 'CropProduction'
 
     def __init__(self,par):
 

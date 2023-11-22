@@ -37,6 +37,8 @@ class DemandAndConversions(object):
         generated waste assuming that processing waste for imported foods occur abroad.
     '''
 
+    module_name = 'DemandAndConversions'
+
     def __init__(self, par: ParameterRetriever):
 
         # Set to keep track of data attributes that have been assigned

@@ -73,6 +73,7 @@ class AnimalHerd(object):
     '''
     # Set of ID attributes in class
     id_attr = set(['species','breed','prod_system','sub_system','animals'])
+    module_name = 'AnimalHerd'
 
     def __init__(self,par,index,**kwargs):
 
@@ -361,8 +362,10 @@ animals              {self.animals}
             )      
 
 class StaticAnimalHerd(Container):
-    '''Class used to create static copys of animal her objects. These stores all attributes except 'par'
+    '''Class used to create static copys of animal herd objects. These stores all attributes except 'par'
     but does not inherit any methods'''
+
+    module_name = 'AnimalHerd'
 
     def __repr__(self):
         return AnimalHerd.__repr__(self).replace('AnimalHerd','StaticAnimalHerd')

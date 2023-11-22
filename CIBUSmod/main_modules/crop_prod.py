@@ -8,30 +8,16 @@ from ..utils.misc import Container, DataAttr
 from ..mgmt_modules.plant_nutrient_mgmt import Fertiliser
 
 class CropProduction(object):
-    '''Class that handles crop production
+    '''Main module that handles crop production
     
     Parameters
     ----------
     par : ParameterRetriever object
     index : pandas.Index or pandas.MultiIndex
         Index for the rows. This is also passed on to the ParameterRetriever
-        
-    Attributes set on init
-    ----------------------
-    index : pandas.Index or padnas.MultiIndex
-        Index for rows
-        
-    Attributes set by CropProduction.calculate()
-    --------------------------------------------
-    area : pandas.DataFrame
-        Total crop area [ha] for most crops and [m2] for greenhouse crops 
-    harvest : pandas.DataFrame
-        Total harvest of crops [kg DM] for cereals, pulses, oilseeds, forages etc. and [kg wet weight] for vegetables, berries, fruit etc.
-    production : pandas.DataFrame
-        Total production of "crop products" (e.g. the crops "Wheat, winter" and "Wheat, spring" both produce the crop product "wheat") [kg DM] or [kg wet weight]
-    by_products : pandas.DataFrame
-        As above but for by-products (e.g. straw)
     '''
+
+    module_name = 'CropProduction'
 
     def __init__(self,par,index):
 
