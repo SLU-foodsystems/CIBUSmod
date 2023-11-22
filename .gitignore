@@ -25,3 +25,4 @@ data/ecoinvent/*
 # Model output files
 *.pkl
 *.bz2
+*.sqlite
