@@ -196,7 +196,7 @@ class MachineryAndEnergyMgmt(object):
         # Calculate final energy
         E_final = A.copy()
         # Series to get regions with soil class
-        sc = pd.Series(self.regions.soil['class'].index.values, index = self.regions.soil['class'])
+        sc = pd.Series(self.regions.soil_texture.index.values, index = self.regions.soil_texture)
 
         for soil_class in soil_classes:
             E_final.loc[idx[:,:,sc[soil_class]],:] = (

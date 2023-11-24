@@ -38,7 +38,10 @@ class Regions(object):
         # Get climate and soil attributes
         vprint('Getting climate and soil attributes ...')
         self.get_climate()
+
         self.get_soil()
+        self.classify_soil_texture()
+        self.classify_soil_P()
 
         # Calculate max land use
         vprint('Calculating maximum land use ...')
@@ -192,11 +195,27 @@ class Regions(object):
                 p('soil_silt'),
                 p('soil_sand'),
                 p('soil_OM'),
-                p('soil_pH')
+                p('soil_pH'),
+                p('soil_P_AL'),
+                p('soil_K_AL')
             ]).T,
             index = index,
-            columns = ['clay','silt','sand','OM','pH']
+            columns = ['clay','silt','sand','OM','pH','P_AL','K_AL']
         )
+
+        # Add data attribute
+        self.data_attr.add(
+            soil,
+            name = 'soil',
+            unit = 'texture/OM:% | pH:n/a | P/K_AL:mg/kg',
+            orig = 'Regions',
+            desc = 'Soil characteristics',
+            scalable = False
+        )
+
+    def classify_soil_texture(self):
+
+        soil = self.data_attr.get('soil').copy()
 
         # Classify soil texture
         # Nodes in the USDA soil texture triangle (x=sand, y=clay)
@@ -233,20 +252,52 @@ class Regions(object):
         }
 
         # Get texture class per region
-        soil['class'] = \
+        soil['texture class'] = \
             soil.apply(
                 _get_soil_class,
                 txt_classes=txt_classes,
                 axis=1
             )
         
+        soil_texture = soil['texture class']
+        
         # Add data attribute
         self.data_attr.add(
-            soil,
-            name = 'soil',
-            unit = 'clay/silt/sand/OM : %, pH/class : -',
+            soil_texture,
+            name = 'soil_texture',
+            unit = '-',
             orig = 'Regions',
-            desc = 'Soil characteristics',
+            desc = 'Soil texture class',
+            scalable = False
+        )
+
+    def classify_soil_P(self):
+        
+        # Soil P classes (up to x mg/kg)
+        P_classes = {
+            'I' : 20,
+            'II' : 40,
+            'III' : 80,
+            'IVA' : 120,
+            'IVB' : 160,
+            'V' : np.inf,
+        }
+
+        soil = self.data_attr.get('soil').copy()
+        soil['P_class'] = np.nan
+
+        for k,v in P_classes.items():
+            soil['P_class'] = soil['P_class'].where((soil['P_AL']>v) | ~soil['P_class'].isna(), k)
+
+        soil_P_class = soil['P_class']
+        
+        # Add data attribute
+        self.data_attr.add(
+            soil_P_class,
+            name = 'soil_P_class',
+            unit = '-',
+            orig = 'Regions',
+            desc = 'Soil phosphorous (P-AL) class',
             scalable = False
         )
 

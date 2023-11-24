@@ -45,8 +45,9 @@ class PlantNutrientMgmt():
         # Create feed objects in herds
         self.crops.fertiliser = Fertiliser()
 
-        vprint('Calculating crop N requirements ...')
+        vprint('Calculating crop NP requirements ...')
         self.calculate_TAN_req()
+        self.calculate_P_req()
 
         vprint('Distributing manure ...')
         self.distribute_manure()
@@ -152,6 +153,48 @@ class PlantNutrientMgmt():
             orig = 'PlantNutrientMgmt',
             desc = 'Crop plant available nitrogen (TAN) requirements to be covered by fertiliser/manure application'
         )
+
+        return None
+
+    def calculate_P_req(self):
+
+        # Get crop yields in tonnes and P-class
+        yields = (
+            (self.crops.data_attr.get('harvest') / self.crops.data_attr.get('area') / 1000)
+            .fillna(0)
+            # Join in P-class and set as index
+            .to_frame()
+            .join(self.regions.data_attr.get('soil_P_class'))
+            .set_index('P_class', append=True)
+            .iloc[:,0]
+        )
+
+        self.par.clear()
+        self.par.set(**yields.index.to_frame().to_dict('list'))
+        p = self.par.get
+
+        P_req = (
+            yields * p('P_rec_a') +
+            p('P_rec_m')
+        ).droplevel('P_class')
+        # Set values below zero to zero
+        P_req = P_req.where(P_req > 0, 0)
+        # Multiply by area
+        P_req = P_req * self.crops.data_attr.get('area')
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            P_req,
+            name = 'fertiliser.P_req',
+            unit = 'kg P/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Phosphorous (P) requirements to be covered by fertiliser/manure application'
+        )
+
+        return None
+
+    def calculate_K_req(self):
+        pass
 
     def distribute_manure(self):
         # Generated manure is allocated to different crop areas based
