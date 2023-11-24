@@ -427,19 +427,31 @@ class GeoDistributor:
         self.cons_add_exec.extend(['CONS.append(self.A3.M @ x <= self.b3)'])
 
     def make_C4(self):
-        '''Not used'''
-        pass
+        '''Creates C6: A6 @ x <= 0
+        
+        Constrain the maximum share of defining animal heads per species, breed and prod_system belonging
+        to a given sub_system on national level
+        
+        The maximum share is set via the parameter 'max_share_sub_system' in the respective 'AnimalHerd'
+        modules and can differ by breed.
+        '''
+
+        self.A4 = self.make_A4()
+
+        # Append code to include constraint when defining cvx problem
+        self.matrices.append('A4')
+        self.cons_add_exec.extend(['CONS.append(self.A4.M @ x <= 0)'])
 
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0
         
         Constrain the maxuimum share of a crop product demand for feed that can be supplied by a
-        particular crop. This constraint is used to constraint the share of 'grazing' that can be
-        supplied by 'Semi-natural pastures', but can be used to constrain e.g. share of wheat for
+        particular crop. This constraint is used to e.g. constrain the share of 'grazing' that can be
+        supplied by 'Semi-natural pastures', but can also be used to constrain e.g. share of wheat for
         feed from winter/spring variaties. 
 
-        The maxuimum share is set via the parameter 'max_crop_in_crop_prod' in the 'FeedMgmt'
-        module and can differ for different animal.
+        The maximum share is set via the parameter 'max_crop_in_crop_prod' in the 'FeedMgmt'
+        module and can differ for different animals.
         '''
 
         # Maximum supply of crop product(s) from crop(s)
@@ -593,10 +605,10 @@ class GeoDistributor:
         ):
         '''Creates C8: A8 @ x <rel> b8
 
-        Flexible constraint that constrains given crop areas and/or animal
-        numbers in relation to given values. Constraints can be eiter equality
-        or max/min. Equality constraints (C8_rel = '==') are implemented as min
-        and max constraints with a relative tolerance of +/- C8_tol.
+        Flexible constraint that constrains given crop areas and/or animal numbers in relation
+        to given values. Constraints can be eiter equality or max/min. Equality constraints
+        (C8_rel = '==') are implemented as min and max constraints with a relative tolerance
+        of +/- C8_tol.
 
         Multiple constraints can be created by supplying lists as parameters.
 
@@ -895,7 +907,7 @@ class GeoDistributor:
                     .values
                 )
 
-                # Go through crop products adn production systems with regional demand from feed
+                # Go through crop products and production systems with regional demand for feed
                 for ops,cp in opss_cps:
                     # Get regional feed demand for crop product (cp) from output production system (ops) per head
                     # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
@@ -1000,6 +1012,62 @@ class GeoDistributor:
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.hstack([Z,M]),
+            row_idx,
+            {'ani':self.x_idx['ani'],'crp':col_idx}
+        )
+
+        return M
+    
+    def make_A4(self):
+
+        # Get row index from animal herds with max in sub_system constraint (sp,br,ps,ss)
+        row_idx = pd.MultiIndex.from_tuples([
+            (h.species,h.breed,h.prod_system,h.sub_system) for h in self.herds if
+            'max_share_sub_system' in h.par.data.index.get_level_values('parameter') and
+            h.sub_system in h.par.get_unique('sub_system', qry=f'parameter == "max_share_sub_system"')
+        ], names=['species', 'breed', 'prod_system', 'sub_system'])
+
+        # Get col index from animal herds (sp,br,ps,ss,re)
+        col_idx = self.x_idx['ani']
+
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = []
+        row_nr = []
+        col_nr = []
+
+        for sp,br,ps,ss in row_idx:
+            h = self.herds.loc[sp,br,ps,ss]
+            h.par.clear()
+
+            f = h.par.get(
+                'max_share_sub_system',
+                species=sp,
+                breed=br,
+                prod_system=ps,
+                sub_system=ss,
+                )/100
+
+            try:
+                len(f)
+            except TypeError:
+                pass
+            finally:
+                f = float(f[0])
+            
+            vls = [0 if (sp != sp_) | (br != br_) | (ps != ps_)  else ((1-f) if ss == ss_ else -f) for sp_,br_,ps_,ss_,_ in col_idx]
+            cns = list(range(len(col_idx)))
+            rns = [row_idx.get_loc((sp,br,ps,ss)) for _ in col_idx]
+
+            val.extend(vls)
+            col_nr.extend(cns)
+            row_nr.extend(rns)
+
+        M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
+        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['crp']))) # Zero matrix
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.hstack([M,Z]),
             row_idx,
             {'ani':self.x_idx['ani'],'crp':col_idx}
         )
