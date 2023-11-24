@@ -206,11 +206,34 @@ f'''{module}
         return None
 
     def clean(self):
-        '''Cleans up database file (i.e. VACUUM;)'''
+        '''Cleans up database file by dropping any tables not related to any defined
+        scenario and the VACUUM;'''
 
         print(f'Cleaning {self.db_path}. This may take a while...')
+
+        # Look for any tables that do not relate to defined scenarios
+        tables = _db_get_tables(self.db_path)
+        scns = self.scenarios
+
+        tables_keep = ['scenarios']
+        for module in _db_get_modules_in_data(self.db_path):
+            tables_keep += [f'{module}__metadata']
+            attrs = _db_read_metadata(module, self.db_path).keys()
+            for attr in attrs:
+                for scn in scns:
+                    years = self.scenarios[scn]['years']
+                    for year in years:
+                        tables_keep += [f'{module}${attr}${scn}${year}', f'{module}${attr}${scn}${year}__idxcol']
+
+        tables_drop = set(tables) - set(tables_keep)
+
+        # Drop tables
+        if len(tables_drop)>0:
+            _db_drop_tables(tables_drop, self.db_path)
+        # Vacuum
         _db_vacuum(self.db_path)
 
+        print('Done!')
         return None
 
     def iterate(self, subset='no output'):
@@ -268,40 +291,49 @@ f'''{module}
             Pass in the modules to store output data for
             
         '''
+        
+        if scn not in self.scenarios:
+            raise ValueError(f'Scenario "{scn}" not  defined')
+        if year not in self.scenarios[scn]['years']:
+            raise ValueError(f'Year {year} not defined for scenario "{scn}"')
+
 
         print(f'Writing output data to {self.db_path}')
         
         for arg in args:
 
             if _isiterable(arg):
-                if np.all([isinstance(h,AnimalHerd) for h in arg]):
+                if len(arg)>0 and np.all([isinstance(h,AnimalHerd) for h in arg]):
                     arg = concat_herds(arg)
                 else:
-                    warnings.warn('Iterable of non-AnimalHerd objects ignored')
+                    warnings.warn('Passed iterable of non-AnimalHerd objects ignored')
+                    continue
 
             if hasattr(arg, 'module_name') and hasattr(arg, 'data_attr'):
 
                 module = arg.module_name
                 
+                # Only include 'scalable' data attributes (i.e. those that can be aggregated)
+                data_attr_dict = {k : v for k, v in arg.data_attr.dict.items() if v['scalable']}
+
                 _db_write_metadata(
-                    metadata=arg.data_attr.dict,
-                    module=module,
-                    db_path=self.db_path
+                    metadata = data_attr_dict,
+                    module = module,
+                    db_path = self.db_path
                 )
                 
-                for attr in arg.data_attr:
-                    if arg.data_attr[attr]['scalable']:
-                        _db_write_data(
-                            data=_get_check_and_clean(arg, module, attr),
-                            module=module,
-                            attr=attr,
-                            scn=scn,
-                            year=year,
-                            db_path=self.db_path
-                        )
+                for attr in data_attr_dict:
+                    _db_write_data(
+                        data=_get_check_and_clean(arg, module, attr),
+                        module=module,
+                        attr=attr,
+                        scn=scn,
+                        year=year,
+                        db_path=self.db_path
+                    )
 
             else:
-                warnings.warn(f'{type(arg)} ignored')
+                warnings.warn(f'Passed object of type {type(arg)} ignored')
 
     def get_attr(
         self,
@@ -716,18 +748,27 @@ def _db_read_data(module, attr, scn, year, db_path):
 
 def _db_drop_data(module, attr, scn, year, db_path):
 
-    # Get table name
-    table = f'"{module}${attr}${scn}${year}"'
-    table_idxcol = f'"{module}${attr}${scn}${year}__idxcol"'
+    _db_drop_tables([
+        f'{module}${attr}${scn}${year}',
+        f'{module}${attr}${scn}${year}__idxcol'
+    ])
+
+    return None
+
+def _db_drop_tables(tables, db_path):
+
+    if isinstance(tables, str):
+        tables = [tables]
 
     # Connect to sqlite
     con = sqlite3.connect(db_path)
     cur = con.cursor()
 
-    # Drop table
-    cur.execute(f"DROP TABLE {table}")
-    cur.execute(f"DROP TABLE {table_idxcol}")
-    
+    # Drop tables
+    for table in tables:
+        table = f'"{table}"'
+        print(f'Dropping table {table}')
+        cur.execute(f"DROP TABLE {table}")
     
     # commit close
     con.commit()
