@@ -6,7 +6,7 @@ from .main_modules.regions import Regions
 from .main_modules.demand_and_conversions import DemandAndConversions
 from .main_modules.crop_prod import CropProduction
 from .main_modules.animal_herd import \
-make_herds, CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd
+make_herds, CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd, SheepHerd
 
 # Import mgmt modules
 from .mgmt_modules.manure_mgmt import ManureMgmt

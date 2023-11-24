@@ -350,7 +350,7 @@ class FeedMgmt():
                     species=herd.species,
                     breed=herd.breed,
                     sub_system=herd.sub_system
-                )).groupby(['prod_system','crop_prod','crop'], axis=1).sum()/100
+                )).T.groupby(['prod_system','crop_prod','crop']).sum().T/100 # The trnaspose x2 is a dirty fix to pandas sometimes returning level names as columns (pandas bug?)
 
                 # Add data attribute
                 herd.data_attr.add(

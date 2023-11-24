@@ -165,7 +165,7 @@ animals              {self.animals}
         )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','meat','milk']
+        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','meat','milk']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -188,6 +188,8 @@ animals              {self.animals}
                 old_x = self.data_attr.get('production').loc[:,(slice(None),'meat')].sum(axis=1)
         elif x_is == 'total horses':
             old_x = self.data_attr.get('heads').sum(axis=1)
+        elif x_is == 'ewes+rams':
+            old_x = self.data_attr.get('heads').loc[:,(slice(None), ['ewes', 'rams'])].sum(axis=1)
         elif x_is == 'total hens':
             old_x = self.data_attr.get('heads').drop('laying chicks', level='animal', axis=1).sum(axis=1)
         else:
@@ -249,8 +251,10 @@ animals              {self.animals}
         prs = ['meat']
         if self.species == 'cattle':
             prs.append('milk')
-        if (self.species == 'poultry') & (self.breed == 'layer'):
+        if (self.species == 'poultry') and (self.breed == 'layer'):
             prs.append('eggs')
+        if (self.species == 'sheep') and (self.sub_system == 'other sheep'):
+            prs.append('heads')
         if self.species == 'horses':
             prs.append('heads')
 
@@ -385,10 +389,17 @@ def make_herds(
             ('pigs', 'none') : 'PigHerd',
             ('poultry', 'layer') : 'LayerHerd',
             ('poultry', 'broiler') : 'BroilerHerd',
+            ('sheep', 'none') : 'SheepHerd',
             ('horses', 'ponies and Icelandic horses') : 'HorseHerd',
             ('horses', 'cold blooded horses') : 'HorseHerd',
             ('horses', 'riding horses') : 'HorseHerd',
             ('horses', 'trotters and racehorses') : 'HorseHerd'
+        },
+        sub_systems = {
+            ('cattle') : ['ley based'],
+            ('cattle','dairy','conventional') : ['maize based'],
+            ('cattle','beef','conventional') : ['maize based'],
+            ('sheep') : ['autumn lamb', 'spring lamb', 'winter lamb', 'other sheep']
         }
         ):
     '''Helper function to instantiate AnimalHerd objects and put them in a pandas.Series.
@@ -396,6 +407,8 @@ def make_herds(
     Parameters
     ----------
     regions : Regions object
+    class_map : dict
+    sub_systems : dict
 
     Returns
     -------
@@ -417,23 +430,28 @@ def make_herds(
     for (sp,br,ps) in regions.x0_animals.groupby(['species','breed','prod_system']).sum().index:
 
         if (sp,br) in class_map:
-            # Get sub-systems if any
-
-            sss = set(['none'])
 
             herd_class_name = class_map[(sp,br)]
             herd_class = globals()[herd_class_name]
 
-            tmp_par = ParameterRetriever(herd_class_name)
-
-            if 'f_sub_system' in tmp_par.data.index.names:
-                # If sub-systems are defined
-                sss = sss.union(
-                    tmp_par.get_unique(
-                        'sub_system',
-                        qry=f'(f_breed == "{br}" | f_breed.isna()) & (f_prod_system == "{ps}" | f_prod_system.isna())'
-                    )
-                )
+            # Get sub-systems
+            # Get sub-systems
+            sss = []
+            for k,v in sub_systems.items():
+                if isinstance(k, str):
+                    for v_ in v:
+                        if sp == k:
+                            sss += [v_] if v_ not in sss else []
+                elif len(k)==2:
+                    for v_ in v:
+                        if (sp,br) == k:
+                            sss += [v_] if v_ not in sss else []
+                elif len(k)==3:
+                    for v_ in v:
+                        if (sp,br,ps) == k:
+                            sss += [v_] if v_ not in sss else []
+            if len(sss) == 0:
+                sss = ['none']
 
             for ss in sss:
                 herds.loc[(sp,br,ps,ss)] = \
