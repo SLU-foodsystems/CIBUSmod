@@ -273,12 +273,7 @@ f'''{module}
             for year in self.scenarios[scn]['years']:
                 yield (scn,year)
 
-    def store(
-            self,
-            scn,
-            year,
-            *args
-        ):
+    def store(self, scn, year, *args):
         '''Write output data to database file.
         
         Parameters
@@ -296,10 +291,7 @@ f'''{module}
             raise ValueError(f'Scenario "{scn}" not  defined')
         if year not in self.scenarios[scn]['years']:
             raise ValueError(f'Year {year} not defined for scenario "{scn}"')
-
-
-        print(f'Writing output data to {self.db_path}')
-        
+       
         for arg in args:
 
             if _isiterable(arg):
