@@ -14,7 +14,7 @@ class Regions(object):
     par : ParameterRetriever object
     '''
 
-    module_name = 'CropProduction'
+    module_name = 'Regions'
 
     def __init__(self,par):
 
@@ -91,6 +91,9 @@ class Regions(object):
         np.where(x0_ani['animal']=='höns','poultry',x0_ani['species'])
         x0_ani['species'] = \
         np.where(x0_ani['animal']=='hästar','horses',x0_ani['species'])
+        x0_ani['species'] = \
+        np.where(x0_ani['animal']=='baggar och tackor','sheep',x0_ani['species'])
+        
 
         # Add horse breeds
         x0_ani = pd.concat([
@@ -120,6 +123,8 @@ class Regions(object):
         np.where(x0_ani['animal']=='ridhästar','riding horses',x0_ani['breed'])
         x0_ani['breed'] = \
         np.where(x0_ani['animal']=='trav och galopp','trotters and racehorses',x0_ani['breed'])
+        x0_ani['breed'] = \
+        np.where(x0_ani['animal']=='baggar och tackor','none',x0_ani['breed'])
 
         x0_ani = x0_ani[x0_ani['species']!='nan'][['species','breed','prod_system','region','number']].set_index(['species','breed','prod_system','region'])['number']
 
@@ -136,16 +141,14 @@ class Regions(object):
             name = 'x0_crops',
             unit = 'ha or m2',
             orig = 'Regions',
-            desc = 'Baseline crop areas in ha (or m2 for greenhouse crops)',
-            scalable = False
+            desc = 'Baseline crop areas in ha (or m2 for greenhouse crops)'
         )
         self.data_attr.add(
             x0_ani,
             name = 'x0_animals',
             unit = 'heads',
             orig = 'Regions',
-            desc = 'Baseline numbers of defining animals per animal production system',
-            scalable = False
+            desc = 'Baseline numbers of defining animals per animal production system'
         )
 
 
@@ -274,8 +277,7 @@ class Regions(object):
             name = 'max_land_use',
             unit = 'ha or m2',
             orig = 'Regions',
-            desc = 'Maximum allowed land use per land use class in ha (or m2 for greenhouse crops)',
-            scalable = False
+            desc = 'Maximum allowed land use per land use class in ha (or m2 for greenhouse crops)'
         )
 
 def _get_soil_class(x, txt_classes):
