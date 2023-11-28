@@ -3,14 +3,24 @@ TODO
 
 Validation and default parameters
 ---------------------------------
-- Check rapeseed
-- Check induced skim milk exports
+- DemandAndConversions: Missing demand for oats and barley
+- DemandAndConversions: Check rapeseed
+- DemandAndConversions: Check exports
+- DemandAndConversions: Demand for Herbs
+- DemandAndConversions: Check induced skim milk exports
+- CropProduction: Check/add crop residue factors for all crops
+- CropProduction: Fix yield 'ley for seed'
+- CropProduction: Check if yields are missing for more crops
+- CropProduction: Check 'Mixed cereals' -> korn+havre eller havre/korn+ärter
 - CattleHerd: Too much grazing adjust feed rations
-- MachineryAndEnergyMgmt: Check energy use in stables
+- PlantNutrientMgmt: Add K requirements
+- MachineryAndEnergyMgmt: Check energy use in stables. Completely missing for layers and sheep
+- MachineryAndEnergyMgmt: Fix operations in organic production
 
 Overarching
 -----------
-- Structure data attributes and keep track of units
+- Implement DataAttr.get() across modules
+- Session: Fix concat_herds() and .get_attr() for scalable=False. Implement in .get_attr() check scalable and do not aggregate if False
 
 ParameterRetriever
 ------------------
@@ -23,28 +33,19 @@ Regions
 
 DemandAndConversions
 --------------------
-- Check exports
-- Demand for Herbs
 - Processing energy use per food item + energy source
 - Transports. A generic factor for Swedish produced. Different factors for imported foods. Elin kollar på detta...
 
 CropProduction
 --------------
-- Check/add crop residue factors for all crops
 - Yields semi-natural grasslands. New module: GrasslandMgmt
-- Fix yield 'ley for seed'
-- Check if yields are missing for more crops
 - Implement way to handle crops that are not harvested 'Fallow', 'Green manure', 'Ley not harvested'
 - Implement module to handle cover crops
-- Check 'Mixed cereals' -> korn+havre eller havre/korn+ärter
 
 AnimalHerd
 ----------
-- Add SheepHerd based on input data from Hanna
 - CattleHerd
     - Use only recruitment or slaughter age for cows
-    - Milk for calves?
-
 
 FeedMgmt
 --------
@@ -53,10 +54,10 @@ FeedMgmt
 
 ManureMgmt
 ----------
-- Internaly calculate MMS='grazing' from relative contribution of grazing to total DM feed intake
-- Check MMS shares (should add to 100% ?)
+- Add bedding material to VS excretion
+- Check N excretion... higher than NIR but seems to align fairly
+  well with Dutch method. bulls and sows are high.
 - Handle manure that is not returned to cropland? (mainly horses?)
-- Handle manure going to biogas digesters
 
 PlantNutrientMgmt
 -----------------
@@ -64,19 +65,18 @@ PlantNutrientMgmt
 - Improve leaching calculations (currently IPCC method and only for N)
 - Pot. update manure distribution to better reflect which crops recieve manure
 
-
 MachineryAndEnergyMgmt
 ----------------------
-- Filed operations in organic production
 - Implement method for energy use in grain drying
 
 WasteMgmt (new method)
 ----------------------
-- sewege sludge generation
+- Calculate sewege sludge generation
 - Food waste biogas + digestate
 - Slaughter waste biogas + digestate
-- Innovative recycling technologies
+- Handle energy production from biogas incl. from manure
+- Possible to implement innovative recycling technologies
 
 GeoDistributor
 --------------
-- Fix problems with index sorting for .apply_solution()
+- Implement constraint for min share in rotation

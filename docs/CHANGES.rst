@@ -1,3 +1,13 @@
+2023-11-28
+----------
+- Supressed warning for :code:`Session.apply_solution()`
+- Implemented SQLite database for storing outputs via :code:`Session`
+- Updated handling of MMS='grazing'
+- Implemented :code:`SheepHerd`
+- Implemented calculation of crop requirements of P and K (data only for P so far) as well as calculation of P/K in manure and need for mineral P/K
+- Added constraint C4 in :code:`GeoDistributor` to constrain the maximum share of animal sub-systems on national level
+- Many big/small fixes
+
 2023-11-17
 ----------
 - Updated :code:`GeoDist.allocate_crop_production_per_use()` to account for different shares of semi-natural pasture in grazing for different animals. Assertions fail, need to check later
