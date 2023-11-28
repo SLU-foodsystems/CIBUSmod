@@ -25,6 +25,15 @@ class ManureMgmt():
                 If True, use share of dry matter in ration
                 from grazing to estimate the share of manure
                 deposited on pasture
+            'NPK_excretion_from_balance' : bool, default False
+                If True, calculate N, P and K excretion from nutrients
+                in feed minus nutrients incorporated in live weight gain
+                and animal products. Only applies to AnimalHerds where
+                the data attribute 'lwg' is calculated and relise on
+                parameters '<N/P/K>_in_WL' and '<N/P/K>_in_prod'.
+                If False, and for AnimalHerds where 'lwg' is not calculated
+                N, P and K excretion is calculated from the parameter
+                'manure_excr_<N/P/K>' 
     '''
 
     def __init__(
@@ -32,13 +41,25 @@ class ManureMgmt():
             herds: pd.Series,
             feed_mgmt: "FeedMgmt",
             par: "ParameterRetriever",
-            settings = {
-                'MMS_grazing_from_feed' : False
-            }
+            settings = {}
         ):
         
         self.par = par
-        self.settings = settings
+
+        # Default settings
+        self.settings = {
+            'MMS_grazing_from_feed' : False,
+            'NPK_excretion_from_balance' : False
+        }
+        # Update settings if valid input
+        for k,v in settings.items():
+            if k in self.settings:
+                if type(v) is type(self.settings[k]):
+                    self.settings.update({k:v})
+                else:
+                    raise TypeError(f'Expected {type(self.settings[k])} for setting "{k}"')
+            else:
+                raise ValueError(f'"{k}" is not a valid setting')
 
         self.herds = fix_herds(herds)
         self.feed_mgmt = feed_mgmt
@@ -84,50 +105,16 @@ class ManureMgmt():
         vprint('Calculating VS losses ...')
         self.calculate_VS_losses()
 
-        # Nitrogen (N) [kg N or TAN per year]
-        vprint('Calculating N excretion ...')
+        # Nitrogen (N), Phosphorous (P) and Potassioum (K)
+        vprint('Calculating manure excretion ...')
         self.calculate_NPK_excretion(element = 'N')
-        vprint('Calculating N losses ...')
-        self.calculate_N_losses()
-
-        # Phosphorous (P)
-        vprint('Calculating P excretion ...')
         self.calculate_NPK_excretion(element = 'P')
-
-        # Potassioum (K)
-        vprint('Calculating K excretion ...')
         self.calculate_NPK_excretion(element = 'K')
 
-        vprint('Calculating N available to spread ...')
-        for herd in self.herds:
-            # Set species and breed filters for ParameterRetriever
-            self.par.set(
-                species = herd.species,
-                breed = herd.breed,
-                sub_system = herd.sub_system
-                )
-            
-            # Calculate total nitrogen available to spread
-            N_to_spread = herd.manure.N_excr - herd.manure.N_loss.groupby(['prod_system','animal','MMS'], axis=1).sum()
-
-            # Calculate plant available nitrogen available to spread
-            TAN_to_spread = N_to_spread * self.par.get_from_frame('TAN_share',N_to_spread)/100
-
-            # Add data attributes
-            herd.data_attr.add(
-                N_to_spread,
-                name = 'manure.N_to_spread',
-                unit = 'kg N/year',
-                orig = 'ManureMgmt',
-                desc = 'Total nitrogen (N) in manure available to spread after stable and storage losses'
-            )
-            herd.data_attr.add(
-                TAN_to_spread,
-                name = 'manure.TAN_to_spread',
-                unit = 'kg TAN/year',
-                orig = 'ManureMgmt',
-                desc = 'Total plant available nitrogen (TAN) in manure available to spread after stable and storage losses'
-            )
+        vprint('Calculating manure losses ...')
+        self.calculate_NPK_losses(element = 'N')
+        self.calculate_NPK_losses(element = 'P')
+        self.calculate_NPK_losses(element = 'K')
 
         vprint(type='end')
 
@@ -484,14 +471,14 @@ class ManureMgmt():
                 sub_system = herd.sub_system
             )
 
-            if hasattr(herd,'lwg'):
+            if self.settings['NPK_excretion_from_balance'] and 'lwg' in herd.data_attr:
                 # Calculate N excretion based on mass balance
 
                 # Nutrient in feed input (excl. storage and feeding losses)
                 # SOME LOSSES SHOULD BE INCLUDED!! 
                 # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
                 feed = (
-                    herd.feed.demand
+                    herd.feed.consumption
                     .groupby(['prod_system','animal'], axis=1)
                     .sum() *
                     (rgetattr(herd, 'feed.ration_' + element) / 100)
@@ -549,27 +536,28 @@ class ManureMgmt():
 
         return None
     
-    def calculate_N_losses(self):
-        
+    def calculate_NPK_losses(self, element):
+
         # Get compounds
-        cmps = self.par.get_unique('compound', qry='f_compound.str.contains("N", na=False)')
+        cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
         
         for herd in self.herds:
-
+        
             # Set species and breed filters for ParameterRetriever
             self.par.set(
                 species = herd.species,
                 breed = herd.breed,
-                sub_system = herd.sub_system
+                sub_system = herd.sub_system,
+                element = element
             )
-
+        
             # Get manure management systems
             mmss = herd.data_attr.get('manure.mms_shares').columns.get_level_values('MMS').unique()
-
+        
             # Get production systems, animals in herd
-            pss = herd.heads.columns.get_level_values('prod_system').unique()
+            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
             anis = herd.animals
-
+        
             # Create dataframe
             df = pd.DataFrame(
                 index = herd.index,
@@ -579,37 +567,58 @@ class ManureMgmt():
                 )
             )
             
-            # Calculate N losses
-
-            # Get share of total N that is available (this only applies to NOx-N and N2 losses
-            # TAN_share=1 for other compounds
-            TAN_share = self.par.get_from_frame('TAN_share',df)/100
-            TAN_share.loc[:,~TAN_share.columns.get_level_values('compound').isin(['NOx-N','N2'])] = 1
-
-            # Get N excr and propagate values to all compound columns
-            N_excr = herd.manure.N_excr.align(df)[0].reindex(index=df.index, columns=df.columns)
-
-
-            loss_stable = (
-                self.par.get_from_frame('loss_stable', df)/100
-                * N_excr
+            # Get excretion and propagate values to all compound columns
+            excr = herd.data_attr.get(f'manure.{element}_excr').align(df)[0].reindex(index=df.index, columns=df.columns)
+           
+            loss_factors_stable = self.par.get_from_frame('loss_stable', df)/100
+            loss_stable = loss_factors_stable * excr
+        
+            loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
+            loss_storage = loss_factors_storage * (excr - loss_stable)
+        
+            if element == 'N':
+                # NOx-N and N2 storage losses are calculated from plant available nitrogen
+                loss_storage.update(
+                    (loss_factors_storage * (excr - loss_stable) * (self.par.get_from_frame('TAN_share',df)/100))
+                    .loc[:,(slice(None), slice(None), slice(None), ['NOx-N', 'N2'])]
+                )
+        
+            available_to_spread = (
+                herd.data_attr.get(f'manure.{element}_excr') - 
+                (loss_stable + loss_storage).groupby(['prod_system','animal','MMS'], axis=1).sum()
             )
-
-            loss_storage = (
-                self.par.get_from_frame('loss_storage', df)/100
-                * TAN_share
-                * (N_excr - loss_stable)
-            )
-
+        
             # Add data attribute
             herd.data_attr.add(
                 loss_stable + loss_storage,
-                name = 'manure.N_loss',
-                unit = 'kg N/year',
+                name = f'manure.{element}_loss',
+                unit = f'kg {element}/year',
                 orig = 'ManureMgmt',
-                desc = 'Manure losses of N-containing compounds in stables and during manure storage'
+                desc = f'Manure losses of {element}-containing compounds in stables and during manure storage'
             )
-
+            herd.data_attr.add(
+                    available_to_spread,
+                    name = f'manure.{element}_to_spread',
+                    unit = f'kg {element}/year',
+                    orig = 'ManureMgmt',
+                    desc = f'Total {_elem_to_name[element]} in manure available to spread after stable and storage losses'
+            )
+            
+            if element=='N':
+                # For nitrogen, also calculate and store plant available nitrogen available to spread
+                TAN_to_spread = (
+                    available_to_spread * 
+                    (self.par.get_from_frame('TAN_share', available_to_spread)/100)
+                ).groupby(['prod_system','animal','MMS'], axis=1).sum()
+                
+                herd.data_attr.add(
+                    TAN_to_spread,
+                    name = 'manure.TAN_to_spread',
+                    unit = 'kg TAN/year',
+                    orig = 'ManureMgmt',
+                    desc = 'Total plant available nitrogen (TAN) in manure available to spread after stable and storage losses'
+                )
+    
         return None
     
 _elem_to_name = {

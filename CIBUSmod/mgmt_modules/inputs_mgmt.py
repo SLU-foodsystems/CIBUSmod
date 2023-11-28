@@ -2,7 +2,7 @@ import os
 import pandas as pd
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr
+from ..utils.misc import index_to_multi
 
 from ecoinvent_interface import Settings, EcoinventProcess, ProcessFileType
 import xml.dom.minidom as minidom
@@ -147,25 +147,28 @@ class InputsMgmt(object):
             attr = 'energy_use',
             inputs_in_col = 'energy_source'
         )
-        self.calculate_emissions(
-            module = self.crops,
-            attr = 'fertiliser.mineral_N',
-            inputs_in_col = 'fertiliser_type'
-        )
+        for element in ['N','P','K']:
+            self.calculate_emissions(
+                module = self.crops,
+                attr = f'fertiliser.mineral_{element}',
+                inputs_in_col = 'fertiliser_type'
+            )
         
-        vprint('Calculating supply chain emissions for animal herd inputs (NOT IMPLEMENTED)  ...')
+        vprint('Calculating supply chain emissions for animal herd inputs ...')
         for h in self.herds:
             self.calculate_emissions(
-            module = h,
-            attr = 'energy_use',
-            inputs_in_col = 'energy_source'
-        )
+                module = h,
+                attr = 'energy_use',
+                inputs_in_col = 'energy_source'
+            )
             
         vprint(type='end')
 
     def calculate_emissions(self, module, attr:str, inputs_in_col:str):
     
-        data = rgetattr(module,attr)
+        data = module.data_attr.get(attr)
+        if type(data.columns) == pd.Index:
+            data.columns = index_to_multi(data.columns)
         
         # Add compunds to input use dataframe
         res = data.reindex(

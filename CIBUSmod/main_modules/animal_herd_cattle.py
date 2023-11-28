@@ -350,11 +350,18 @@ class CattleHerd(AnimalHerd):
             if np.array(live_weight > 825).any() or np.array(growth_rate > 2).any():
                 warnings.warn(f'Growth energy equation defined up to 825 kg LW and 2.0 kg LWG/day.')
 
+        
 
         if ani == 'cows':
             # ME req. for lactation [MJ/day]
+            # Milk production is taken as the maximum of 'milk_prod' parameter and
+            # calculated milk to calves
             # Milk in kg ECM: milk kg x 0,25 + fat kg x 12,2 + protein kg x 7,7 = kg ECM
-            milk = p('milk_prod') * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7) / 365.25
+            milk_prod = np.maximum(
+                p('milk_prod'),
+                self.data_attr.get('milk_to_calves').values
+            )
+            milk = milk_prod * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7) / 365.25
             E_lactation = p('lactation_energy_factor') * milk
 
             # ME req. for gestation [MJ/year]
@@ -365,12 +372,29 @@ class CattleHerd(AnimalHerd):
         
         # Total ME req. [MJ/day] (excl. gestation)
         if ani=='calves':
-            E_from_milk = 0 # !!!! NEED TO INCLUDE THIS AND TIE TO MILK PRODUCTION !!!!
-            E_pre_weaning = 0.16 * live_weight_pre_weaning + 12.5 * growth_rate_pre_weaning - E_from_milk # Equation deduced from (Tabell 3)
+            E_pre_weaning = (0.16 * live_weight_pre_weaning + 12.5 * growth_rate_pre_weaning) # Equation deduced from (Tabell 3)
+            E_from_milk = E_pre_weaning * (p('energy_share_before_weaning_from_milk')/100)
             E_post_weaning = (E_maintenance + E_growth)
 
             # Total requirements
-            E_req = (E_pre_weaning * p('weaning_age') + E_post_weaning * (365.25 - p('weaning_age'))) / 365.25
+            E_req = ((E_pre_weaning - E_from_milk) * p('weaning_age') + E_post_weaning * (365.25 - p('weaning_age'))) / 365.25
+
+            # Calculate milk to calves and store data attribute
+            milk_to_calves = pd.Series(
+                E_from_milk * p('weaning_age') * self.data_attr.get('heads').loc[:,(ps, 'calves')] / p('energy_in_milk_to_calves'),
+                index = self.index, name='milk_to_calves'
+            )
+            if 'milk_to_calves' in self.data_attr:
+                milk_to_calves += self.data_attr.get('milk_to_calves')
+
+            self.data_attr.add(
+                milk_to_calves,
+                name = 'milk_to_calves',
+                unit = 'kg/year',
+                orig = 'CattleHerd',
+                desc = 'Milk fed to calves',
+                scalable = False
+            )
         else:
             E_req = (E_maintenance + E_growth + E_lactation)
 

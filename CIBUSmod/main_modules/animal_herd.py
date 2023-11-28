@@ -134,11 +134,11 @@ animals              {self.animals}
         vprint('Calculating herd structure ...')
         self.calculate_herd()
 
-        vprint('Calculating production ...')
-        self.calculate_production()
-
         vprint('Calculating feed energy or DM requirements ...')
         self.calculate_feed_req()
+
+        vprint('Calculating production ...')
+        self.calculate_production()
 
         vprint(type='end')
 
@@ -231,6 +231,69 @@ animals              {self.animals}
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
+    
+    def calculate_feed_req(self):
+
+        # Clear and set filters for ParameterRetriever
+        self.par.clear()
+        self.par.set(
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
+        )
+
+        # Remove 'milk_to_calves' attribute if it exists
+        if 'milk_to_calves' in self.data_attr:
+            self.data_attr.remove('milk_to_calves')
+
+        # If herd has a method to calculate energy requirements of animals
+        # energy requirements are calculated from live weights, growth rates,
+        # gestation, lactation, etc. 
+        # Otherwise dry matter feed requirements are calculated from feed
+        # conversion ratios or a fixed feed intake per animal.
+        E_req = hasattr(self,'calculate_feed_E_req')
+
+        df_req = pd.DataFrame(index = self.index, columns = self.data_attr.get('heads').columns)
+        pss = list(df_req.columns.get_level_values('prod_system'))
+        anis = list(df_req.columns.get_level_values('animal'))
+        if self.species == 'cattle':
+            # Make sure calves are hendeled first to get milk from cows
+            # to calves
+            anis.insert(0, anis.pop(anis.index('calves')))
+
+        for ani, ps in zip(anis, pss):
+            self.par.set(
+                prod_system = ps,
+                animal = ani
+            )
+
+            # Calculate feed energy [MJ] or dry matter [kg DM] requirements
+            if E_req:
+                req = self.calculate_feed_E_req(ps, ani)
+            else:
+                req = self.calculate_feed_DM_req(ps, ani)
+
+            df_req.loc[:,(ps,ani)] = req
+        
+        # Add data attribute
+        if E_req:
+            self.data_attr.add(
+                df_req * self.heads,
+                name = 'feed_E_req',
+                unit = 'MJ/year',
+                orig = 'AnimalHerd',
+                desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
+            )   
+        else:
+            self.data_attr.add(
+                df_req * self.heads,
+                name = 'feed_DM_req',
+                unit = 'kg DM/year',
+                orig = 'AnimalHerd',
+                desc = 'Total feed requirements in terms of dry matter'
+            )
 
     def calculate_production(self):
 
@@ -280,7 +343,7 @@ animals              {self.animals}
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
                     pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
-                    (p('milk_prod', prod_system=ps) * p('milk_to_dairy', prod_system=ps)/100) *
+                    (p('milk_prod', prod_system=ps) - self.data_attr.get('milk_to_calves')).values.clip(0) * (1 - p('milk_loss')/100) *
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
                     axis = 0
                 )
@@ -311,59 +374,6 @@ animals              {self.animals}
             orig = 'AnimalHerd',
             desc = 'Total production of animal products'
         )
-
-    def calculate_feed_req(self):
-
-        # Clear and set filters for ParameterRetriever
-        self.par.clear()
-        self.par.set(
-            species = self.species,
-            breed = self.breed,
-            prod_system = self.prod_system,
-            sub_system = self.sub_system,
-            **self.index.to_frame().to_dict('list')
-        )
-
-        # If herd has a method to calculate energy requirements of animals
-        # energy requirements are calculated from live weights, growth rates,
-        # gestation, lactation, etc. 
-        # Otherwise dry matter feed requirements are calculated from feed
-        # conversion ratios or a fixed feed intake per animal.
-        E_req = hasattr(self,'calculate_feed_E_req')
-
-        df_req = pd.DataFrame(index = self.index, columns = self.data_attr.get('heads').columns)
-
-        for ps,ani in df_req.columns:
-            self.par.set(
-                prod_system = ps,
-                animal = ani
-            )
-
-            # Calculate feed energy [MJ] or dry matter [kg DM] requirements
-            if E_req:
-                req = self.calculate_feed_E_req(ps,ani)
-            else:
-                req = self.calculate_feed_DM_req(ps,ani)
-
-            df_req.loc[:,(ps,ani)] = req
-        
-        # Add data attribute
-        if E_req:
-            self.data_attr.add(
-                df_req * self.heads,
-                name = 'feed_E_req',
-                unit = 'MJ/year',
-                orig = 'AnimalHerd',
-                desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
-            )   
-        else:
-            self.data_attr.add(
-                df_req * self.heads,
-                name = 'feed_DM_req',
-                unit = 'kg DM/year',
-                orig = 'AnimalHerd',
-                desc = 'Total feed requirements in terms of dry matter'
-            )      
 
 class StaticAnimalHerd(Container):
     '''Class used to create static copys of animal herd objects. These stores all attributes except 'par'

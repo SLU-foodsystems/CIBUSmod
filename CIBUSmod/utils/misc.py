@@ -7,14 +7,19 @@ if TYPE_CHECKING:
     from ..main_modules.animal_herd import AnimalHerd
 
 # Functions to set and get nested attributes
-def rsetattr(obj, attr, val):
-    pre, _, post = attr.rpartition('.')
-    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
-
 def rgetattr(obj, attr, *args):
     def _getattr(obj, attr):
         return getattr(obj, attr, *args)
     return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+def rsetattr(obj, attr, val):
+    pre, _, post = attr.rpartition('.')
+    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
+
+def rdelattr(obj, attr):
+    pre, _, post = attr.rpartition('.')
+    return delattr(rgetattr(obj, pre) if pre else obj, post)
+
 
 class DataAttr(object):
     '''Class that assigns data attributes on main modules and keeps track of metadata.
@@ -126,6 +131,29 @@ class DataAttr(object):
         })
 
         return None
+    
+    def remove(self, attr:str):
+        '''Remove data attribute
+        
+        Parameters
+        ----------
+        attr : str
+            Data attribute to remove
+            
+        Returns
+        -------
+        None
+        '''
+
+        if attr in self.dict:
+            # Remove attribute from parent
+            rdelattr(self.parent, attr)
+            # Remove attribute from dict
+            self.dict.pop(attr)
+            return None
+        else:
+            raise KeyError(f'"{attr}"')
+
     
     def get(self, attr:str):
         '''Get data attribute

@@ -45,17 +45,20 @@ class PlantNutrientMgmt():
         # Create feed objects in herds
         self.crops.fertiliser = Fertiliser()
 
-        vprint('Calculating crop NP requirements ...')
+        vprint('Calculating crop NPK requirements ...')
         self.calculate_TAN_req()
-        self.calculate_P_req()
+        self.calculate_PK_req(element='P')
+        self.calculate_PK_req(element='K')
 
         vprint('Distributing manure ...')
         self.distribute_manure()
 
         # TO BE ADDED: Sewedge sludge application (and other recirculated?)
 
-        vprint('Calculating mineral N application ...')
-        self.calculate_mineral_N_application()
+        vprint('Calculating mineral NPK application ...')
+        self.calculate_mineral_NPK_application(element='N')
+        self.calculate_mineral_NPK_application(element='P')
+        self.calculate_mineral_NPK_application(element='K')
 
         vprint('Calculating N in crop residues ...')
         self.calculate_N_in_crop_residues()
@@ -156,45 +159,52 @@ class PlantNutrientMgmt():
 
         return None
 
-    def calculate_P_req(self):
+    def calculate_PK_req(self, element):
 
         # Get crop yields in tonnes and P-class
         yields = (
             (self.crops.data_attr.get('harvest') / self.crops.data_attr.get('area') / 1000)
             .fillna(0)
-            # Join in P-class and set as index
-            .to_frame()
-            .join(self.regions.data_attr.get('soil_P_class'))
-            .set_index('P_class', append=True)
-            .iloc[:,0]
         )
+
+        if element == 'P':
+            # Join in P-class and set as index
+            yields = (
+                yields
+                .to_frame()
+                .join(self.regions.data_attr.get('soil_P_class'))
+                .set_index('P_class', append=True)
+                .iloc[:,0]
+            )
 
         self.par.clear()
         self.par.set(**yields.index.to_frame().to_dict('list'))
         p = self.par.get
 
-        P_req = (
-            yields * p('P_rec_a') +
-            p('P_rec_m')
-        ).droplevel('P_class')
+        req = (
+            yields * p(f'{element}_rec_a') +
+            p(f'{element}_rec_m')
+        )
+
         # Set values below zero to zero
-        P_req = P_req.where(P_req > 0, 0)
+        req = req.where(req > 0, 0)
         # Multiply by area
-        P_req = P_req * self.crops.data_attr.get('area')
+        req = req * self.crops.data_attr.get('area')
+
+        if element == 'P':
+            # Drop P-class from index
+            req = req.droplevel('P_class')
 
         # Add data attribute
         self.crops.data_attr.add(
-            P_req,
-            name = 'fertiliser.P_req',
-            unit = 'kg P/year',
+            req,
+            name = f'fertiliser.{element}_req',
+            unit = f'kg {element}/year',
             orig = 'PlantNutrientMgmt',
-            desc = 'Phosphorous (P) requirements to be covered by fertiliser/manure application'
+            desc = f'{_elem_to_name[element].capitalize()} requirements to be covered by fertiliser/manure application'
         )
 
         return None
-
-    def calculate_K_req(self):
-        pass
 
     def distribute_manure(self):
         # Generated manure is allocated to different crop areas based
@@ -373,7 +383,7 @@ class PlantNutrientMgmt():
             desc = 'Plant available nitrogen (TAN) in applied manure'
         )
 
-        for element in ['N', 'C']: # ['VS'(?), 'P', 'K'] to be added ...
+        for element in ['N', 'P', 'K', 'C']: # ['VS'(?), 'P', 'K'] to be added ...
             res = rgetattr(herds, f'manure.{element}_to_spread').multiply(share_manure_per_crop)
             self.crops.data_attr.add(
                 res,
@@ -383,9 +393,9 @@ class PlantNutrientMgmt():
                 desc = f'{_elem_to_name[element].capitalize()} in applied manure'
             )
                 
-    def calculate_mineral_N_application(self):
-        # Mineral N application is assumed to cover additional
-        # TAN requirements after manure and other organic
+    def calculate_mineral_NPK_application(self, element):
+        # Mineral N, P or K application is assumed to cover additional
+        # TAN, P or K requirements after manure and other organic
         # fertilisers have been applied. 
 
         self.par.clear()
@@ -393,39 +403,40 @@ class PlantNutrientMgmt():
         # Get share of fertiliser types
         fertiliser_type_shares = \
         self.par.get_from_frame(
-            'mineral_N_fertiliser_share',
+            f'mineral_{element}_fertiliser_share',
             pd.DataFrame(
                 index=self.crops.index,
                 columns=pd.Index(
                     self.par.get_unique(
                         'fertiliser_type',
-                        qry='parameter == "mineral_N_fertiliser_share"'
+                        qry=f'parameter == "mineral_{element}_fertiliser_share"'
                     ), name='fertiliser_type'
                 )
             )
         )/100
 
-        # Calculate TAN to apply 
-        TAN_to_apply = (
-            self.crops.fertiliser.TAN_req - 
-            # self.crops.fertiliser.organic_TAN.sum(axis=1) - !!! TO BE ADDED !!!
-            self.crops.fertiliser.manure_TAN.drop('grazing', level='MMS', axis=1).sum(axis=1)
+        # Calculate TAN, P or K to apply
+        element_ = 'TAN' if element == 'N' else element
+        mineral_fertiliser_to_apply = (
+            self.crops.data_attr.get(f'fertiliser.{element_}_req') - 
+            # self.crops.data_attr.get(f'organic_{element_}').sum(axis=1) - !!! TO BE ADDED !!!
+            self.crops.data_attr.get(f'fertiliser.manure_{element_}').drop('grazing', level='MMS', axis=1).sum(axis=1)
         ).clip(lower=0) # set to zero if manure supplies more than requirement
 
-        # Calculate mineral N fertiliser application
-        fertiliser_mineral_N = \
+        # Calculate mineral fertiliser application per fertiliser type
+        mineral_fertiliser_application = \
         fertiliser_type_shares.mul(
-            TAN_to_apply,
+            mineral_fertiliser_to_apply,
             axis=0
         ).fillna(0)
 
         # Add data attribute
         self.crops.data_attr.add(
-            fertiliser_mineral_N,
-            name = 'fertiliser.mineral_N',
-            unit = 'kg N/year',
+            mineral_fertiliser_application,
+            name = f'fertiliser.mineral_{element}',
+            unit = f'kg {element}/year',
             orig = 'PlantNutrientMgmt',
-            desc = 'Nitrogen (N) in applied fertilisers'
+            desc = f'{_elem_to_name[element].capitalize()} in applied fertilisers'
         )
 
     def calculate_N_in_crop_residues(self):
@@ -700,7 +711,7 @@ _elem_to_name = {
     'C' : 'carbon (C)',
     'N' : 'nitrogen (N)',
     'P' : 'phosphorous (P)',
-    'K' : 'potassium (P)'
+    'K' : 'potassium (K)'
 }
 
 def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
