@@ -50,6 +50,11 @@ class Session(object):
         self.db_path = os.path.join(self.data_path, 'output', self.name+'.sqlite')
         ParameterRetriever.set_data_folder(self.data_path)
 
+        # Create output folder if it does not already exist
+        output_folder = os.path.join(self.data_path, 'output')
+        if not os.path.isdir(output_folder):
+            os.mkdir(output_folder)
+
         if os.path.isfile(self.db_path):
             self.scenarios = _db_read_scn(self.db_path)
         else:
