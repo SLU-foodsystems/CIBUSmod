@@ -110,6 +110,7 @@ class ParameterRetriever:
         self.data = _read_xl(path,'default')
 
         self.filters = []
+        self.qry_log = {}
         
         self.set(**kwargs)
         
@@ -184,6 +185,11 @@ Parameters
         -------
         numpy.ndarray with length equal to the length of filter values. containing the parameter values for the defined filters '''
         self.set(**kwargs)
+
+        if parameter in self.qry_log:
+            self.qry_log[parameter].update(set(self.filters))
+        else:
+            self.qry_log.update({parameter : set(self.filters)})
 
         result = _get_parameter_values(self.data, self.selection, parameter)
 
