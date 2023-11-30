@@ -1,12 +1,12 @@
 <img src="figs/logo.png" height="100px">
 
-# Manual
+# Users guide
 
 1. [Introduction](#introduction) 
 1. [Data structure](#data-structure)
     - [Setting data folder path](#setting-data-folder-path)
-    - [Default data sheets](#default-data-sheets)
-    - [Scenario data sheets](#scenario-data-sheets)
+    - [Default data workbooks](#default-data-workbooks)
+    - [Scenario data workbooks](#scenario-data-workbooks)
 1. Defining and running scenarios
 1. Main modules
     - Regions
@@ -58,7 +58,7 @@ The `my_session` then connects to a SQLite database in `data/output/name_of_sess
 
 > **Note:** *The database files grows quite large in size so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running `my_session.clean()` will tidy up the database file and potentially save som space.*
 
-## Default data sheets
+## Default data workbooks
 All data used to run the model (refered to as parameters) are stored in Excel wokrbooks in `data/default/`. This folder contains one Excel workbook for each CIBUSmod module. When a module is initialised it is done so with a `ParameterRetriever` object that is responsible for accessing parameters. The name defined for the `ParameterRetriever` object correspons to the name of the Excel workbook where it will access paramters.
 
 Below the `Regions` module is initialised and uses parameters in `data/default/Regions.xlsx`
@@ -87,13 +87,16 @@ However, trying to access the `seed` parameter for `crop='Rye'`,`prod_system='or
 > **Tip:** *The filter levels used in the model when accessing different parameters are stored in the `.qry_log` attribute of each `PrameterRetriever` object.*
 
 ### Using external .csv files
-Default parameters can be 
+The Excel workbooks for default parameters can be extended with .csv files.
 
-## Scenario data sheets
-Scenarios are defined in Excel wrokbooks located in `data/scenarios/`. When defining scenarios only the parameters that are changed compared to the default values need to be specified. Any parameters not defined in a scenario workbook are retained with their default values. The scenario workbooks should contain one sheet per module where parameters are to be changed in the scenario (see example below). Each sheet needs to include the column headings `paramter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`). 
+## Scenario data workbooks
+Scenarios are defined in Excel wrokbooks located in `data/scenarios/`. When defining scenarios only the parameters that are changed compared to the default values need to be specified. Any parameters not defined in a scenario workbook are retained with their default values. The scenario workbooks should contain one sheet per module where parameters are to be changed in the scenario (see example below). Each sheet needs to include the column headings `paramter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`).
 
 <img src="figs/manual/scenario_data_example1.png"> \
 *Example of scenario Excel data sheet*
 
+
+
+# Defining and running scenarios
 
 
