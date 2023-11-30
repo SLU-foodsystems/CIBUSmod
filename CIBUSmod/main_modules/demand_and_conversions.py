@@ -512,6 +512,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
         induced_beef_exports = pd.concat([induced_beef_exports], keys=[beef_food_name], names=['food'])
 
         # Apply conversion factor CW --> meat as consumed
+        demand.par.clear()
         induced_beef_exports = (
             induced_beef_exports *
             demand.par.get(
@@ -523,7 +524,6 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
         )
         
         # Add induced beef exports to export demand
-        demand.par.clear()
         demand.export_demand = demand.export_demand.add(
             induced_beef_exports,
             fill_value = 0
