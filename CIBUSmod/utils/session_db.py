@@ -296,6 +296,8 @@ f'''{module}
             raise ValueError(f'Scenario "{scn}" not  defined')
         if year not in self.scenarios[scn]['years']:
             raise ValueError(f'Year {year} not defined for scenario "{scn}"')
+        
+        print(f"Writing outputs to '{self.db_path}'")
        
         for arg in args:
 
@@ -331,6 +333,10 @@ f'''{module}
 
             else:
                 warnings.warn(f'Passed object of type {type(arg)} ignored')
+        
+        print("Outputs stored!")
+
+        return None
 
     def get_attr(
         self,
