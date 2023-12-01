@@ -225,8 +225,11 @@ class CattleHerd(AnimalHerd):
         ) * calves # -> kg/year
 
         # lwg for cows includes fetus growth
-        lwg_cows = (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') * cows # -> kg/year
-        lwg_breeding_bulls = np.zeros(len(cows))
+        lwg_cows_fetus = (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') * cows # -> kg/year
+        lwg_cows_growth = 0 # No growth assumed for cows (pot. calc. from (cow live weight - heifer live weight @ recruitment) / years as cow)
+        lwg_cows = lwg_cows_fetus + lwg_cows_growth
+        lwg_breeding_bulls = np.zeros(len(cows)) # No growth assumed
+
 
         # Create output DataFrames
         pss = [self.prod_system]+list(to_ps) if redist else [self.prod_system] # Output production systems (==[self.prod_system] if no redistribution of animals)
