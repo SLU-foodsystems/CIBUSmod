@@ -13,18 +13,21 @@ Validation and default parameters
 - CropProduction: Check if yields are missing for more crops
 - CropProduction: Check 'Mixed cereals' -> korn+havre eller havre/korn+ärter
 - CattleHerd: Too much grazing adjust feed rations
+- FeedMgmt: Check share grazing from semi-natural grasslands
 - PlantNutrientMgmt: Add K requirements
 - MachineryAndEnergyMgmt: Check energy use in stables. Completely missing for layers and sheep
 - MachineryAndEnergyMgmt: Fix operations in organic production
+- ManureMgmt: Check N excretion... higher than NIR but seems to align fairly
+  well with Dutch method. bulls and sows are high.
 
 Overarching
 -----------
 - Implement DataAttr.get() across modules
 - Session: Fix concat_herds() and .get_attr() for scalable=False. Implement in .get_attr() check scalable and do not aggregate if False
+- Session: reorder scenarios
 
 ParameterRetriever
 ------------------
-- 
 
 Regions
 -------
@@ -44,8 +47,6 @@ CropProduction
 
 AnimalHerd
 ----------
-- CattleHerd
-    - Use only recruitment or slaughter age for cows
 
 FeedMgmt
 --------
@@ -54,16 +55,13 @@ FeedMgmt
 
 ManureMgmt
 ----------
-- Add bedding material to VS excretion
-- Check N excretion... higher than NIR but seems to align fairly
-  well with Dutch method. bulls and sows are high.
+- Add bedding material to VS excretion (??)
 - Handle manure that is not returned to cropland? (mainly horses?)
 
 PlantNutrientMgmt
 -----------------
 - Implement alternative to use N2O EF from Rochette et al
 - Improve leaching calculations (currently IPCC method and only for N)
-- Pot. update manure distribution to better reflect which crops recieve manure
 
 MachineryAndEnergyMgmt
 ----------------------

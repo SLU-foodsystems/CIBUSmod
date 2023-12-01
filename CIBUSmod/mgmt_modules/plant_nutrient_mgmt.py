@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, rgetattr
+from ..utils.misc import multiply_aligned
 from ..main_modules.animal_herd import concat_herds
 from ..utils.misc import Container
 
@@ -181,13 +181,17 @@ class PlantNutrientMgmt():
         self.par.set(**yields.index.to_frame().to_dict('list'))
         p = self.par.get
 
-        req = (
+        rec = (
             yields * p(f'{element}_rec_a') +
             p(f'{element}_rec_m')
         )
 
         # Set values below zero to zero
-        req = req.where(req > 0, 0)
+        rec = rec.where(rec > 0, 0)
+
+        # Apply adjustment factor
+        req = rec * p(f'{element}_adj')
+
         # Multiply by area
         req = req * self.crops.data_attr.get('area')
 
@@ -228,14 +232,12 @@ class PlantNutrientMgmt():
         #       after (2) to organic areas in the region based on TAN requirements
         #       up to X% of crop TAN requirements, where X is defined by parameter
         #       'manure_TAN_max'.
+        # 
+        # 4.    Distribute any manure remaining after (3) per animal herd to crop
+        #       areas used for feed in the region for that herd based on TAN requirements.
         #
-        # 4.    Distribute any remaining manure after (3) to conventional areas
+        # 5.    Distribute any remaining manure after (3) to conventional areas
         #       in the region based on TAN requirements. 
-        #
-        # NOTE: This method of distributing manure does not produce reliable results
-        # in terms of ammount of manure applied on different crops, but focus on distribution
-        # across production systems. E.g. it is likely to assume that manure on cattle
-        # farms is primarily applied on the farms' own crop area (i.e. fodder crops)
 
         herds = concat_herds(self.herds)
 
@@ -349,7 +351,35 @@ class PlantNutrientMgmt():
             TAN_req_remaining, manure_TAN_application
         )
 
-        # 4. ALL MANURE TO CONVENTIONAL AREAS --------------------->
+        # 4. MANURE PER HERD TO CROP AREAS USED AS FEED --------------------->
+
+        share_crop_prod_per_use = (
+            self.crops.data_attr.get('production_per_use')
+            .transform(lambda x: x/x.sum(), axis=1)
+            # NaNs generated in cases where production is zero
+            # Not a problem here so just replace with 0
+            .fillna(0)
+        )
+
+        # Calculate TAN requirements to be covered in this step
+        for sp,br,ss,ps in manure_TAN_remaining.columns.droplevel(['animal','MMS']).unique():
+            TAN_to_cover = TAN_req_remaining.mul(
+                share_crop_prod_per_use
+                .loc[(slice(None),ps,slice(None)),f'feed ({sp}, {br}, {ss})'],
+                fill_value=0
+            )
+            manure_TAN_to_use = manure_TAN_remaining.loc[:,([sp],[br],[ss],[ps])]
+
+            manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+            
+            manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+            _update_manure_TAN_frames(
+                manure_TAN_to_spread,
+                manure_TAN_remaining,
+                TAN_req_remaining, manure_TAN_application
+            )
+
+        # 5. ALL MANURE TO CONVENTIONAL AREAS --------------------->
 
         # Calculate TAN requirements to be covered in this step
         TAN_to_cover = TAN_req_remaining
@@ -384,7 +414,7 @@ class PlantNutrientMgmt():
         )
 
         for element in ['N', 'P', 'K', 'C']: # ['VS'(?), 'P', 'K'] to be added ...
-            res = rgetattr(herds, f'manure.{element}_to_spread').multiply(share_manure_per_crop)
+            res = herds.data_attr.get(f'manure.{element}_to_spread').multiply(share_manure_per_crop)
             self.crops.data_attr.add(
                 res,
                 name = f'fertiliser.manure_{element}',
@@ -489,7 +519,7 @@ class PlantNutrientMgmt():
         self.par.clear()
 
         # Get TAN application
-        TAN_appl = getattr(self.crops.fertiliser, of)
+        TAN_appl = self.crops.data_attr.get(f'fertiliser.{of}')
 
         if of=='manure_TAN':
             # Aggregate manure 
@@ -556,7 +586,7 @@ class PlantNutrientMgmt():
         par_name = 'soil_losses_' + of.replace('_N','')
 
         # Get N application
-        N_appl = getattr(self.crops.fertiliser, of)
+        N_appl = self.crops.data_attr.get(f'fertiliser.{of}')
 
         if of=='manure_N':
             # Aggregate manure 
