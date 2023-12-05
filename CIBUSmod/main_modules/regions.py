@@ -69,16 +69,26 @@ class Regions(object):
 
         self.par.clear()
 
+        # Get x0_crops
+        idx = pd.MultiIndex.from_frame(self.par.get_unique(['crop','prod_system','region'], qry='parameter == "x0_crops"'))
+        x0_crp = pd.Series(
+            self.par.get('x0_crops', **idx.to_frame().to_dict('list')),
+            index = idx,
+            name = 'area'
+        ).sort_index()
+
+        # # Get x0_animals (to be implemented...)
+        # idx = pd.MultiIndex.from_frame(self.par.get_unique(['species','breed','prod_system','region'], qry='parameter == "x0_animals"'))
+        # x0_ani = pd.Series(
+        #     self.par.get('x0_crops', **idx.to_frame().to_dict('list')),
+        #     index = idx,
+        #     name = 'number'
+        # ).sort_index()
+
         # THIS IS A TEMPORY IMPLEMENTATION. X0 WILL LATER BE DEFINED
         # AS PARAMETERS AND RETRIEVED WITH THE PARAMETERRETRIEVER !!!!
 
         path = os.path.join(self.par.data_path_default,'..','x0')
-
-        # Define x0_crp
-
-        x0_crp = \
-            pd.read_csv(os.path.join(path,'x0_crp.csv'), dtype={'region': object})\
-            .set_index(['crop','prod_system','region'])['area']
 
         # Define x0_ani
         x0_ani = pd.read_csv(os.path.join(path,'x0_ani.csv'), dtype={'region': object})
