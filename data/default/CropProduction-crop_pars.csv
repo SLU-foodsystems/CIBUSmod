@@ -25,6 +25,8 @@ Maize for forage and silage,1,0.04,0.54,,,,0.02,,,0.007,1,NIR 2022. Table 5.24,G
 Cereals for fodder,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.24,Green fodder (cereals),,,,0.3,0,
 Other crops for fodder,1,0.15,0.54,,,,0.02,,,0.016,1,NIR 2022. Table 5.24,Green fodder (other),,,,0.3,0,
 Semi-natural pastures,1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,,,,0.835,0,
+"Semi-natural pastures, thin soils",1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,,,,0.835,0,
+"Semi-natural pastures, wooded",1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,,,,0.835,0,
 Semi-natural meadows,1,0.4,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.24,Pasture ground,,,,0.835,0,
 Onions,0.13,0.212927757,0.054499366,,,,0.0325,,,0.014,1,Jacobs et al 2020,Onion,,,,0.2,0,??
 Carrots,0.13,0.136579572,0.051068884,,,,0.0325,,,0.014,1,Jacobs et al 2020,Carrot,,,,0.2,0,??

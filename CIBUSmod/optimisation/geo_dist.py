@@ -86,7 +86,8 @@ class GeoDistributor:
             use_cons = [use_cons]
         use_cons = [str(e) for e in use_cons]
         # Make sure that C7 is handled last
-        use_cons.append(use_cons.pop(use_cons.index('7')))
+        if '7' in use_cons:
+            use_cons.append(use_cons.pop(use_cons.index('7')))
 
         vprint('Getting x0 and making indexes ...')
         self.get_x0()

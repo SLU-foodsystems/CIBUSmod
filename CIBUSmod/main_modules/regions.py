@@ -90,6 +90,11 @@ class Regions(object):
 
         path = os.path.join(self.par.data_path_default,'..','x0')
 
+        # # Define x0_crp
+        # x0_crp = \
+        #     pd.read_csv(os.path.join(path,'x0_crp.csv'), dtype={'region': object})\
+        #     .set_index(['crop','prod_system','region'])['area']
+
         # Define x0_ani
         x0_ani = pd.read_csv(os.path.join(path,'x0_ani.csv'), dtype={'region': object})
 
