@@ -237,8 +237,7 @@ class GeoDistributor:
         # Allocate crop production to uses
         self.allocate_crop_production_per_use()
         if 'A5' in self.matrices:
-            pass
-            # self.adjust_crop_allocation()
+            self.adjust_crop_allocation()
 
     def get_x0(self):
         # Get x0
@@ -1412,7 +1411,7 @@ class GeoDistributor:
             name = 'production_per_use',
             unit = 'kg/year',
             orig = 'GeoDistributor',
-            desc = 'Total crop production distributed across different uses'
+            desc = 'Total crop production distributed across different uses (unreliable)'
         )
 
     def adjust_crop_allocation(self):
@@ -1420,141 +1419,117 @@ class GeoDistributor:
         used to e.g. limite the share of grazing that can be supplied from semi-natural
         grasslands for different animals'''
 
+        # NOTE: THIS ALLOCATION PROCEDURE GENERATES UNRELIABLE RESULTS IN TERMS OF ALLOCATING
+        # TOO MUCH OR LITTLE TO DIFFERENT ANIMAL HERDS. BALANCES ON REGION/ PRODUCTION SYSTEM
+        # LEVEL ARE HOWEVER FINE. BUT INTERPRET RESULTS WITH CARE
+
+        # Get crop production per use and create df for adjustments
         crop_production_per_use = self.crops.data_attr.get('production_per_use').copy()
+        crop_production_per_use_adjusted = crop_production_per_use.copy()
+
+        # Get map crop_group --> crop(s)
+        map_cg_cr = inv_dict(self.par.get_rel('crop', 'crop_group'))
 
         # Get concatenated herds
         con_herds = concat_herds(self.herds)
 
         # Get maximum inclusion of crops in crop_prod per animal herd
         max_feed_from_crop = (
-            con_herds
-            .feed.max_supply_from_crop
-            .groupby(['species','breed','sub_system','prod_system','crop_prod','crop'], axis=1).sum()
-            .stack(['prod_system','crop_prod','crop'])
+            con_herds.data_attr.get(
+                'feed.max_supply_from_crop_group'
+            )
+            .groupby(['species','breed','sub_system','prod_system','crop_prod','crop_group'], axis=1).sum()
+            .stack(['prod_system','crop_prod','crop_group'])
             .fillna(0)
-        ).reorder_levels(['crop_prod','crop','prod_system','region'])
+        ).reorder_levels(['crop_prod','crop_group','prod_system','region'])
         max_feed_from_crop.columns = max_feed_from_crop.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
 
-        crop_production_per_use_adjusted = crop_production_per_use.copy()
-
         # Get crop products with a max 
-        # feed from crop constraints
-        crop_prods_w_max_feed = (
+        # feed from crop_groups constraints
+        cps = (
             max_feed_from_crop
             .index
             .get_level_values('crop_prod')
             .unique()
         )
 
-        for cp in crop_prods_w_max_feed:
+        for cp in cps:
 
-            # Get crops supplying crop product cp
-            crs = (
-                self.crops.index.get_level_values('crop')
-                [self.crops.production.loc[:,cp]>0].unique()
-            )
+            # Get total demand for crop_prod per animal herd
+            cp_demand_per_herd = (
+                con_herds.data_attr.get(
+                    'feed.crop_product_demand'
+                )
+                .xs(('domestic', cp), level=('origin', 'crop_prod'), axis=1)
+                .groupby(['species','breed','sub_system','prod_system'], axis=1).sum()
+                .stack(['prod_system'])
+                .fillna(0)
+            ).reorder_levels(['prod_system','region'])
+            cp_demand_per_herd.columns = cp_demand_per_herd.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
+            cp_demand_per_herd
             
-            # Get crops supplying crop product cp with 
-            # a max feed from crop constraints
-            crs_w_max_feed = (
+            # Get constrained crop groups
+            cgs = (
                 max_feed_from_crop
                 .loc[cp]
                 .index
-                .get_level_values('crop')
+                .get_level_values('crop_group')
                 .unique()
             )
-
-            # Get crops supplying crop product cp without 
-            # a max feed from crop constraints
-            crs_wo_max_feed = list(set(crs) - set(crs_w_max_feed))
             
-            if len(crs_wo_max_feed)<0:
-                warnings.warn(f"All crops for crop_prod {cp} constrained with 'max_crop_in_crop_prod'. This may cause strange results")
+            # Get constrained and unconstrained crops
+            crs_cons = [cr for cg in cgs for cr in map_cg_cr[cg]]
+            crs_uncons = (
+                self.crops.index.get_level_values('crop')
+                [self.crops.data_attr.get('production').loc[:,cp]>0].unique()
+            )
+            crs_uncons = [cr for cr in crs_uncons if cr not in crs_cons]
             
-            for cr_w in crs_w_max_feed:
-            
-                crop_production_per_use_adjusted.loc[[cr_w],max_feed_from_crop.columns] = (
-                    max_feed_from_crop
-                    .xs(cp)
-                    .loc[[cr_w]]
-                    .transform(
-                        lambda x: x/x.sum(),
-                        axis=1
-                    )
-                    .mul(
-                        self.crops.production
-                        .loc[[cr_w],cp],
-                        axis=0
-                    )
-                )
-
-                assert np.isclose(
-                    crop_production_per_use_adjusted.loc[cr_w].sum().sum(),
-                    crop_production_per_use.loc[cr_w].sum().sum()
-                )
-
-            for cr_wo in crs_wo_max_feed:
-                crop_production_per_use_adjusted.loc[[cr_wo],max_feed_from_crop.columns] = (
-                    (
-                        # Share of cp per use
-                        total_demand_shares
-                        .xs(cp, level='crop_prod')
-                        .loc[:,max_feed_from_crop.columns]
-                        .transform(lambda x: x/x.sum(), axis=1)
-                        
-                        # Total use of cp
-                        .mul(
-                            crop_production_per_use
-                            .loc[crs,max_feed_from_crop.columns]
-                            .sum(axis=1)
-                            .groupby(['prod_system','region'])
-                            .sum(),
-                            axis = 0
-                        )
-                        -
-                        # Supply of cp from crs_w_max_feed
-                        crop_production_per_use_adjusted
-                        .loc[crs_w_max_feed,max_feed_from_crop.columns]
-                        .groupby(['prod_system','region'])
-                        .sum()
-                    )
+            # Go through constrained crop_groups and crops and update
+            for cg in cgs:
                 
-                    # Share cr of crs_wo_max_feed
-                    .mul(
-                        crop_production_per_use
-                        .loc[[cr_wo],max_feed_from_crop.columns]
-                        .sum(axis=1)
-                        /
-                        crop_production_per_use
-                        .loc[crs_wo_max_feed,max_feed_from_crop.columns]
-                        .sum(axis=1)
-                        .groupby(['prod_system','region'])
-                        .sum(),
-                        axis = 0
-                    )
-                    .reorder_levels(['crop','prod_system','region'])
-                    .sort_index()
-                )
+                # Calculate allocation factors for constrained crop_group
+                cg_allocation_factors = max_feed_from_crop.loc[cp,cg].transform(lambda x: x/x.sum(), axis=1)
+                
+                # Get crops in constrained crop_group
+                crs = map_cg_cr[cg]
+                
+                for cr in crs:
+                    # Get total use of crop
+                    total_use_of_cr = crop_production_per_use.loc[cr, crop_production_per_use.columns.str.contains('feed')].sum(axis=1)
+                    # Apply allocation factors
+                    cr_allocated = cg_allocation_factors.mul(total_use_of_cr, axis=0)
+                    # Update dataframe
+                    crop_production_per_use_adjusted.update(pd.concat({cr: cr_allocated}, names=['crop']).fillna(0))
+            
+            # Get total use of unconstrained crops
+            total_use_uncons_crs = crop_production_per_use.loc[crs_uncons, crop_production_per_use.columns.str.contains('feed')].sum(axis=1).groupby(['prod_system', 'region']).sum()
+            # Get adjusted use of constrained crops per herd
+            use_cons_crs_per_herd = crop_production_per_use_adjusted.loc[crs_cons, crop_production_per_use.columns.str.contains('feed')].groupby(['prod_system', 'region']).sum()
+            # Calculate allocation factors
+            uncons_crs_allocation_factors = (cp_demand_per_herd - use_cons_crs_per_herd).div(total_use_uncons_crs, axis=0)
+            # Make sure rows sums to 1 (this shouldn't be needed... some problem here...)
+            uncons_crs_allocation_factors = uncons_crs_allocation_factors.transform(lambda x: x/x.sum(), axis=1)
+            # Go through unconstrained crops and update
+            for cr in crs_uncons:
+                # Get total use of crop
+                total_use_of_cr = crop_production_per_use.loc[cr, crop_production_per_use.columns.str.contains('feed')].sum(axis=1)
+                # Apply allocation factors
+                cr_allocated = uncons_crs_allocation_factors.mul(total_use_of_cr, axis=0)
+                # Update dataframe
+                crop_production_per_use_adjusted.update(pd.concat({cr: cr_allocated}, names=['crop']).fillna(0))
 
-                assert np.isclose(
-                    crop_production_per_use_adjusted.loc[cr_wo].sum().sum(),
-                    crop_production_per_use.loc[cr_wo].sum().sum()
-                )
 
-        assert not (crop_production_per_use_adjusted<-1e-4).any().any() 
+        assert (crop_production_per_use_adjusted.min() > -1).all() # No negatives
+        assert abs((crop_production_per_use_adjusted.sum(axis=1) - crop_production_per_use.sum(axis=1))).max() < 1 # No dif from unadjusted
 
-        assert abs(
-            crop_production_per_use_adjusted.sum(axis=1)-self.crops.production.sum(axis=1)
-        ).max() < 10
-
-
-        # Add data attribute
+        # Update data attribute
         self.crops.data_attr.add(
             crop_production_per_use_adjusted,
             name = 'production_per_use',
             unit = 'kg/year',
             orig = 'GeoDistributor',
-            desc = 'Total crop production distributed across different uses'
+            desc = 'Total crop production distributed across different uses (unreliable)'
         )
 
 

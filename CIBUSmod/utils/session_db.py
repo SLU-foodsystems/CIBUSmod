@@ -751,10 +751,13 @@ def _db_read_data(module, attr, scn, year, db_path):
 
 def _db_drop_data(module, attr, scn, year, db_path):
 
-    _db_drop_tables([
-        f'{module}${attr}${scn}${year}',
-        f'{module}${attr}${scn}${year}__idxcol'
-    ])
+    _db_drop_tables(
+        tables = [
+            f'{module}${attr}${scn}${year}',
+            f'{module}${attr}${scn}${year}__idxcol'
+        ],
+        db_path = db_path
+    )
 
     return None
 
