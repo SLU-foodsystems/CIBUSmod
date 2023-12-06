@@ -320,14 +320,14 @@ class FeedMgmt():
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
 
-        # Get crops to handle
-        crs = (
-            self.par.get_unique(['crop','crop_prod'], qry='parameter == "max_crop_in_crop_prod"')
-            .set_index('crop_prod')['crop']
+        # Get crop_groups to handle
+        cgs = (
+            self.par.get_unique(['crop_group','crop_prod'], qry='parameter == "max_crop_in_crop_prod"')
+            .set_index('crop_prod')['crop_group']
         )
 
         for herd in self.herds:
-            if herd.feed.crop_product_demand.columns.get_level_values('crop_prod').isin(crs.index).any():
+            if herd.data_attr.get('feed.crop_product_demand').columns.get_level_values('crop_prod').isin(cgs.index).any():
 
                 # Set species and breed filters for ParameterRetriever
                 self.par.clear()
@@ -338,10 +338,10 @@ class FeedMgmt():
                 )
 
                 # Get crop product demand supplied by crops in crs
-                df = herd.feed.crop_product_demand.loc[:,idx['domestic',:,:,crs.index]]
+                df = herd.data_attr.get('feed.crop_product_demand').loc[:,idx['domestic',:,:,cgs.index]]
 
                 # Append crops to column index
-                df.columns = pd.MultiIndex.from_tuples(map(lambda x: (x + tuple([crs[x[-1]]])), df.columns), names = df.columns.names + ['crop'])
+                df.columns = pd.MultiIndex.from_tuples(map(lambda x: (x + tuple([cgs[x[-1]]])), df.columns), names = df.columns.names + ['crop_group'])
 
                 # Calculate maximum supply of crop_prod from crop
                 res = (df * self.par.get_from_frame(
@@ -350,25 +350,25 @@ class FeedMgmt():
                     species=herd.species,
                     breed=herd.breed,
                     sub_system=herd.sub_system
-                )).T.groupby(['prod_system','crop_prod','crop']).sum().T/100 # The trnaspose x2 is a dirty fix to pandas sometimes returning level names as columns (pandas bug?)
+                )).T.groupby(['prod_system','crop_prod','crop_group']).sum().T/100 # The trnaspose x2 is a dirty fix to pandas sometimes returning level names as columns (pandas bug?)
 
                 # Add data attribute
                 herd.data_attr.add(
                     res,
-                    name = 'feed.max_supply_from_crop',
+                    name = 'feed.max_supply_from_crop_group',
                     unit = 'kg/year',
                     orig = 'FeedMgmt',
-                    desc = 'Maximum supply of feed from crop. Used in GeoDistributor constraint'
+                    desc = 'Maximum supply of feed from crop_group. Used in GeoDistributor constraint'
                 )
 
             else:
                 # Add data attribute
                 herd.data_attr.add(
                     None,
-                    name = 'feed.max_supply_from_crop',
+                    name = 'feed.max_supply_from_crop_group',
                     unit = 'kg/year',
                     orig = 'FeedMgmt',
-                    desc = 'Maximum supply of feed from crop. Used in GeoDistributor constraint'
+                    desc = 'Maximum supply of feed from crop_group. Used in GeoDistributor constraint'
                 )
 
     def redistribute_feeds(self):

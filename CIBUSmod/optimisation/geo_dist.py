@@ -10,7 +10,7 @@ import time
 from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned
+from ..utils.misc import multiply_aligned, inv_dict
 from ..main_modules.animal_herd import concat_herds
 
 class GeoDistributor:
@@ -234,8 +234,11 @@ class GeoDistributor:
                     x_is = h.x_is
                 )
         
-        # Allocate crop areas to uses
+        # Allocate crop production to uses
         self.allocate_crop_production_per_use()
+        if 'A5' in self.matrices:
+            pass
+            # self.adjust_crop_allocation()
 
     def get_x0(self):
         # Get x0
@@ -250,7 +253,7 @@ class GeoDistributor:
                     [(sp,br,ps,ss,re) for (sp,br,ps,ss) in self.herds.index for re in self.herds[(sp,br,ps,ss)].index],
                     names=['species','breed','prod_system','sub_system','region']
                     ),
-            'crp' : self.crops.index
+            'crp' : self.crops.index.copy()
         }
 
         # Sort x0['ani'] to match x['ani']
@@ -1078,15 +1081,15 @@ class GeoDistributor:
     def make_A5_1(self):
 
         # Get crop product and crop combindations where there is a constraint for maximum inclusion
-        cps_crs = self.feed_mgmt.par.get_unique(['crop_prod','crop'], qry='parameter == "max_crop_in_crop_prod"')
+        cps_cgs = self.feed_mgmt.par.get_unique(['crop_prod','crop_group'], qry='parameter == "max_crop_in_crop_prod"')
 
-        # Get row index (cp,cr,ps,re)
+        # Get row index (cp,cg,ps,re)
         row_idx = pd.MultiIndex.from_tuples([
-            (cp,cr,ps,re)
-            for cp,cr in cps_crs.values
+            (cp,cg,ps,re)
+            for cp,cg in cps_cgs.values
             for ps in self.x_idx['ani'].get_level_values('prod_system').unique()
             for re in self.x_idx['ani'].get_level_values('region').unique()
-        ], names = ['crop_prod','crop','prod_system','region'])
+        ], names = ['crop_prod','crop_group','prod_system','region'])
         # Get col index from animal herds (sp,br,ps,ss,re)
         col_idx = self.x_idx['ani']
 
@@ -1104,18 +1107,18 @@ class GeoDistributor:
             ss = herd.sub_system
 
             # Check if herd has 'feed.max_supply_from_crop'
-            if herd.feed.max_supply_from_crop is not None:
+            if herd.data_attr.get('feed.max_supply_from_crop_group') is not None:
                 # Go through production systems, crop products and crop combinations with a max supply constraint
-                for ops,cp,cr in herd.feed.max_supply_from_crop.columns:
+                for ops,cp,cg in herd.data_attr.get('feed.max_supply_from_crop_group').columns:
                     # Get maximum supply of crop product (cp) from output production system (ops) in region (re)
-                    # from crop (cr) per head of defining animal of species (sp) and breed (br) in production
+                    # from crop_group (cg) per head of defining animal of species (sp) and breed (br) in production
                     # system (ps), sub system (ss) and region (re)
-                    res = - herd.feed.max_supply_from_crop.loc[:,(ops,cp,cr)]
+                    res = - herd.data_attr.get('feed.max_supply_from_crop_group').loc[:,(ops,cp,cg)]
 
                     # Store values and row/col nr
                     val.extend(res.values)
                     row_nr.extend(
-                        [row_idx.get_loc((cp,cr,ops,re)) for re in res.index]
+                        [row_idx.get_loc((cp,cg,ops,re)) for re in res.index]
                     )
                     col_nr.extend(
                         [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
@@ -1129,39 +1132,44 @@ class GeoDistributor:
         )
 
         return M
-    
-    def make_A5_2(self):
-        # Get crop product and crop combindations where there is a constraint for maximum inclusion
-        cps_crs = self.feed_mgmt.par.get_unique(['crop_prod','crop'], qry='parameter == "max_crop_in_crop_prod"')
 
-        # Get row index (cp,cr,ps,re)
+    def make_A5_2(self):
+        
+        # Get crop product and crop_group combindations where there is a constraint for maximum inclusion
+        cps_cgs = self.feed_mgmt.par.get_unique(['crop_prod','crop_group'], qry='parameter == "max_crop_in_crop_prod"')
+
+        # Get map crop_group --> crop(s)
+        map_cg_cr = inv_dict(self.par.get_rel('crop', 'crop_group'))
+
+        # Get row index (cp,cg,ps,re)
         row_idx = pd.MultiIndex.from_tuples([
-            (cp,cr,ps,re)
-            for cp,cr in cps_crs.values
+            (cp,cg,ps,re)
+            for cp,cg in cps_cgs.values
             for ps in self.x_idx['ani'].get_level_values('prod_system').unique()
             for re in self.x_idx['ani'].get_level_values('region').unique()
-        ], names = ['crop_prod','crop','prod_system','region'])
+        ], names = ['crop_prod','crop_group','prod_system','region'])
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx['crp']
-
-        row_idx_lookup = row_idx.droplevel('region').sort_values()
 
         # To store data and corresponding row/col numbers for constructing matrix
         val = []
         row_nr = []
         col_nr = []
 
-        for cp,cr,ps in row_idx.droplevel('region').unique():
+        for cp,cg,ps in row_idx.droplevel('region').unique():
+
+            # Get crop(s)
+            cr = map_cg_cr[cg]
             
-            res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0)
+            res = self.crops.data_attr.get('production').loc[(cr,ps,slice(None)),(cp)].fillna(0)
 
             # Store values and row/col nr
             val.extend(res.values)
             row_nr.extend(
-                [row_idx.get_loc((cp,cr,ps,re)) for re in res.index.get_level_values('region')]
+                [row_idx.get_loc((cp,cg,ps,re)) for re in res.index.get_level_values('region')]
             )
             col_nr.extend(
-                [col_idx.get_loc((cr,ps,re)) for re in res.index.get_level_values('region')]
+                [col_idx.get_loc((cr,ps,re)) for cr,ps,re in res.index]
             )
                     
         # Create Compressed Sparse Column matrix
@@ -1300,7 +1308,7 @@ class GeoDistributor:
     
     def allocate_crop_production_per_use(self):
         '''Allocate crop areas to different uses.
-        Creates attriute 'area_per_use' in CropProduction'''
+        Creates attriute 'production_per_use' in CropProduction'''
 
         # Get prouction per crop product
         prod = (
@@ -1398,9 +1406,24 @@ class GeoDistributor:
             self.crops.production
         ).groupby('demand', axis=1).sum()
 
-        # Adjust based use allocation based on FeedMgmt 'max_crop_in_crop_prod' paramter
-        # used to e.g. limite the share of grazing that can be supplied from semi-natural
-        # grasslands for different animals
+        # Add data attribute
+        self.crops.data_attr.add(
+            crop_production_per_use,
+            name = 'production_per_use',
+            unit = 'kg/year',
+            orig = 'GeoDistributor',
+            desc = 'Total crop production distributed across different uses'
+        )
+
+    def adjust_crop_allocation(self):
+        '''Adjust allocation of crop production to uses on FeedMgmt 'max_crop_in_crop_prod' paramter
+        used to e.g. limite the share of grazing that can be supplied from semi-natural
+        grasslands for different animals'''
+
+        crop_production_per_use = self.crops.data_attr.get('production_per_use').copy()
+
+        # Get concatenated herds
+        con_herds = concat_herds(self.herds)
 
         # Get maximum inclusion of crops in crop_prod per animal herd
         max_feed_from_crop = (
