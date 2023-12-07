@@ -60,6 +60,8 @@ class Session(object):
         else:
             self.scenarios = {}
 
+        self.cashe = CasheDict(max_size=1000) # Dict that stores tables retrieved from database for faster access
+
     def __getitem__(self, scn):
         res = self.scenarios[scn].copy()
         res.pop('years')
@@ -330,6 +332,8 @@ f'''{module}
                         year=year,
                         db_path=self.db_path
                     )
+                    if (module, attr, scn, year) in self.cashe:
+                        del self.cashe[(module, attr, scn, year)]
 
             else:
                 warnings.warn(f'Passed object of type {type(arg)} ignored')
@@ -337,6 +341,40 @@ f'''{module}
         print("Outputs stored!")
 
         return None
+    
+    def get_table(
+            self,
+            module,
+            attr,
+            scn,
+            year
+    ):
+        '''Get a table from the database or from the cashed tables
+        
+        Parameters
+        ----------
+        module : str
+        attr : str
+        scn : str
+        year : str
+        
+        Returns
+        -------
+        pandas.DataFrame, pandas.Series or float'''
+
+        try:
+            res = self.cashe[(module, attr, scn, year)]
+        except KeyError:
+            res = _db_read_data(
+                module = module,
+                attr = attr,
+                scn = scn,
+                year = year,
+                db_path = self.db_path
+            )
+            self.cashe[(module, attr, scn, year)] = res
+        
+        return res
 
     def get_attr(
         self,
@@ -388,12 +426,11 @@ f'''{module}
         # Get first scn and year
         scn = list(self.scenarios.keys())[0]
         year = self.scenarios[scn]['years'][0]
-        x = _db_read_data(
+        x = self.get_table(
             module = module,
             attr = attr,
             scn = scn,
-            year = year,
-            db_path = self.db_path
+            year = year
         )
     
         if groupby == 'all':
@@ -460,12 +497,11 @@ f'''{module}
         d = []
         for scn, year in data_index:
             # Get attribute
-            x = _db_read_data(
+            x = self.get_table(
                 module = module,
                 attr = attr,
                 scn = scn,
-                year = year,
-                db_path = self.db_path
+                year = year
             )
             
             # Drop or add suffixes to handle duplicate levels in index and columns
@@ -516,22 +552,37 @@ f'''{module}
                         x = x.sum()
     
             if isinstance(x,pd.DataFrame):
-                nlevels = x.columns.nlevels
-                if nlevels == 1 and isinstance(x.columns,pd.MultiIndex):
+                i_lvls = x.index.nlevels
+                c_lvls = x.columns.nlevels
+                if i_lvls == 1 and isinstance(x.index,pd.MultiIndex):
+                    # Fix problem with single-level MultiIndex stacking by
+                    # converting to Index
+                    x.index = x.index.get_level_values(0)
+                if c_lvls == 1 and isinstance(x.columns,pd.MultiIndex):
                     # Fix problem with single-level MultiIndex stacking by
                     # converting to Index
                     x.columns = x.columns.get_level_values(0)
-                # Stack dataframe to sries
-                x = x.stack(list(range(nlevels)))
+                # Stack or unstack dataframe to series (take shortest way)
+                if i_lvls<=c_lvls:
+                    x = x.unstack(list(range(i_lvls)))
+                else:
+                    x = x.stack(list(range(c_lvls)))
             if not isinstance(x,pd.Series):
                 # If float returned create series
                 x = pd.Series(x)
     
             d.append(x)
-    
+
+        # Get col index
+        data_cols = d[0].index
+        # Drop index to speed up concatenation
+        d_ = [df.reset_index(drop=True) for df in d]
         # Combine and transpose
-        data = pd.concat(d, axis=1).T
+        data = pd.concat(d_, axis=1).T
+
+        # Add in index and columns
         data.index = data_index
+        data.columns = data_cols
     
         if len(data.columns) == 1:
             # If only one column. Make series with attr as name
@@ -561,7 +612,7 @@ f'''{module}
             data = data.reindex(new_idx).interpolate()
     
         return data
-
+    
 def _path_from_str(str):
     path = ''
     for word in str.split('/'):
@@ -582,7 +633,7 @@ def _get_check_and_clean(module, module_name, attr, zero_tol=1e-6):
     if isinstance(data, pd.Series|pd.DataFrame):
         
         if data.isna().any().any():
-            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set zero')
+            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set to zero')
             data = data.fillna(0)
         if (data < -zero_tol).any().any():
             warnings.warn(f'Negative values of down to {data.min().min()} {module.data_attr[attr]["unit"]} in {module_name}.{attr}. Set to zero')
@@ -591,7 +642,7 @@ def _get_check_and_clean(module, module_name, attr, zero_tol=1e-6):
     elif isinstance(data, np.float_):
         
         if np.isnan(data):
-            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set zero')
+            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set to zero')
             data = 0
         if data < -zero_tol:
             warnings.warn(f'Negative value of {data} {module.data_attr[attr]["unit"]} in {module_name}.{attr}. Set to zero')
@@ -602,6 +653,31 @@ def _get_check_and_clean(module, module_name, attr, zero_tol=1e-6):
         raise TypeError('Data should be pandas.Series, pandas.DataFrame or numpy.float')
         
     return data
+
+class CasheDict(dict):
+    # Implementation slightly modified from
+    # https://gist.github.com/bencharb/729971d4a9e4633ea08a
+    
+    default_max_size = 100
+    def __init__(self, *args, **kwargs):
+        self.max_size = kwargs.pop('max_size', self.default_max_size)
+        super(CasheDict, self).__init__(*args, **kwargs)
+        
+    def __setitem__(self, key, val):
+        if key not in self:
+            max_size = self.max_size-1  # so the dict is sized properly after adding a key
+            self._prune_dict(max_size)
+        super(CasheDict, self).__setitem__(key, val)
+        
+    def update(self, **kwargs):
+        super(CasheDict, self).update(**kwargs)
+        self._prune_dict(self.max_size)
+
+    def _prune_dict(self, max_size):
+        if len(self) >= max_size:
+            diff = len(self) - max_size 
+            for k in list(self)[:diff]:
+                del self[k]
             
 # SQLITE DATABASE FUNCTIONS
 
