@@ -650,6 +650,11 @@ class GeoDistributor:
                 else:
                     pars[p] = [pars[p]] * pars_len_max
 
+        if all([v is None for v in pars['C8_crp']]) and all([v is None for v in pars['C8_ani']]):
+            raise ValueError("At least one of 'C8_crp' or 'C8_ani' must be given to use constraint C8")
+        if any([v not in ['==','>=','<='] for v in pars['C8_rel']]):
+            raise ValueError("All 'C8_rel' must be one of '==', '>=' or '<='")
+
         for i in range(pars_len_max):
             # Make matrix (A8)
             setattr(
@@ -659,13 +664,13 @@ class GeoDistributor:
             )
 
             # Make right hand vector (b8)
-            if (C8_crp[i] is not None) & (C8_ani[i] is not None):
+            if (pars['C8_crp'][i] is not None) & (pars['C8_ani'][i] is not None):
                 setattr(
                     self,
                     'b8_'+str(i),
                     np.concatenate((pars['C8_ani'][i].values,pars['C8_crp'][i].values))
                 )
-            elif C8_crp[i] is not None:
+            elif pars['C8_crp'][i] is not None:
                 setattr(
                     self,
                     'b8_'+str(i),
