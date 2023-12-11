@@ -1527,6 +1527,7 @@ class GeoDistributor:
 
         assert (crop_production_per_use_adjusted.min() > -1).all() # No negatives
         assert abs((crop_production_per_use_adjusted.sum(axis=1) - crop_production_per_use.sum(axis=1))).max() < 1 # No dif from unadjusted
+        crop_production_per_use_adjusted.where(crop_production_per_use_adjusted >= 0, 0) # Set small negatives to zero
 
         # Update data attribute
         self.crops.data_attr.add(
