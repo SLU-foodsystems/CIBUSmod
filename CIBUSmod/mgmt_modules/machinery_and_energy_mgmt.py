@@ -42,7 +42,7 @@ class MachineryAndEnergyMgmt(object):
             0,
             index = self.crops.index,
             columns = pd.MultiIndex.from_product([
-                ['field machinery', 'grain drying', 'greenhouses'],
+                ['field machinery', 'grain dryers', 'grain dryers auxiliary energy', 'greenhouses'],
                 self.par.get_unique('energy_source')
             ], names=['activity','energy_source'])
         )
@@ -52,13 +52,13 @@ class MachineryAndEnergyMgmt(object):
             name = 'energy_use',
             unit = 'kWh/year',
             orig = 'MachineryAndEnergyMgmt',
-            desc = 'Energy use for field machinery, grain drying and greenhouses'
+            desc = 'Energy use for field machinery, grain dryers and greenhouses'
         )
 
         vprint('Calculating energy use in field machinery ...')
         self.calculate_field_machinery()
 
-        vprint('Calculating energy use for grain drying (not implemented) ...')
+        vprint('Calculating energy use for grain drying ...')
         self.calculate_drying()
 
         vprint('Calculating energy use in greenhouses ...')
@@ -216,7 +216,61 @@ class MachineryAndEnergyMgmt(object):
         )
         
     def calculate_drying(self):
-        pass
+        self.par.clear()
+        self.crops.par.clear()
+
+        # Get garin dryer energy use dataframes
+        dryers_DF = self.crops.data_attr.get('energy_use').loc[:,['grain dryers']].copy()
+        dryers_aufiliary_DF = self.crops.data_attr.get('energy_use').loc[:,['grain dryers auxiliary energy']].copy()
+
+        # Get salvaged harvest
+        harvest = self.crops.data_attr.get('production').sum(axis=1)
+        orig_index = harvest.index.copy()
+        # Calculate as DM
+        harvest_DM = harvest * self.crops.par.get('crop_dm', **harvest.index.to_frame().to_dict('list'))
+        # Get water content at havest and 
+        field_WC = pd.Series(
+            self.par.get('water_content_at_harvest', **harvest_DM.index.to_frame().to_dict('list')),
+            index = harvest.index
+        )
+        # Drop crops without grain drying (i.e. water_content_at_harvest=-99)
+        dryers_DF = dryers_DF.loc[field_WC!=-99]
+        dryers_aufiliary_DF = dryers_aufiliary_DF.loc[field_WC!=-99]
+        harvest_DM = harvest_DM.loc[field_WC!=-99]
+        harvest = harvest.loc[field_WC!=-99]
+        field_WC = field_WC.loc[field_WC!=-99]
+        # Get water conent after drying
+        dried_WC = pd.Series(
+            self.par.get('water_content_after_drying', **harvest_DM.index.to_frame().to_dict('list')),
+            index = harvest.index
+        )
+        assert (field_WC>dried_WC).all()
+
+        water_removed = ( # total kg waer removed
+            (harvest_DM / (1 - field_WC/100)) -
+            (harvest_DM / (1 - dried_WC/100))
+        )
+
+        dryers_energy_use = (
+            (self.par.get_from_frame('energy_source_share', dryers_DF)/100) *
+            self.par.get_from_frame('dryer_energy_per_mass_water', dryers_DF) / # kWh/kg water removed
+            (self.par.get_from_frame('dryer_efficiency', dryers_DF)/100)
+        ).mul(water_removed, axis=0)
+
+        dryers_auxiliary_energy_use = (
+            (self.par.get_from_frame('energy_source_share', dryers_aufiliary_DF)/100) *
+            self.par.get_from_frame('dryer_auxiliary_energy', dryers_aufiliary_DF)
+        ).mul(harvest, axis=0)
+
+        # Update energy_use data attribute
+        self.crops.data_attr.get('energy_use').update(
+            pd.concat([
+                dryers_energy_use,
+                dryers_auxiliary_energy_use
+            ], axis=1)
+        )
+
+        return None
 
     def calculate_greenhouses(self):
         pf = self.par.get_from_frame
