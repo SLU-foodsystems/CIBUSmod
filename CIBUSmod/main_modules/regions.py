@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import DataAttr, Container, rgetattr, rsetattr
+from ..utils.misc import DataAttr, Container, rgetattr
 
 class Regions(object):
     '''Class that handles region attributes such as soil and climate paramters as well as the baseline
@@ -12,19 +12,44 @@ class Regions(object):
     Parameters
     ----------
     par : ParameterRetriever object
+    settings : dict
+        Dict with <setting name> : <value>
+        Allowed settings are:
+            'max_land_use_from_scenario_x0' : bool, default False
+                If True, use 'x0_crops' (i.e. baseline crop areas) as updated in scenarios
+                to calculate maximum land use per region. Otherwise maximum land use is
+                calculated from 'x0_crops' as defined in default parameters irrespective
+                of scenario.
     '''
 
     module_name = 'Regions'
 
-    def __init__(self,par):
+    def __init__(self, par, settings={}):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
         
         self.par = par
 
+        # Default settings
+        self.settings = {
+            'max_land_use_from_scenario_x0' : False
+        }
+        # Update settings if valid input
+        for k,v in settings.items():
+            if k in self.settings:
+                if type(v) is type(self.settings[k]):
+                    self.settings.update({k:v})
+                else:
+                    raise TypeError(f'Expected {type(self.settings[k])} for setting "{k}"')
+            else:
+                raise ValueError(f'"{k}" is not a valid setting')
+
         # Get initial crop areas and animal numbers
         self.get_x0()
+        # Set x0
+        self.x0_crops_init = self.x0_crops.copy()
+        self.x0_animals_init = self.x0_animals.copy()
 
     def calculate(self, verbose=False):
         
@@ -48,22 +73,6 @@ class Regions(object):
         self.calculate_max_land_use()
 
         vprint(type='end')
-
-    def make_static(self):
-        '''Returns a StaticRegions object that retains all data attributes but
-        has no methods or ParameterRetriever'''
-        
-        obj = StaticRegions()
-
-        obj.data_attr = DataAttr(obj)
-
-        for attr in self.data_attr:
-            if rgetattr(self, attr) is not None:
-                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
-            else:
-                obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
-
-        return obj
 
     def get_x0(self):
 
@@ -89,11 +98,6 @@ class Regions(object):
         # AS PARAMETERS AND RETRIEVED WITH THE PARAMETERRETRIEVER !!!!
 
         path = os.path.join(self.par.data_path_default,'..','x0')
-
-        # # Define x0_crp
-        # x0_crp = \
-        #     pd.read_csv(os.path.join(path,'x0_crp.csv'), dtype={'region': object})\
-        #     .set_index(['crop','prod_system','region'])['area']
 
         # Define x0_ani
         x0_ani = pd.read_csv(os.path.join(path,'x0_ani.csv'), dtype={'region': object})
@@ -323,9 +327,14 @@ class Regions(object):
             qry='parameter == "max_land_use_factor"'
         )
 
+        if self.settings['max_land_use_from_scenario_x0']:
+            x0_crops = self.data_attr.get('x0_crops').copy()
+        else:
+            x0_crops = self.x0_crops_init.copy()
+
         # Calculate land use in x0
         lu = (
-            self.x0_crops
+            x0_crops
             .rename(self.par.get_rel('crop','land_use'))
             .rename_axis(['land_use','prod_system','region'])
             .groupby(['region','land_use'])
