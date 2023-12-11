@@ -9,7 +9,7 @@ from ..mgmt_modules.manure_mgmt import Manure
 
 from ..utils.misc import rgetattr, rsetattr, inv_dict
 
-def get_emissions(session, interpolate=False):
+def get_emissions(session, scn='all', years='all', interpolate=False):
     # Define emissions processes and corresponding modules
     # and data attributes
     '''Collect emissions to the environment stored in various data attributes
@@ -18,6 +18,8 @@ def get_emissions(session, interpolate=False):
     Parameters
     ----------
     session : Session object
+    scn : (list of) str, default 'all'
+    years : (list of) str, default 'all'
     interpolate : Bool, default False
         Interpolate between defined years
     
@@ -72,6 +74,8 @@ def get_emissions(session, interpolate=False):
                         attr = at,
                         groupby = {'prod_system':None, 'crop':'crop_group2',
                                    'region':None, 'compound':None},
+                        scn = scn,
+                        years = years,
                         interpolate = interpolate
                     )
                     df = df.rename_axis(columns = {'crop' : 'item'})
@@ -81,6 +85,8 @@ def get_emissions(session, interpolate=False):
                         attr = at,
                         groupby = ['prod_system','species',
                                    'breed','region','compound'],
+                        scn = scn,
+                        years = years,
                         interpolate = interpolate
                     )
                     df.columns = pd.MultiIndex.from_tuples(
@@ -103,11 +109,13 @@ def get_emissions(session, interpolate=False):
     
     return res
 
-def get_GHG(session, CO2eq=True, interpolate=False):
+def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
     '''
     Parameters
     ----------
     session : Session object
+    scn : (list of) str, default 'all'
+    years : (list of) str, default 'all'
     CO2eq : Bool, default True
         Translate GHGs to CO2-eq
     interpolate : Bool, default False
@@ -146,7 +154,7 @@ def get_GHG(session, CO2eq=True, interpolate=False):
     # <--------------------------
     
     # Get emissions
-    res = get_emissions(session, interpolate = interpolate)
+    res = get_emissions(session, scn=scn, years=years, interpolate = interpolate)
 
     # Get only GHGs and compunds with indirect GHG emissions
     res = res.loc[:,res.columns.isin(to_GHG, level='compound')]

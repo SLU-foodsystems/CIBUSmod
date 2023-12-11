@@ -146,11 +146,10 @@ f'''{module}
         '''
 
         if name in self.scenarios:
-            print(f'A scenario with the name {name} already exists .remove_scenario() first.')
+            print(f'A scenario with the name {name} already exists use .update_scenario() or .remove_scenario() first.')
         
         if not isinstance(years, list):
             years = [years]
-
         years = [str(y) for y in years]
         
         self.scenarios.update(
@@ -167,6 +166,59 @@ f'''{module}
         _db_write_scn(self.scenarios, self.db_path)
         
         return None
+    
+    def update_scenario(self, name, scenario=None, modules=None, pars=None, years=None):
+        '''Updates a scenario in the Session object
+
+        Parameters
+        ----------
+        name : str
+            Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
+        scenario : None or (list of) str with scenario Excel sheet name(s), optional
+            Name of scenaro Excel sheet(s) to use. If None default data are used
+            If a list is supplied data is uppdated based on all scenario Excel sheets but if
+            the same parameter is updated in several Excel sheets only the latest one in the
+            list will have an effect.
+        modules : 'all' or (list of) str with module names, optional
+            Modules to be updated. If 'all', all modules will be updated otherwise only the
+            modules specified will be updated according to the scenario Excel file(s)
+        pars : 'all' or (list of) str with parameter names
+                or dict with module:[parameter(s)], optional
+            Parameters to be updated. If 'all', all parameters are updated otherwise only the
+            specified parameters are updated (see examples)
+
+            Example 1:
+            pars = ['par_A', 'par_B']
+            This will only update 'par_A' and 'par_B' across all modules
+
+            Example 2:
+            pars = {'Mod1' : ['par_A', 'par_B'], 'Mod2' : 'par_C'}
+            This will only update 'par_A' and 'par_B' in module 'Mod1', only update 'par_C'
+            in 'Mod2' and all parameters in any other module.
+        years : (list of) str, optional
+            Years to be run
+        '''
+        
+        if name not in self.scenarios:
+            raise KeyError(f'No scenario with the name {name}')
+
+        if scenario is not None:
+            self.scenarios[name]['scenario'] = scenario
+
+        if modules is not None:
+            self.scenarios[name]['modules'] = modules
+
+        if pars is not None:
+            self.scenarios[name]['pars'] = pars
+
+        if years is not None:
+            if not isinstance(years, list):
+                years = [years]
+            years = [str(y) for y in years]
+            self.scenarios[name]['years'] = years
+
+
+
 
     def remove_scenario(self, name):
         '''Removes named scenario including all output data
@@ -184,19 +236,22 @@ f'''{module}
                 if ui.capitalize() == 'Y':
                     # Remove all output data from scenario
                     modules = _db_get_modules_in_data(self.db_path)
-                    years = self.scenarios[name]['years']
+                    years = _db_get_years_in_data(name, self.db_path)
                     
                     for module in modules:
                         attrs = _db_get_attr_in_data(module, self.db_path)
                         for attr in attrs:
                             for year in years:
-                                _db_drop_data(
-                                    module = module,
-                                    attr = attr,
-                                    scn = name,
-                                    year = year,
-                                    db_path = self.db_path
-                                )
+                                try:
+                                    _db_drop_data(
+                                        module = module,
+                                        attr = attr,
+                                        scn = name,
+                                        year = year,
+                                        db_path = self.db_path
+                                    )
+                                except sqlite3.OperationalError:
+                                    pass
 
                     # If no more scenarios with output data also drop metadata
                     if len(_db_get_scn_in_data(self.db_path)) == 0:
@@ -324,14 +379,16 @@ f'''{module}
                 )
                 
                 for attr in data_attr_dict:
+                    data_to_write = _get_check_and_clean(arg, module, attr)
                     _db_write_data(
-                        data=_get_check_and_clean(arg, module, attr),
+                        data=data_to_write,
                         module=module,
                         attr=attr,
                         scn=scn,
                         year=year,
                         db_path=self.db_path
                     )
+                    # Remove from cashe
                     if (module, attr, scn, year) in self.cashe:
                         del self.cashe[(module, attr, scn, year)]
 
@@ -372,7 +429,8 @@ f'''{module}
                 year = year,
                 db_path = self.db_path
             )
-            self.cashe[(module, attr, scn, year)] = res
+            if res is not None:
+                self.cashe[(module, attr, scn, year)] = res        
         
         return res
 
@@ -381,6 +439,8 @@ f'''{module}
         module,
         attr,
         groupby = 'all',
+        scn = 'all',
+        years = 'all',
         interpolate = False,
         keep_duplicate_levels = 'index',
         suffixes = ('_idx','_col')
@@ -398,6 +458,8 @@ f'''{module}
             If 'all' data is not aggregated
             If 'none'  data is summed over all index/columns
             If a dict is supplied relation tables are used
+        scn : (list of) str
+        years : (list of) str
         interpolate : Bool, default True
             If True interpolate between defined years
         keep_duplicate_levels: {'index','columns','both'}, default 'index'
@@ -422,16 +484,40 @@ f'''{module}
                 module = short_hands[module.upper()]
             except KeyError:
                 raise ValueError('Invalid module name')
+            
+        if scn == 'all':
+            scn = self.scenarios
+        else:
+            if isinstance(scn, str):
+                scn = [scn]
+            scn = [s for s in scn if s in self.scenarios]
+
+
+        if years != 'all' and isinstance(years, str):
+            years = [years]
         
-        # Get first scn and year
-        scn = list(self.scenarios.keys())[0]
-        year = self.scenarios[scn]['years'][0]
-        x = self.get_table(
-            module = module,
-            attr = attr,
-            scn = scn,
-            year = year
+        # Create index for data to be returned
+        data_index = pd.MultiIndex.from_tuples(
+            [(scn, year) for scn in scn for year in self.scenarios[scn]['years'] if years == 'all' or year in years],
+            names = ['scn', 'year']
         )
+        if len(data_index)==0:
+            raise ValueError('None of the selected scenarios/years in session')
+        data_index_expected = data_index.copy()
+        
+        # Get data from first available scn and year
+        x = None
+        for scn, year in data_index:
+            x = self.get_table(
+                module = module,
+                attr = attr,
+                scn = scn,
+                year = year
+            )
+            if x is not None:
+                break
+        if x is None:
+            raise ValueError('No output data for any of the seleceted scenarios/years')
     
         if groupby == 'all':
             groupby = list(x.index.names)
@@ -490,10 +576,6 @@ f'''{module}
             idx_drop = None
             col_drop = None
 
-        data_index = pd.MultiIndex.from_tuples(
-            [(scn, year) for scn in self.scenarios for year in self.scenarios[scn]['years']],
-            names = ['scn', 'year']
-        )
         d = []
         for scn, year in data_index:
             # Get attribute
@@ -503,6 +585,9 @@ f'''{module}
                 scn = scn,
                 year = year
             )
+            if x is None:
+                data_index = data_index.drop((scn, year))
+                continue
             
             # Drop or add suffixes to handle duplicate levels in index and columns
             if idx_rename is not None:
@@ -583,6 +668,9 @@ f'''{module}
         # Add in index and columns
         data.index = data_index
         data.columns = data_cols
+
+        if len(data_index) < len(data_index_expected):
+            warnings.warn(f'Some scenarios/years not found in output data.\n{data_index_expected.difference(data_index)}')
     
         if len(data.columns) == 1:
             # If only one column. Make series with attr as name
@@ -788,23 +876,28 @@ def _db_read_data(module, attr, scn, year, db_path):
     table = f'{module}${attr}${scn}${year}'
     
     con = sqlite3.connect(db_path)
-    
-    idxcol = (
-        pd.read_sql_query(f'SELECT * from "{table}__idxcol"', con)
-        .set_index('index')
-        .loc[:,'0']
-        .to_dict()
-    )
+    try:
+        idxcol = (
+            pd.read_sql_query(f'SELECT * from "{table}__idxcol"', con)
+            .set_index('index')
+            .loc[:,'0']
+            .to_dict()
+        )
+        data = pd.read_sql_query(f'SELECT * from "{table}"', con)
+    except:
+        # Return None if table could not be read
+        con.close()
+        return None
     
     if 'columns_names' not in idxcol:
         data = (
-            pd.read_sql_query(f'SELECT * from "{table}"', con)
+            data
             .set_index(idxcol['index_names'].split('::'))
             .iloc[:,0]
         )
     else:
         data = (
-            pd.read_sql_query(f'SELECT * from "{table}"', con)
+            data
             .set_index(idxcol['index_names'].split('::'))
         )
         # Restore columns droped while writing to db
@@ -849,8 +942,8 @@ def _db_drop_tables(tables, db_path):
     # Drop tables
     for table in tables:
         table = f'"{table}"'
-        print(f'Dropping table {table}')
         cur.execute(f"DROP TABLE {table}")
+        print(f'Dropping table {table}')
     
     # commit close
     con.commit()
@@ -910,4 +1003,4 @@ def _db_get_scn_in_data(db_path):
 
 def _db_get_years_in_data(scn, db_path):
     tables = _db_get_tables(db_path)
-    list(np.unique(np.array([t.split('$')[3] for t in tables if '$' in t and t.split('$')[2] == scn and '__idxcol' not in t])))
+    return list(np.unique(np.array([t.split('$')[3] for t in tables if '$' in t and t.split('$')[2] == scn and '__idxcol' not in t])))
