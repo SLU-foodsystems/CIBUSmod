@@ -1,0 +1,2121 @@
+f_species,f_breed,f_prod_system,f_region,x0_animals
+cattle,dairy,conventional,111,916.7731250160806
+cattle,beef,conventional,111,799.6329380307861
+sheep,none,conventional,111,2709.239092869068
+pigs,none,conventional,111,224.576197220166
+poultry,layer,conventional,111,18356.14135992833
+poultry,broiler,conventional,111,0.0
+cattle,dairy,conventional,112,952.6916255446984
+cattle,beef,conventional,112,902.0634828838052
+sheep,none,conventional,112,2902.046434022349
+pigs,none,conventional,112,375.56811908894366
+poultry,layer,conventional,112,7287.984215228055
+poultry,broiler,conventional,112,0.0
+cattle,dairy,conventional,311,3243.74628537212
+cattle,beef,conventional,311,889.9887334759287
+sheep,none,conventional,311,2808.279535380512
+pigs,none,conventional,311,384.5414468884578
+poultry,layer,conventional,311,8043.611325081218
+poultry,broiler,conventional,311,155.47872766724277
+cattle,dairy,conventional,312,1789.7750606010084
+cattle,beef,conventional,312,720.9502045151662
+sheep,none,conventional,312,1544.596140037087
+pigs,none,conventional,312,264.2455476878852
+poultry,layer,conventional,312,3652.0979450118575
+poultry,broiler,conventional,312,0.0
+cattle,dairy,conventional,321,758.5035416977453
+cattle,beef,conventional,321,730.1852659147921
+sheep,none,conventional,321,1544.8970672325431
+pigs,none,conventional,321,1130.687972371412
+poultry,layer,conventional,321,67140.26505516931
+poultry,broiler,conventional,321,4084.023120877219
+cattle,dairy,conventional,322,738.6940896001395
+cattle,beef,conventional,322,483.5135100709648
+sheep,none,conventional,322,960.2908695200332
+pigs,none,conventional,322,174.73643633152295
+poultry,layer,conventional,322,1279.3764649048087
+poultry,broiler,conventional,322,0.0
+cattle,dairy,conventional,411,2306.3466600924394
+cattle,beef,conventional,411,963.4290549459683
+sheep,none,conventional,411,2389.4792376682667
+pigs,none,conventional,411,2359.522534417851
+poultry,layer,conventional,411,94070.05931382
+poultry,broiler,conventional,411,598184.860762461
+cattle,dairy,conventional,421,1413.4385250887665
+cattle,beef,conventional,421,928.6377971055642
+sheep,none,conventional,421,2061.608521710691
+pigs,none,conventional,421,312.7645624956709
+poultry,layer,conventional,421,78893.19216264249
+poultry,broiler,conventional,421,396834.9944869954
+cattle,dairy,conventional,422,516.4967849497443
+cattle,beef,conventional,422,547.471846903504
+sheep,none,conventional,422,1842.61622202452
+pigs,none,conventional,422,198.56998611606943
+poultry,layer,conventional,422,3866.2701838984894
+poultry,broiler,conventional,422,298954.0660044726
+cattle,dairy,conventional,431,2353.721073755165
+cattle,beef,conventional,431,1289.3889628282095
+sheep,none,conventional,431,2755.2277550821937
+pigs,none,conventional,431,1704.5197566594356
+poultry,layer,conventional,431,79754.02172406981
+poultry,broiler,conventional,431,565298.1145552024
+cattle,dairy,conventional,511,2610.407836350908
+cattle,beef,conventional,511,1081.040987338475
+sheep,none,conventional,511,2586.684957301998
+pigs,none,conventional,511,638.6395924749265
+poultry,layer,conventional,511,158930.4020853875
+poultry,broiler,conventional,511,4359.81063815592
+cattle,dairy,conventional,512,3261.359996385717
+cattle,beef,conventional,512,1070.1029679490457
+sheep,none,conventional,512,1797.7329390489276
+pigs,none,conventional,512,133.13789054514342
+poultry,layer,conventional,512,56324.05990823072
+poultry,broiler,conventional,512,16558.443066689782
+cattle,dairy,conventional,513,1147.6632574921057
+cattle,beef,conventional,513,821.1190851298979
+sheep,none,conventional,513,1165.9844730005657
+pigs,none,conventional,513,4595.484212762028
+poultry,layer,conventional,513,553248.0240589146
+poultry,broiler,conventional,513,232126.50360718925
+cattle,dairy,conventional,514,4474.159828621645
+cattle,beef,conventional,514,1135.5520291675846
+sheep,none,conventional,514,2091.758410832972
+pigs,none,conventional,514,1690.582223466748
+poultry,layer,conventional,514,496278.49940052937
+poultry,broiler,conventional,514,88500.21252176077
+cattle,dairy,conventional,515,2636.739660908565
+cattle,beef,conventional,515,1311.4906175780543
+sheep,none,conventional,515,2555.020535642333
+pigs,none,conventional,515,661.8855084599329
+poultry,layer,conventional,515,167346.33573841155
+poultry,broiler,conventional,515,182611.94960800343
+cattle,dairy,conventional,521,1620.3047547242493
+cattle,beef,conventional,521,778.860118986879
+sheep,none,conventional,521,1634.2107694790843
+pigs,none,conventional,521,321.2592460766003
+poultry,layer,conventional,521,85064.14626472504
+poultry,broiler,conventional,521,109935.58757549083
+cattle,dairy,conventional,611,3765.238947863676
+cattle,beef,conventional,611,1957.1934278026167
+sheep,none,conventional,611,2006.981667808816
+pigs,none,conventional,611,36.08254174969424
+poultry,layer,conventional,611,6285.865835009147
+poultry,broiler,conventional,611,0.0
+cattle,dairy,conventional,612,5936.102735725707
+cattle,beef,conventional,612,2830.4656730045444
+sheep,none,conventional,612,2221.782762359729
+pigs,none,conventional,612,216.9620200410728
+poultry,layer,conventional,612,22523.11678726291
+poultry,broiler,conventional,612,1910.6293356501849
+cattle,dairy,conventional,621,5058.47137491203
+cattle,beef,conventional,621,3107.5914358319515
+sheep,none,conventional,621,2844.3232659514274
+pigs,none,conventional,621,867.4534646004375
+poultry,layer,conventional,621,79900.80217620727
+poultry,broiler,conventional,621,0.0
+cattle,dairy,conventional,622,9012.253059166169
+cattle,beef,conventional,622,4717.488124810174
+sheep,none,conventional,622,4122.850194297131
+pigs,none,conventional,622,106.347664766645
+poultry,layer,conventional,622,10287.692391959372
+poultry,broiler,conventional,622,18.73273535330856
+cattle,dairy,conventional,711,4855.520119424713
+cattle,beef,conventional,711,2526.4281298398355
+sheep,none,conventional,711,3501.018952389181
+pigs,none,conventional,711,226.6759058677392
+poultry,layer,conventional,711,51136.71964140218
+poultry,broiler,conventional,711,174917.35122050613
+cattle,dairy,conventional,731,2449.919401035204
+cattle,beef,conventional,731,2677.4078827525627
+sheep,none,conventional,731,2995.874773540981
+pigs,none,conventional,731,496.1463268592604
+poultry,layer,conventional,731,41239.15031113364
+poultry,broiler,conventional,731,155646.46545123516
+cattle,dairy,conventional,811,8739.969645022667
+cattle,beef,conventional,811,2199.1325711727254
+sheep,none,conventional,811,2972.249747328942
+pigs,none,conventional,811,2958.813271884407
+poultry,layer,conventional,811,136314.93820899737
+poultry,broiler,conventional,811,1492130.1328715568
+cattle,dairy,conventional,812,11382.636307524715
+cattle,beef,conventional,812,1733.7878672570898
+sheep,none,conventional,812,3820.7032496550296
+pigs,none,conventional,812,780.0467504898056
+poultry,layer,conventional,812,31319.38395311984
+poultry,broiler,conventional,812,103836.91611045416
+cattle,dairy,conventional,813,3126.410749839466
+cattle,beef,conventional,813,1685.2451754560054
+sheep,none,conventional,813,2196.729273631165
+pigs,none,conventional,813,1216.3369629741987
+poultry,layer,conventional,813,994646.4826303422
+poultry,broiler,conventional,813,300339.7833364047
+cattle,dairy,conventional,814,4785.009469285484
+cattle,beef,conventional,814,2294.202820627853
+sheep,none,conventional,814,2584.626867964644
+pigs,none,conventional,814,90.00146262010455
+poultry,layer,conventional,814,11652.46644353174
+poultry,broiler,conventional,814,140247.57048642152
+cattle,dairy,conventional,821,4975.067842585442
+cattle,beef,conventional,821,2496.957397182331
+sheep,none,conventional,821,4140.927279676163
+pigs,none,conventional,821,845.4222696650519
+poultry,layer,conventional,821,2575.3026666896835
+poultry,broiler,conventional,821,158878.01530018216
+cattle,dairy,conventional,831,3731.592741678235
+cattle,beef,conventional,831,3373.2062744536765
+sheep,none,conventional,831,5497.49764405379
+pigs,none,conventional,831,322.45138393593464
+poultry,layer,conventional,831,81191.93625052819
+poultry,broiler,conventional,831,404083.7981724233
+cattle,dairy,conventional,911,2962.144240690411
+cattle,beef,conventional,911,824.1936216449325
+sheep,none,conventional,911,6150.043758740965
+pigs,none,conventional,911,906.7487377630574
+poultry,layer,conventional,911,45675.65010456095
+poultry,broiler,conventional,911,4608.850694158978
+cattle,dairy,conventional,912,5967.851985398896
+cattle,beef,conventional,912,1660.5084498317285
+sheep,none,conventional,912,12390.534651120768
+pigs,none,conventional,912,1828.5817268161957
+poultry,layer,conventional,912,92577.13053995372
+poultry,broiler,conventional,912,9129.725019803944
+cattle,dairy,conventional,913,3346.6437333310387
+cattle,beef,conventional,913,931.1776182399988
+sheep,none,conventional,913,6948.346782770072
+pigs,none,conventional,913,1019.5831384505356
+poultry,layer,conventional,913,50063.04199912009
+poultry,broiler,conventional,913,5145.579491199589
+cattle,dairy,conventional,1011,2526.7877393192093
+cattle,beef,conventional,1011,3102.434203159858
+sheep,none,conventional,1011,5052.252173524526
+pigs,none,conventional,1011,1879.2574335374893
+poultry,layer,conventional,1011,56524.01515106772
+poultry,broiler,conventional,1011,1433956.2896973623
+cattle,dairy,conventional,1111,3174.0499124018165
+cattle,beef,conventional,1111,2792.609112436032
+sheep,none,conventional,1111,1836.260481368405
+pigs,none,conventional,1111,6172.85933022213
+poultry,layer,conventional,1111,9538.190353192116
+poultry,broiler,conventional,1111,175024.02980044048
+cattle,dairy,conventional,1112,3549.853857653189
+cattle,beef,conventional,1112,3084.5625815021585
+sheep,none,conventional,1112,1609.7694639749309
+pigs,none,conventional,1112,2982.6655497388274
+poultry,layer,conventional,1112,45172.78884379835
+poultry,broiler,conventional,1112,26120.57815618176
+cattle,dairy,conventional,1121,2921.6538692537733
+cattle,beef,conventional,1121,2446.3936208302857
+sheep,none,conventional,1121,2527.475868469132
+pigs,none,conventional,1121,7465.33275275462
+poultry,layer,conventional,1121,118215.6138041408
+poultry,broiler,conventional,1121,521130.17703684507
+cattle,dairy,conventional,1122,4389.640319096356
+cattle,beef,conventional,1122,2811.683095110152
+sheep,none,conventional,1122,2634.0198625081084
+pigs,none,conventional,1122,3711.106501770919
+poultry,layer,conventional,1122,77158.99984246808
+poultry,broiler,conventional,1122,278488.66253603925
+cattle,dairy,conventional,1123,2004.2356984514256
+cattle,beef,conventional,1123,1088.3194525402614
+sheep,none,conventional,1123,1080.694557218218
+pigs,none,conventional,1123,1372.8964833232146
+poultry,layer,conventional,1123,177180.15969038248
+poultry,broiler,conventional,1123,286525.7008800665
+cattle,dairy,conventional,1124,2470.234472480168
+cattle,beef,conventional,1124,1680.28429093706
+sheep,none,conventional,1124,1778.235376770982
+pigs,none,conventional,1124,730.1614445683949
+poultry,layer,conventional,1124,33455.08086039436
+poultry,broiler,conventional,1124,93045.38625804055
+cattle,dairy,conventional,1131,2492.1992982835827
+cattle,beef,conventional,1131,2191.477562521906
+sheep,none,conventional,1131,1894.8948344748585
+pigs,none,conventional,1131,929.6061180106402
+poultry,layer,conventional,1131,128885.15279295293
+poultry,broiler,conventional,1131,23631.897918944167
+cattle,dairy,conventional,1211,264.9325307289063
+cattle,beef,conventional,1211,430.87188465095534
+sheep,none,conventional,1211,2005.267535802642
+pigs,none,conventional,1211,5228.747819404653
+poultry,layer,conventional,1211,67826.94339622674
+poultry,broiler,conventional,1211,25.937158213849983
+cattle,dairy,conventional,1212,596.8468343002944
+cattle,beef,conventional,1212,952.3702049731896
+sheep,none,conventional,1212,854.3345405462402
+pigs,none,conventional,1212,3194.2329509787705
+poultry,layer,conventional,1212,209413.6416472775
+poultry,broiler,conventional,1212,56038.58402384566
+cattle,dairy,conventional,1213,1439.0429392811936
+cattle,beef,conventional,1213,1847.234492954549
+sheep,none,conventional,1213,1477.5568347944254
+pigs,none,conventional,1213,818.3181935400764
+poultry,layer,conventional,1213,109650.55902710384
+poultry,broiler,conventional,1213,81420.60105052132
+cattle,dairy,conventional,1214,236.9796055180276
+cattle,beef,conventional,1214,988.9165613918614
+sheep,none,conventional,1214,589.1898172013471
+pigs,none,conventional,1214,500.0898902920211
+poultry,layer,conventional,1214,35426.35993407093
+poultry,broiler,conventional,1214,137345.0217032857
+cattle,dairy,conventional,1215,5037.535259827261
+cattle,beef,conventional,1215,4050.9174451934223
+sheep,none,conventional,1215,3872.7811525073953
+pigs,none,conventional,1215,4443.000824579636
+poultry,layer,conventional,1215,143102.91994713212
+poultry,broiler,conventional,1215,28756.5395639928
+cattle,dairy,conventional,1216,1128.4301139577544
+cattle,beef,conventional,1216,1043.3187381253215
+sheep,none,conventional,1216,1015.772424387616
+pigs,none,conventional,1216,2946.737569717074
+poultry,layer,conventional,1216,253588.8543179482
+poultry,broiler,conventional,1216,16529.003331983236
+cattle,dairy,conventional,1221,3106.254497402138
+cattle,beef,conventional,1221,2786.4430789699445
+sheep,none,conventional,1221,2240.427493046114
+pigs,none,conventional,1221,2386.1717257620817
+poultry,layer,conventional,1221,58905.99703022056
+poultry,broiler,conventional,1221,26618.23510764285
+cattle,dairy,conventional,1222,1121.4409779325056
+cattle,beef,conventional,1222,816.3444509051823
+sheep,none,conventional,1222,1223.545636575567
+pigs,none,conventional,1222,660.1145443932786
+poultry,layer,conventional,1222,23494.06036228223
+poultry,broiler,conventional,1222,100446.17048962312
+cattle,dairy,conventional,1311,7471.822332471995
+cattle,beef,conventional,1311,2006.2772708095456
+sheep,none,conventional,1311,3350.149268745696
+pigs,none,conventional,1311,5654.162225722557
+poultry,layer,conventional,1311,338316.12585326866
+poultry,broiler,conventional,1311,256652.676558468
+cattle,dairy,conventional,1321,7015.939110450209
+cattle,beef,conventional,1321,1802.6017606707192
+sheep,none,conventional,1321,2754.968304179276
+pigs,none,conventional,1321,3537.781750049221
+poultry,layer,conventional,1321,214137.66192711427
+poultry,broiler,conventional,1321,199566.25759440364
+cattle,dairy,conventional,1322,3025.804927369859
+cattle,beef,conventional,1322,1339.1310029646534
+sheep,none,conventional,1322,1982.7591817125408
+pigs,none,conventional,1322,1050.6513382972614
+poultry,layer,conventional,1322,121785.31385337208
+poultry,broiler,conventional,1322,39374.98257608092
+cattle,dairy,conventional,1331,4284.952275015731
+cattle,beef,conventional,1331,1670.6237424032397
+sheep,none,conventional,1331,3792.027815625804
+pigs,none,conventional,1331,2738.673133493931
+poultry,layer,conventional,1331,172514.92983822772
+poultry,broiler,conventional,1331,7.531413572077147
+cattle,dairy,conventional,1411,901.2275602005398
+cattle,beef,conventional,1411,1040.9004187289331
+sheep,none,conventional,1411,2207.685876686016
+pigs,none,conventional,1411,14.809691803827354
+poultry,layer,conventional,1411,6085.321692783526
+poultry,broiler,conventional,1411,12.598658307868662
+cattle,dairy,conventional,1412,1527.4273801670745
+cattle,beef,conventional,1412,1035.7441003216964
+sheep,none,conventional,1412,2013.678409245113
+pigs,none,conventional,1412,190.95218202876785
+poultry,layer,conventional,1412,15025.374169561568
+poultry,broiler,conventional,1412,0.0
+cattle,dairy,conventional,1421,965.8790755064174
+cattle,beef,conventional,1421,730.9067925420599
+sheep,none,conventional,1421,1646.1809398739192
+pigs,none,conventional,1421,383.2251221385628
+poultry,layer,conventional,1421,4166.311412206114
+poultry,broiler,conventional,1421,5675.345312694039
+cattle,dairy,conventional,1511,8095.020861724904
+cattle,beef,conventional,1511,2845.183867912322
+sheep,none,conventional,1511,4255.3550094792845
+pigs,none,conventional,1511,332.858419489272
+poultry,layer,conventional,1511,37430.79606909217
+poultry,broiler,conventional,1511,767.9184262492654
+cattle,dairy,conventional,1512,2282.151475362561
+cattle,beef,conventional,1512,350.7578437909911
+sheep,none,conventional,1512,579.3370354902881
+pigs,none,conventional,1512,5884.684956938755
+poultry,layer,conventional,1512,82301.28571646978
+poultry,broiler,conventional,1512,0.0
+cattle,dairy,conventional,1521,1249.0122060886993
+cattle,beef,conventional,1521,949.0696961848708
+sheep,none,conventional,1521,2515.685134908901
+pigs,none,conventional,1521,396.3860713561386
+poultry,layer,conventional,1521,8898.01103078081
+poultry,broiler,conventional,1521,2212.022741328676
+cattle,dairy,conventional,1522,1102.545125014463
+cattle,beef,conventional,1522,849.4514035802017
+sheep,none,conventional,1522,1282.255230679389
+pigs,none,conventional,1522,578.3110387104157
+poultry,layer,conventional,1522,16775.5376026074
+poultry,broiler,conventional,1522,0.0
+cattle,dairy,conventional,1611,1641.3419407755323
+cattle,beef,conventional,1611,671.1932373519951
+sheep,none,conventional,1611,879.2728503761552
+pigs,none,conventional,1611,798.977250786614
+poultry,layer,conventional,1611,3772.3140219880434
+poultry,broiler,conventional,1611,20783.68725728316
+cattle,dairy,conventional,1612,3634.936985086091
+cattle,beef,conventional,1612,1391.331595114844
+sheep,none,conventional,1612,1676.268803797361
+pigs,none,conventional,1612,947.7234495022834
+poultry,layer,conventional,1612,1914.4637349038155
+poultry,broiler,conventional,1612,101706.4339833487
+cattle,dairy,conventional,1613,3648.583825464967
+cattle,beef,conventional,1613,1457.7223143673052
+sheep,none,conventional,1613,1570.1132763672608
+pigs,none,conventional,1613,708.8744747851448
+poultry,layer,conventional,1613,3976.366722852332
+poultry,broiler,conventional,1613,46876.26195832785
+cattle,dairy,conventional,1614,3931.340409112652
+cattle,beef,conventional,1614,894.4153563728294
+sheep,none,conventional,1614,1125.054853319538
+pigs,none,conventional,1614,1463.139315413682
+poultry,layer,conventional,1614,6368.579840416223
+poultry,broiler,conventional,1614,865467.6866412454
+cattle,dairy,conventional,1615,2083.32070487548
+cattle,beef,conventional,1615,720.817262464129
+sheep,none,conventional,1615,1172.8276043912692
+pigs,none,conventional,1615,1419.7674627773208
+poultry,layer,conventional,1615,1869.717898252726
+poultry,broiler,conventional,1615,798426.6512112755
+cattle,dairy,conventional,1616,4049.335773808009
+cattle,beef,conventional,1616,665.0608150905713
+sheep,none,conventional,1616,1119.992681242405
+pigs,none,conventional,1616,3671.705077163709
+poultry,layer,conventional,1616,48314.63412623728
+poultry,broiler,conventional,1616,614312.6156247325
+cattle,dairy,conventional,1617,1856.4497989286797
+cattle,beef,conventional,1617,350.18046229626333
+sheep,none,conventional,1617,806.712744013064
+pigs,none,conventional,1617,1358.267348495505
+poultry,layer,conventional,1617,7811.388678407768
+poultry,broiler,conventional,1617,344359.02877223
+cattle,dairy,conventional,1621,2481.695102282946
+cattle,beef,conventional,1621,1030.586102498257
+sheep,none,conventional,1621,1920.0988619565
+pigs,none,conventional,1621,2297.081165754193
+poultry,layer,conventional,1621,60653.86824960286
+poultry,broiler,conventional,1621,51464.86305895919
+cattle,dairy,conventional,1622,1289.704895877556
+cattle,beef,conventional,1622,577.9626944050694
+sheep,none,conventional,1622,972.2763276099616
+pigs,none,conventional,1622,3532.215078564896
+poultry,layer,conventional,1622,148357.76648335197
+poultry,broiler,conventional,1622,141364.01009652115
+cattle,dairy,conventional,1623,948.6711927565892
+cattle,beef,conventional,1623,481.878181031453
+sheep,none,conventional,1623,914.275809624381
+pigs,none,conventional,1623,2675.225396932892
+poultry,layer,conventional,1623,74290.87148883197
+poultry,broiler,conventional,1623,884.5280967760325
+cattle,dairy,conventional,1711,1320.729529624752
+cattle,beef,conventional,1711,888.1723493809909
+sheep,none,conventional,1711,1132.1872365485226
+pigs,none,conventional,1711,102.25171364136352
+poultry,layer,conventional,1711,0.0
+poultry,broiler,conventional,1711,0.0
+cattle,dairy,conventional,1712,1089.5528389013775
+cattle,beef,conventional,1712,954.0074419561302
+sheep,none,conventional,1712,1176.642511606071
+pigs,none,conventional,1712,1203.1137573518247
+poultry,layer,conventional,1712,6773.851635377554
+poultry,broiler,conventional,1712,0.0
+cattle,dairy,conventional,1713,1144.4539323564445
+cattle,beef,conventional,1713,1091.432000026533
+sheep,none,conventional,1713,1302.5139526927796
+pigs,none,conventional,1713,72.06014887476294
+poultry,layer,conventional,1713,2398.5297733963957
+poultry,broiler,conventional,1713,0.0
+cattle,dairy,conventional,1721,616.2276938130244
+cattle,beef,conventional,1721,621.2939594229978
+sheep,none,conventional,1721,934.971778445318
+pigs,none,conventional,1721,402.0637622528447
+poultry,layer,conventional,1721,4361.807272117923
+poultry,broiler,conventional,1721,0.0
+cattle,dairy,conventional,1722,1282.0878873876725
+cattle,beef,conventional,1722,738.2595262403704
+sheep,none,conventional,1722,657.2003328641689
+pigs,none,conventional,1722,923.7345326088692
+poultry,layer,conventional,1722,4399.004172946083
+poultry,broiler,conventional,1722,0.0
+cattle,dairy,conventional,1723,186.33544967105297
+cattle,beef,conventional,1723,349.38753026392624
+sheep,none,conventional,1723,917.7851517306622
+pigs,none,conventional,1723,65.79396675994356
+poultry,layer,conventional,1723,6007.035090990328
+poultry,broiler,conventional,1723,0.0
+cattle,dairy,conventional,1724,464.4664445347832
+cattle,beef,conventional,1724,493.48839103226254
+sheep,none,conventional,1724,1011.4027563769562
+pigs,none,conventional,1724,222.7621674222456
+poultry,layer,conventional,1724,72.50333324806621
+poultry,broiler,conventional,1724,0.0
+cattle,dairy,conventional,1811,1242.0367746101751
+cattle,beef,conventional,1811,578.5105201307833
+sheep,none,conventional,1811,2393.2886000671365
+pigs,none,conventional,1811,459.5011844482419
+poultry,layer,conventional,1811,352395.4458030596
+poultry,broiler,conventional,1811,16651.056141611807
+cattle,dairy,conventional,1812,1665.7212128679462
+cattle,beef,conventional,1812,862.4976361411548
+sheep,none,conventional,1812,2176.978605494319
+pigs,none,conventional,1812,1857.287616652299
+poultry,layer,conventional,1812,115620.95555585012
+poultry,broiler,conventional,1812,71225.11084615372
+cattle,dairy,conventional,1813,805.9271138584312
+cattle,beef,conventional,1813,561.5393970747481
+sheep,none,conventional,1813,867.9007523799867
+pigs,none,conventional,1813,889.9688180652847
+poultry,layer,conventional,1813,49143.12337440706
+poultry,broiler,conventional,1813,3927.714090814382
+cattle,dairy,conventional,1821,703.8638146161802
+cattle,beef,conventional,1821,617.411518182423
+sheep,none,conventional,1821,1269.9832474573327
+pigs,none,conventional,1821,1583.2935535054971
+poultry,layer,conventional,1821,96439.61555624036
+poultry,broiler,conventional,1821,40.3668590555531
+cattle,dairy,conventional,1911,1176.048569838846
+cattle,beef,conventional,1911,669.3835792223342
+sheep,none,conventional,1911,1467.761013722878
+pigs,none,conventional,1911,3020.4873958189883
+poultry,layer,conventional,1911,97265.11181854426
+poultry,broiler,conventional,1911,166831.03890294104
+cattle,dairy,conventional,1912,1056.008217266954
+cattle,beef,conventional,1912,396.3847196025753
+sheep,none,conventional,1912,783.6924821264164
+pigs,none,conventional,1912,464.63572602468247
+poultry,layer,conventional,1912,339.13348475354843
+poultry,broiler,conventional,1912,676.1758420690234
+cattle,dairy,conventional,1921,1187.3766588259682
+cattle,beef,conventional,1921,610.249749047138
+sheep,none,conventional,1921,1088.3788526505623
+pigs,none,conventional,1921,3668.717513611196
+poultry,layer,conventional,1921,51720.21288710276
+poultry,broiler,conventional,1921,1754.4357335302975
+cattle,dairy,conventional,1922,787.4676442245695
+cattle,beef,conventional,1922,370.58880172058593
+sheep,none,conventional,1922,856.8081689285852
+pigs,none,conventional,1922,695.5371729455879
+poultry,layer,conventional,1922,9617.557603270734
+poultry,broiler,conventional,1922,3.4978569880092687
+cattle,dairy,conventional,2011,2948.65662522445
+cattle,beef,conventional,2011,1647.9894880785791
+sheep,none,conventional,2011,2669.408328185649
+pigs,none,conventional,2011,1111.5149290201905
+poultry,layer,conventional,2011,43545.47934448196
+poultry,broiler,conventional,2011,0.0
+cattle,dairy,conventional,2012,1502.1404520930869
+cattle,beef,conventional,2012,963.6073458193842
+sheep,none,conventional,2012,2563.2808376302546
+pigs,none,conventional,2012,105.65585567699624
+poultry,layer,conventional,2012,435.3583324244401
+poultry,broiler,conventional,2012,0.0
+cattle,dairy,conventional,2019,21.16013715915723
+cattle,beef,conventional,2019,25.041530420969632
+sheep,none,conventional,2019,58.817019254554445
+pigs,none,conventional,2019,5.258209166450406
+poultry,layer,conventional,2019,0.0
+poultry,broiler,conventional,2019,0.0
+cattle,dairy,conventional,2111,3711.141394275971
+cattle,beef,conventional,2111,1973.5628115423049
+sheep,none,conventional,2111,3191.058450132908
+pigs,none,conventional,2111,110.49263631424608
+poultry,layer,conventional,2111,13364.778711132663
+poultry,broiler,conventional,2111,1837.210347489804
+cattle,dairy,conventional,2121,1590.673251918903
+cattle,beef,conventional,2121,1050.5737999204669
+sheep,none,conventional,2121,1867.208787120809
+pigs,none,conventional,2121,19.23859541411091
+poultry,layer,conventional,2121,36396.9189582268
+poultry,broiler,conventional,2121,1338.288441542842
+cattle,dairy,conventional,2122,240.21540517498005
+cattle,beef,conventional,2122,375.4849750638936
+sheep,none,conventional,2122,702.4040721451656
+pigs,none,conventional,2122,14.31796846188971
+poultry,layer,conventional,2122,2550.10410709907
+poultry,broiler,conventional,2122,264.0013786149744
+cattle,dairy,conventional,2211,1681.0243516286007
+cattle,beef,conventional,2211,704.9412623804644
+sheep,none,conventional,2211,938.8545636163026
+pigs,none,conventional,2211,41.048083625978606
+poultry,layer,conventional,2211,16727.926752921565
+poultry,broiler,conventional,2211,0.0
+cattle,dairy,conventional,2212,2513.4461023634058
+cattle,beef,conventional,2212,1024.6290463623372
+sheep,none,conventional,2212,1463.7300997641269
+pigs,none,conventional,2212,382.6036798427742
+poultry,layer,conventional,2212,17811.704034869603
+poultry,broiler,conventional,2212,0.0
+cattle,dairy,conventional,2221,2209.2668441590404
+cattle,beef,conventional,2221,1123.4273797194564
+sheep,none,conventional,2221,1252.9854417465976
+pigs,none,conventional,2221,319.5548565543058
+poultry,layer,conventional,2221,35.24857654605839
+poultry,broiler,conventional,2221,280.2724597916916
+cattle,dairy,conventional,2311,2810.7124494461077
+cattle,beef,conventional,2311,1228.8150121301076
+sheep,none,conventional,2311,1658.2412795701002
+pigs,none,conventional,2311,33.22981589681529
+poultry,layer,conventional,2311,2828.9662252325247
+poultry,broiler,conventional,2311,0.0
+cattle,dairy,conventional,2312,1458.4081936011653
+cattle,beef,conventional,2312,655.7721275518992
+sheep,none,conventional,2312,1188.163759560527
+pigs,none,conventional,2312,45.4750900010029
+poultry,layer,conventional,2312,3355.1042740460407
+poultry,broiler,conventional,2312,0.0
+cattle,dairy,conventional,2319,535.9547852113583
+cattle,beef,conventional,2319,343.08876802323704
+sheep,none,conventional,2319,542.6290086478408
+pigs,none,conventional,2319,19.61371247136131
+poultry,layer,conventional,2319,796.005574667776
+poultry,broiler,conventional,2319,0.0
+cattle,dairy,conventional,2331,507.2471642523319
+cattle,beef,conventional,2331,417.60921152358793
+sheep,none,conventional,2331,545.4862561755887
+pigs,none,conventional,2331,3.2432237246229345
+poultry,layer,conventional,2331,295.6275719034817
+poultry,broiler,conventional,2331,90.92150424869465
+cattle,dairy,conventional,2411,2991.1026592148382
+cattle,beef,conventional,2411,382.6368467656304
+sheep,none,conventional,2411,1227.0190053936844
+pigs,none,conventional,2411,225.92130873591145
+poultry,layer,conventional,2411,30830.53268690467
+poultry,broiler,conventional,2411,0.0
+cattle,dairy,conventional,2412,2211.327881692262
+cattle,beef,conventional,2412,149.6097407838525
+sheep,none,conventional,2412,414.0482697966691
+pigs,none,conventional,2412,278.0155192257493
+poultry,layer,conventional,2412,3225.7287027289663
+poultry,broiler,conventional,2412,0.0
+cattle,dairy,conventional,2413,2475.889970951448
+cattle,beef,conventional,2413,255.58532293980835
+sheep,none,conventional,2413,898.6298041717988
+pigs,none,conventional,2413,316.14934486912654
+poultry,layer,conventional,2413,12738.215957158262
+poultry,broiler,conventional,2413,0.0
+cattle,dairy,conventional,2414,2821.9098586572227
+cattle,beef,conventional,2414,454.3481372084818
+sheep,none,conventional,2414,985.9226953495312
+pigs,none,conventional,2414,84.00461525726062
+poultry,layer,conventional,2414,23050.41682999889
+poultry,broiler,conventional,2414,0.0
+cattle,dairy,conventional,2415,428.5432637224652
+cattle,beef,conventional,2415,111.14485630799126
+sheep,none,conventional,2415,723.7743838655944
+pigs,none,conventional,2415,20.51891361723512
+poultry,layer,conventional,2415,21.761579831166163
+poultry,broiler,conventional,2415,0.0
+cattle,dairy,conventional,2419,114.8199374180626
+cattle,beef,conventional,2419,25.485627126763887
+sheep,none,conventional,2419,145.7081705684741
+pigs,none,conventional,2419,7.455753697868184
+poultry,layer,conventional,2419,0.0
+poultry,broiler,conventional,2419,0.0
+cattle,dairy,conventional,2511,3007.945018552103
+cattle,beef,conventional,2511,537.0759358194355
+sheep,none,conventional,2511,1505.9900669538997
+pigs,none,conventional,2511,1012.0477831408318
+poultry,layer,conventional,2511,18610.07698768996
+poultry,broiler,conventional,2511,0.0
+cattle,dairy,conventional,2512,1616.994074625295
+cattle,beef,conventional,2512,253.3038824739988
+sheep,none,conventional,2512,1042.235970283208
+pigs,none,conventional,2512,324.8582221016633
+poultry,layer,conventional,2512,8313.9967597984
+poultry,broiler,conventional,2512,0.0
+cattle,dairy,conventional,2519,14.613039495390462
+cattle,beef,conventional,2519,26.00064018911444
+sheep,none,conventional,2519,107.91220953182956
+pigs,none,conventional,2519,0.0076134150227643
+poultry,layer,conventional,2519,0.0
+poultry,broiler,conventional,2519,0.0
+cattle,dairy,conventional,2521,302.9680128506846
+cattle,beef,conventional,2521,103.36836256655604
+sheep,none,conventional,2521,102.1781728066092
+pigs,none,conventional,2521,5.919295439245769
+poultry,layer,conventional,2521,74.01611427305747
+poultry,broiler,conventional,2521,0.0
+cattle,dairy,organic,111,175.92767259187409
+cattle,beef,organic,111,385.4224066432304
+sheep,none,organic,111,674.314742395144
+pigs,none,organic,111,5.435951663708444
+poultry,layer,organic,111,2794.479833900704
+poultry,broiler,organic,111,0.0
+cattle,dairy,organic,112,182.6322983558919
+cattle,beef,organic,112,434.2377748674571
+sheep,none,organic,112,721.5248037911708
+pigs,none,organic,112,9.9160451719852
+poultry,layer,organic,112,1224.1132017817336
+poultry,broiler,organic,112,0.0
+cattle,dairy,organic,311,858.9117887525715
+cattle,beef,organic,311,652.2140529511491
+sheep,none,organic,311,982.30420221745
+pigs,none,organic,311,8.846855616173153
+poultry,layer,organic,311,1156.7070899012472
+poultry,broiler,organic,311,1.7389583566891196
+cattle,dairy,organic,312,473.9673826609431
+cattle,beef,organic,312,528.4174025279056
+sheep,none,organic,312,540.3462937281746
+pigs,none,organic,312,9.52202027377257
+poultry,layer,organic,312,881.5524907470318
+poultry,broiler,organic,312,0.0
+cattle,dairy,organic,321,189.11416129399723
+cattle,beef,organic,321,493.1933248220652
+sheep,none,organic,321,506.8374806383576
+pigs,none,organic,321,26.52767373178653
+poultry,layer,organic,321,9869.201795890209
+poultry,broiler,organic,321,46.57122929383842
+cattle,dairy,organic,322,180.57842754899724
+cattle,beef,organic,322,318.08588712869977
+sheep,none,organic,322,308.5123266199217
+pigs,none,organic,322,7.233903747559346
+poultry,layer,organic,322,365.57690560275006
+poultry,broiler,organic,322,0.0
+cattle,dairy,organic,411,669.024141526265
+cattle,beef,organic,411,801.8038434476871
+sheep,none,organic,411,921.5543266892554
+pigs,none,organic,411,58.40543095264805
+poultry,layer,organic,411,14686.502590363383
+poultry,broiler,organic,411,7192.105537930256
+cattle,dairy,organic,421,385.3389108917832
+cattle,beef,organic,421,708.4316802944356
+sheep,none,organic,421,743.9446036345365
+pigs,none,organic,421,8.254491774166828
+poultry,layer,organic,421,13245.010473138973
+poultry,broiler,organic,421,5082.966258433508
+cattle,dairy,organic,422,148.54783703145935
+cattle,beef,organic,422,450.13049308049807
+sheep,none,organic,422,704.1412845784087
+pigs,none,organic,422,5.001357249796918
+poultry,layer,organic,422,615.5752525726076
+poultry,broiler,organic,422,3656.585476900644
+cattle,dairy,organic,431,667.705806497919
+cattle,beef,organic,431,1039.7714688850317
+sheep,none,organic,431,1037.4779521130104
+pigs,none,organic,431,54.951645687543056
+poultry,layer,organic,431,16871.014671847173
+poultry,broiler,organic,431,8818.998476352503
+cattle,dairy,organic,511,967.8240163966244
+cattle,beef,organic,511,1302.0916919315
+sheep,none,organic,511,1301.893460305492
+pigs,none,organic,511,32.34765061828638
+poultry,layer,organic,511,58637.66639700676
+poultry,broiler,organic,511,105.88586008709404
+cattle,dairy,organic,512,1210.369089671157
+cattle,beef,organic,512,1290.9767350675572
+sheep,none,organic,512,905.7948408594574
+pigs,none,organic,512,5.667997580738826
+poultry,layer,organic,512,16661.38344344536
+poultry,broiler,organic,512,339.3692858222696
+cattle,dairy,organic,513,427.60088483011566
+cattle,beef,organic,513,996.8871841770856
+sheep,none,organic,513,590.0215531502374
+pigs,none,organic,513,137.4834562367349
+poultry,layer,organic,513,107263.02256593558
+poultry,broiler,organic,513,3364.429078560271
+cattle,dairy,organic,514,1667.0000447436423
+cattle,beef,organic,514,1378.6273944227808
+sheep,none,organic,514,1058.489692575987
+pigs,none,organic,514,56.46342546765624
+poultry,layer,organic,514,109443.31077275243
+poultry,broiler,organic,514,1429.5076893462508
+cattle,dairy,organic,515,982.406820738458
+cattle,beef,organic,515,1592.227257298771
+sheep,none,organic,515,1292.9136019204177
+pigs,none,organic,515,24.168364505256008
+poultry,layer,organic,515,41040.467133662525
+poultry,broiler,organic,515,3219.8026115982907
+cattle,dairy,organic,521,582.9984269735176
+cattle,beef,organic,521,894.356727899681
+sheep,none,organic,521,795.9472924813903
+pigs,none,organic,521,14.41935759870332
+poultry,layer,organic,521,26883.8626549256
+poultry,broiler,organic,521,2372.764252555153
+cattle,dairy,organic,611,721.2139301340123
+cattle,beef,organic,611,941.2059114526808
+sheep,none,organic,611,498.5626661091413
+pigs,none,organic,611,1.890105416018456
+poultry,layer,organic,611,2423.590493412702
+poultry,broiler,organic,611,0.0
+cattle,dairy,organic,612,1143.1485499305882
+cattle,beef,organic,612,1370.2698831239998
+sheep,none,organic,612,555.0334290992541
+pigs,none,organic,612,11.403628334878096
+poultry,layer,organic,612,8722.874588424775
+poultry,broiler,organic,612,48.10703040183885
+cattle,dairy,organic,621,801.0040924790953
+cattle,beef,organic,621,1185.5377229790156
+sheep,none,organic,621,579.3242474706816
+pigs,none,organic,621,36.05514435603371
+poultry,layer,organic,621,22944.081510238204
+poultry,broiler,organic,621,0.0
+cattle,dairy,organic,622,1670.2486045136895
+cattle,beef,organic,622,2177.858648483778
+sheep,none,organic,622,989.414150309403
+pigs,none,organic,622,5.358702938514678
+poultry,layer,organic,622,3770.088724200265
+poultry,broiler,organic,622,0.4526607159007191
+cattle,dairy,organic,711,610.2714244960702
+cattle,beef,organic,711,735.7780003505259
+sheep,none,organic,711,561.4584093653343
+pigs,none,organic,711,5.924067865231621
+poultry,layer,organic,711,8489.923243186853
+poultry,broiler,organic,711,2218.901901023813
+cattle,dairy,organic,731,283.0368164082696
+cattle,beef,organic,731,708.316349978764
+sheep,none,organic,731,440.52505219395306
+pigs,none,organic,731,12.659540158591936
+poultry,layer,organic,731,6663.072318267263
+poultry,broiler,organic,731,1928.2917869040932
+cattle,dairy,organic,811,919.4037968180191
+cattle,beef,organic,811,523.4927088726412
+sheep,none,organic,811,396.9551348056214
+pigs,none,organic,811,40.25290281399177
+poultry,layer,organic,811,11058.147398710924
+poultry,broiler,organic,811,9915.498820012992
+cattle,dairy,organic,812,1197.6819109797448
+cattle,beef,organic,812,412.8285668035263
+sheep,none,organic,812,510.3925415373319
+pigs,none,organic,812,11.20140326422548
+poultry,layer,organic,812,2691.74431195754
+poultry,broiler,organic,812,728.0584446639263
+cattle,dairy,organic,813,328.96119143330696
+cattle,beef,organic,813,401.2701689951885
+sheep,none,organic,813,293.45232115037976
+pigs,none,organic,813,24.916969572100665
+poultry,layer,organic,813,125734.13985050024
+poultry,broiler,organic,813,2994.8624845327845
+cattle,dairy,organic,814,504.6810443807162
+cattle,beef,organic,814,547.7291207335807
+sheep,none,organic,814,346.11549136866535
+pigs,none,organic,814,2.161973174183385
+poultry,layer,organic,814,1758.7907710286015
+poultry,broiler,organic,814,1636.993971930916
+cattle,dairy,organic,821,1008.9990687470151
+cattle,beef,organic,821,1289.8219013301884
+sheep,none,organic,821,1092.2321529879905
+pigs,none,organic,821,25.814584357171174
+poultry,layer,organic,821,511.2814800748535
+poultry,broiler,organic,821,2349.570792957639
+cattle,dairy,organic,831,411.408511632076
+cattle,beef,organic,831,846.4485431960844
+sheep,none,organic,831,770.4414546350447
+pigs,none,organic,831,8.196855050475559
+poultry,layer,organic,831,13062.83449906672
+poultry,broiler,organic,831,4987.702597470306
+cattle,dairy,organic,911,553.1074556423233
+cattle,beef,organic,911,384.03088720167113
+sheep,none,organic,911,1487.5276048197718
+pigs,none,organic,911,21.949441877597145
+poultry,layer,organic,911,6953.958036758388
+poultry,broiler,organic,911,54.20505375113572
+cattle,dairy,organic,912,1114.3493223424568
+cattle,beef,organic,912,773.7096192543327
+sheep,none,organic,912,2996.9319008213542
+pigs,none,organic,912,42.47276103447859
+poultry,layer,organic,912,13456.096040441274
+poultry,broiler,organic,912,103.08086361723898
+cattle,dairy,organic,913,624.9032625948748
+cattle,beef,organic,913,433.8798038273368
+sheep,none,organic,913,1680.6153017270697
+pigs,none,organic,913,29.66419405813634
+poultry,layer,organic,913,9398.123279165582
+poultry,broiler,organic,913,72.55887746911513
+cattle,dairy,organic,1011,241.0043387759669
+cattle,beef,organic,1011,662.1823025338533
+sheep,none,organic,1011,610.3266380077106
+pigs,none,organic,1011,16.643454185931592
+poultry,layer,organic,1011,2917.21660677559
+poultry,broiler,organic,1011,6218.179103777806
+cattle,dairy,organic,1111,369.8180421995135
+cattle,beef,organic,1111,745.9341745990981
+sheep,none,organic,1111,272.3760780204127
+pigs,none,organic,1111,61.21594070809873
+poultry,layer,organic,1111,554.0286101271537
+poultry,broiler,organic,1111,849.4014679122654
+cattle,dairy,organic,1112,413.5470587741555
+cattle,beef,organic,1112,823.7889882854828
+sheep,none,organic,1112,238.74636708684048
+pigs,none,organic,1112,40.54709162670583
+poultry,layer,organic,1112,3661.590091892243
+poultry,broiler,organic,1112,173.4476350557021
+cattle,dairy,organic,1121,340.4106248267721
+cattle,beef,organic,1121,653.4565106774635
+sheep,none,organic,1121,374.9053967723774
+pigs,none,organic,1121,50.486292990606735
+poultry,layer,organic,1121,4612.62815666442
+poultry,broiler,organic,1121,1727.4316993307957
+cattle,dairy,organic,1122,511.4501137569864
+cattle,beef,organic,1122,751.0290285329972
+sheep,none,organic,1122,390.709274014968
+pigs,none,organic,1122,33.171827167859504
+poultry,layer,organic,1122,4020.700805988447
+poultry,broiler,organic,1122,1218.7807260060106
+cattle,dairy,organic,1123,233.51949167894773
+cattle,beef,organic,1123,290.7011471514553
+sheep,none,organic,1123,160.30151932134777
+pigs,none,organic,1123,14.165909414987857
+poultry,layer,organic,1123,10728.743511782352
+poultry,broiler,organic,1123,1446.5029307614238
+cattle,dairy,organic,1124,290.28548516535704
+cattle,beef,organic,1124,453.1992131341361
+sheep,none,organic,1124,266.0988487314469
+pigs,none,organic,1124,10.405462853337475
+poultry,layer,organic,1124,2851.9426637512693
+poultry,broiler,organic,1124,647.4763267766048
+cattle,dairy,organic,1131,300.3689970081659
+cattle,beef,organic,1131,608.340160403931
+sheep,none,organic,1131,291.0341997606985
+pigs,none,organic,1131,22.673892265585497
+poultry,layer,organic,1131,19790.370688289637
+poultry,broiler,organic,1131,280.02460296891775
+cattle,dairy,organic,1211,30.8680810110472
+cattle,beef,organic,1211,115.090243816724
+sheep,none,organic,1211,297.44522213785035
+pigs,none,organic,1211,34.878175486299845
+poultry,layer,organic,1211,2609.2622431668306
+poultry,broiler,organic,1211,0.0848064928375787
+cattle,dairy,organic,1212,69.54040857753525
+cattle,beef,organic,1212,254.3877263724007
+sheep,none,organic,1212,126.72509909811104
+pigs,none,organic,1212,23.60413553130883
+poultry,layer,organic,1212,8955.038081590294
+poultry,broiler,organic,1212,202.90893532077123
+cattle,dairy,organic,1213,167.66719400555945
+cattle,beef,organic,1213,493.4150399556135
+sheep,none,organic,1213,219.1688705371738
+pigs,none,organic,1213,7.615080055019218
+poultry,layer,organic,1213,5959.042125576472
+poultry,broiler,organic,1213,370.9009784424278
+cattle,dairy,organic,1214,27.611202146337053
+cattle,beef,organic,1214,264.14962827566626
+sheep,none,organic,1214,87.39566812398756
+pigs,none,organic,1214,3.3937223890288637
+poultry,layer,organic,1214,1387.2423273688923
+poultry,broiler,organic,1214,456.8423434032517
+cattle,dairy,organic,1215,586.9382897922412
+cattle,beef,organic,1215,1082.0410731287618
+sheep,none,organic,1215,574.4571383278086
+pigs,none,organic,1215,50.90980215226244
+poultry,layer,organic,1215,9675.942814009071
+poultry,broiler,organic,1215,161.12408522024558
+cattle,dairy,organic,1216,131.47676533764636
+cattle,beef,organic,1216,278.6810006103606
+sheep,none,organic,1216,150.67149346361003
+pigs,none,organic,1216,24.476562265448425
+poultry,layer,organic,1216,12242.66554290757
+poultry,broiler,organic,1216,67.24292924102434
+cattle,dairy,organic,1221,361.9189957644456
+cattle,beef,organic,1221,744.2871646170727
+sheep,none,organic,1221,332.32695461062696
+pigs,none,organic,1221,35.29341390319923
+poultry,layer,organic,1221,5225.657403328872
+poultry,broiler,organic,1221,192.1938538674463
+cattle,dairy,organic,1222,130.6624402095428
+cattle,beef,organic,1222,218.05386993216703
+sheep,none,organic,1222,181.49089693477973
+pigs,none,organic,1222,6.670767506469644
+poultry,layer,organic,1222,1391.8633095236123
+poultry,broiler,organic,1222,496.6902939530947
+cattle,dairy,organic,1311,941.0952730039936
+cattle,beef,organic,1311,585.7145481258653
+sheep,none,organic,1311,538.4376698716336
+pigs,none,organic,1311,87.10272642422626
+poultry,layer,organic,1311,31353.889787185915
+poultry,broiler,organic,1311,1929.4921576146528
+cattle,dairy,organic,1321,882.9072710213792
+cattle,beef,organic,1321,525.7283682107505
+sheep,none,organic,1321,442.3830227148441
+pigs,none,organic,1321,52.75903128764502
+poultry,layer,organic,1321,19165.041409249912
+poultry,broiler,organic,1321,1452.761705455188
+cattle,dairy,organic,1322,428.3771383514848
+cattle,beef,organic,1322,447.6214307357241
+sheep,none,organic,1322,359.5721575836633
+pigs,none,organic,1322,30.452188464578235
+poultry,layer,organic,1322,22762.240939938267
+poultry,broiler,organic,1322,553.1598049644022
+cattle,dairy,organic,1331,654.9199043264068
+cattle,beef,organic,1331,611.0782536373857
+sheep,none,organic,1331,744.4754328345208
+pigs,none,organic,1331,65.62296569607935
+poultry,layer,organic,1331,25965.9147428933
+poultry,broiler,organic,1331,0.0876912414015602
+cattle,dairy,organic,1411,305.5888741141018
+cattle,beef,organic,1411,1089.9918193271703
+sheep,none,organic,1411,1007.8853179465464
+pigs,none,organic,1411,0.8442816489813839
+poultry,layer,organic,1411,2626.9101843789263
+poultry,broiler,organic,1411,0.3433074984135543
+cattle,dairy,organic,1412,517.9211488965615
+cattle,beef,organic,1412,1084.5923163770258
+sheep,none,organic,1412,919.3141674624012
+pigs,none,organic,1412,10.484571520079031
+poultry,layer,organic,1412,6166.4127992945405
+poultry,broiler,organic,1412,0.0
+cattle,dairy,organic,1421,327.5109553337413
+cattle,beef,organic,1421,765.3781382222452
+sheep,none,organic,1421,751.5388024644867
+pigs,none,organic,1421,19.38834190375596
+poultry,layer,organic,1421,1534.8636168404862
+poultry,broiler,organic,1421,137.68130424919616
+cattle,dairy,organic,1511,2734.722673954293
+cattle,beef,organic,1511,2962.571807403684
+sheep,none,organic,1511,1934.9116768531508
+pigs,none,organic,1511,14.33929389187811
+poultry,layer,organic,1511,11236.84020986627
+poultry,broiler,organic,1511,15.922046135425008
+cattle,dairy,organic,1512,773.8335251961194
+cattle,beef,organic,1512,367.3004385605697
+sheep,none,organic,1512,264.4874881791815
+pigs,none,organic,1512,253.9830727629464
+poultry,layer,organic,1512,24764.856922128027
+poultry,broiler,organic,1512,0.0
+cattle,dairy,organic,1521,421.08165900797496
+cattle,beef,organic,1521,985.1237080838788
+sheep,none,organic,1521,1141.3209689388354
+pigs,none,organic,1521,18.13326826093524
+poultry,layer,organic,1521,2880.5600905803885
+poultry,broiler,organic,1521,48.63928848913567
+cattle,dairy,organic,1522,373.8517753919879
+cattle,beef,organic,1522,889.5136020302821
+sheep,none,organic,1522,585.3940701029007
+pigs,none,organic,1522,31.19812873360661
+poultry,layer,organic,1522,6724.714843127294
+poultry,broiler,organic,1522,0.0
+cattle,dairy,organic,1611,412.3074825519735
+cattle,beef,organic,1611,457.93458794385583
+sheep,none,organic,1611,290.77333759571565
+pigs,none,organic,1611,43.0110269469887
+poultry,layer,organic,1611,1507.9281564647515
+poultry,broiler,organic,1611,535.6331000842123
+cattle,dairy,organic,1612,1232.4677161857232
+cattle,beef,organic,1612,1456.8250079560833
+sheep,none,organic,1612,765.2281764416132
+pigs,none,organic,1612,38.19748354011795
+poultry,layer,organic,1612,529.3047111461049
+poultry,broiler,organic,1612,1975.6808778125587
+cattle,dairy,organic,1613,1237.164366219184
+cattle,beef,organic,1613,1526.4720514295516
+sheep,none,organic,1613,716.811270785956
+pigs,none,organic,1613,31.808862440307696
+poultry,layer,organic,1613,1256.2936050969397
+poultry,broiler,organic,1613,1011.4869171664106
+cattle,dairy,organic,1614,1330.1174819853734
+cattle,beef,organic,1614,933.4608608645856
+sheep,none,organic,1614,512.4013442798406
+pigs,none,organic,1614,66.46343904179486
+poultry,layer,organic,1614,2043.412605955668
+poultry,broiler,organic,1614,18899.79982180261
+cattle,dairy,organic,1615,706.4138478852452
+cattle,beef,organic,1615,754.8127613159425
+sheep,none,organic,1615,535.436556183803
+pigs,none,organic,1615,56.078354756537344
+poultry,layer,organic,1615,504.30344620172747
+poultry,broiler,organic,1615,15205.569767848954
+cattle,dairy,organic,1616,1373.0516183422014
+cattle,beef,organic,1616,696.4267039963225
+sheep,none,organic,1616,511.3155777969182
+pigs,none,organic,1616,154.1026014341657
+poultry,layer,organic,1616,14041.731834467057
+poultry,broiler,organic,1616,12416.144106465434
+cattle,dairy,organic,1617,629.2369247840468
+cattle,beef,organic,1617,366.4737866627912
+sheep,none,organic,1617,368.1337057578395
+pigs,none,organic,1617,59.53507964719882
+poultry,layer,organic,1617,2396.2747163434065
+poultry,broiler,organic,1617,7261.933468671335
+cattle,dairy,organic,1621,841.4949183670917
+cattle,beef,organic,1621,1079.1910548053168
+sheep,none,organic,1621,876.59185231408
+pigs,none,organic,1621,102.3156345437901
+poultry,layer,organic,1621,18985.427423442816
+poultry,broiler,organic,1621,1102.4943084262602
+cattle,dairy,organic,1622,437.3140419529208
+cattle,beef,organic,1622,605.2208236663901
+sheep,none,organic,1622,443.8779293438571
+pigs,none,organic,1622,122.50249170888944
+poultry,layer,organic,1622,34211.470679701015
+poultry,broiler,organic,1622,2369.570476919489
+cattle,dairy,organic,1623,321.6760943645125
+cattle,beef,organic,1623,504.6047304678074
+sheep,none,organic,1623,417.3986774139073
+pigs,none,organic,1623,94.67146938907418
+poultry,layer,organic,1623,17548.3733034189
+poultry,broiler,organic,1623,15.123423772724694
+cattle,dairy,organic,1711,467.402215737178
+cattle,beef,organic,1711,993.6590505791862
+sheep,none,organic,1711,541.5438025577805
+pigs,none,organic,1711,6.671849167181017
+poultry,layer,organic,1711,0.0
+poultry,broiler,organic,1711,0.0
+cattle,dairy,organic,1712,385.456936929907
+cattle,beef,organic,1712,1066.7392351106434
+sheep,none,organic,1712,562.5962625539398
+pigs,none,organic,1712,84.2790798966145
+poultry,layer,organic,1712,3910.1821900849936
+poultry,broiler,organic,1712,0.0
+cattle,dairy,organic,1713,405.0520858469745
+cattle,beef,organic,1713,1221.2164984634503
+sheep,none,organic,1713,623.0697647897366
+pigs,none,organic,1713,4.288236335686551
+poultry,layer,organic,1713,1097.8776050722995
+poultry,broiler,organic,1713,0.0
+cattle,dairy,organic,1721,213.6205600553626
+cattle,beef,organic,1721,673.0892804724173
+sheep,none,organic,1721,437.2433816160921
+pigs,none,organic,1721,22.341319576475264
+poultry,layer,organic,1721,1818.9631430545576
+poultry,broiler,organic,1721,0.0
+cattle,dairy,organic,1722,449.593887960366
+cattle,beef,organic,1722,814.2273179394654
+sheep,none,organic,1722,311.22568081188285
+pigs,none,organic,1722,56.95589494386835
+poultry,layer,organic,1722,2114.981586799191
+poultry,broiler,organic,1722,0.0
+cattle,dairy,organic,1723,64.33927919548435
+cattle,beef,organic,1723,376.2037505250661
+sheep,none,organic,1723,427.3565152658121
+pigs,none,organic,1723,4.595461310252811
+poultry,layer,organic,1723,3452.635515631771
+poultry,broiler,organic,1723,0.0
+cattle,dairy,organic,1724,152.5053292711578
+cattle,beef,organic,1724,492.1619385498797
+sheep,none,organic,1724,445.88329107289616
+pigs,none,organic,1724,14.996180325926614
+poultry,layer,organic,1724,39.49041558459262
+poultry,broiler,organic,1724,0.0
+cattle,dairy,organic,1811,400.88774507696553
+cattle,beef,organic,1811,562.3409335142708
+sheep,none,organic,1811,1035.679159974753
+pigs,none,organic,1811,14.84840853180376
+poultry,layer,organic,1811,74749.79155396466
+poultry,broiler,organic,1811,260.36448974107094
+cattle,dairy,organic,1812,537.0716676085844
+cattle,beef,organic,1812,837.072589221083
+sheep,none,organic,1812,940.9961280784954
+pigs,none,organic,1812,40.01146217074168
+poultry,layer,organic,1812,15453.212563498995
+poultry,broiler,organic,1812,746.5005593530972
+cattle,dairy,organic,1813,259.6768938297661
+cattle,beef,organic,1813,544.439758496445
+sheep,none,organic,1813,374.87552091986544
+pigs,none,organic,1813,32.89687624948809
+poultry,layer,organic,1813,12230.737495891042
+poultry,broiler,organic,1813,70.09031069752075
+cattle,dairy,organic,1821,220.06328824153863
+cattle,beef,organic,1821,572.5368317308302
+sheep,none,organic,1821,530.9682875127568
+pigs,none,organic,1821,41.164592650188176
+poultry,layer,organic,1821,15917.246382970105
+poultry,broiler,organic,1821,0.5094567563645666
+cattle,dairy,organic,1911,301.86601627777986
+cattle,beef,organic,1911,470.1887093124522
+sheep,none,organic,1911,496.6553189426756
+pigs,none,organic,1911,89.41552459001998
+poultry,layer,organic,1911,18628.53834144447
+poultry,broiler,organic,1911,2393.0320748517
+cattle,dairy,organic,1912,270.98526985173714
+cattle,beef,organic,1912,278.33271249315595
+sheep,none,organic,1912,265.1109445913622
+pigs,none,organic,1912,19.393593076675906
+poultry,layer,organic,1912,97.89177151627167
+poultry,broiler,organic,1912,13.59284515509565
+cattle,dairy,organic,1921,307.535193114763
+cattle,beef,organic,1921,433.9304359791838
+sheep,none,organic,1921,371.8374134421388
+pigs,none,organic,1921,112.5984742782636
+poultry,layer,organic,1921,10329.587117268142
+poultry,broiler,organic,1921,26.07683402482611
+cattle,dairy,organic,1922,208.5653278941894
+cattle,beef,organic,1922,271.6723932338815
+sheep,none,organic,1922,299.78107529781664
+pigs,none,organic,1922,25.226559846649497
+poultry,layer,organic,1922,2339.6300497348425
+poultry,broiler,organic,1922,0.0612672714155727
+cattle,dairy,organic,2011,860.1812903935875
+cattle,beef,organic,2011,1382.561880529041
+sheep,none,organic,2011,1035.769848115032
+pigs,none,organic,2011,66.60254932177628
+poultry,layer,organic,2011,20122.12240483742
+poultry,broiler,organic,2011,0.0
+cattle,dairy,organic,2012,438.6062362881728
+cattle,beef,organic,2012,809.464169832867
+sheep,none,organic,2012,995.5719084238082
+pigs,none,organic,2012,5.848947955281656
+poultry,layer,organic,2012,180.64166757555995
+poultry,broiler,organic,2012,0.0
+cattle,dairy,organic,2019,6.18255050638488
+cattle,beef,organic,2019,21.055436604912263
+sheep,none,organic,2019,22.86049646430853
+pigs,none,organic,2019,0.0
+poultry,layer,organic,2019,0.0
+poultry,broiler,organic,2019,0.0
+cattle,dairy,organic,2111,1108.2810003472575
+cattle,beef,organic,2111,1712.150052095872
+sheep,none,organic,2111,1269.7782686623984
+pigs,none,organic,2111,6.107599690771844
+poultry,layer,organic,2111,5534.338079671087
+poultry,broiler,organic,2111,48.583136621493175
+cattle,dairy,organic,2121,473.1954689840366
+cattle,beef,organic,2121,906.3574355616254
+sheep,none,organic,2121,739.9030947780581
+pigs,none,organic,2121,1.1627315728149867
+poultry,layer,organic,2121,17019.618648172636
+poultry,broiler,organic,2121,38.5956825522496
+cattle,dairy,organic,2122,71.21026906577283
+cattle,beef,organic,2122,322.32061901581835
+sheep,none,organic,2122,277.2910263033682
+pigs,none,organic,2122,0.895004328810694
+poultry,layer,organic,2122,1249.7837304389209
+poultry,broiler,organic,2122,7.866643316810812
+cattle,dairy,organic,2211,315.31321612759683
+cattle,beef,organic,2211,330.3073973759362
+sheep,none,organic,2211,228.16106374595896
+pigs,none,organic,2211,2.31282011062825
+poultry,layer,organic,2211,7107.56145065384
+poultry,broiler,organic,2211,0.0
+cattle,dairy,organic,2212,470.7126651259625
+cattle,beef,organic,2212,479.1693068785488
+sheep,none,organic,2212,355.13260077026257
+pigs,none,organic,2212,21.61185651467245
+poultry,layer,organic,2212,7593.819356151906
+poultry,broiler,organic,2212,0.0
+cattle,dairy,organic,2221,475.26651815261823
+cattle,beef,organic,2221,625.4513595571607
+sheep,none,organic,2221,351.6405011804357
+pigs,none,organic,2221,17.74363324429942
+poultry,layer,organic,2221,14.684996186862133
+poultry,broiler,organic,2221,7.444119358831162
+cattle,dairy,organic,2311,870.6359443930484
+cattle,beef,organic,2311,1124.082130212774
+sheep,none,organic,2311,686.3675345922579
+pigs,none,organic,2311,3.7501787673326823
+poultry,layer,organic,2311,3703.558922756137
+poultry,broiler,organic,2311,0.0
+cattle,dairy,organic,2312,452.0193755584744
+cattle,beef,organic,2312,600.4009848995264
+sheep,none,organic,2312,492.1115955866527
+pigs,none,organic,2312,5.207179032454497
+poultry,layer,organic,2312,4527.763730069073
+poultry,broiler,organic,2312,0.0
+cattle,dairy,organic,2319,166.13291284906495
+cattle,beef,organic,2319,314.1719693609578
+sheep,none,organic,2319,224.7728334377864
+pigs,none,organic,2319,2.249237698471154
+poultry,layer,organic,2319,1077.6012732284494
+poultry,broiler,organic,2319,0.0
+cattle,dairy,organic,2331,153.412567222457
+cattle,beef,organic,2331,368.96989985525096
+sheep,none,organic,2331,220.03873587065007
+pigs,none,organic,2331,0.3291864755380119
+poultry,layer,organic,2331,314.102391349728
+poultry,broiler,organic,2331,4.316286462608488
+cattle,dairy,organic,2411,318.179207588227
+cattle,beef,organic,2411,92.23081861661436
+sheep,none,organic,2411,165.75877674559328
+pigs,none,organic,2411,5.96868899492418
+poultry,layer,organic,2411,5182.086865388437
+poultry,broiler,organic,2411,0.0
+cattle,dairy,organic,2412,235.2304929912671
+cattle,beef,organic,2412,36.06194484967103
+sheep,none,organic,2412,55.93404373806328
+pigs,none,organic,2412,7.2738714555791475
+poultry,layer,organic,2412,536.2241805173804
+poultry,broiler,organic,2412,0.0
+cattle,dairy,organic,2413,263.37334380885505
+cattle,beef,organic,2413,61.60630833226816
+sheep,none,organic,2413,121.3964709852701
+pigs,none,organic,2413,8.626855905891727
+poultry,layer,organic,2413,2221.4905012227387
+poultry,broiler,organic,2413,0.0
+cattle,dairy,organic,2414,300.597508632862
+cattle,beef,organic,2414,109.686477862152
+sheep,none,organic,2414,133.37839898188597
+pigs,none,organic,2414,2.1282872812643205
+poultry,layer,organic,2414,3694.497925402617
+poultry,broiler,organic,2414,0.0
+cattle,dairy,organic,2415,46.03514937677751
+cattle,beef,organic,2415,27.08655302032935
+sheep,none,organic,2415,98.7629006321583
+pigs,none,organic,2415,0.5598473827998359
+poultry,layer,organic,2415,3.794677445845192
+poultry,broiler,organic,2415,0.0
+cattle,dairy,organic,2419,12.213996263370955
+cattle,beef,organic,2419,6.143057765419472
+sheep,none,organic,2419,19.68380930458311
+pigs,none,organic,2419,0.135689192020386
+poultry,layer,organic,2419,0.0
+poultry,broiler,organic,2419,0.0
+cattle,dairy,organic,2511,296.03653090760633
+cattle,beef,organic,2511,118.69261770476244
+sheep,none,organic,2511,187.862436084658
+pigs,none,organic,2511,40.69468367586957
+poultry,layer,organic,2511,5130.502325026402
+poultry,broiler,organic,2511,0.0
+cattle,dairy,organic,2512,159.13702106733078
+cattle,beef,organic,2512,55.97780122702233
+sheep,none,organic,2512,130.0082704151737
+pigs,none,organic,2512,21.476038431061724
+poultry,layer,organic,2512,4411.503418987265
+poultry,broiler,organic,2512,0.0
+cattle,dairy,organic,2519,1.4384359490471843
+cattle,beef,organic,2519,5.747181785916739
+sheep,none,organic,2519,13.46371071903414
+pigs,none,organic,2519,0.0
+poultry,layer,organic,2519,0.0
+poultry,broiler,organic,2519,0.0
+cattle,dairy,organic,2521,30.07768820443905
+cattle,beef,organic,2521,23.06592755486485
+sheep,none,organic,2521,12.859943119748158
+pigs,none,organic,2521,0.9178533240309044
+poultry,layer,organic,2521,222.64289302902856
+poultry,broiler,organic,2521,0.0
+horses,ponies and Icelandic horses,conventional,111,4696.170539024065
+horses,ponies and Icelandic horses,conventional,112,2380.187219517199
+horses,ponies and Icelandic horses,conventional,311,1301.7036727249015
+horses,ponies and Icelandic horses,conventional,312,531.198454316737
+horses,ponies and Icelandic horses,conventional,321,2422.462181768031
+horses,ponies and Icelandic horses,conventional,322,349.53467626779286
+horses,ponies and Icelandic horses,conventional,411,546.7732024092488
+horses,ponies and Icelandic horses,conventional,421,941.7101441875775
+horses,ponies and Icelandic horses,conventional,422,444.09778986286597
+horses,ponies and Icelandic horses,conventional,431,913.6895043452861
+horses,ponies and Icelandic horses,conventional,511,422.6288433464067
+horses,ponies and Icelandic horses,conventional,512,470.6926737075885
+horses,ponies and Icelandic horses,conventional,513,525.4847457363738
+horses,ponies and Icelandic horses,conventional,514,1049.1771426116209
+horses,ponies and Icelandic horses,conventional,515,1200.6491100083174
+horses,ponies and Icelandic horses,conventional,521,628.0049579373967
+horses,ponies and Icelandic horses,conventional,611,1105.6688497999771
+horses,ponies and Icelandic horses,conventional,612,1415.1997532596133
+horses,ponies and Icelandic horses,conventional,621,1154.983698023762
+horses,ponies and Icelandic horses,conventional,622,2064.630930426199
+horses,ponies and Icelandic horses,conventional,711,1720.770525166656
+horses,ponies and Icelandic horses,conventional,731,1379.4846895211915
+horses,ponies and Icelandic horses,conventional,811,1245.5715205679019
+horses,ponies and Icelandic horses,conventional,812,514.6196875079951
+horses,ponies and Icelandic horses,conventional,813,406.0957577289369
+horses,ponies and Icelandic horses,conventional,814,689.2251745420881
+horses,ponies and Icelandic horses,conventional,821,989.277704255279
+horses,ponies and Icelandic horses,conventional,831,1817.8580872150194
+horses,ponies and Icelandic horses,conventional,911,422.80016112868765
+horses,ponies and Icelandic horses,conventional,912,851.8183369864213
+horses,ponies and Icelandic horses,conventional,913,477.681501884891
+horses,ponies and Icelandic horses,conventional,1011,1535.1948129728714
+horses,ponies and Icelandic horses,conventional,1111,1173.1412446433428
+horses,ponies and Icelandic horses,conventional,1112,1084.2077579110803
+horses,ponies and Icelandic horses,conventional,1121,989.2659172727008
+horses,ponies and Icelandic horses,conventional,1122,1335.1308516852166
+horses,ponies and Icelandic horses,conventional,1123,1271.202630254794
+horses,ponies and Icelandic horses,conventional,1124,1276.2139721179512
+horses,ponies and Icelandic horses,conventional,1131,1088.853076635708
+horses,ponies and Icelandic horses,conventional,1211,849.6961092350324
+horses,ponies and Icelandic horses,conventional,1212,667.1957547131848
+horses,ponies and Icelandic horses,conventional,1213,1571.7966807541718
+horses,ponies and Icelandic horses,conventional,1214,1052.6331280586644
+horses,ponies and Icelandic horses,conventional,1215,2250.9497553273645
+horses,ponies and Icelandic horses,conventional,1216,932.0921989171662
+horses,ponies and Icelandic horses,conventional,1221,1173.737366612059
+horses,ponies and Icelandic horses,conventional,1222,787.6160506885428
+horses,ponies and Icelandic horses,conventional,1311,1331.4821762928839
+horses,ponies and Icelandic horses,conventional,1321,1621.8368496131097
+horses,ponies and Icelandic horses,conventional,1322,686.437732301839
+horses,ponies and Icelandic horses,conventional,1331,2036.3736862457015
+horses,ponies and Icelandic horses,conventional,1411,1534.046661241302
+horses,ponies and Icelandic horses,conventional,1412,1036.9620178855396
+horses,ponies and Icelandic horses,conventional,1421,1628.2574872780558
+horses,ponies and Icelandic horses,conventional,1511,2271.4058307066875
+horses,ponies and Icelandic horses,conventional,1512,734.8139272556564
+horses,ponies and Icelandic horses,conventional,1521,1690.6771026911688
+horses,ponies and Icelandic horses,conventional,1522,493.898035319606
+horses,ponies and Icelandic horses,conventional,1611,744.0006237195738
+horses,ponies and Icelandic horses,conventional,1612,762.657438942043
+horses,ponies and Icelandic horses,conventional,1613,799.6994201066494
+horses,ponies and Icelandic horses,conventional,1614,578.0756262692914
+horses,ponies and Icelandic horses,conventional,1615,471.40006607562015
+horses,ponies and Icelandic horses,conventional,1616,636.3806151246661
+horses,ponies and Icelandic horses,conventional,1617,322.12755489689664
+horses,ponies and Icelandic horses,conventional,1621,1355.704576519475
+horses,ponies and Icelandic horses,conventional,1622,934.1353160196102
+horses,ponies and Icelandic horses,conventional,1623,613.3862591139888
+horses,ponies and Icelandic horses,conventional,1711,790.3074008356915
+horses,ponies and Icelandic horses,conventional,1712,838.247705660213
+horses,ponies and Icelandic horses,conventional,1713,705.1035970271806
+horses,ponies and Icelandic horses,conventional,1721,478.74861466546207
+horses,ponies and Icelandic horses,conventional,1722,554.8148011646812
+horses,ponies and Icelandic horses,conventional,1723,411.1203972116443
+horses,ponies and Icelandic horses,conventional,1724,509.7130096808793
+horses,ponies and Icelandic horses,conventional,1811,662.3487378631106
+horses,ponies and Icelandic horses,conventional,1812,1399.9070093428804
+horses,ponies and Icelandic horses,conventional,1813,672.2796361564999
+horses,ponies and Icelandic horses,conventional,1821,791.9605357543352
+horses,ponies and Icelandic horses,conventional,1911,1025.4847397304675
+horses,ponies and Icelandic horses,conventional,1912,875.4629400522264
+horses,ponies and Icelandic horses,conventional,1921,1047.302133589301
+horses,ponies and Icelandic horses,conventional,1922,790.3095774499562
+horses,ponies and Icelandic horses,conventional,2011,3072.2154650838775
+horses,ponies and Icelandic horses,conventional,2012,1980.2007289727414
+horses,ponies and Icelandic horses,conventional,2019,79.66872887580507
+horses,ponies and Icelandic horses,conventional,2111,1518.2848340986632
+horses,ponies and Icelandic horses,conventional,2121,1466.1922889186708
+horses,ponies and Icelandic horses,conventional,2122,412.42752315038405
+horses,ponies and Icelandic horses,conventional,2211,591.3224868914273
+horses,ponies and Icelandic horses,conventional,2212,781.7381955437385
+horses,ponies and Icelandic horses,conventional,2221,1018.9122910399152
+horses,ponies and Icelandic horses,conventional,2311,1026.091804653656
+horses,ponies and Icelandic horses,conventional,2312,658.815200486797
+horses,ponies and Icelandic horses,conventional,2319,204.09471699370795
+horses,ponies and Icelandic horses,conventional,2331,241.9166799694654
+horses,ponies and Icelandic horses,conventional,2411,1046.7620569130083
+horses,ponies and Icelandic horses,conventional,2412,317.1973451141389
+horses,ponies and Icelandic horses,conventional,2413,687.6947326715167
+horses,ponies and Icelandic horses,conventional,2414,537.6913283777401
+horses,ponies and Icelandic horses,conventional,2415,247.3392476831644
+horses,ponies and Icelandic horses,conventional,2419,33.56015636382793
+horses,ponies and Icelandic horses,conventional,2511,1078.1504446035942
+horses,ponies and Icelandic horses,conventional,2512,460.0584928706268
+horses,ponies and Icelandic horses,conventional,2519,63.10100980805606
+horses,ponies and Icelandic horses,conventional,2521,104.41585752569968
+horses,ponies and Icelandic horses,organic,111,0.0
+horses,ponies and Icelandic horses,organic,112,0.0
+horses,ponies and Icelandic horses,organic,311,0.0
+horses,ponies and Icelandic horses,organic,312,0.0
+horses,ponies and Icelandic horses,organic,321,0.0
+horses,ponies and Icelandic horses,organic,322,0.0
+horses,ponies and Icelandic horses,organic,411,0.0
+horses,ponies and Icelandic horses,organic,421,0.0
+horses,ponies and Icelandic horses,organic,422,0.0
+horses,ponies and Icelandic horses,organic,431,0.0
+horses,ponies and Icelandic horses,organic,511,0.0
+horses,ponies and Icelandic horses,organic,512,0.0
+horses,ponies and Icelandic horses,organic,513,0.0
+horses,ponies and Icelandic horses,organic,514,0.0
+horses,ponies and Icelandic horses,organic,515,0.0
+horses,ponies and Icelandic horses,organic,521,0.0
+horses,ponies and Icelandic horses,organic,611,0.0
+horses,ponies and Icelandic horses,organic,612,0.0
+horses,ponies and Icelandic horses,organic,621,0.0
+horses,ponies and Icelandic horses,organic,622,0.0
+horses,ponies and Icelandic horses,organic,711,0.0
+horses,ponies and Icelandic horses,organic,731,0.0
+horses,ponies and Icelandic horses,organic,811,0.0
+horses,ponies and Icelandic horses,organic,812,0.0
+horses,ponies and Icelandic horses,organic,813,0.0
+horses,ponies and Icelandic horses,organic,814,0.0
+horses,ponies and Icelandic horses,organic,821,0.0
+horses,ponies and Icelandic horses,organic,831,0.0
+horses,ponies and Icelandic horses,organic,911,0.0
+horses,ponies and Icelandic horses,organic,912,0.0
+horses,ponies and Icelandic horses,organic,913,0.0
+horses,ponies and Icelandic horses,organic,1011,0.0
+horses,ponies and Icelandic horses,organic,1111,0.0
+horses,ponies and Icelandic horses,organic,1112,0.0
+horses,ponies and Icelandic horses,organic,1121,0.0
+horses,ponies and Icelandic horses,organic,1122,0.0
+horses,ponies and Icelandic horses,organic,1123,0.0
+horses,ponies and Icelandic horses,organic,1124,0.0
+horses,ponies and Icelandic horses,organic,1131,0.0
+horses,ponies and Icelandic horses,organic,1211,0.0
+horses,ponies and Icelandic horses,organic,1212,0.0
+horses,ponies and Icelandic horses,organic,1213,0.0
+horses,ponies and Icelandic horses,organic,1214,0.0
+horses,ponies and Icelandic horses,organic,1215,0.0
+horses,ponies and Icelandic horses,organic,1216,0.0
+horses,ponies and Icelandic horses,organic,1221,0.0
+horses,ponies and Icelandic horses,organic,1222,0.0
+horses,ponies and Icelandic horses,organic,1311,0.0
+horses,ponies and Icelandic horses,organic,1321,0.0
+horses,ponies and Icelandic horses,organic,1322,0.0
+horses,ponies and Icelandic horses,organic,1331,0.0
+horses,ponies and Icelandic horses,organic,1411,0.0
+horses,ponies and Icelandic horses,organic,1412,0.0
+horses,ponies and Icelandic horses,organic,1421,0.0
+horses,ponies and Icelandic horses,organic,1511,0.0
+horses,ponies and Icelandic horses,organic,1512,0.0
+horses,ponies and Icelandic horses,organic,1521,0.0
+horses,ponies and Icelandic horses,organic,1522,0.0
+horses,ponies and Icelandic horses,organic,1611,0.0
+horses,ponies and Icelandic horses,organic,1612,0.0
+horses,ponies and Icelandic horses,organic,1613,0.0
+horses,ponies and Icelandic horses,organic,1614,0.0
+horses,ponies and Icelandic horses,organic,1615,0.0
+horses,ponies and Icelandic horses,organic,1616,0.0
+horses,ponies and Icelandic horses,organic,1617,0.0
+horses,ponies and Icelandic horses,organic,1621,0.0
+horses,ponies and Icelandic horses,organic,1622,0.0
+horses,ponies and Icelandic horses,organic,1623,0.0
+horses,ponies and Icelandic horses,organic,1711,0.0
+horses,ponies and Icelandic horses,organic,1712,0.0
+horses,ponies and Icelandic horses,organic,1713,0.0
+horses,ponies and Icelandic horses,organic,1721,0.0
+horses,ponies and Icelandic horses,organic,1722,0.0
+horses,ponies and Icelandic horses,organic,1723,0.0
+horses,ponies and Icelandic horses,organic,1724,0.0
+horses,ponies and Icelandic horses,organic,1811,0.0
+horses,ponies and Icelandic horses,organic,1812,0.0
+horses,ponies and Icelandic horses,organic,1813,0.0
+horses,ponies and Icelandic horses,organic,1821,0.0
+horses,ponies and Icelandic horses,organic,1911,0.0
+horses,ponies and Icelandic horses,organic,1912,0.0
+horses,ponies and Icelandic horses,organic,1921,0.0
+horses,ponies and Icelandic horses,organic,1922,0.0
+horses,ponies and Icelandic horses,organic,2011,0.0
+horses,ponies and Icelandic horses,organic,2012,0.0
+horses,ponies and Icelandic horses,organic,2019,0.0
+horses,ponies and Icelandic horses,organic,2111,0.0
+horses,ponies and Icelandic horses,organic,2121,0.0
+horses,ponies and Icelandic horses,organic,2122,0.0
+horses,ponies and Icelandic horses,organic,2211,0.0
+horses,ponies and Icelandic horses,organic,2212,0.0
+horses,ponies and Icelandic horses,organic,2221,0.0
+horses,ponies and Icelandic horses,organic,2311,0.0
+horses,ponies and Icelandic horses,organic,2312,0.0
+horses,ponies and Icelandic horses,organic,2319,0.0
+horses,ponies and Icelandic horses,organic,2331,0.0
+horses,ponies and Icelandic horses,organic,2411,0.0
+horses,ponies and Icelandic horses,organic,2412,0.0
+horses,ponies and Icelandic horses,organic,2413,0.0
+horses,ponies and Icelandic horses,organic,2414,0.0
+horses,ponies and Icelandic horses,organic,2415,0.0
+horses,ponies and Icelandic horses,organic,2419,0.0
+horses,ponies and Icelandic horses,organic,2511,0.0
+horses,ponies and Icelandic horses,organic,2512,0.0
+horses,ponies and Icelandic horses,organic,2519,0.0
+horses,ponies and Icelandic horses,organic,2521,0.0
+horses,cold blooded horses,conventional,111,1581.2022016916044
+horses,cold blooded horses,conventional,112,801.4098382212792
+horses,cold blooded horses,conventional,311,438.28406489053924
+horses,cold blooded horses,conventional,312,178.85469842314376
+horses,cold blooded horses,conventional,321,815.6438322451282
+horses,cold blooded horses,conventional,322,117.68844318780906
+horses,cold blooded horses,conventional,411,184.09872134991545
+horses,cold blooded horses,conventional,421,317.07412262208004
+horses,cold blooded horses,conventional,422,149.52787537470235
+horses,cold blooded horses,conventional,431,307.6395637526216
+horses,cold blooded horses,conventional,511,142.299273854009
+horses,cold blooded horses,conventional,512,158.4823817197268
+horses,cold blooded horses,conventional,513,176.9308908203279
+horses,cold blooded horses,conventional,514,353.25829717562993
+horses,cold blooded horses,conventional,515,404.25895959876016
+horses,cold blooded horses,conventional,521,211.44948078700227
+horses,cold blooded horses,conventional,611,372.2790740067263
+horses,cold blooded horses,conventional,612,476.49823342074524
+horses,cold blooded horses,conventional,621,388.88340000800065
+horses,cold blooded horses,conventional,622,695.1619294364307
+horses,cold blooded horses,conventional,711,579.3840152076283
+horses,cold blooded horses,conventional,731,464.47295943474467
+horses,cold blooded horses,conventional,811,419.3843503595629
+horses,cold blooded horses,conventional,812,173.27262205656402
+horses,cold blooded horses,conventional,813,136.73257835991143
+horses,cold blooded horses,conventional,814,232.06234833066944
+horses,cold blooded horses,conventional,821,333.09013611288856
+horses,cold blooded horses,conventional,831,612.0734300387271
+horses,cold blooded horses,conventional,911,142.35695660898577
+horses,cold blooded horses,conventional,912,286.8075208708489
+horses,cold blooded horses,conventional,913,160.83552252016534
+horses,cold blooded horses,conventional,1011,516.9006104285762
+horses,cold blooded horses,conventional,1111,394.9970520684656
+horses,cold blooded horses,conventional,1112,365.05311714177793
+horses,cold blooded horses,conventional,1121,333.0861674318858
+horses,cold blooded horses,conventional,1122,449.5390073014198
+horses,cold blooded horses,conventional,1123,428.01435362114285
+horses,cold blooded horses,conventional,1124,429.7016741137884
+horses,cold blooded horses,conventional,1131,366.6171975204404
+horses,cold blooded horses,conventional,1211,286.0929660724015
+horses,cold blooded horses,conventional,1212,224.6450352569646
+horses,cold blooded horses,conventional,1213,529.2244716344013
+horses,cold blooded horses,conventional,1214,354.42192863928096
+horses,cold blooded horses,conventional,1215,757.8955405142642
+horses,cold blooded horses,conventional,1216,313.8357572111671
+horses,cold blooded horses,conventional,1221,395.19776653604686
+horses,cold blooded horses,conventional,1222,265.1905894574219
+horses,cold blooded horses,conventional,1311,448.3104970683111
+horses,cold blooded horses,conventional,1321,546.0730133377474
+horses,cold blooded horses,conventional,1322,231.1238155898448
+horses,cold blooded horses,conventional,1331,685.6477058066336
+horses,cold blooded horses,conventional,1411,516.5140273539738
+horses,cold blooded horses,conventional,1412,349.14546056752175
+horses,cold blooded horses,conventional,1421,548.2348442013657
+horses,cold blooded horses,conventional,1511,764.7831079820498
+horses,cold blooded horses,conventional,1512,247.41209671907623
+horses,cold blooded horses,conventional,1521,569.2515497276663
+horses,cold blooded horses,conventional,1522,166.29563478774614
+horses,cold blooded horses,conventional,1611,250.50526051164104
+horses,cold blooded horses,conventional,1612,256.78701647880234
+horses,cold blooded horses,conventional,1613,269.25906400897287
+horses,cold blooded horses,conventional,1614,194.63825800312844
+horses,cold blooded horses,conventional,1615,158.7205609682223
+horses,cold blooded horses,conventional,1616,214.26956738204245
+horses,cold blooded horses,conventional,1617,108.46045619424132
+horses,cold blooded horses,conventional,1621,456.4661873802947
+horses,cold blooded horses,conventional,1622,314.5236754274782
+horses,cold blooded horses,conventional,1623,206.52735997104003
+horses,cold blooded horses,conventional,1711,266.09676795814534
+horses,cold blooded horses,conventional,1712,282.2382847340785
+horses,cold blooded horses,conventional,1713,237.40861852767026
+horses,cold blooded horses,conventional,1721,161.19481975268084
+horses,cold blooded horses,conventional,1722,186.80633035847853
+horses,cold blooded horses,conventional,1723,138.4243761655368
+horses,cold blooded horses,conventional,1724,171.62054198009406
+horses,cold blooded horses,conventional,1811,223.01304305155242
+horses,cold blooded horses,conventional,1812,471.3491613949093
+horses,cold blooded horses,conventional,1813,226.35677985067338
+horses,cold blooded horses,conventional,1821,266.65337904186373
+horses,cold blooded horses,conventional,1911,345.2810571483056
+horses,cold blooded horses,conventional,1912,294.76866668425134
+horses,cold blooded horses,conventional,1921,352.6269810064987
+horses,cold blooded horses,conventional,1922,266.0975008249011
+horses,cold blooded horses,conventional,2011,1034.4159815097232
+horses,cold blooded horses,conventional,2012,666.7342521793744
+horses,cold blooded horses,conventional,2019,26.824487836971407
+horses,cold blooded horses,conventional,2111,511.20701484803476
+horses,cold blooded horses,conventional,2121,493.66743734635384
+horses,cold blooded horses,conventional,2122,138.86448590922024
+horses,cold blooded horses,conventional,2211,199.098480434824
+horses,cold blooded horses,conventional,2212,263.2115136510904
+horses,cold blooded horses,conventional,2221,343.06811146125096
+horses,cold blooded horses,conventional,2311,345.4854561123421
+horses,cold blooded horses,conventional,2312,221.8232998272044
+horses,cold blooded horses,conventional,2319,68.7187599305414
+horses,cold blooded horses,conventional,2331,81.45342759914661
+horses,cold blooded horses,conventional,2411,352.44513700774695
+horses,cold blooded horses,conventional,2412,106.80045290038348
+horses,cold blooded horses,conventional,2413,231.5470480375477
+horses,cold blooded horses,conventional,2414,181.0408513056364
+horses,cold blooded horses,conventional,2415,83.27920797412943
+horses,cold blooded horses,conventional,2419,11.299715947416813
+horses,cold blooded horses,conventional,2511,363.0136177116479
+horses,cold blooded horses,conventional,2512,154.90184945138952
+horses,cold blooded horses,conventional,2519,21.24613124850373
+horses,cold blooded horses,conventional,2521,35.15685438575747
+horses,cold blooded horses,organic,111,0.0
+horses,cold blooded horses,organic,112,0.0
+horses,cold blooded horses,organic,311,0.0
+horses,cold blooded horses,organic,312,0.0
+horses,cold blooded horses,organic,321,0.0
+horses,cold blooded horses,organic,322,0.0
+horses,cold blooded horses,organic,411,0.0
+horses,cold blooded horses,organic,421,0.0
+horses,cold blooded horses,organic,422,0.0
+horses,cold blooded horses,organic,431,0.0
+horses,cold blooded horses,organic,511,0.0
+horses,cold blooded horses,organic,512,0.0
+horses,cold blooded horses,organic,513,0.0
+horses,cold blooded horses,organic,514,0.0
+horses,cold blooded horses,organic,515,0.0
+horses,cold blooded horses,organic,521,0.0
+horses,cold blooded horses,organic,611,0.0
+horses,cold blooded horses,organic,612,0.0
+horses,cold blooded horses,organic,621,0.0
+horses,cold blooded horses,organic,622,0.0
+horses,cold blooded horses,organic,711,0.0
+horses,cold blooded horses,organic,731,0.0
+horses,cold blooded horses,organic,811,0.0
+horses,cold blooded horses,organic,812,0.0
+horses,cold blooded horses,organic,813,0.0
+horses,cold blooded horses,organic,814,0.0
+horses,cold blooded horses,organic,821,0.0
+horses,cold blooded horses,organic,831,0.0
+horses,cold blooded horses,organic,911,0.0
+horses,cold blooded horses,organic,912,0.0
+horses,cold blooded horses,organic,913,0.0
+horses,cold blooded horses,organic,1011,0.0
+horses,cold blooded horses,organic,1111,0.0
+horses,cold blooded horses,organic,1112,0.0
+horses,cold blooded horses,organic,1121,0.0
+horses,cold blooded horses,organic,1122,0.0
+horses,cold blooded horses,organic,1123,0.0
+horses,cold blooded horses,organic,1124,0.0
+horses,cold blooded horses,organic,1131,0.0
+horses,cold blooded horses,organic,1211,0.0
+horses,cold blooded horses,organic,1212,0.0
+horses,cold blooded horses,organic,1213,0.0
+horses,cold blooded horses,organic,1214,0.0
+horses,cold blooded horses,organic,1215,0.0
+horses,cold blooded horses,organic,1216,0.0
+horses,cold blooded horses,organic,1221,0.0
+horses,cold blooded horses,organic,1222,0.0
+horses,cold blooded horses,organic,1311,0.0
+horses,cold blooded horses,organic,1321,0.0
+horses,cold blooded horses,organic,1322,0.0
+horses,cold blooded horses,organic,1331,0.0
+horses,cold blooded horses,organic,1411,0.0
+horses,cold blooded horses,organic,1412,0.0
+horses,cold blooded horses,organic,1421,0.0
+horses,cold blooded horses,organic,1511,0.0
+horses,cold blooded horses,organic,1512,0.0
+horses,cold blooded horses,organic,1521,0.0
+horses,cold blooded horses,organic,1522,0.0
+horses,cold blooded horses,organic,1611,0.0
+horses,cold blooded horses,organic,1612,0.0
+horses,cold blooded horses,organic,1613,0.0
+horses,cold blooded horses,organic,1614,0.0
+horses,cold blooded horses,organic,1615,0.0
+horses,cold blooded horses,organic,1616,0.0
+horses,cold blooded horses,organic,1617,0.0
+horses,cold blooded horses,organic,1621,0.0
+horses,cold blooded horses,organic,1622,0.0
+horses,cold blooded horses,organic,1623,0.0
+horses,cold blooded horses,organic,1711,0.0
+horses,cold blooded horses,organic,1712,0.0
+horses,cold blooded horses,organic,1713,0.0
+horses,cold blooded horses,organic,1721,0.0
+horses,cold blooded horses,organic,1722,0.0
+horses,cold blooded horses,organic,1723,0.0
+horses,cold blooded horses,organic,1724,0.0
+horses,cold blooded horses,organic,1811,0.0
+horses,cold blooded horses,organic,1812,0.0
+horses,cold blooded horses,organic,1813,0.0
+horses,cold blooded horses,organic,1821,0.0
+horses,cold blooded horses,organic,1911,0.0
+horses,cold blooded horses,organic,1912,0.0
+horses,cold blooded horses,organic,1921,0.0
+horses,cold blooded horses,organic,1922,0.0
+horses,cold blooded horses,organic,2011,0.0
+horses,cold blooded horses,organic,2012,0.0
+horses,cold blooded horses,organic,2019,0.0
+horses,cold blooded horses,organic,2111,0.0
+horses,cold blooded horses,organic,2121,0.0
+horses,cold blooded horses,organic,2122,0.0
+horses,cold blooded horses,organic,2211,0.0
+horses,cold blooded horses,organic,2212,0.0
+horses,cold blooded horses,organic,2221,0.0
+horses,cold blooded horses,organic,2311,0.0
+horses,cold blooded horses,organic,2312,0.0
+horses,cold blooded horses,organic,2319,0.0
+horses,cold blooded horses,organic,2331,0.0
+horses,cold blooded horses,organic,2411,0.0
+horses,cold blooded horses,organic,2412,0.0
+horses,cold blooded horses,organic,2413,0.0
+horses,cold blooded horses,organic,2414,0.0
+horses,cold blooded horses,organic,2415,0.0
+horses,cold blooded horses,organic,2419,0.0
+horses,cold blooded horses,organic,2511,0.0
+horses,cold blooded horses,organic,2512,0.0
+horses,cold blooded horses,organic,2519,0.0
+horses,cold blooded horses,organic,2521,0.0
+horses,riding horses,conventional,111,5423.523551802204
+horses,riding horses,conventional,112,2748.835745098988
+horses,riding horses,conventional,311,1503.3143425745498
+horses,riding horses,conventional,312,613.4716155913832
+horses,riding horses,conventional,321,2797.65834460079
+horses,riding horses,conventional,322,403.6713601341851
+horses,riding horses,conventional,411,631.4586142302101
+horses,riding horses,conventional,421,1087.5642405937344
+horses,riding horses,conventional,422,512.8806125352291
+horses,riding horses,conventional,431,1055.2037036714921
+horses,riding horses,conventional,511,488.08650931925087
+horses,riding horses,conventional,512,543.5945692986629
+horses,riding horses,conventional,513,606.8729555137247
+horses,riding horses,conventional,514,1211.6759593124107
+horses,riding horses,conventional,515,1386.6082314237474
+horses,riding horses,conventional,521,725.2717190994179
+horses,riding horses,conventional,611,1276.9172238430713
+horses,riding horses,conventional,612,1634.3889406331564
+horses,riding horses,conventional,621,1333.8700620274421
+horses,riding horses,conventional,622,2384.4054179669574
+horses,riding horses,conventional,711,1987.2871721621652
+horses,riding horses,conventional,731,1593.1422508611743
+horses,riding horses,conventional,811,1438.4883217333008
+horses,riding horses,conventional,812,594.3250936540146
+horses,riding horses,conventional,813,468.9927437744962
+horses,riding horses,conventional,814,795.9738547741962
+horses,riding horses,conventional,821,1142.4991668672078
+horses,riding horses,conventional,831,2099.411865032834
+horses,riding horses,conventional,911,488.2843611688212
+horses,riding horses,conventional,912,983.7497965870119
+horses,riding horses,conventional,913,551.6658422441672
+horses,riding horses,conventional,1011,1772.9690937700166
+horses,riding horses,conventional,1111,1354.8398885948372
+horses,riding horses,conventional,1112,1252.1321917962985
+horses,riding horses,conventional,1121,1142.4855542913685
+horses,riding horses,conventional,1122,1541.91879504387
+horses,riding horses,conventional,1123,1468.0892329205199
+horses,riding horses,conventional,1124,1473.8767422102942
+horses,riding horses,conventional,1131,1257.4969874951107
+horses,riding horses,conventional,1211,981.2988736283372
+horses,riding horses,conventional,1212,770.5324709313886
+horses,riding horses,conventional,1213,1815.2399377059965
+horses,riding horses,conventional,1214,1215.6672152327337
+horses,riding horses,conventional,1215,2599.5817039639264
+horses,riding horses,conventional,1216,1076.456647234303
+horses,riding horses,conventional,1221,1355.5283392186407
+horses,riding horses,conventional,1222,909.6037218389571
+horses,riding horses,conventional,1311,1537.7050049443071
+horses,riding horses,conventional,1321,1873.0304357484738
+horses,riding horses,conventional,1322,792.7546874731677
+horses,riding horses,conventional,1331,2351.771630916753
+horses,riding horses,conventional,1411,1771.6431138241303
+horses,riding horses,conventional,1412,1197.5689297465997
+horses,riding horses,conventional,1421,1880.4455156106844
+horses,riding horses,conventional,1511,2623.2060603784307
+horses,riding horses,conventional,1512,848.6234917464316
+horses,riding horses,conventional,1521,1952.5328155658956
+horses,riding horses,conventional,1522,570.3940273219692
+horses,riding horses,conventional,1611,859.2330435549287
+horses,riding horses,conventional,1612,880.7794665222921
+horses,riding horses,conventional,1613,923.558589550777
+horses,riding horses,conventional,1614,667.6092249507305
+horses,riding horses,conventional,1615,544.4115241210025
+horses,riding horses,conventional,1616,734.9446161204056
+horses,riding horses,conventional,1617,372.01936474624773
+horses,riding horses,conventional,1621,1565.6790227144108
+horses,riding horses,conventional,1622,1078.8162067162502
+horses,riding horses,conventional,1623,708.3888447006673
+horses,riding horses,conventional,1711,912.7119140964385
+horses,riding horses,conventional,1712,968.0773166378892
+horses,riding horses,conventional,1713,814.311561549909
+horses,riding horses,conventional,1721,552.8982317516953
+horses,riding horses,conventional,1722,640.7457131295814
+horses,riding horses,conventional,1723,474.7956102477913
+horses,riding horses,conventional,1724,588.6584589917227
+horses,riding horses,conventional,1811,764.9347376668248
+horses,riding horses,conventional,1812,1616.7276235845388
+horses,riding horses,conventional,1813,776.4037548878097
+horses,riding horses,conventional,1821,914.6210901135926
+horses,riding horses,conventional,1911,1184.3140260186883
+horses,riding horses,conventional,1912,1011.0565267269822
+horses,riding horses,conventional,1921,1209.5105448522906
+horses,riding horses,conventional,1922,912.7144278294109
+horses,riding horses,conventional,2011,3548.0468165783504
+horses,riding horses,conventional,2012,2286.898484975254
+horses,riding horses,conventional,2019,92.00799328081193
+horses,riding horses,conventional,2111,1753.4400609287593
+horses,riding horses,conventional,2121,1693.2793100979939
+horses,riding horses,conventional,2122,476.3051866686254
+horses,riding horses,conventional,2211,682.9077878914463
+horses,riding horses,conventional,2212,902.8154918232401
+horses,riding horses,conventional,2221,1176.7236223120908
+horses,riding horses,conventional,2311,1185.0151144653335
+horses,riding horses,conventional,2312,760.8539184073111
+horses,riding horses,conventional,2319,235.705346561757
+horses,riding horses,conventional,2331,279.38525666507286
+horses,riding horses,conventional,2411,1208.886819936572
+horses,riding horses,conventional,2412,366.32555344831536
+horses,riding horses,conventional,2413,794.2063747687887
+horses,riding horses,conventional,2414,620.970119978333
+horses,riding horses,conventional,2415,285.64768335126394
+horses,riding horses,conventional,2419,38.75802569963967
+horses,riding horses,conventional,2511,1245.1367087509523
+horses,riding horses,conventional,2512,531.3133436182661
+horses,riding horses,conventional,2519,72.87423018236778
+horses,riding horses,conventional,2521,120.58801054314813
+horses,riding horses,organic,111,0.0
+horses,riding horses,organic,112,0.0
+horses,riding horses,organic,311,0.0
+horses,riding horses,organic,312,0.0
+horses,riding horses,organic,321,0.0
+horses,riding horses,organic,322,0.0
+horses,riding horses,organic,411,0.0
+horses,riding horses,organic,421,0.0
+horses,riding horses,organic,422,0.0
+horses,riding horses,organic,431,0.0
+horses,riding horses,organic,511,0.0
+horses,riding horses,organic,512,0.0
+horses,riding horses,organic,513,0.0
+horses,riding horses,organic,514,0.0
+horses,riding horses,organic,515,0.0
+horses,riding horses,organic,521,0.0
+horses,riding horses,organic,611,0.0
+horses,riding horses,organic,612,0.0
+horses,riding horses,organic,621,0.0
+horses,riding horses,organic,622,0.0
+horses,riding horses,organic,711,0.0
+horses,riding horses,organic,731,0.0
+horses,riding horses,organic,811,0.0
+horses,riding horses,organic,812,0.0
+horses,riding horses,organic,813,0.0
+horses,riding horses,organic,814,0.0
+horses,riding horses,organic,821,0.0
+horses,riding horses,organic,831,0.0
+horses,riding horses,organic,911,0.0
+horses,riding horses,organic,912,0.0
+horses,riding horses,organic,913,0.0
+horses,riding horses,organic,1011,0.0
+horses,riding horses,organic,1111,0.0
+horses,riding horses,organic,1112,0.0
+horses,riding horses,organic,1121,0.0
+horses,riding horses,organic,1122,0.0
+horses,riding horses,organic,1123,0.0
+horses,riding horses,organic,1124,0.0
+horses,riding horses,organic,1131,0.0
+horses,riding horses,organic,1211,0.0
+horses,riding horses,organic,1212,0.0
+horses,riding horses,organic,1213,0.0
+horses,riding horses,organic,1214,0.0
+horses,riding horses,organic,1215,0.0
+horses,riding horses,organic,1216,0.0
+horses,riding horses,organic,1221,0.0
+horses,riding horses,organic,1222,0.0
+horses,riding horses,organic,1311,0.0
+horses,riding horses,organic,1321,0.0
+horses,riding horses,organic,1322,0.0
+horses,riding horses,organic,1331,0.0
+horses,riding horses,organic,1411,0.0
+horses,riding horses,organic,1412,0.0
+horses,riding horses,organic,1421,0.0
+horses,riding horses,organic,1511,0.0
+horses,riding horses,organic,1512,0.0
+horses,riding horses,organic,1521,0.0
+horses,riding horses,organic,1522,0.0
+horses,riding horses,organic,1611,0.0
+horses,riding horses,organic,1612,0.0
+horses,riding horses,organic,1613,0.0
+horses,riding horses,organic,1614,0.0
+horses,riding horses,organic,1615,0.0
+horses,riding horses,organic,1616,0.0
+horses,riding horses,organic,1617,0.0
+horses,riding horses,organic,1621,0.0
+horses,riding horses,organic,1622,0.0
+horses,riding horses,organic,1623,0.0
+horses,riding horses,organic,1711,0.0
+horses,riding horses,organic,1712,0.0
+horses,riding horses,organic,1713,0.0
+horses,riding horses,organic,1721,0.0
+horses,riding horses,organic,1722,0.0
+horses,riding horses,organic,1723,0.0
+horses,riding horses,organic,1724,0.0
+horses,riding horses,organic,1811,0.0
+horses,riding horses,organic,1812,0.0
+horses,riding horses,organic,1813,0.0
+horses,riding horses,organic,1821,0.0
+horses,riding horses,organic,1911,0.0
+horses,riding horses,organic,1912,0.0
+horses,riding horses,organic,1921,0.0
+horses,riding horses,organic,1922,0.0
+horses,riding horses,organic,2011,0.0
+horses,riding horses,organic,2012,0.0
+horses,riding horses,organic,2019,0.0
+horses,riding horses,organic,2111,0.0
+horses,riding horses,organic,2121,0.0
+horses,riding horses,organic,2122,0.0
+horses,riding horses,organic,2211,0.0
+horses,riding horses,organic,2212,0.0
+horses,riding horses,organic,2221,0.0
+horses,riding horses,organic,2311,0.0
+horses,riding horses,organic,2312,0.0
+horses,riding horses,organic,2319,0.0
+horses,riding horses,organic,2331,0.0
+horses,riding horses,organic,2411,0.0
+horses,riding horses,organic,2412,0.0
+horses,riding horses,organic,2413,0.0
+horses,riding horses,organic,2414,0.0
+horses,riding horses,organic,2415,0.0
+horses,riding horses,organic,2419,0.0
+horses,riding horses,organic,2511,0.0
+horses,riding horses,organic,2512,0.0
+horses,riding horses,organic,2519,0.0
+horses,riding horses,organic,2521,0.0
+horses,trotters and racehorses,conventional,111,4111.125724398172
+horses,trotters and racehorses,conventional,112,2083.665579375326
+horses,trotters and racehorses,conventional,311,1139.538568715402
+horses,trotters and racehorses,conventional,312,465.02221590017376
+horses,trotters and racehorses,conventional,321,2120.6739638373333
+horses,trotters and racehorses,conventional,322,305.9899522883035
+horses,trotters and racehorses,conventional,411,478.6566755097802
+horses,trotters and racehorses,conventional,421,824.392718817408
+horses,trotters and racehorses,conventional,422,388.77247597422615
+horses,trotters and racehorses,conventional,431,799.8628657568162
+horses,trotters and racehorses,conventional,511,369.9781120204234
+horses,trotters and racehorses,conventional,512,412.05419247128964
+horses,trotters and racehorses,conventional,513,460.02031613285254
+horses,trotters and racehorses,conventional,514,918.4715726566378
+horses,trotters and racehorses,conventional,515,1051.0732949567764
+horses,trotters and racehorses,conventional,521,549.768650046206
+horses,trotters and racehorses,conventional,611,967.9255924174884
+horses,trotters and racehorses,conventional,612,1238.8954068939377
+horses,trotters and racehorses,conventional,621,1011.0968400208017
+horses,trotters and racehorses,conventional,622,1807.4210165347197
+horses,trotters and racehorses,conventional,711,1506.3984395398336
+horses,trotters and racehorses,conventional,731,1207.629694530336
+horses,trotters and racehorses,conventional,811,1090.3993109348635
+horses,trotters and racehorses,conventional,812,450.50881734706644
+horses,trotters and racehorses,conventional,813,355.5047037357697
+horses,trotters and racehorses,conventional,814,603.3621056597406
+horses,trotters and racehorses,conventional,821,866.0343538935102
+horses,trotters and racehorses,conventional,831,1591.3909181006904
+horses,trotters and racehorses,conventional,911,370.128087183363
+horses,trotters and racehorses,conventional,912,745.6995542642072
+horses,trotters and racehorses,conventional,913,418.1723585524299
+horses,trotters and racehorses,conventional,1011,1343.9415871142983
+horses,trotters and racehorses,conventional,1111,1026.9923353780107
+horses,trotters and racehorses,conventional,1112,949.1381045686227
+horses,trotters and racehorses,conventional,1121,866.0240353229032
+horses,trotters and racehorses,conventional,1122,1168.8014189836915
+horses,trotters and racehorses,conventional,1123,1112.8373194149713
+horses,trotters and racehorses,conventional,1124,1117.2243526958498
+horses,trotters and racehorses,conventional,1131,953.2047135531451
+horses,trotters and racehorses,conventional,1211,743.8417117882439
+horses,trotters and racehorses,conventional,1212,584.077091668108
+horses,trotters and racehorses,conventional,1213,1375.9836262494434
+horses,trotters and racehorses,conventional,1214,921.4970144621304
+horses,trotters and racehorses,conventional,1215,1970.528405337087
+horses,trotters and racehorses,conventional,1216,815.9729687490344
+horses,trotters and racehorses,conventional,1221,1027.5141929937217
+horses,trotters and racehorses,conventional,1222,689.4955325892969
+horses,trotters and racehorses,conventional,1311,1165.607292377609
+horses,trotters and racehorses,conventional,1321,1419.7898346781433
+horses,trotters and racehorses,conventional,1322,600.9219205335964
+horses,trotters and racehorses,conventional,1331,1782.6840350972473
+horses,trotters and racehorses,conventional,1411,1342.9364711203318
+horses,trotters and racehorses,conventional,1412,907.7781974755566
+horses,trotters and racehorses,conventional,1421,1425.4105949235507
+horses,trotters and racehorses,conventional,1511,1988.4360807533294
+horses,trotters and racehorses,conventional,1512,643.2714514695982
+horses,trotters and racehorses,conventional,1521,1480.0540292919325
+horses,trotters and racehorses,conventional,1522,432.36865044813993
+horses,trotters and racehorses,conventional,1611,651.3136773302666
+horses,trotters and racehorses,conventional,1612,667.6462428448862
+horses,trotters and racehorses,conventional,1613,700.0735664233296
+horses,trotters and racehorses,conventional,1614,506.05947080813394
+horses,trotters and racehorses,conventional,1615,412.6734585173779
+horses,trotters and racehorses,conventional,1616,557.1008751933103
+horses,trotters and racehorses,conventional,1617,281.9971861050274
+horses,trotters and racehorses,conventional,1621,1186.812087188766
+horses,trotters and racehorses,conventional,1622,817.7615561114434
+horses,trotters and racehorses,conventional,1623,536.9711359247041
+horses,trotters and racehorses,conventional,1711,691.8515966911779
+horses,trotters and racehorses,conventional,1712,733.819540308604
+horses,trotters and racehorses,conventional,1713,617.2624081719426
+horses,trotters and racehorses,conventional,1721,419.1065313569702
+horses,trotters and racehorses,conventional,1722,485.69645893204415
+horses,trotters and racehorses,conventional,1723,359.9033780303957
+horses,trotters and racehorses,conventional,1724,446.2134091482445
+horses,trotters and racehorses,conventional,1811,579.8339119340362
+horses,trotters and racehorses,conventional,1812,1225.507819626764
+horses,trotters and racehorses,conventional,1813,588.5276276117507
+horses,trotters and racehorses,conventional,1821,693.2987855088456
+horses,trotters and racehorses,conventional,1911,897.7307485855946
+horses,trotters and racehorses,conventional,1912,766.3985333790534
+horses,trotters and racehorses,conventional,1921,916.8301506168966
+horses,trotters and racehorses,conventional,1922,691.8535021447428
+horses,trotters and racehorses,conventional,2011,2689.48155192528
+horses,trotters and racehorses,conventional,2012,1733.5090556663731
+horses,trotters and racehorses,conventional,2019,69.74366837612565
+horses,trotters and racehorses,conventional,2111,1329.1382386048904
+horses,trotters and racehorses,conventional,2121,1283.53533710052
+horses,trotters and racehorses,conventional,2122,361.0476633639726
+horses,trotters and racehorses,conventional,2211,517.6560491305424
+horses,trotters and racehorses,conventional,2212,684.349935492835
+horses,trotters and racehorses,conventional,2221,891.9770897992524
+horses,trotters and racehorses,conventional,2311,898.2621858920894
+horses,trotters and racehorses,conventional,2312,576.7405795507315
+horses,trotters and racehorses,conventional,2319,178.66877581940764
+horses,trotters and racehorses,conventional,2331,211.77891175778117
+horses,trotters and racehorses,conventional,2411,916.357356220142
+horses,trotters and racehorses,conventional,2412,277.68117754099706
+horses,trotters and racehorses,conventional,2413,602.0223248976241
+horses,trotters and racehorses,conventional,2414,470.70621339465464
+horses,trotters and racehorses,conventional,2415,216.52594073273653
+horses,trotters and racehorses,conventional,2419,29.37926146328371
+horses,trotters and racehorses,conventional,2511,943.8354060502845
+horses,trotters and racehorses,conventional,2512,402.7448085736128
+horses,trotters and racehorses,conventional,2519,55.239941246109694
+horses,trotters and racehorses,conventional,2521,91.40782140296942
+horses,trotters and racehorses,organic,111,0.0
+horses,trotters and racehorses,organic,112,0.0
+horses,trotters and racehorses,organic,311,0.0
+horses,trotters and racehorses,organic,312,0.0
+horses,trotters and racehorses,organic,321,0.0
+horses,trotters and racehorses,organic,322,0.0
+horses,trotters and racehorses,organic,411,0.0
+horses,trotters and racehorses,organic,421,0.0
+horses,trotters and racehorses,organic,422,0.0
+horses,trotters and racehorses,organic,431,0.0
+horses,trotters and racehorses,organic,511,0.0
+horses,trotters and racehorses,organic,512,0.0
+horses,trotters and racehorses,organic,513,0.0
+horses,trotters and racehorses,organic,514,0.0
+horses,trotters and racehorses,organic,515,0.0
+horses,trotters and racehorses,organic,521,0.0
+horses,trotters and racehorses,organic,611,0.0
+horses,trotters and racehorses,organic,612,0.0
+horses,trotters and racehorses,organic,621,0.0
+horses,trotters and racehorses,organic,622,0.0
+horses,trotters and racehorses,organic,711,0.0
+horses,trotters and racehorses,organic,731,0.0
+horses,trotters and racehorses,organic,811,0.0
+horses,trotters and racehorses,organic,812,0.0
+horses,trotters and racehorses,organic,813,0.0
+horses,trotters and racehorses,organic,814,0.0
+horses,trotters and racehorses,organic,821,0.0
+horses,trotters and racehorses,organic,831,0.0
+horses,trotters and racehorses,organic,911,0.0
+horses,trotters and racehorses,organic,912,0.0
+horses,trotters and racehorses,organic,913,0.0
+horses,trotters and racehorses,organic,1011,0.0
+horses,trotters and racehorses,organic,1111,0.0
+horses,trotters and racehorses,organic,1112,0.0
+horses,trotters and racehorses,organic,1121,0.0
+horses,trotters and racehorses,organic,1122,0.0
+horses,trotters and racehorses,organic,1123,0.0
+horses,trotters and racehorses,organic,1124,0.0
+horses,trotters and racehorses,organic,1131,0.0
+horses,trotters and racehorses,organic,1211,0.0
+horses,trotters and racehorses,organic,1212,0.0
+horses,trotters and racehorses,organic,1213,0.0
+horses,trotters and racehorses,organic,1214,0.0
+horses,trotters and racehorses,organic,1215,0.0
+horses,trotters and racehorses,organic,1216,0.0
+horses,trotters and racehorses,organic,1221,0.0
+horses,trotters and racehorses,organic,1222,0.0
+horses,trotters and racehorses,organic,1311,0.0
+horses,trotters and racehorses,organic,1321,0.0
+horses,trotters and racehorses,organic,1322,0.0
+horses,trotters and racehorses,organic,1331,0.0
+horses,trotters and racehorses,organic,1411,0.0
+horses,trotters and racehorses,organic,1412,0.0
+horses,trotters and racehorses,organic,1421,0.0
+horses,trotters and racehorses,organic,1511,0.0
+horses,trotters and racehorses,organic,1512,0.0
+horses,trotters and racehorses,organic,1521,0.0
+horses,trotters and racehorses,organic,1522,0.0
+horses,trotters and racehorses,organic,1611,0.0
+horses,trotters and racehorses,organic,1612,0.0
+horses,trotters and racehorses,organic,1613,0.0
+horses,trotters and racehorses,organic,1614,0.0
+horses,trotters and racehorses,organic,1615,0.0
+horses,trotters and racehorses,organic,1616,0.0
+horses,trotters and racehorses,organic,1617,0.0
+horses,trotters and racehorses,organic,1621,0.0
+horses,trotters and racehorses,organic,1622,0.0
+horses,trotters and racehorses,organic,1623,0.0
+horses,trotters and racehorses,organic,1711,0.0
+horses,trotters and racehorses,organic,1712,0.0
+horses,trotters and racehorses,organic,1713,0.0
+horses,trotters and racehorses,organic,1721,0.0
+horses,trotters and racehorses,organic,1722,0.0
+horses,trotters and racehorses,organic,1723,0.0
+horses,trotters and racehorses,organic,1724,0.0
+horses,trotters and racehorses,organic,1811,0.0
+horses,trotters and racehorses,organic,1812,0.0
+horses,trotters and racehorses,organic,1813,0.0
+horses,trotters and racehorses,organic,1821,0.0
+horses,trotters and racehorses,organic,1911,0.0
+horses,trotters and racehorses,organic,1912,0.0
+horses,trotters and racehorses,organic,1921,0.0
+horses,trotters and racehorses,organic,1922,0.0
+horses,trotters and racehorses,organic,2011,0.0
+horses,trotters and racehorses,organic,2012,0.0
+horses,trotters and racehorses,organic,2019,0.0
+horses,trotters and racehorses,organic,2111,0.0
+horses,trotters and racehorses,organic,2121,0.0
+horses,trotters and racehorses,organic,2122,0.0
+horses,trotters and racehorses,organic,2211,0.0
+horses,trotters and racehorses,organic,2212,0.0
+horses,trotters and racehorses,organic,2221,0.0
+horses,trotters and racehorses,organic,2311,0.0
+horses,trotters and racehorses,organic,2312,0.0
+horses,trotters and racehorses,organic,2319,0.0
+horses,trotters and racehorses,organic,2331,0.0
+horses,trotters and racehorses,organic,2411,0.0
+horses,trotters and racehorses,organic,2412,0.0
+horses,trotters and racehorses,organic,2413,0.0
+horses,trotters and racehorses,organic,2414,0.0
+horses,trotters and racehorses,organic,2415,0.0
+horses,trotters and racehorses,organic,2419,0.0
+horses,trotters and racehorses,organic,2511,0.0
+horses,trotters and racehorses,organic,2512,0.0
+horses,trotters and racehorses,organic,2519,0.0
+horses,trotters and racehorses,organic,2521,0.0

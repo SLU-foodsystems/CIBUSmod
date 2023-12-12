@@ -76,9 +76,8 @@ class Regions(object):
 
     def get_x0(self):
 
-        self.par.clear()
-
         # Get x0_crops
+        self.par.clear()
         idx = pd.MultiIndex.from_frame(self.par.get_unique(['crop','prod_system','region'], qry='parameter == "x0_crops"'))
         x0_crp = pd.Series(
             self.par.get('x0_crops', **idx.to_frame().to_dict('list')),
@@ -86,77 +85,14 @@ class Regions(object):
             name = 'area'
         ).sort_index()
 
-        # # Get x0_animals (to be implemented...)
-        # idx = pd.MultiIndex.from_frame(self.par.get_unique(['species','breed','prod_system','region'], qry='parameter == "x0_animals"'))
-        # x0_ani = pd.Series(
-        #     self.par.get('x0_crops', **idx.to_frame().to_dict('list')),
-        #     index = idx,
-        #     name = 'number'
-        # ).sort_index()
-
-        # THIS IS A TEMPORY IMPLEMENTATION. X0 WILL LATER BE DEFINED
-        # AS PARAMETERS AND RETRIEVED WITH THE PARAMETERRETRIEVER !!!!
-
-        path = os.path.join(self.par.data_path_default,'..','x0')
-
-        # Define x0_ani
-        x0_ani = pd.read_csv(os.path.join(path,'x0_ani.csv'), dtype={'region': object})
-
-        x0_ani['species'] = np.nan
-        x0_ani['species'] = \
-        np.where(np.isin(x0_ani['animal'], ['kor för mjölkproduktion', 'kor för uppfödning av kalvar']),'cattle',x0_ani['species'])
-        x0_ani['species'] = \
-        np.where(x0_ani['animal']=='suggor för avel','pigs',x0_ani['species'])
-        x0_ani['species'] = \
-        np.where(x0_ani['animal']=='slaktkycklingar','poultry',x0_ani['species'])
-        x0_ani['species'] = \
-        np.where(x0_ani['animal']=='höns','poultry',x0_ani['species'])
-        x0_ani['species'] = \
-        np.where(x0_ani['animal']=='hästar','horses',x0_ani['species'])
-        x0_ani['species'] = \
-        np.where(x0_ani['animal']=='baggar och tackor','sheep',x0_ani['species'])
-        
-
-        # Add horse breeds
-        x0_ani = pd.concat([
-            x0_ani[x0_ani.animal != 'hästar'],
-            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'ponnyer'}),
-            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'kallblod'}),
-            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'ridhästar'}),
-            x0_ani[x0_ani.animal == 'hästar'].replace({'hästar':'trav och galopp'})
-            ])
-
-        x0_ani['breed'] = np.nan
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='kor för mjölkproduktion','dairy',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='kor för uppfödning av kalvar','beef',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='suggor för avel','none',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='slaktkycklingar','broiler',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='höns','layer',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='ponnyer','ponies and Icelandic horses',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='kallblod','cold blooded horses',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='ridhästar','riding horses',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='trav och galopp','trotters and racehorses',x0_ani['breed'])
-        x0_ani['breed'] = \
-        np.where(x0_ani['animal']=='baggar och tackor','none',x0_ani['breed'])
-
-        x0_ani = x0_ani[x0_ani['species']!='nan'][['species','breed','prod_system','region','number']].set_index(['species','breed','prod_system','region'])['number']
-
-        # Numbers per horse breed
-        x0_ani.update(x0_ani.xs(('horses','ponies and Icelandic horses'),level=('species','breed'),drop_level=False) * 0.297)  
-        x0_ani.update(x0_ani.xs(('horses','cold blooded horses'),level=('species','breed'),drop_level=False) * 0.100)  
-        x0_ani.update(x0_ani.xs(('horses','riding horses'),level=('species','breed'),drop_level=False) * 0.343)  
-        x0_ani.update(x0_ani.xs(('horses','trotters and racehorses'),level=('species','breed'),drop_level=False) * 0.260)  
-
-        x0_ani = x0_ani.fillna(0)
+        # Get x0_animals
+        self.par.clear()
+        idx = pd.MultiIndex.from_frame(self.par.get_unique(['species','breed','prod_system','region'], qry='parameter == "x0_animals"'))
+        x0_ani = pd.Series(
+            self.par.get('x0_animals', **idx.to_frame().to_dict('list')),
+            index = idx,
+            name = 'number'
+        ).sort_index()
 
         self.data_attr.add(
             x0_crp,

@@ -12,8 +12,6 @@ Validation and default parameters
 - CropProduction: Fix yield 'ley for seed'
 - CropProduction: Check if yields are missing for more crops
 - CropProduction: Check 'Mixed cereals' -> korn+havre eller havre/korn+ärter
-- CattleHerd: Too much grazing adjust feed rations
-- FeedMgmt: Check share grazing from semi-natural grasslands
 - PlantNutrientMgmt: Add K requirements
 - MachineryAndEnergyMgmt: Check energy use in stables. Completely missing for layers and sheep
 - MachineryAndEnergyMgmt: Fix operations in organic production
@@ -23,7 +21,6 @@ Validation and default parameters
 Overarching
 -----------
 - Implement DataAttr.get() across modules
-- Session: Fix concat_herds() and .get_attr() for scalable=False. Implement in .get_attr() check scalable and do not aggregate if False
 - Session: reorder scenarios
 
 ParameterRetriever
@@ -41,7 +38,6 @@ DemandAndConversions
 
 CropProduction
 --------------
-- Yields semi-natural grasslands. New module: GrasslandMgmt
 - Implement way to handle crops that are not harvested 'Fallow', 'Green manure', 'Ley not harvested'
 - Implement module to handle cover crops
 
@@ -78,3 +74,4 @@ WasteMgmt (new method)
 GeoDistributor
 --------------
 - Implement constraint for min share in rotation
+- Implement constraint for max oversupply of roughage
