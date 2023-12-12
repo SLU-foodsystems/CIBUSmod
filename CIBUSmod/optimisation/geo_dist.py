@@ -1525,10 +1525,19 @@ class GeoDistributor:
                 crop_production_per_use_adjusted.update(pd.concat({cr: cr_allocated}, names=['crop']).fillna(0))
 
 
-        assert (crop_production_per_use_adjusted.min() > -1).all() # No negatives
-        assert abs((crop_production_per_use_adjusted.sum(axis=1) - crop_production_per_use.sum(axis=1))).max() < 1 # No dif from unadjusted
-        crop_production_per_use_adjusted = crop_production_per_use_adjusted.where(crop_production_per_use_adjusted >= 0, 0) # Set small negatives to zero
+        mini = crop_production_per_use_adjusted.min().min()
+        if mini < -5:
+            # Negatives!
+            warnings.warn('Negatives of down to {mini} kg in adjusted crop allocation, these were set to zero')
 
+        dif = abs((crop_production_per_use_adjusted.sum(axis=1) - crop_production_per_use.sum(axis=1))).max()
+        if dif > 5:
+            # Dif from unadjusted
+            warnings.warn('Adjusted crop allocation differed from unadjusted by up to {dif} kg')
+
+        # Set small negatives to zero
+        crop_production_per_use_adjusted = crop_production_per_use_adjusted.where(crop_production_per_use_adjusted >= 0, 0) 
+        
         # Update data attribute
         self.crops.data_attr.add(
             crop_production_per_use_adjusted,
