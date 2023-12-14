@@ -495,14 +495,16 @@ f'''{module}
 
         if years != 'all' and isinstance(years, str):
             years = [years]
+
+        scn_year_in_output = _db_get_tables_index(self.db_path).get_loc_level((module, attr))[1]
         
         # Create index for data to be returned
         data_index = pd.MultiIndex.from_tuples(
-            [(scn, year) for scn in scn for year in self.scenarios[scn]['years'] if years == 'all' or year in years],
+            [(scn, year) for scn in scn if scn in scn_year_in_output.get_level_values('scn') for year in self.scenarios[scn]['years'] if (years == 'all' or year in years) and year in scn_year_in_output.get_loc_level(scn)[1]],
             names = ['scn', 'year']
         )
         if len(data_index)==0:
-            raise ValueError('None of the selected scenarios/years in session')
+            raise ValueError('None of the selected scenarios/years in session or no output data')
         data_index_expected = data_index.copy()
         
         # Get data from first available scn and year
@@ -987,6 +989,16 @@ def _db_get_tables(db_path):
     res = [t[0] for t in cur.fetchall()]
     con.close()
 
+    return res
+
+def _db_get_tables_index(db_path):
+    '''Returns a pandas.MultiIndex of all data attribute tables
+    with the index levels (module, attr, scn, year)'''
+    tables = _db_get_tables(db_path)
+    res = pd.MultiIndex.from_tuples(
+        [tuple(t.split('$')) for t in tables if '__idxcol' not in t and '__metadata' not in t and t != 'scenarios'],
+        names = ['module', 'attr', 'scn', 'year']
+    ).sortlevel()[0]
     return res
 
 def _db_get_modules_in_data(db_path):
