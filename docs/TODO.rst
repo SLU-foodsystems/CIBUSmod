@@ -17,22 +17,26 @@ Validation and default parameters
 - MachineryAndEnergyMgmt: Fix operations in organic production
 - ManureMgmt: Check N excretion... higher than NIR but seems to align fairly
   well with Dutch method. bulls and sows are high.
+- CattleHerd: Check rations (e.g. grazing beef vs dairy steers)
 
 Overarching
 -----------
 - Implement DataAttr.get() across modules
-- Session: reorder scenarios
+  
+Session
+-------
+- Possibility to reorder scenarios
 
 ParameterRetriever
 ------------------
 
 Regions
 -------
-- Fix x0 input data and handling
 - (???) Jordarter enl. SMED? https://pub.epsilon.slu.se/30474/1/johnsson-h-et-al-20230323.pdf
 
 DemandAndConversions
 --------------------
+- Handle demand for by-products (e.g. )
 - Processing energy use per food item + energy source
 - Transports. A generic factor for Swedish produced. Different factors for imported foods. Elin kollar på detta...
 
@@ -48,6 +52,7 @@ FeedMgmt
 --------
 - Implement way to balance production of and demand for by-products
     - Adjust feed rations, imports/exports and/or by-products to biogas
+- Handle by-products from feed production
 
 ManureMgmt
 ----------
@@ -61,9 +66,8 @@ PlantNutrientMgmt
 
 MachineryAndEnergyMgmt
 ----------------------
-- Implement method for energy use in grain drying
 
-WasteMgmt (new method)
+WasteMgmt (new module to be created)
 ----------------------
 - Calculate sewege sludge generation
 - Food waste biogas + digestate
@@ -75,3 +79,4 @@ GeoDistributor
 --------------
 - Implement constraint for min share in rotation
 - Implement constraint for max oversupply of roughage
+- Fix "allocate production per use meathods"

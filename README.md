@@ -1,8 +1,8 @@
 <img src="docs/figs/logo.png" height="100px">
 
-CIBUSmod is a food systems model currently under development at the Department of Energy and Technology, [Swedish University of Agricultural Sciences (SLU)](https://www.slu.se/en/) within the [MISTRA Food Futures Programme](https://mistrafoodfutures.se/).
+CIBUSmod is a food systems model developed at the [Department of Energy and Technology, Swedish University of Agricultural Sciences (SLU)](https://www.slu.se/en/departments/energy-technology/) within the [MISTRA Food Futures Programme](https://mistrafoodfutures.se/).
 
-To get started look at the [users guide](docs/MANUAL.md) for some guidance on how to run the model and work with scenarios and [this notebook](notebooks/run_scn.ipynb) for an example run of the model and some outputs. This reflects the model in it's current state and will be continuously updated as the work progresses.
+To get started look at the [users guide](docs/MANUAL.md) for some guidance on how to run the model and work with scenarios and [this notebook](notebooks/run_scn.ipynb) for an example run of the model and some outputs.
 
 # Installing and running CIBUSmod (Windows)
 These installation instructions relies on working installations of [Python](https://www.python.org/downloads/windows/) and [Git](https://git-scm.com/download/win).
