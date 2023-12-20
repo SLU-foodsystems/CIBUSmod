@@ -86,8 +86,21 @@ However, trying to access the `seed` parameter for `crop='Rye'`,`prod_system='or
 
 > **Tip:** *The filter levels used in the model when accessing different parameters are stored in the `.qry_log` attribute of each `PrameterRetriever` object.*
 
-### Using external .csv files
-The Excel workbooks for default parameters can be extended with .csv files.
+### Using external .csv-files
+The Excel workbooks for default parameters can be extended with .csv-files. This is done by writing the file name of a .csv-file in the default data workbook under the `value` column instead of a parameter value. The csv files needs to be located in `data/default`. See example below
+
+<img src="figs/manual/default_data_ref_csv.png"> \
+*Example of how to read data from external .csv-file via default workbooks*
+
+The .csv-files can be structured in two ways, either with *parameters as columns* or with *filter values as columns*. In the first case the first case (i.e. *parameters as columns*) the first row in the .csv-file is interpreted as column headings and any column heading preceded by `f_` is interpreted as a filter level in a similar way as in the default data workbooks. Other column headings are interpreted as parameter names (see example below). Only columns corresponding to the parameter names specified in the default workbook are retrieved (see example below where the same .csv-file is defined for multiple parameters).
+
+<img src="figs/manual/default_data_csv_par.png"> \
+*Example of .csv-file with **parameters as columns** structure*
+
+The structure (i.e. *filter values as columns*) is invoked by writing `cols_as_filter: <filter level>` in the first cell of the .csv-file, where `<filter level>` is the filter level name preceded by `f_`. The second row is then interpreted as column names and any column name preceded by `f_` are assumed to represent filter levels and all other columns are assumed to represent filter values on the level specified in the first cell of the .csv-file (see example below). The paramter name is infered from the parameter name stated in the default data workbook on the row refereing to the .csv-file.
+
+<img src="figs/manual/default_data_csv_filter.png"> \
+*Example of .csv-file with **filter values as columns** structure*
 
 ## Scenario data workbooks
 Scenarios are defined in Excel wrokbooks located in `data/scenarios/`. When defining scenarios only the parameters that are changed compared to the default values need to be specified. Any parameters not defined in a scenario workbook are retained with their default values. The scenario workbooks should contain one sheet per module where parameters are to be changed in the scenario (see example below). Each sheet needs to include the column headings `paramter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`).
