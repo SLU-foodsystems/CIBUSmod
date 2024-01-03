@@ -236,7 +236,9 @@ Parameters
             df.index.to_frame().reset_index(drop=True),
             df.columns.to_frame().reset_index(drop=True),
             how='cross'
-        ).to_dict('list')
+        )
+        # Make dict
+        filters = {lvl:list(filters.loc[:,lvl].values) for lvl in row_names+col_names}
 
         result = pd.DataFrame(filters)
 
