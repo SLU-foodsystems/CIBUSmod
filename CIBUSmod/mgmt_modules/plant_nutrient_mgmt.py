@@ -405,8 +405,12 @@ class PlantNutrientMgmt():
         )
 
         # Apply shares to manure dataframes and add data attributes
+        res = (
+            manure_TAN_application
+            .rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
+        )
         self.crops.data_attr.add(
-            manure_TAN_application,
+            res,
             name = 'fertiliser.manure_TAN',
             unit = 'kg TAN/year',
             orig = 'PlantNutrientMgmt',
@@ -414,7 +418,11 @@ class PlantNutrientMgmt():
         )
 
         for element in ['N', 'P', 'K', 'C']: # ['VS'(?), 'P', 'K'] to be added ...
-            res = herds.data_attr.get(f'manure.{element}_to_spread').multiply(share_manure_per_crop)
+            res = (
+                herds.data_attr.get(f'manure.{element}_to_spread')
+                .multiply(share_manure_per_crop)
+                .rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
+            )
             self.crops.data_attr.add(
                 res,
                 name = f'fertiliser.manure_{element}',
