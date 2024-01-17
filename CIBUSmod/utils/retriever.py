@@ -1,4 +1,5 @@
 import os
+import time
 import weakref
 import warnings
 import pandas as pd
@@ -70,10 +71,14 @@ class ParameterRetriever:
 
     @classmethod
     def update_relation_tables(cls):
-        cls.relation_tables = pd.read_excel(
-            os.path.join(cls.data_path,'relation_tables.xlsx'),
-            sheet_name=None, dtype=str
-        )
+        path = os.path.join(cls.data_path,'relation_tables.xlsx')
+        try:
+            cls.relation_tables = pd.read_excel(
+                path,
+                sheet_name=None, dtype=str
+            )
+        except FileNotFoundError:
+            warnings.warn(f"Could not update relation tables. '{str(path)}' not found.")
     
     @classmethod
     def update_all_parameter_values(cls,scenario=None,year=None,modules='all',pars='all'):
@@ -99,6 +104,29 @@ class ParameterRetriever:
             else:
                 # Update to default data
                 pr.update_parameter_values()
+
+    @classmethod
+    def qry_stats(cls):
+        import copy
+        qry_log_all = {}
+        for pr in cls.instances:
+            for att in pr.qry_log:
+                if '.'.join([pr.name,att]) in qry_log_all:
+                    qry_log_all['.'.join([pr.name,att])]['lvls'].update(pr.qry_log[att]['lvls'])
+                    qry_log_all['.'.join([pr.name,att])]['n'] += pr.qry_log[att]['n']
+                    qry_log_all['.'.join([pr.name,att])]['time'] += pr.qry_log[att]['time']
+                else:
+                    qry_log_all['.'.join([pr.name,att])] = copy.deepcopy(pr.qry_log[att])
+        
+        df = pd.DataFrame.from_dict(qry_log_all, orient='index').sort_values('time', ascending=False)
+        df['%-of-time'] = df['time'] / df['time'].sum() * 100
+        t = df['time'].sum()
+        mm = round(np.floor(t/60))
+        ss = round(t - mm*60)
+
+        print(f"Total time querying parameters: {mm} min {ss} sec")
+        print(df.iloc[:10,1:].round(1))
+        return df
 
     def __init__(self, name, **kwargs):
         
@@ -184,12 +212,14 @@ Parameters
         Returns
         -------
         numpy.ndarray with length equal to the length of filter values. containing the parameter values for the defined filters '''
+        t0 = time.process_time()
         self.set(**kwargs)
 
         if parameter in self.qry_log:
-            self.qry_log[parameter].update(set(self.filters))
+            self.qry_log[parameter]['lvls'].update(set(self.filters))
+            self.qry_log[parameter]['n'] += 1
         else:
-            self.qry_log.update({parameter : set(self.filters)})
+            self.qry_log.update({parameter : {'lvls' : set(self.filters), 'n' : 1, 'time' : 0}})
 
         result = _get_parameter_values(self.data, self.selection, parameter)
 
@@ -220,7 +250,8 @@ Parameters
                     for sel in nan_sel[0:n]
                 ]) + ("\n ..." if n<len(nan_sel) else "")
                 warnings.warn(str1+str2)
-            
+        
+        self.qry_log[parameter]['time'] += time.process_time() - t0
         return result
 
     def get_from_frame(self,parameter,df,**kwargs):
