@@ -1,14 +1,14 @@
-import warnings
-import sqlite3
-import numpy as np
-import pandas as pd
 import os
+import pandas as pd
+import numpy as np
+
+import json
+import sqlite3
+import warnings
+from contextlib import closing
 
 from .retriever import ParameterRetriever
 from .misc import DataAttr
-from ..main_modules.demand_and_conversions import DemandAndConversions
-from ..main_modules.regions import Regions
-from ..main_modules.crop_prod import CropProduction
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
 class Session(object):
@@ -22,32 +22,36 @@ class Session(object):
     data_path : str
 
     When a new Session object is initialised it checks if the file '<data_path>/output/<name>.sqlite' exists
-    and if so connects to that database and any outputs within it.
+    and if so connects to that database and any scenario definitions and output data within it.
 
     Printing the Session object will show information on defined scenarios and output data.
 
-    Main methods
-    ------------
-    .add_scenario()     Defines a new scenario.
-    .remove_scenario()  Removes a scenario (including any associated output data).
-    .iterate()          Used to iterate over scenarios and years.
-    .store()            Stores a model run in the output database.
-    .clean()            Cleans up the database file (see note)
-    .get_attr()         Get output data
-
-    Note: The database file grows quite large if there are many scenarios and years. Perhaps the data stored in
-    the output database should be limited but for now most things calculated in a model run is stored as
-    output. Removing scenarios does not immediatly reduce the database file size. If many scenarios have been
-    added and removed use .clean() to defragment the database and (potentially) reduce its filesize.
+    Methods
+    -------
+    .add_scenario()              Defines a new scenario.
+    .update_scenario()           Updates definition of existing scenario.
+    .remove_scenario()           Removes a scenario (including any associated output data).
+    .reorder_scenarios()         Changes the ordering of scenarios.
+    .iterate()                   Used to iterate over scenarios and years.
+    .store()                     Stores a model run in the output database file.
+    .update_relation_tables()    Updates relation tables from .xlsx file
+    .update_aggregation_rules()  Updates rules used to aggregate output data before storing.
+    .clean()                     Defragments the database file to reduce filesize after dropping scenarios
+    .get_attr()                  Get output data
     
     '''
 
-    def __init__(self, name, data_path):
+    def __init__(
+            self,
+            name,
+            data_path
+        ):
         
         self.name = name
 
         self.data_path = _path_from_str(data_path)
         self.db_path = os.path.join(self.data_path, 'output', self.name+'.sqlite')
+
         ParameterRetriever.set_data_folder(self.data_path)
 
         # Create output folder if it does not already exist
@@ -55,53 +59,159 @@ class Session(object):
         if not os.path.isdir(output_folder):
             os.mkdir(output_folder)
 
-        if os.path.isfile(self.db_path):
-            self.scenarios = _db_read_scn(self.db_path)
-        else:
-            self.scenarios = {}
+        # Dict that stores tables retrieved from database for faster access
+        self.cashe = CasheDict(max_size=1000) 
 
-        self.cashe = CasheDict(max_size=1000) # Dict that stores tables retrieved from database for faster access
+        # Create main tables if they do not exist
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
 
-    def __getitem__(self, scn):
-        res = self.scenarios[scn].copy()
-        res.pop('years')
-        return res
+            con.execute("PRAGMA foreign_keys = 1;")
+
+            res = cur.execute("""
+                SELECT name FROM sqlite_schema
+                WHERE 
+                    type ='table' AND 
+                    name NOT LIKE 'sqlite_%';
+            """)
+            tables_in_db = [r[0] for r in res.fetchall()]
+            unexpected_tables = [t for t in tables_in_db if
+                                 t not in ['scenarios', 'runs', 'data_attributes', 'relation_tables', 'aggregation_rules', 'levels'] and
+                                 'attr_' not in t and
+                                 'lvl_' not in t and
+                                 'rel_' not in t]
+            if unexpected_tables:
+                raise ValueError(f"Unexpected tables found in '{self.db_path}': {unexpected_tables}")
+                
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS scenarios (
+                    scn_id INTEGER PRIMARY KEY,
+                    name TEXT UNIQUE,
+                    def TEXT
+                );
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS runs (
+                    run_id INTEGER PRIMARY KEY,
+                    scn_id INTEGER,
+                    year INTEGER,
+                    calculated INTEGER DEFAULT 0,
+                    
+                    UNIQUE(scn_id, year),
+                    
+                    CONSTRAINT fk_scenarios
+                        FOREIGN KEY (scn_id)
+                        REFERENCES scenarios(scn_id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+                );
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS data_attributes (
+                    attr_id INTEGER PRIMARY KEY,
+                    module TEXT,
+                    attr TEXT,
+                    metadata TEXT,
+                    
+                    UNIQUE(module, attr)
+                );
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS levels (
+                    lvl_id INTEGER PRIMARY KEY,
+                    name TEXT UNIQUE
+                );
+            """)
+            
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS relation_tables (
+                    rel_id INTEGER PRIMARY KEY,
+                    lvl_name TEXT,
+                    agr_name TEXT,
+
+                    UNIQUE(lvl_name, agr_name)
+                );
+            """)
+
+            cur.execute("""
+                    CREATE TABLE IF NOT EXISTS aggregation_rules (
+                        agg_id INTEGER PRIMARY KEY,
+                        module TEXT,
+                        attr TEXT,
+                        agg_lvls TEXT,
+    
+                        UNIQUE(module, attr)
+                    );
+                """)
+
+        self.update_relation_tables()
+        
+        if 'aggregation_rules' not in tables_in_db:
+
+            # Default aggregations
+            aggregation_rules = {
+                ('CropProduction', 'fertiliser.manure_TAN') : ['species','animal_prod_system','MMS'],
+                ('CropProduction', 'fertiliser.manure_N') : ['species','animal_prod_system','MMS'],
+                ('CropProduction', 'fertiliser.manure_P') : ['species','animal_prod_system','MMS'],
+                ('CropProduction', 'fertiliser.manure_K') : ['species','animal_prod_system','MMS'],
+                ('CropProduction', 'fertiliser.manure_C') : ['species','animal_prod_system','MMS'],
+                ('CropProduction', 'fertiliser.manure_N_soil_loss') : ['species','compound'],
+                ('CropProduction', 'fertiliser.manure_N_application_loss') : ['species','compound']
+            }
+                
+            self.update_aggregation_rules(aggregation_rules)
+
+        
 
     def __repr__(self):
-        
+
         str0 = f'''+------------------+
 | CIBUSmod SESSION |
 +------------------+
 Name: {self.name}
 '''
-
+        
         str1 = '''SCENARIOS
 =========
 '''
-        scns = list(self.scenarios.keys())
-        tables = _db_get_tables(self.db_path)
+        
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
 
-        for scn in scns:
-            years = self.scenarios[scn]['years']
-            nyears = len(years)
-            if any([f'${scn}' in t for t in tables]):
-                output_status = 'has output'
-            else:
-                output_status = 'no output'
-            if nyears>1:
-                years = [years[0], years[-1]]
-            str1 += (
-f'''{scn}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}[{output_status}]
-'''
-            )
+            # Get scenarios
+            res = cur.execute("""
+                SELECT scn_id, name FROM scenarios ORDER BY scn_id
+            """)
+            scns = pd.DataFrame(res.fetchall(), columns = ['scn_id', 'name'])
 
+            # Get runs
+            res = cur.execute("""
+                SELECT scn_id, year, calculated FROM runs ORDER BY scn_id, year
+            """)
+            runs = pd.DataFrame(res.fetchall(), columns = ['scn_id', 'year', 'calculated'])
+
+            # Get data attributes
+            res = cur.execute("""
+                SELECT module, attr, metadata FROM data_attributes
+            """)
+            data_attrs = res.fetchall()
+
+        for _,scn in scns.iterrows():
+            run = runs.loc[runs['scn_id']==scn['scn_id'], :].sort_values('year')
+
+            str1 += f"""{scn['name']}: {', '.join([str(y) if c == 0 else '['+str(y)+']' for y,c in zip(run['year'], run['calculated'])])}
+"""
+            
         str2 = '''OUTPUT DATA
 ===========
 '''
-        modules = [t.replace('__metadata','') for t in tables if '__metadata' in t]
-        for i,module in enumerate(modules):
+        modules = sorted(list(set([i[0] for i in data_attrs])))
+        for module in modules:
             data_attr = DataAttr(0)
-            data_attr.dict = _db_read_metadata(module, self.db_path)
+            data_attr.dict = dict(sorted({i[1]:json.loads(i[2]) for i in data_attrs if i[0] == module}.items()))
             str2 += (
 f'''{module}
 {'-'*len(module)}
@@ -109,194 +219,47 @@ f'''{module}
 
 '''
             )
-            
+
         return '\n'.join([str0, str1, str2])
 
-    def add_scenario(self, name, scenario=None, modules='all', pars='all', years='nd'):
-        '''Adds a scenario to the Session object
+    def __getitem__(self, scn):
+
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+                
+            try:
+                res = cur.execute(f"""
+                    SELECT def FROM scenarios WHERE name == "{scn}"
+                """)
+            except:
+                raise KeyError(f"No scenario named '{scn}'")   
+
+            scn_def = json.loads(res.fetchone()[0])
         
-        Parameters
-        ----------
-        name : str
-            Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
-        scenario : None or (list of) str with scenario Excel sheet name(s), default None
-            Name of scenaro Excel sheet(s) to use. If None default data are used
-            If a list is supplied data is uppdated based on all scenario Excel sheets but if
-            the same parameter is updated in several Excel sheets only the latest one in the
-            list will have an effect.
-        modules : 'all' or (list of) str with module names, default 'all'
-            Modules to be updated. If 'all', all modules will be updated otherwise only the
-            modules specified will be updated according to the scenario Excel file(s)
-        pars : 'all' or (list of) str with parameter names
-                or dict with module:[parameter(s)], default 'all'
-            Parameters to be updated. If 'all', all parameters are updated otherwise only the
-            specified parameters are updated (see examples)
-
-            Example 1:
-            pars = ['par_A', 'par_B']
-            This will only update 'par_A' and 'par_B' across all modules
-
-            Example 2:
-            pars = {'Mod1' : ['par_A', 'par_B'], 'Mod2' : 'par_C'}
-            This will only update 'par_A' and 'par_B' in module 'Mod1', only update 'par_C'
-            in 'Mod2' and all parameters in any other module.
-        years : (list of) str
-            Years to be run
-
-        '''
-
-        if name in self.scenarios:
-            print(f'A scenario with the name {name} already exists use .update_scenario() or .remove_scenario() first.')
-        
-        if not isinstance(years, list):
-            years = [years]
-        years = [str(y) for y in years]
-        
-        self.scenarios.update(
-            {
-                name : {
-                    'scenario' : scenario,
-                    'modules' : modules,
-                    'pars' : pars,
-                    'years' : years
-                }
-            }
-        )
-
-        _db_write_scn(self.scenarios, self.db_path)
-        
-        return None
+        return scn_def
     
-    def update_scenario(self, name, scenario=None, modules=None, pars=None, years=None):
-        '''Updates a scenario in the Session object
+    def scenarios(self):
+        """Returns dict with scenario names as keys and list of years as values.
+        """
 
-        Parameters
-        ----------
-        name : str
-            Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
-        scenario : None or (list of) str with scenario Excel sheet name(s), optional
-            Name of scenaro Excel sheet(s) to use. If None default data are used
-            If a list is supplied data is uppdated based on all scenario Excel sheets but if
-            the same parameter is updated in several Excel sheets only the latest one in the
-            list will have an effect.
-        modules : 'all' or (list of) str with module names, optional
-            Modules to be updated. If 'all', all modules will be updated otherwise only the
-            modules specified will be updated according to the scenario Excel file(s)
-        pars : 'all' or (list of) str with parameter names
-                or dict with module:[parameter(s)], optional
-            Parameters to be updated. If 'all', all parameters are updated otherwise only the
-            specified parameters are updated (see examples)
-
-            Example 1:
-            pars = ['par_A', 'par_B']
-            This will only update 'par_A' and 'par_B' across all modules
-
-            Example 2:
-            pars = {'Mod1' : ['par_A', 'par_B'], 'Mod2' : 'par_C'}
-            This will only update 'par_A' and 'par_B' in module 'Mod1', only update 'par_C'
-            in 'Mod2' and all parameters in any other module.
-        years : (list of) str, optional
-            Years to be run
-        '''
-        
-        if name not in self.scenarios:
-            raise KeyError(f'No scenario with the name {name}')
-
-        if scenario is not None:
-            self.scenarios[name]['scenario'] = scenario
-
-        if modules is not None:
-            self.scenarios[name]['modules'] = modules
-
-        if pars is not None:
-            self.scenarios[name]['pars'] = pars
-
-        if years is not None:
-            if not isinstance(years, list):
-                years = [years]
-            years = [str(y) for y in years]
-            self.scenarios[name]['years'] = years
-
-
-
-
-    def remove_scenario(self, name):
-        '''Removes named scenario including all output data
-        
-        Parameters
-        ----------
-        name : str
-            Name of scenario to be removed
-        
-        '''
-
-        if name in self.scenarios:
-            if name in _db_get_scn_in_data(self.db_path):
-                ui = input('This scenario has output data that will also be removed. Proceed? (Y/n)')
-                if ui.capitalize() == 'Y':
-                    # Remove all output data from scenario
-                    modules = _db_get_modules_in_data(self.db_path)
-                    years = _db_get_years_in_data(name, self.db_path)
-                    
-                    for module in modules:
-                        attrs = _db_get_attr_in_data(module, self.db_path)
-                        for attr in attrs:
-                            for year in years:
-                                try:
-                                    _db_drop_data(
-                                        module = module,
-                                        attr = attr,
-                                        scn = name,
-                                        year = year,
-                                        db_path = self.db_path
-                                    )
-                                except sqlite3.OperationalError:
-                                    pass
-
-                    # If no more scenarios with output data also drop metadata
-                    if len(_db_get_scn_in_data(self.db_path)) == 0:
-                        _db_drop_all_metadata(self.db_path)
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+            scenarios = {}
+            res = cur.execute("""
+                SELECT
+                    s.name AS scn,
+                    year
+                FROM runs AS r
+                LEFT JOIN scenarios AS s ON s.scn_id = r.scn_id
+                ORDER BY s.scn_id, year
+            """)
+            for r in res:
+                if r[0] not in scenarios:
+                    scenarios[r[0]] = [str(r[1])]
                 else:
-                    return None
-                    
-            del self.scenarios[name]
-            _db_write_scn(self.scenarios, self.db_path)
-            
-        else:
-            raise ValueError(f'Scenario {name} does not exist')
+                    scenarios[r[0]] += [str(r[1])]
 
-        return None
-
-    def clean(self):
-        '''Cleans up database file by dropping any tables not related to any defined
-        scenario and the VACUUM;'''
-
-        print(f'Cleaning {self.db_path}. This may take a while...')
-
-        # Look for any tables that do not relate to defined scenarios
-        tables = _db_get_tables(self.db_path)
-        scns = self.scenarios
-
-        tables_keep = ['scenarios']
-        for module in _db_get_modules_in_data(self.db_path):
-            tables_keep += [f'{module}__metadata']
-            attrs = _db_read_metadata(module, self.db_path).keys()
-            for attr in attrs:
-                for scn in scns:
-                    years = self.scenarios[scn]['years']
-                    for year in years:
-                        tables_keep += [f'{module}${attr}${scn}${year}', f'{module}${attr}${scn}${year}__idxcol']
-
-        tables_drop = set(tables) - set(tables_keep)
-
-        # Drop tables
-        if len(tables_drop)>0:
-            _db_drop_tables(tables_drop, self.db_path)
-        # Vacuum
-        _db_vacuum(self.db_path)
-
-        print('Done!')
-        return None
+        return scenarios
 
     def iterate(self, subset='no output'):
         '''Iterates over scenarios and years
@@ -321,19 +284,337 @@ f'''{module}
             
         '''
         
+        qry = """
+            SELECT name, year
+                FROM runs AS r
+            INNER JOIN scenarios AS s
+                ON r.scn_id == s.scn_id
+        """
+        
         if subset == 'no output':
-            w_output = _db_get_scn_in_data(self.db_path)
-            scns = [s for s in self.scenarios if s not in w_output]
-        elif subset == 'all':
-            scns = self.scenarios.keys()
-        elif isinstance(subset, str):
-            scns = [subset]
-        elif _isiterable(subset):
-            scns = subset
+            qry += """
+                WHERE calculated == 0
+            """
+        elif subset != 'all':
+            if isinstance(subset, str):
+                subset = [subset]
+            if len(subset)>1:
+                qry += f"""
+                    WHERE name IN {tuple(subset)}
+                """
+            else:
+                qry += f"""
+                    WHERE name == "{subset[0]}"
+                """
+
+        qry += """
+            ORDER BY r.scn_id, year
+        """
+        
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+        
+            res = cur.execute(qry)
+            res = res.fetchall()
+        
+        for row in res:
+            scn = row[0]
+            year = row[1]
+            yield (scn, str(year))
+
+    def add_scenario(self, name, years, scenario=None, modules='all', pars='all'):
+        '''Adds a scenario to the Session object
+
+        Parameters
+        ----------
+        name : str
+            Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
+        years : (list of) int or str
+            Years to be run
+        scenario : None or (list of) str with scenario Excel sheet name(s), optional
+            Name of scenaro Excel sheet(s) to use. If None default data are used
+            If a list is supplied data is uppdated based on all scenario Excel sheets but if
+            the same parameter is updated in several Excel sheets only the latest one in the
+            list will have an effect.
+        modules : 'all' or (list of) str with module names, optional
+            Modules to be updated. If 'all', all modules will be updated otherwise only the
+            modules specified will be updated according to the scenario Excel file(s)
+        pars : 'all' or (list of) str with parameter names
+                or dict with module:[parameter(s)], optional
+            Parameters to be updated. If 'all', all parameters are updated otherwise only the
+            specified parameters are updated (see examples)
+
+            Example 1:
+            pars = ['par_A', 'par_B']
+            This will only update 'par_A' and 'par_B' across all modules
+
+            Example 2:
+            pars = {'Mod1' : ['par_A', 'par_B'], 'Mod2' : 'par_C'}
+            This will only update 'par_A' and 'par_B' in module 'Mod1', only update 'par_C'
+            in 'Mod2' and all parameters in any other module.
+        
+        '''
+    
+        if not isinstance(years, list):
+            years = [years]
+
+        # Crate scenario definition dict
+        scn_def = {
+            'scenario' : scenario,
+            'modules' : modules,
+            'pars' : pars,
+        }
+        scn_def_json = json.dumps(scn_def)
+      
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
             
-        for scn in scns:
-            for year in self.scenarios[scn]['years']:
-                yield (scn,year)
+            # Insert scenario into database if it's not alredy there
+            try:
+                cur.execute("""
+                    INSERT INTO scenarios(name, def) VALUES(?, ?);
+                """, (name, scn_def_json))
+            except sqlite3.IntegrityError:
+                print(f"A scenario with the name '{name}' already exists use .update_scenario() or .remove_scenario() instead.")
+                return None
+
+            res = cur.execute(f"""
+                SELECT scn_id FROM scenarios WHERE name == "{name}"
+            """)
+            scn_id = res.fetchone()[0]
+
+            data = [(scn_id, y) for y in years]
+            cur.executemany("""
+                INSERT INTO runs(scn_id, year) VALUES(?, ?);
+            """, data)
+                
+        return None
+
+    def update_scenario(self, name, years=None, scenario=None, modules=None, pars=None):
+        '''Updates a scenario in the Session object
+
+        Parameters
+        ----------
+        name : str
+            Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
+        years : (list of) int or str, optional
+            Years to be run
+        scenario : None or (list of) str with scenario Excel sheet name(s), optional
+            Name of scenaro Excel sheet(s) to use. If None default data are used
+            If a list is supplied data is uppdated based on all scenario Excel sheets but if
+            the same parameter is updated in several Excel sheets only the latest one in the
+            list will have an effect.
+        modules : 'all' or (list of) str with module names, optional
+            Modules to be updated. If 'all', all modules will be updated otherwise only the
+            modules specified will be updated according to the scenario Excel file(s)
+        pars : 'all' or (list of) str with parameter names
+                or dict with module:[parameter(s)], optional
+            Parameters to be updated. If 'all', all parameters are updated otherwise only the
+            specified parameters are updated (see examples)
+
+            Example 1:
+            pars = ['par_A', 'par_B']
+            This will only update 'par_A' and 'par_B' across all modules
+
+            Example 2:
+            pars = {'Mod1' : ['par_A', 'par_B'], 'Mod2' : 'par_C'}
+            This will only update 'par_A' and 'par_B' in module 'Mod1', only update 'par_C'
+            in 'Mod2' and all parameters in any other module.
+        
+        '''
+
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+
+            con.execute("PRAGMA foreign_keys = 1;")
+
+            res = cur.execute("""
+                SELECT scn_id, def FROM scenarios
+                    WHERE name = ?
+            """, (name,))
+            res = res.fetchone()
+                
+            if res is None:
+                raise KeyError(f"No scenario with the name '{name}'")
+
+            scn_id = res[0]
+            old_def = json.loads(res[1])
+
+            res = cur.execute("""
+                SELECT year, calculated FROM runs
+                    WHERE scn_id = ?
+            """, (scn_id,))
+            res = res.fetchall()
+            old_years = [r[0] for r in res]
+            old_years_w_data = [r[0] for r in res if r[1] == 1]
+
+            new_def = old_def.copy()
+
+            if scenario is not None:
+                new_def['scenario'] = scenario
+            if modules is not None:
+                new_def['modules'] = modules
+            if pars is not None:
+                new_def['pars'] = pars
+                
+            if years is not None:
+                if not isinstance(years, list):
+                    new_years = [years]
+                else:
+                    new_years = years
+                new_years = [int(y) for y in new_years]
+            else:
+                new_years = old_years.copy()
+
+            if new_def != old_def:
+                if old_years_w_data:
+                    ui = input('This will remove all output data associated with this scenario. Proceed? (Y/N)')
+                    if ui.capitalize() != 'Y':
+                        return None
+
+                cur.execute("""
+                    UPDATE scenarios
+                    SET
+                        def = ?
+                    WHERE
+                        scn_id = ?
+                """, (json.dumps(new_def), scn_id))
+                
+                cur.execute("""
+                    DELETE FROM runs WHERE scn_id = ?
+                """, (scn_id,))
+
+                con.commit()
+                
+                data = [(scn_id, y) for y in new_years]
+                cur.executemany("""
+                    INSERT INTO runs(scn_id, year) VALUES(?, ?);
+                """, data)
+                
+            else:
+                years_to_add = [y for y in new_years if y not in old_years]
+                years_to_drop = [y for y in old_years if y not in new_years]
+                if any([y in years_to_drop for y in old_years_w_data]):
+                    ui = input('Some years with calculated output data will be removed. Proceed? (Y/N)')
+                    if ui.capitalize() != 'Y':
+                        return None
+                        
+                data = [(scn_id, y) for y in years_to_drop]
+                cur.executemany("""
+                    DELETE FROM runs
+                        WHERE scn_id = ? AND year = ?;
+                """, data)
+
+                con.commit()
+
+                data = [(scn_id, y) for y in years_to_add]
+                cur.executemany("""
+                    INSERT INTO runs(scn_id, year) VALUES(?, ?);
+                """, data)
+
+        self.cashe.clear()
+        
+        return None
+                    
+
+    def remove_scenario(self, name):
+        '''Removes named scenario including all output data
+        
+        Parameters
+        ----------
+        name : str
+            Name of scenario to be removed
+
+        Returns
+        -------
+        None
+        
+        '''
+
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+
+            con.execute("PRAGMA foreign_keys = 1;")
+
+            res = cur.execute(f"""
+                SELECT calculated
+                    FROM runs
+                INNER JOIN scenarios
+                    ON runs.scn_id = scenarios.scn_id
+                WHERE name = ?
+            """, (name,))
+
+            # Require user confirmation if scenario has data
+            if any([r[0] for r in res.fetchall()]):
+                ui = input('This scenario has output data that will also be removed. Proceed? (Y/N)')
+                if ui.capitalize() != 'Y':
+                    return None
+        
+            cur.execute(f"""
+                DELETE FROM scenarios WHERE name = ?
+            """, (name,))
+
+        self.cashe.clear()
+
+        return None
+
+    def reorder_scenarios(self, names):
+        """Changes the order of scenarios
+        
+        Parameters
+        ----------
+        names : list of str
+            List of all scenario names in the desired order
+
+        Returns
+        -------
+        None
+        """
+
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+
+            con.execute("PRAGMA foreign_keys = 1;")
+
+            res = cur.execute("""
+                SELECT scn_id, name FROM scenarios ORDER BY scn_id
+            """)
+            res = res.fetchall()
+                
+            old_ids = [r[0] for r in res]
+            old_names = [r[1] for r in res]
+
+            if set(old_names) != set(names):
+                raise ValueError(f'names must be a list of all scenario names in Session: {old_names}')
+
+            temp_ids = list(range(max(old_ids)+1, len(names)+max(old_ids)+1)) # temp. scn_ids to avoid violating UNIQUE constraint
+            new_ids = list(range(1, len(names)+1))
+                
+            temp_ids_names = [(tid,n) for tid,n in zip(temp_ids,names)]
+            new_ids_names = [(id,n) for id,n in zip(new_ids,names)]
+
+            cur.executemany("""
+                UPDATE scenarios
+                SET scn_id = ?
+                WHERE name = ?
+            """, temp_ids_names)
+
+            cur.executemany("""
+                UPDATE scenarios
+                SET scn_id = ?
+                WHERE name = ?
+            """, new_ids_names)
+
+            self.cashe.clear()
+
+        return None
+
+    def clean(self):
+        """Performes VACUUM; on database file"""
+
+        with closing(sqlite3.connect(self.db_path)) as con, con:
+            con.execute("VACUUM;")
+        
 
     def store(self, scn, year, *args):
         '''Write output data to database file.
@@ -348,11 +629,29 @@ f'''{module}
             Pass in the modules to store output data for
             
         '''
-        
-        if scn not in self.scenarios:
-            raise ValueError(f'Scenario "{scn}" not  defined')
-        if year not in self.scenarios[scn]['years']:
-            raise ValueError(f'Year {year} not defined for scenario "{scn}"')
+
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+            
+            res = cur.execute(f"""
+                SELECT run_id
+                    FROM runs
+                INNER JOIN scenarios
+                    ON runs.scn_id = scenarios.scn_id
+                WHERE name = ? AND year = ?
+            """, (scn, year))
+
+            try:
+                run_id = res.fetchone()[0]
+            except TypeError:
+                raise ValueError(f'Scenario "{scn}" and year {year} not defined')
+
+            # Get aggregation rules
+            res = cur.execute("""
+                SELECT module, attr, agg_lvls
+                FROM aggregation_rules
+            """)
+            aggregation_rules = {(i[0], i[1]) : json.loads(i[2]) for i in res.fetchall()}
         
         print(f"Writing outputs to '{self.db_path}'")
        
@@ -372,81 +671,267 @@ f'''{module}
                 # Only include 'scalable' data attributes (i.e. those that can be aggregated)
                 data_attr_dict = {k : v for k, v in arg.data_attr.dict.items() if v['scalable']}
 
-                _db_write_metadata(
-                    metadata = data_attr_dict,
-                    module = module,
-                    db_path = self.db_path
-                )
-                
-                for attr in data_attr_dict:
-                    data_to_write = _get_check_and_clean(arg, module, attr)
-                    _db_write_data(
-                        data=data_to_write,
-                        module=module,
-                        attr=attr,
-                        scn=scn,
-                        year=year,
-                        db_path=self.db_path
-                    )
-                    # Remove from cashe
-                    if (module, attr, scn, year) in self.cashe:
-                        del self.cashe[(module, attr, scn, year)]
+                with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                    closing(con.cursor()) as cur:
 
+                    data = [(module, attr, json.dumps(meta)) for attr, meta in data_attr_dict.items()]
+                    
+                    cur.executemany("""
+                        INSERT OR IGNORE
+                            INTO data_attributes(module, attr, metadata)
+                            VALUES(?,?,?);
+                    """, data)
+
+                for attr in data_attr_dict:
+
+                    data_to_write = _get_check_and_clean_data(arg, module, attr)
+
+                    # Aggregate data according to aggregation rules
+                    if (module, attr) in aggregation_rules:
+                        if isinstance(data_to_write, pd.DataFrame):
+                            agg_lvls = aggregation_rules[(module, attr)]
+                            agg_lvls = [lvl for lvl in agg_lvls if lvl in data_to_write.columns.names]
+                            data_to_write = data_to_write.groupby(agg_lvls, axis=1).sum()
+
+
+                    with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                        closing(con.cursor()) as cur:
+    
+                        res = cur.execute("""
+                            SELECT attr_id FROM data_attributes
+                                WHERE module=? AND attr=?;
+                        """, (module, attr))
+                        attr_id = res.fetchone()[0]
+                    
+                    if isinstance(data_to_write, pd.DataFrame|pd.Series):
+                        data_to_write = _level_names_to_integer_key(data_to_write, self.db_path)
+                        
+                        lvl_cols = data_to_write.index.names
+                        data = pd.concat(
+                            {run_id: data_to_write},
+                            names=['run_id']
+                        ).rename('value').to_frame()
+                    else:
+                        lvl_cols = []
+                        data = pd.DataFrame(
+                            [(run_id,data_to_write)],
+                            columns=['run_id','value']
+                        ).set_index('run_id')
+
+                    # Table creation SQL query
+                    create_qry = f"""
+                        CREATE TABLE IF NOT EXISTS attr_{attr_id} (
+                            run_id INTEGER,"""
+                    for lvl_col in lvl_cols:
+                        create_qry += f"""
+                            {lvl_col} INTEGER,"""
+                    create_qry += """
+                            value NUMERIC,
+                    """
+
+                    create_qry += """
+                            CONSTRAINT fk_runs
+                                FOREIGN KEY (run_id)
+                                REFERENCES runs(run_id)
+                                ON DELETE CASCADE
+                                ON UPDATE CASCADE
+                        );
+                    """
+
+                    # Row deletion SQL query
+                    delete_qry = f"""
+                        DELETE FROM attr_{attr_id} WHERE run_id = ?
+                    """
+
+                    with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                        closing(con.cursor()) as cur:
+
+                        con.execute("PRAGMA foreign_keys = 1;")
+
+                        # Create table if it does not exists
+                        cur.execute(create_qry)
+
+                        # Drop any existing data with the same run_id
+                        cur.execute(delete_qry, (run_id,))
+                            
+                        # Insert data
+                        data.to_sql(
+                            name = f"attr_{attr_id}",
+                            con = con,
+                            if_exists = 'append',
+                            index = True,
+                            method = None # 'multi' does not work
+                        )
+                   
             else:
                 warnings.warn(f'Passed object of type {type(arg)} ignored')
+
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+
+            cur.execute(f"""
+                UPDATE runs
+                    SET calculated = 1
+                WHERE run_id = ?
+            """, (run_id,))
+
+        self.cashe.clear()
         
         print("Outputs stored!")
 
         return None
+
+    def update_relation_tables(self):
+        """Updates relation tables in SQLite database from relation_tables.xlsx
+        """
+        
+        path = os.path.join(self.data_path,'relation_tables.xlsx')
+
+        try:
+            xl = pd.ExcelFile(path)
+        except FileNotFoundError:
+            warnings.warn(f"Could not update relation tables. '{str(path)}' not found.")
+            return None
+
+        for sheet in xl.sheet_names:
+            lvl_name = sheet
+            df = (
+                xl.parse(sheet)
+                .set_index(lvl_name)
+            )
+            for agr_name in df.columns:
+                
+                with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                    closing(con.cursor()) as cur:
+        
+                    cur.execute("""
+                        INSERT OR IGNORE
+                            INTO relation_tables(lvl_name, agr_name)
+                            VALUES(?,?)
+                    """, (lvl_name, agr_name))
+        
+                    res = cur.execute("""
+                        SELECT rel_id FROM relation_tables
+                            WHERE lvl_name = ? AND agr_name = ?
+                    """, (lvl_name, agr_name))
+                    rel_id = res.fetchone()[0]
+
+                    df_to_write = (
+                        df
+                        [agr_name]
+                        .reset_index()
+                        .rename(columns = {agr_name:'agr_value', lvl_name:'lvl_value'})
+                    )
+        
+                    df_to_write.to_sql(
+                        name = f"rel_{rel_id}",
+                        con = con,
+                        if_exists = 'replace',
+                        index = False
+                    )
+
+        self.cashe.clear()
+        
+        return None
+
+    def update_aggregation_rules(self, aggregation_rules):
+        """Update aggregation rules
+
+        Parameters
+        ----------
+        aggregation_rules : dict
+            The dict should have a tuple with (<module name>, <attribute name>) as keys
+            and a (list of) str designating column levels to aggregate data to.
+        """
+        
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
     
-    def get_table(
+            res = cur.execute("""
+                SELECT module, attr, agg_lvls
+                FROM aggregation_rules
+            """)
+            aggregation_rules_old = {(i[0], i[1]) : json.loads(i[2]) for i in res.fetchall()}
+    
+            res = cur.execute("""
+                SELECT module, attr
+                FROM data_attributes
+            """)
+            attr_w_data = res.fetchall()
+    
+            to_write = []
+            to_delete = []
+            to_delete_data = []
+            for i in aggregation_rules:
+                if i in aggregation_rules_old:
+                    if aggregation_rules[i] == aggregation_rules_old[i]:
+                        continue
+                    elif aggregation_rules[i] is None:
+                        to_delete += [i]
+                    elif isinstance(aggregation_rules[i], list|str):
+                        to_write += [i]
+                        to_delete += [i]
+                    else:
+                        raise ValueError('Aggregation levels must be supplied as a str or list of str')
+                else:
+                    if aggregation_rules[i] is None:
+                        continue
+                    elif isinstance(aggregation_rules[i], list|str):
+                        to_write += [i]
+                    else:
+                        raise ValueError('Aggregation levels must be supplied as a str or list of str')
+                        
+                if i in attr_w_data:
+                    to_delete_data += [i]
+    
+            # Drop affected data attribute tables
+            if attrs := ['.'.join(i) for i in to_delete_data]:
+                ui = input(f'This will delete output data: {attrs}. Are you sure? (Y,N)')
+                if ui.capitalize() == 'Y':
+                    for mod_attr in to_delete_data:
+                        res = cur.execute("""
+                            SELECT attr_id FROM data_attributes
+                            WHERE module = ? AND attr = ?
+                        """, mod_attr)
+                        attr_id = res.fetchone()[0]
+        
+                        cur.execute(f"""
+                            DROP TABLE IF EXISTS attr_{attr_id}
+                        """)
+                        cur.execute(f"""
+                            DELETE FROM data_attributes
+                            WHERE attr_id = ?
+                        """, (attr_id,))
+                else:
+                    return
+    
+            # Delete aggregation rules
+            for mod_attr in to_delete:
+                cur.execute("""
+                    DELETE FROM aggregation_rules
+                    WHERE module = ? AND attr = ?
+                """, mod_attr)
+    
+            # Insert aggregation rules
+            for mod_attr in to_write:
+                cur.execute("""
+                    INSERT INTO aggregation_rules(module, attr, agg_lvls)
+                    VALUES(?,?,?)
+                """, mod_attr + (json.dumps(aggregation_rules[mod_attr]),))
+
+    def get_attr(
             self,
             module,
             attr,
-            scn,
-            year
-    ):
-        '''Get a table from the database or from the cashed tables
-        
-        Parameters
-        ----------
-        module : str
-        attr : str
-        scn : str
-        year : str
-        
-        Returns
-        -------
-        pandas.DataFrame, pandas.Series or float'''
-
-        try:
-            res = self.cashe[(module, attr, scn, year)]
-        except KeyError:
-            res = _db_read_data(
-                module = module,
-                attr = attr,
-                scn = scn,
-                year = year,
-                db_path = self.db_path
-            )
-            if res is not None:
-                self.cashe[(module, attr, scn, year)] = res        
-        
-        return res
-
-    def get_attr(
-        self,
-        module,
-        attr,
-        groupby = 'all',
-        scn = 'all',
-        years = 'all',
-        interpolate = False,
-        keep_duplicate_levels = 'index',
-        suffixes = ('_idx','_col')
-    ):
+            groupby = 'all',
+            scn = 'all',
+            years = 'all',
+            all_region_levels = True,
+            interpolate = False
+        ):
+    
         '''Get specified data attribute from output.
-        
+                
         Parameters
         ----------
         module : str
@@ -454,20 +939,17 @@ f'''{module}
         attr : str
             data attribute to get
         groupby : str, list or dict, default 'all'
-            If str or list data is grouped and aggregated by these index/column levels.
-            If 'all' data is not aggregated
-            If 'none'  data is summed over all index/columns
+            If str or list data is grouped and aggregated by these levels.
+            If 'all' all available levels are returned
+            If 'none'  data is summed over all levels
             If a dict is supplied relation tables are used
         scn : (list of) str
         years : (list of) str
-        interpolate : Bool, default True
+        fill_index : Bool, default True
+            If True, returns with a column index with all level combinations
+            (filling with zeros)
+        interpolate : Bool, default False
             If True interpolate between defined years
-        keep_duplicate_levels: {'index','columns','both'}, default 'index'
-            If the same groupby level is in both index and columns of data attribute
-            then keep level on the specified axis. If 'both', both levels are
-            retained and renamed with 'suffixes'
-        suffixes : itterable of len 2, default ('_idx','_col')
-            Suffixes to use for index and column levels if 'keep_duplicate_levels' is 'both'
             
         Returns
         -------
@@ -475,274 +957,283 @@ f'''{module}
         as columns.
         '''
         
-        short_hands = {
-            'D':'DemandAndConversions', 'R':'Regions',
-            'C':'CropProduction', 'A':'AnimalHerd'
-        }
-        if module not in short_hands.values():
-            try:
-                module = short_hands[module.upper()]
-            except KeyError:
-                raise ValueError('Invalid module name')
+        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            closing(con.cursor()) as cur:
+      
+            res = cur.execute(f"""
+                SELECT attr_id, module, attr FROM data_attributes
+                    WHERE module LIKE '{module}%' AND attr LIKE '{attr}%'
+                    ORDER BY length(module), length(attr)
+                """)
+            all_res = res.fetchall()
+            if len(all_res) == 0:
+                msg = f"No match for module='{module}' and attr='{attr}'"
+                raise ValueError(msg)
+            elif len(all_res) > 1:
+                exact = [r for r in all_res if (r[2] == attr and module in r[1]) or (r[2] in attr and module == r[1])]
+                if len(exact) == 1:
+                    attr_id = exact[0][0]
+                    module = exact[0][1]
+                    attr = exact[0][2]
+                else:
+                    for row in all_res:
+                        msg = f"Multiple matches for module='{module}' and attr='{attr}':" + '\n' + '\n'.join([str(row) for row in all_res])
+                    raise ValueError(msg)
+            else:
+                attr_id = all_res[0][0]
+                module = all_res[0][1]
+                attr = all_res[0][2]
+
+            if groupby == 'all':
+                # Get all levels in table
+                res = cur.execute(f"SELECT * FROM attr_{attr_id}")
+                lvl_ids_in_table = [int(t[0].split('_')[1]) for t in res.description if 'lvl_' in t[0]]
+                groupby = []
+                for lvl_id in lvl_ids_in_table:
+                    res = cur.execute("""
+                        SELECT name FROM levels
+                            WHERE lvl_id = ?
+                    """, (lvl_id,))
+                    groupby += [res.fetchone()[0]]
+            if groupby == 'none':
+                groupby = []
+            if isinstance(groupby, str):
+                groupby = [groupby]
+            if isinstance(groupby, list):
+                groupby = {k:None for k in groupby}
+        
+            # Construct SQL query
+            qry_lvls_sel = []
+            qry_lvls_join = []
+            qry_lvls_group = []
+                
+            lvl_ids = []
+            for lvl in groupby:
+                res = cur.execute("""
+                    SELECT lvl_id FROM levels
+                        WHERE name = ?
+                """, (lvl, ))
+                try:
+                    lvl_id = res.fetchone()[0]
+                except TypeError:
+                    raise ValueError(f"'{lvl}' not a valid level name")
+        
+                lvl_ids += [lvl_id]
+                
+                qry_lvls_join += [f"LEFT JOIN lvl_{lvl_id} ON lvl_{lvl_id} = lvl_{lvl_id}.lvl_value_id"]
+        
+                agr_names = groupby[lvl]
+                if not isinstance(agr_names, list):
+                    agr_names = [agr_names]
+        
+                if len(agr_names) != len(set(agr_names)):
+                    raise ValueError(f"Duplicated aggregate levels for '{lvl}'")
+                
+                for agr_name in agr_names:
+        
+                    if agr_name is None:
+                        qry_lvls_sel += [f"lvl_{lvl_id}.value AS {lvl}"]
+                        qry_lvls_group += [lvl]
+                    else:
+                        res = cur.execute("""
+                            SELECT rel_id FROM relation_tables
+                                WHERE lvl_name = ? AND agr_name = ?
+                        """, (lvl, agr_name))
+        
+                        try:
+                            rel_id = res.fetchone()[0]
+                        except TypeError:
+                            raise ValueError(f"'{agr_name}' as an aggregated level for '{lvl}' not found")
+        
+                        qry_lvls_join += [f"LEFT JOIN rel_{rel_id} ON lvl_{lvl_id}.value = rel_{rel_id}.lvl_value"]
+                        qry_lvls_sel += [f"rel_{rel_id}.agr_value AS {agr_name}"]
+                        qry_lvls_group += [agr_name]
             
-        if scn == 'all':
-            scn = self.scenarios
-        else:
-            if isinstance(scn, str):
+            qry_lvls_group = ", ".join(['scn', 'year'] + qry_lvls_group)
+            qry_lvls_sel = """,
+                    """.join(qry_lvls_sel) + ',' if qry_lvls_sel else ''
+            qry_lvls_join = """
+                """.join(qry_lvls_join)
+        
+            if isinstance(scn, str) and scn != 'all':
                 scn = [scn]
-            scn = [s for s in scn if s in self.scenarios]
-
-
-        if years != 'all' and isinstance(years, str):
-            years = [years]
-
-        scn_year_in_output = _db_get_tables_index(self.db_path).get_loc_level((module, attr))[1]
+            if isinstance(years, str|int) and years != 'all':
+                years = [years]
         
-        # Create index for data to be returned
-        data_index = pd.MultiIndex.from_tuples(
-            [(scn, year) for scn in scn if scn in scn_year_in_output.get_level_values('scn') for year in self.scenarios[scn]['years'] if (years == 'all' or year in years) and year in scn_year_in_output.get_loc_level(scn)[1]],
-            names = ['scn', 'year']
-        )
-        if len(data_index)==0:
-            raise ValueError('None of the selected scenarios/years in session or no output data')
-        data_index_expected = data_index.copy()
-        
-        # Get data from first available scn and year
-        x = None
-        for scn, year in data_index:
-            x = self.get_table(
-                module = module,
-                attr = attr,
-                scn = scn,
-                year = year
-            )
-            if x is not None:
-                break
-        if x is None:
-            raise ValueError('No output data for any of the seleceted scenarios/years')
-    
-        if groupby == 'all':
-            groupby = list(x.index.names)
-            if isinstance(x,pd.DataFrame):
-                groupby += [lvl for lvl in x.columns.names if lvl not in groupby]
-        if groupby == 'none':
-            groupby = []
-        
-        if isinstance(groupby,str):
-            groupby = [groupby]
-        if isinstance(groupby,dict):
-            rel = {k:v for k,v in groupby.items() if v is not None and k != v}
-            groupby = list(groupby)
-        else:
-            rel = {}
-            
-        # Check for duplicate groupby levels in both index and
-        # columns and if 'keep_duplicate_levels' is 'both', add
-        # suffixes in data and groupby list
-        if isinstance(x, pd.DataFrame):
-            idx_col_same = \
-            [lvl for lvl in groupby if lvl in x.index.names and lvl in x.columns.names]
-        else:
-            idx_col_same = []
-        if len(idx_col_same)>0:
-            if keep_duplicate_levels == 'both':
-                new_groupby = []
-                idx_rename = {}
-                col_rename = {}
-                idx_drop = None
-                col_drop = None
-                for lvl in groupby:
-                    if lvl in idx_col_same:
-                        idx_rename.update({lvl:lvl+suffixes[0]})
-                        col_rename.update({lvl:lvl+suffixes[1]})
-                        new_groupby += [lvl+suffixes[0]]
-                        new_groupby += [lvl+suffixes[1]]
+            qry_where = ""
+            if isinstance(scn, list) or isinstance(years, list):
+                qry_where += "WHERE "
+                if isinstance(scn, list):
+                    qry_where += f"""scn IN ({', '.join(f'"{s}"' for s in scn)})"""
+                    if isinstance(years, list):
+                        qry_where += " AND "
+                if isinstance(years, list):
+                    qry_where += f"""year IN ({', '.join(f'"{y}"' for y in years)})"""
+                
+            qry = f"""
+                SELECT 
+                    s.name AS scn,
+                    year,
+                    {qry_lvls_sel}
+                    SUM(d.value) AS value
+                FROM
+                    attr_{attr_id} AS d
+                {qry_lvls_join}
+                LEFT JOIN runs AS r ON d.run_id = r.run_id
+                LEFT JOIN scenarios AS s ON r.scn_id = s.scn_id
+                {qry_where}
+                GROUP BY
+                    {qry_lvls_group}
+                ORDER BY
+                    s.scn_id, year
+            """
+
+            if qry in self.cashe:
+
+                # Read from cashe
+                df = self.cashe[qry]
+                
+            else:
+                
+                # print(qry)  
+                try:
+                    res = pd.read_sql_query(
+                        con = con,
+                        sql = qry
+                    )
+                except:
+                    sel = con.execute(f"""SELECT * FROM attr_{attr_id}""")
+                    lvls_in_table = [c[0] for c in sel.description if 'lvl_' in c[0]]
+                    group_lvls_not_in_table = [n for n,id in zip(groupby,lvl_ids) if 'lvl_'+str(id) not in lvls_in_table]
+                    if group_lvls_not_in_table:
+                        raise ValueError(f"Group by level(s) not in data table: {group_lvls_not_in_table}")
                     else:
-                        new_groupby += [lvl]
-                groupby = new_groupby
-            elif keep_duplicate_levels == 'index':
-                idx_rename = None
-                col_rename = None
-                idx_drop = None
-                col_drop = idx_col_same
-            elif keep_duplicate_levels == 'columns':
-                idx_rename = None
-                col_rename = None
-                idx_drop = idx_col_same
-                col_drop = None
-            else:
-                raise ValueError("'keep_duplicate_levels' must be one of {'index','columns','both'}")
-        else:
-            idx_rename = None
-            col_rename = None
-            idx_drop = None
-            col_drop = None
+                        raise Exception("Something went wrong getting data from database file")
+                    
+                df = (
+                    res
+                    .set_index(list(res.columns)[0:-1])
+                    ['value']
+                )
+                    
+                if df.index.nlevels > 2:
+                    df = (
+                        df
+                        .unstack(['scn','year'], fill_value=0)
+                        .T
+                    )
 
-        d = []
-        for scn, year in data_index:
-            # Get attribute
-            x = self.get_table(
-                module = module,
-                attr = attr,
-                scn = scn,
-                year = year
-            )
-            if x is None:
-                data_index = data_index.drop((scn, year))
-                continue
+                if len(df) == 0:
+                    # If no data returned add in expected index levels (scn, year)
+                    qry = f"""
+                        SELECT
+                            s.name AS scn,
+                            r.year AS year
+                        FROM
+                            runs AS r
+                        LEFT JOIN scenarios AS s ON r.scn_id = s.scn_id
+                        {qry_where + ("WHERE" if qry_where == "" else " AND")} r.calculated = 1
+                        ORDER BY
+                            s.scn_id, year
+                    """
+                    res = cur.execute(qry)
+                    df.index = pd.MultiIndex.from_tuples(
+                        res.fetchall(),
+                        names = ['scn', 'year']
+                    )
+
+                # Add to cashe
+                self.cashe[qry] = df
             
-            # Drop or add suffixes to handle duplicate levels in index and columns
-            if idx_rename is not None:
-                x = x.rename_axis(index=idx_rename, columns=col_rename)
-            if idx_drop is not None:
-                x = x.droplevel(idx_drop)
-            if col_drop is not None:
-                x = x.droplevel(col_drop, axis=1)
-            
-            # Get index levels to group by
-            ig = [g for g in groupby if g in x.index.names]
-            if isinstance(x, pd.DataFrame):
-                # Get column levels to group by
-                cg = [g for g in groupby if g in x.columns.names]
-            else:
-                cg = None
-            
-            for lvl in [g for g in ig if g in rel]:
-                # Rename index based on relation table
-                x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), level=lvl)
-            if cg is not None:
-                for lvl in [g for g in cg if g in rel]:
-                    # Rename columns based on relation table
-                    x = x.rename(ParameterRetriever.get_rel(lvl,rel[lvl]), axis=1, level=lvl)
-            
-            if len(ig)>0:
-                # Group by index levels and aggregate
-                x = x.groupby(ig if len(ig)>1 else ig[0]).sum()
-            else:
-                # Aggregate across all index levels
-                x = x.sum()
-    
-            if isinstance(x,pd.DataFrame) and cg is not None:
-                if len(cg)>0:
-                    # Group by column levels and aggregate
-                    x = x.groupby(cg if len(cg)>1 else cg[0], axis=1).sum()
+        if all_region_levels and 'region' in groupby:
+            with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                closing(con.cursor()) as cur:
+                
+                # Get all region levels present in df
+                res = cur.execute("""
+                    SELECT agr_name FROM relation_tables
+                        WHERE lvl_name = "region"
+                """)
+                    
+                reg_lvls = ['region'] if 'region' in df.columns.names else []
+                reg_lvls += [r[0] for r in res if r[0] in df.columns.names]
+                other_lvls = list(set(df.columns.names) - set(reg_lvls))
+
+                # Construct region index with all level values
+                qry_sel = ["lvl.value AS region"]
+                qry_join = ""
+
+                res = cur.execute("""
+                    SELECT lvl_id FROM levels
+                        WHERE name = "region"
+                """)
+                reg_lvl_id = res.fetchone()[0]
+
+                res = cur.execute("""
+                    SELECT rel_id, agr_name FROM relation_tables
+                        WHERE lvl_name = "region"
+                """)
+
+                for rel_id, agr_name in res.fetchall():
+                    qry_sel += [f"rel_{rel_id}.agr_value AS {agr_name}"]
+                    qry_join += f"LEFT JOIN rel_{rel_id} ON rel_{rel_id}.lvl_value = lvl.value"
+
+                qry = f"""
+                    SELECT
+                        {", ".join(qry_sel)}
+                    FROM
+                        lvl_{reg_lvl_id} AS lvl
+                    {qry_join}
+                    """
+
+                idx_df = pd.read_sql_query(
+                    con = con,
+                    sql = qry
+                )
+
+                reg_uni = idx_df.set_index(reg_lvls).index.unique()
+                    
+                if other_lvls:
+                    other_uni = df.columns.droplevel(reg_lvls).unique()
+                        
+                    new_idx = pd.MultiIndex.from_tuples(
+                        [(re if isinstance(re, tuple) else (re,)) +
+                         (ot if isinstance(ot, tuple) else (ot,)) 
+                         for re in reg_uni for ot in other_uni],
+                        names = reg_uni.names + other_uni.names
+                    ).reorder_levels(df.columns.names).sort_values()
                 else:
-                    # Aggregate across all column levels
-                    x = x.sum(axis=1)
-            elif isinstance(x,pd.Series):
-                if cg is not None:
-                    if len(cg)>0:
-                        # Group by column (now index) levels and aggregate
-                        x = x.groupby(cg if len(cg)>1 else cg[0]).sum()
-                    else:
-                        # Aggregate across all column (now index) levels
-                        x = x.sum()
-    
-            if isinstance(x,pd.DataFrame):
-                i_lvls = x.index.nlevels
-                c_lvls = x.columns.nlevels
-                if i_lvls == 1 and isinstance(x.index,pd.MultiIndex):
-                    # Fix problem with single-level MultiIndex stacking by
-                    # converting to Index
-                    x.index = x.index.get_level_values(0)
-                if c_lvls == 1 and isinstance(x.columns,pd.MultiIndex):
-                    # Fix problem with single-level MultiIndex stacking by
-                    # converting to Index
-                    x.columns = x.columns.get_level_values(0)
-                # Stack or unstack dataframe to series (take shortest way)
-                if i_lvls<=c_lvls:
-                    x = x.unstack(list(range(i_lvls)))
-                else:
-                    x = x.stack(list(range(c_lvls)))
-            if not isinstance(x,pd.Series):
-                # If float returned create series
-                x = pd.Series(x)
-    
-            d.append(x)
-
-        # Get col index
-        data_cols = d[0].index
-        # Drop index to speed up concatenation
-        d_ = [df.reset_index(drop=True) for df in d]
-        # Combine and transpose
-        data = pd.concat(d_, axis=1).T
-
-        # Add in index and columns
-        data.index = data_index
-        data.columns = data_cols
-
-        if len(data_index) < len(data_index_expected):
-            warnings.warn(f'Some scenarios/years not found in output data.\n{data_index_expected.difference(data_index)}')
-    
-        if len(data.columns) == 1:
-            # If only one column. Make series with attr as name
-            data = data.iloc[:,0]
-            data.name = attr
-            
-        if isinstance(data, pd.DataFrame) and data.columns.nlevels>1:
-            # Reorder column levels as specified in groupby
-            data = data.reorder_levels([g for g in groupby if g in data.columns.names], axis=1)
-    
+                    new_idx = reg_uni
+                    if isinstance(new_idx, pd.MultiIndex):
+                        new_idx = new_idx.reorder_levels(df.columns.names).sort_values()
+                        
+                df = df.reindex(columns = new_idx, fill_value = 0)
+        
         if interpolate:
             # Interpolate to yearly data
-    
+        
             # Create new index with all years represented
             new_idx = pd.MultiIndex.from_tuples(
                 [
-                    (scn,str(year))
-                    for scn in data.index.get_level_values('scn').unique()
+                    (scn,year)
+                    for scn in df.index.unique('scn')
                     for year in range(
-                        min(data.loc[scn].index.astype(int)),
-                        max(data.loc[scn].index.astype(int))+1
+                        min(df.loc[scn].index),
+                        max(df.loc[scn].index)+1
                     )
                 ],
                 names = ['scn','year']
             )
             # Reindex and interpolate
-            data = data.reindex(new_idx).interpolate()
-    
-        return data
-    
-def _path_from_str(str):
-    path = ''
-    for word in str.split('/'):
-        path = os.path.join(path, word)
-    return path
-
-def _isiterable(obj):
-    try:
-        iter(obj)
-        return True
-    except TypeError:
-        return False
-
-def _get_check_and_clean(module, module_name, attr, zero_tol=1e-6):
-
-    data = module.data_attr.get(attr).copy()
-    
-    if isinstance(data, pd.Series|pd.DataFrame):
+            df = df.reindex(new_idx).interpolate()
         
-        if data.isna().any().any():
-            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set to zero')
-            data = data.fillna(0)
-        if (data < -zero_tol).any().any():
-            warnings.warn(f'Negative values of down to {data.min().min()} {module.data_attr[attr]["unit"]} in {module_name}.{attr}. Set to zero')
-        data = data.where(data >= zero_tol, 0)
+        # Change year level to string
+        if len(df)>0:
+            df.index = df.index.set_levels(df.index.levels[-1].astype(str), level=-1)
         
-    elif isinstance(data, np.float_):
+        # print('Retrieved data from', '.'.join([module, attr]))
         
-        if np.isnan(data):
-            warnings.warn(f'NaNs in {module.par.name}.{attr}. Set to zero')
-            data = 0
-        if data < -zero_tol:
-            warnings.warn(f'Negative value of {data} {module.data_attr[attr]["unit"]} in {module_name}.{attr}. Set to zero')
-        if data < zero_tol:
-            data = 0
-
-    else:
-        raise TypeError('Data should be pandas.Series, pandas.DataFrame or numpy.float')
-        
-    return data
+        return df
 
 class CasheDict(dict):
     # Implementation slightly modified from
@@ -768,251 +1259,134 @@ class CasheDict(dict):
             diff = len(self) - max_size 
             for k in list(self)[:diff]:
                 del self[k]
-            
-# SQLITE DATABASE FUNCTIONS
 
-def _db_write_scn(scn_dict, db_path):
-    
-    scn_dict_flat = {
-        k : {
-            k : 'DICT'+'DICT'.join([k+'__'+'::'.join(v) if not isinstance(v, str) else k+'__'+v for k,v in v.items()]) if isinstance(v, dict) else '::'.join(v) if not isinstance(v, str|None) else 'None' if v is None else v
-            for k, v in scn_dict[k].items()
-        }
-        for k in scn_dict
-    }
+def _path_from_str(str):
+    path = ''
+    for word in str.split('/'):
+        path = os.path.join(path, word)
+    return path
 
-    # Write to db
-    con = sqlite3.connect(db_path)
-    pd.DataFrame(scn_dict_flat).to_sql('scenarios', con, if_exists="replace")
-    con.close()
-
-    return None
-
-def _db_read_scn(db_path):
-
-    # Connect and read
-    con = sqlite3.connect(db_path)
-    scn_dict_flat = (
-        pd.read_sql_query(f"SELECT * from scenarios", con)
-        .set_index('index')
-        .to_dict()
-    )
-    con.close()
-    
-    scn_dict = {
-        k : {
-            k : {
-                kv.split('__')[0] : kv.split('__')[1].split('::')
-                if '::' in kv.split('__')[1] else kv.split('__')[1]
-                for kv in v.split('DICT') if kv != ''
-            } if 'DICT' in v else v.split('::') if '::' in v else v if v != 'None' else None
-            for k, v in scn_dict_flat[k].items()
-        }
-        for k in scn_dict_flat
-    }
-
-    for scn in scn_dict:
-        if not isinstance(scn_dict[scn]['years'], list):
-            scn_dict[scn]['years'] = [scn_dict[scn]['years']]
-    
-    return scn_dict
-
-def _db_write_metadata(metadata, module, db_path):
-    table = f'{module}__metadata'
-    con = sqlite3.connect(db_path)
-    pd.DataFrame(metadata).to_sql(table, con, if_exists="replace")
-    con.close()
-
-def _db_read_metadata(module, db_path):
-
-    table = f'"{module}__metadata"'
-    
-    con = sqlite3.connect(db_path)
-    
-    metadata = (
-        pd.read_sql_query(f'SELECT * from {table}', con)
-        .set_index('index')
-        .to_dict()
-    )
-
-    con.close()
-
-    return metadata
-
-def _db_write_data(data, module, attr, scn, year, db_path):
-    
-    data = data.copy()
-    table = f'{module}${attr}${scn}${year}'
-    
-    idxcol = dict()
-    if not isinstance(data, pd.DataFrame|pd.Series):
-        if isinstance(data, np.float_):
-            data = pd.Series(data)
-            idxcol.update({'index_names' : 'index'})
-        else:
-            raise TypeError(f'{module} {attr} not a pandas.DataFrame, pandas.Series or numpy.Float')
-    else:
-        # Get index names
-        idxcol.update({'index_names' : '::'.join([str(n) for n in data.index.names])})
-        if isinstance(data, pd.DataFrame):
-            # Get column names
-            idxcol.update({'columns_names' : '::'.join([str(n) for n in data.columns.names])})
-            # Flatten MultiIndex columns
-            if isinstance(data.columns, pd.MultiIndex):
-                data.columns = ['::'.join(c) for c in data.columns]
-            # Drop zero columns to avoid >2000 cols sqlite limit
-            # and store columns to reindex when reading
-            idxcol.update({'columns' : '::::'.join(data.columns)})
-            data = data.loc[:, (data != 0).any(axis=0)]
-
-    # Write data and metadata
-    con = sqlite3.connect(db_path)
-    data.to_sql(table, con, if_exists="replace")
-    pd.Series(idxcol).to_sql(f'{table}__idxcol', con, if_exists="replace")
-    con.close()
-
-    return None
-
-def _db_read_data(module, attr, scn, year, db_path):
-
-    table = f'{module}${attr}${scn}${year}'
-    
-    con = sqlite3.connect(db_path)
+def _isiterable(obj):
     try:
-        idxcol = (
-            pd.read_sql_query(f'SELECT * from "{table}__idxcol"', con)
-            .set_index('index')
-            .loc[:,'0']
-            .to_dict()
-        )
-        data = pd.read_sql_query(f'SELECT * from "{table}"', con)
-    except:
-        # Return None if table could not be read
-        con.close()
-        return None
+        iter(obj)
+        return True
+    except TypeError:
+        return False
+
+def _level_names_to_integer_key(data, db_path):
+
+    data = data.copy()
     
-    if 'columns_names' not in idxcol:
-        data = (
-            data
-            .set_index(idxcol['index_names'].split('::'))
-            .iloc[:,0]
-        )
-    else:
-        data = (
-            data
-            .set_index(idxcol['index_names'].split('::'))
-        )
-        # Restore columns droped while writing to db
-        data = data.reindex(idxcol['columns'].split('::::'), axis=1, fill_value=0)
-        # Restore column (Multi)Index
-        if '::' in idxcol['columns_names']:
-            data.columns = pd.MultiIndex.from_tuples(
-                [tuple(c.split('::')) for c in data.columns],
-                names = idxcol['columns_names'].split('::')
-            )
-        else:
-            data.columns = pd.Index(
-                data.columns,
-                name = idxcol['columns_names']
-            )
+    # Get index and columns levels
+    lvls_axs = [(lvl, 0) for lvl in data.index.names]
+    if isinstance(data, pd.DataFrame):
+        lvls_axs += [(lvl, 1) for lvl in data.columns.names]
+
+    with closing(sqlite3.connect(db_path)) as con, con,  \
+        closing(con.cursor()) as cur:
+
+        lvl_keys = []
+        for lvl, ax in lvls_axs:
+
+            cur.execute(f"""
+                INSERT OR IGNORE
+                    INTO levels(name)
+                    VALUES(?)
+            """, (lvl,))
+
+            res = cur.execute("""
+                SELECT lvl_id FROM levels
+                    WHERE name = ?
+            """, (lvl,))
+
+            lvl_id = res.fetchone()[0]
+            lvl_keys += ['lvl_'+str(lvl_id)]
+            
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS lvl_{lvl_id} (
+                    lvl_value_id INTEGER PRIMARY KEY,
+                    value TEXT UNIQUE
+                );
+            """)
+
+            while True:
+                res = cur.execute(f"""
+                    SELECT value, lvl_value_id FROM lvl_{lvl_id}
+                """)
+                txt_to_int = dict(res.fetchall())
+
+                data = data.rename(txt_to_int, axis=ax, level=lvl)
+
+                if ax == 0:
+                    lvl_dtype = data.index.get_level_values(lvl).dtype
+                else:
+                    lvl_dtype = data.columns.get_level_values(lvl).dtype
+                    
+                if pd.api.types.is_integer_dtype(lvl_dtype):
+                    break
+                    
+                if ax == 0:
+                    unique_lvl_values = data.index.unique(lvl)
+                else:
+                    unique_lvl_values = data.columns.unique(lvl)
+                
+                to_write = [(v,) for v in unique_lvl_values]
+                cur.executemany(f"""
+                    INSERT OR IGNORE
+                        INTO lvl_{lvl_id}(value)
+                        VALUES(?)
+                """, to_write)
+                
+        if isinstance(data, pd.DataFrame):
+            # Stack to series (take shortest way)
+            data = data.dropna(axis=1, how='all')
+            if data.columns.nlevels > data.index.nlevels:
+                data = (
+                    data.unstack(data.index.names)
+                    .reorder_levels(data.index.names+data.columns.names)
+                    .sort_index()
+                )
+            else:
+                if data.columns.nlevels == 1 and isinstance(data.columns, pd.MultiIndex):
+                    # Fix problem with single-level MultiIndex stacking by
+                    # converting to Index
+                    data.columns = data.columns.get_level_values(0)
+                data = data.stack(data.columns.names)
+            
+        data = data.rename_axis(index = lvl_keys)
+        data = data.dropna()
         
-    con.close()
+        assert isinstance(data, pd.Series)
+        assert not data.isna().any()
+
+        return data
     
+
+def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
+
+    data = module.data_attr.get(attr).copy()
+    
+    if isinstance(data, pd.Series|pd.DataFrame):
+            
+        if data.isna().any().any():
+            warnings.warn(f'NaNs in {module.par.name}.{attr}.')
+        if (data < -zero_tol).any().any():
+            warnings.warn(f'Negative values of down to {data.min().min()} {module.data_attr[attr]["unit"]} in {module_name}.{attr}.')
+        
+        # Set zeros to NaN
+        data = data.where(data >= zero_tol, np.nan)
+        
+    elif isinstance(data, np.float_):
+        
+        if np.isnan(data):
+            warnings.warn(f'NaNs in {module.par.name}.{attr}.')
+            data = 0
+        if data < -zero_tol:
+            warnings.warn(f'Negative value of {data} {module.data_attr[attr]["unit"]} in {module_name}.{attr}.')
+        if data < zero_tol:
+            data = 0
+    
+    else:
+        raise TypeError(f"Data attribute '{attr}' not a pandas.Series, pandas.DataFrame or numpy.float")
+
     return data
-
-def _db_drop_data(module, attr, scn, year, db_path):
-
-    _db_drop_tables(
-        tables = [
-            f'{module}${attr}${scn}${year}',
-            f'{module}${attr}${scn}${year}__idxcol'
-        ],
-        db_path = db_path
-    )
-
-    return None
-
-def _db_drop_tables(tables, db_path):
-
-    if isinstance(tables, str):
-        tables = [tables]
-
-    # Connect to sqlite
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-
-    # Drop tables
-    for table in tables:
-        table = f'"{table}"'
-        cur.execute(f"DROP TABLE {table}")
-        print(f'Dropping table {table}')
-    
-    # commit close
-    con.commit()
-    con.close()
-
-    return None
-
-def _db_drop_all_metadata(db_path):
-
-    # Get metadata tables
-    tables = [t for t in _db_get_tables(db_path) if '__metadata' in t]
-
-    # Connect to sqlite
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-
-    for table in tables:
-        # Drop table
-        cur.execute(f"DROP TABLE {table}")
-
-    # commitand close
-    con.commit()
-    con.close()
-
-    return None
-
-def _db_vacuum(db_path):
-
-    # Connect to sqlite, vacuum and close
-    con = sqlite3.connect(db_path)
-    con.execute("VACUUM;")
-    con.close()
-    
-def _db_get_tables(db_path):
-    
-    # Connect and read
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    cur.execute("""SELECT name FROM sqlite_master 
-    WHERE type='table';""")
-    res = [t[0] for t in cur.fetchall()]
-    con.close()
-
-    return res
-
-def _db_get_tables_index(db_path):
-    '''Returns a pandas.MultiIndex of all data attribute tables
-    with the index levels (module, attr, scn, year)'''
-    tables = _db_get_tables(db_path)
-    res = pd.MultiIndex.from_tuples(
-        [tuple(t.split('$')) for t in tables if '__idxcol' not in t and '__metadata' not in t and t != 'scenarios'],
-        names = ['module', 'attr', 'scn', 'year']
-    ).sortlevel()[0]
-    return res
-
-def _db_get_modules_in_data(db_path):
-    tables = _db_get_tables(db_path)
-    return [t.replace('__metadata','') for t in tables if '__metadata' in t]
-
-def _db_get_attr_in_data(module, db_path):
-    tables = _db_get_tables(db_path)
-    return list(np.unique(np.array([t.split('$')[1] for t in tables if '$' in t and t.split('$')[0] == module])))
-
-def _db_get_scn_in_data(db_path):
-    tables = _db_get_tables(db_path)
-    return list(np.unique(np.array([t.split('$')[2] for t in tables if '$' in t])))
-
-def _db_get_years_in_data(scn, db_path):
-    tables = _db_get_tables(db_path)
-    return list(np.unique(np.array([t.split('$')[3] for t in tables if '$' in t and t.split('$')[2] == scn and '__idxcol' not in t])))

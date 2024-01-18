@@ -195,7 +195,7 @@ def to_ICBM(session):
             session.get_attr(
                 module = 'CropProduction',
                 attr = at,
-                groupby = ['crop','prod_system','region','species'],
+                groupby = ['crop','prod_system','region'] + (['species'] if 'manure' in at else []),
                 interpolate=True
             )
             .stack(['crop','prod_system','region'])
