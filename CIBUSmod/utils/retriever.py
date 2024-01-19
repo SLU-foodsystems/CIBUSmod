@@ -109,7 +109,9 @@ class ParameterRetriever:
     def qry_stats(cls):
         import copy
         qry_log_all = {}
+        set_time_all = 0
         for pr in cls.instances:
+            set_time_all += pr.set_time
             for att in pr.qry_log:
                 if '.'.join([pr.name,att]) in qry_log_all:
                     qry_log_all['.'.join([pr.name,att])]['lvls'].update(pr.qry_log[att]['lvls'])
@@ -120,11 +122,15 @@ class ParameterRetriever:
         
         df = pd.DataFrame.from_dict(qry_log_all, orient='index').sort_values('time', ascending=False)
         df['%-of-time'] = df['time'] / df['time'].sum() * 100
-        t = df['time'].sum()
-        mm = round(np.floor(t/60))
-        ss = round(t - mm*60)
+        qt = df['time'].sum()
+        qm = round(np.floor(qt/60))
+        qs = round(qt - qm*60)
+        
+        sm = round(np.floor(set_time_all/60))
+        ss = round(set_time_all - sm*60)
 
-        print(f"Total time querying parameters: {mm} min {ss} sec")
+        print(f"Total time setting filters: {sm} min {ss} sec")
+        print(f"Total time querying parameters: {qm} min {qs} sec")
         print(df.iloc[:10,1:].round(1))
         return df
 
@@ -137,16 +143,17 @@ class ParameterRetriever:
         path = os.path.join(self.data_path_default, self.name + '.xlsx')
         self.data = _read_xl(path,'default')
 
-        self.filters = []
+        self.filters = {}
         self.qry_log = {}
+        self.set_time = 0
         
         self.set(**kwargs)
         
     def __repr__(self):
 
         str1 = "\n".join([
-            f"{f} : {str(getattr(self,f)[0]) if len(getattr(self,f))==1 else 'List of ' + str(len(getattr(self,f)))}"
-            for f in  self.filters
+            f"{key.replace('f_','')} : {str(value[0]) if len(value)==1 else 'List of ' + str(len(value))}"
+            for key,value in  self.filters.items()
         ])
         unique_pars = self.data.index.get_level_values("parameter").unique()
         str2 = ", ".join(unique_pars[:min(len(unique_pars),10)]) + (" ..." if len(unique_pars) > 10 else "")
@@ -179,25 +186,54 @@ Parameters
         Returns
         -------
         Nothing. Updates the ParameterRetriever filters.'''
-        
+        t0 = time.process_time()
         # Set filter values supplied
         for key, value in kwargs.items():
-            if key not in self.filters: self.filters.append(key)
-            value = np.array([value]) if isinstance(value, str) else np.array(value)
-            setattr(self, key, value)
+            self.filters.update(
+                {'f_'+key : value if not isinstance(value, str) else [value]}
+            )
         
         # Get length of filter values
-        l = [len(getattr(self, f)) for f in self.filters]
-        self.max_filter_length = max(l) if len(self.filters) > 0 else 0
+        filter_lens = [len(v) for v in self.filters.values()]
+        distinct_filter_lens = set(filter_lens)
+        self.max_filter_length = max(distinct_filter_lens) if len(self.filters) > 0 else 0
 
-        if any([(i>1) & (i<max(l)) for i in l]):
+        if len(self.filters) == 0:
+            self.selection = None
+            return None
+
+        if len(distinct_filter_lens) > 2 or (distinct_filter_lens == 2 and 1 not in distinct_filter_lens):
             # Raise error if any filter array is longer than 1 and shorter than the maximum filetr array length
-            self.remove(list(kwargs.keys()))
+            for key in kwargs.keys():
+                self.filters.pop('f_'+key, None)
             raise ValueError('Lists of differing lengths supplied as filters')
 
-        # Create selection
-        selection_dict = {f"f_{f}": list(getattr(self,f)) for f in self.filters}
-        self.selection = _build_selection_index(selection_dict)
+        # Create selection index broadcasting length-1 filters
+        self.selection = pd.MultiIndex.from_frame(
+            pd.DataFrame(
+                {
+                    col: (labels * self.max_filter_length if len(labels) == 1 else labels)
+                    for col, labels in self.filters.items()
+                }
+            )
+        )
+
+        self.set_time += time.process_time() - t0
+
+    def clear(self):
+        self.filters = {}
+        self.set()
+
+    def remove(self,keys):
+        if not isinstance(keys, list):
+            keys = [keys]
+        for key in keys:
+            try:
+                self.filters.pop('f_'+key, None)
+            except:
+                pass
+        
+        self.set()
 
     def get(self, parameter, **kwargs):
         '''Method to get values of a parameter under the set filters.
@@ -212,9 +248,10 @@ Parameters
         Returns
         -------
         numpy.ndarray with length equal to the length of filter values. containing the parameter values for the defined filters '''
-        t0 = time.process_time()
+        
         self.set(**kwargs)
 
+        t0 = time.process_time()
         if parameter in self.qry_log:
             self.qry_log[parameter]['lvls'].update(set(self.filters))
             self.qry_log[parameter]['n'] += 1
@@ -264,12 +301,12 @@ Parameters
         col_names = df.columns.names
 
         filters = pd.merge(
-            df.index.to_frame().reset_index(drop=True),
-            df.columns.to_frame().reset_index(drop=True),
+            df.index.to_frame(index=False),
+            df.columns.to_frame(index=False),
             how='cross'
         )
         # Make dict
-        filters = {lvl:list(filters.loc[:,lvl].values) for lvl in row_names+col_names}
+        filters = {lvl:filters.loc[:,lvl].tolist() for lvl in row_names+col_names}
 
         result = pd.DataFrame(filters)
 
@@ -277,9 +314,9 @@ Parameters
             result['value'] = self.get(parameter,**filters,**kwargs)
         except ValueError:
             # remove all filters with lengt > 1 and try again
-            for f in self.filters:
-                if len(getattr(self,f))>1:
-                    self.remove(f)
+            for key in list(self.filters):
+                if len(self.filters[key])>1:
+                    self.filters.pop(key, None)
             result['value'] = self.get(parameter,**filters,**kwargs)
 
         result = result.pivot(index=row_names,columns=col_names,values='value')
@@ -465,25 +502,6 @@ Parameters
             res = df['f_'+filter].unique() 
             return res[~pd.isna(res)]
     
-    def clear(self):
-        for f in self.filters:
-            delattr(self,f)
-        self.filters = []
-        self.set()
-
-    def remove(self,item):
-        if not isinstance(item, list):
-            item = [item]
-        for f in item:
-            try:
-                delattr(self,f)
-            except:
-                pass
-            else:
-                self.filters.remove(f)
-        
-        self.set()
-
 def _read_csv(path,parameter):
     df = pd.read_csv(path, dtype=str)
 
@@ -628,21 +646,21 @@ def _path_from_str(str):
         path = os.path.join(path, word)
     return path
 
-def _build_selection_index(selection):
-    if len(selection) == 0:
-        return None
+# def _build_selection_index(selection):
+    # if len(selection) == 0:
+    #     return None
 
-    selection_lens = {col: len(labels) for col, labels in selection.items()}
-    distinct_selection_lens = set(selection_lens.values())
+    # selection_lens = {col: len(labels) for col, labels in selection.items()}
+    # distinct_selection_lens = set(selection_lens.values())
 
-    # Broadcast length-1 selections
-    selection = {
-        col: (labels * max(distinct_selection_lens) if len(labels) == 1 else labels)
-        for col, labels in selection.items()
-    }
+    # # Broadcast length-1 selections
+    # selection = {
+    #     col: (labels * max(distinct_selection_lens) if len(labels) == 1 else labels)
+    #     for col, labels in selection.items()
+    # }
 
-    selection_index = pd.MultiIndex.from_frame(pd.DataFrame(selection))
-    return selection_index
+    # selection_index = pd.MultiIndex.from_frame(pd.DataFrame(selection))
+    # return selection_index
 
 def _get_problem_data(data, index_cols, parameter):
     if not isinstance(data, pd.Series):
@@ -719,6 +737,20 @@ def _select_allowing_any_k_defaults(data, index, k):
     
     return results
 
+def _select_with_least_defaults(selection, problem_data):
+    # Start with an empty result
+    result = pd.Series(data=EMPTY, index=selection)
+
+    # Fill in the blanks by successively using k = 0, ..., n default values,
+    # where n is the number of index columns in the full problem..
+    for k in range(len(selection.names) + 1):
+        index_remainder = result[result.isnull()].index
+        result = result.fillna(
+            _select_allowing_any_k_defaults(problem_data, index_remainder, k)
+        )
+
+    return result
+
 def _get_parameter_values(data, selection, parameter):
 
     if selection is not None:
@@ -756,17 +788,6 @@ def _get_parameter_values(data, selection, parameter):
     # Get unique selections to imporve performance
     selection_unique = selection.unique()
 
-    # Start with an empty result
-    result = pd.Series(data=EMPTY, index=selection_unique)
-
-    # Fill in the blanks by successively using k = 0, ..., n default values,
-    # where n is the number of index columns in the full problem..
-    for k in range(len(selection_unique.names) + 1):
-        index_remainder = result[result.isnull()].index
-        result = result.fillna(
-            _select_allowing_any_k_defaults(problem_data, index_remainder, k)
-        )
-
-    result = result.reindex(selection)
+    result = _select_with_least_defaults(selection_unique, problem_data).reindex(selection)
 
     return result.values
