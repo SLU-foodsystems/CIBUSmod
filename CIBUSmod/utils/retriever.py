@@ -13,7 +13,7 @@ EMPTY = float("nan")
 
 class ParameterRetriever:
     '''Class that retrieves parameters from an Excel file based on a flexible filtering approach.
-    The Excel file needs to include a sheet named 'default' with columns named 'parameter' and 'vlaue'
+    The Excel file needs to include a sheet named 'default' with columns named 'parameter' and 'value'
     including parameter names and corresponding values. Any filter columns should be named 'f_<name>'.
     Any other columns are not used by the ParameterRetriever. All rows without a value in the 'parameter'
     column are also ignored allowing e.g. headings in the parameter sheets.
@@ -645,22 +645,6 @@ def _path_from_str(str):
     for word in str.split('/'):
         path = os.path.join(path, word)
     return path
-
-# def _build_selection_index(selection):
-    # if len(selection) == 0:
-    #     return None
-
-    # selection_lens = {col: len(labels) for col, labels in selection.items()}
-    # distinct_selection_lens = set(selection_lens.values())
-
-    # # Broadcast length-1 selections
-    # selection = {
-    #     col: (labels * max(distinct_selection_lens) if len(labels) == 1 else labels)
-    #     for col, labels in selection.items()
-    # }
-
-    # selection_index = pd.MultiIndex.from_frame(pd.DataFrame(selection))
-    # return selection_index
 
 def _get_problem_data(data, index_cols, parameter):
     if not isinstance(data, pd.Series):
