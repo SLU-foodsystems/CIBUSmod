@@ -724,9 +724,12 @@ f'''{module}
                             run_id INTEGER,"""
                     for lvl_col in lvl_cols:
                         create_qry += f"""
-                            {lvl_col} INTEGER,"""
+                            {lvl_col} INTEGER NOT NULL,"""
                     create_qry += """
                             value NUMERIC,
+                            """
+                    create_qry += f"""
+                            PRIMARY KEY({', '.join(['run_id']+lvl_cols)}),
                     """
 
                     create_qry += """
@@ -735,7 +738,7 @@ f'''{module}
                                 REFERENCES runs(run_id)
                                 ON DELETE CASCADE
                                 ON UPDATE CASCADE
-                        );
+                        ) WITHOUT ROWID;
                     """
 
                     # Row deletion SQL query
