@@ -99,8 +99,7 @@ class PlantNutrientMgmt():
         ley_share = (
             ley_share.set_index(['lu','cg'], append=True)[0]
             .loc[idx[:,:,:,'cropland',:]]
-            .groupby(['cg','prod_system','region'])
-            .sum()
+            .groupby(['cg','prod_system','region']).sum()
         )
         ley_share = (ley_share / ley_share.groupby(['prod_system','region']).transform('sum')).loc['Ley']
 
@@ -119,7 +118,7 @@ class PlantNutrientMgmt():
             .str.replace('feed.*','feed', regex=True)
             .str.replace('export','food') # Assume food use for exported crops
         )
-        share_per_use = share_per_use.groupby('use', axis=1).sum()
+        share_per_use = share_per_use.T.groupby('use').sum().T
         share_per_use['none'] = 1 - share_per_use.drop('none', axis=1).sum(axis=1)
 
         area_per_use = share_per_use.mul(self.crops.area, axis=0)
@@ -355,7 +354,7 @@ class PlantNutrientMgmt():
 
         share_crop_prod_per_use = (
             self.crops.data_attr.get('production_per_use')
-            .transform(lambda x: x/x.sum(), axis=1)
+            .div(self.crops.data_attr.get('production_per_use').sum(axis=1), axis=0)
             # NaNs generated in cases where production is zero
             # Not a problem here so just replace with 0
             .fillna(0)
@@ -399,8 +398,7 @@ class PlantNutrientMgmt():
         # Calculate share of manure applied per crop
         share_manure_per_crop = (
             manure_TAN_application
-            .groupby('region')
-            .transform(lambda x: x/x.sum())
+            .div(manure_TAN_application.groupby('region').sum().replace({0:np.nan}), axis=0)  # 0 -> NaN to avoid div by 0 error
             .fillna(0)
         )
 
@@ -533,8 +531,7 @@ class PlantNutrientMgmt():
             # Aggregate manure 
             TAN_appl = (
                 TAN_appl
-                .groupby(['species','breed','animal','MMS'], axis=1)
-                .sum()
+                .T.groupby(['species','breed','animal','MMS']).sum().T
             )
 
         # Get compounds lost
@@ -600,8 +597,7 @@ class PlantNutrientMgmt():
             # Aggregate manure 
             N_appl = (
                 N_appl
-                .groupby(['species','breed','animal','MMS'], axis=1)
-                .sum()
+                .T.groupby(['species','breed','animal','MMS']).sum().T
             )
 
         # Get compounds lost
@@ -758,7 +754,7 @@ def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
     share_manure_to_spread = (
         TAN_to_cover.groupby('region').sum()
         /
-        manure_TAN_to_use.sum(axis=1)
+        manure_TAN_to_use.sum(axis=1).replace({0:np.nan}) # 0 -> NaN to avoid div by 0 error
     ).fillna(0)
     share_manure_to_spread[share_manure_to_spread>1] = 1
     share_manure_to_spread[share_manure_to_spread<0] = 0
@@ -767,8 +763,8 @@ def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
     # within each region
     dist_key = (
         TAN_to_cover
-        .groupby('region')
-        .transform(lambda x:x/x.sum())
+        .div(TAN_to_cover.groupby('region').sum().replace({0:np.nan}), axis=0) # 0 -> NaN to avoid div by 0 error
+        .fillna(0)
     )
 
     # Calculate manure to spread

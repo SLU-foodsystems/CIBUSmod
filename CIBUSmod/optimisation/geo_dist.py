@@ -371,7 +371,7 @@ class GeoDistributor:
                 self.A1_2.M,
                 self.A1_3.M
             ])
-        ])
+        ], format='csc')
 
         self.A1 = IndexedMatrix(
             matrix=A1,
@@ -398,7 +398,7 @@ class GeoDistributor:
         self.A2_2 = self.make_A2_2()
 
         # Stack matrices
-        A2 = scipy.sparse.hstack([self.A2_1.M,self.A2_2.M])
+        A2 = scipy.sparse.hstack([self.A2_1.M,self.A2_2.M], format='csc')
 
         self.A2 = IndexedMatrix(
             matrix=A2,
@@ -463,7 +463,7 @@ class GeoDistributor:
         self.A5_2 = self.make_A5_2()
 
         # Stack matrices
-        A5 = scipy.sparse.hstack([self.A5_1.M,self.A5_2.M])
+        A5 = scipy.sparse.hstack([self.A5_1.M,self.A5_2.M], format='csc')
 
         self.A5 = IndexedMatrix(
             matrix=A5,
@@ -528,8 +528,7 @@ class GeoDistributor:
         sel_cp = (
             self.crops.production.loc[sel_cr]
             .stack()
-            .groupby(['crop_prod','prod_system','region'])
-            .sum()
+            .groupby(['crop_prod','prod_system','region']).sum()
             .replace({0:np.nan}).dropna()
             .index
         )
@@ -713,7 +712,7 @@ class GeoDistributor:
                 scipy.sparse.csc_matrix((P1_2.M.shape[0],P1_1.M.shape[1])),
                 P1_2.M
             ])
-        ])
+        ], format='csc')
 
         self.P1 = IndexedMatrix(
             matrix=P1,
@@ -1019,7 +1018,7 @@ class GeoDistributor:
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z,M]),
+            scipy.sparse.hstack([Z,M], format='csc'),
             row_idx,
             {'ani':self.x_idx['ani'],'crp':col_idx}
         )
@@ -1075,7 +1074,7 @@ class GeoDistributor:
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([M,Z]),
+            scipy.sparse.hstack([M,Z], format='csc'),
             row_idx,
             {'ani':self.x_idx['ani'],'crp':col_idx}
         )
@@ -1228,7 +1227,7 @@ class GeoDistributor:
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z,M]),
+            scipy.sparse.hstack([Z,M], format='csc'),
             row_idx,
             {'ani':self.x_idx['ani'],'crp':col_idx}
         )
@@ -1255,10 +1254,10 @@ class GeoDistributor:
                 # Create zero matrix and hstack
                 if ac == 'ani':
                     Z = scipy.sparse.csc_matrix((M.shape[0],len(col_idx['crp'])))
-                    MS.append(scipy.sparse.hstack([M,Z]))
+                    MS.append(scipy.sparse.hstack([M,Z], format='csc'))
                 else:
                     Z = scipy.sparse.csc_matrix((M.shape[0],len(col_idx['ani'])))
-                    MS.append(scipy.sparse.hstack([Z,M]))
+                    MS.append(scipy.sparse.hstack([Z,M], format='csc'))
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
@@ -1329,7 +1328,7 @@ class GeoDistributor:
             con_herds
             .feed.crop_product_demand
             .xs('domestic', level='origin', axis=1)
-            .groupby(['species','breed','sub_system','prod_system','crop_prod'], axis=1).sum()
+            .T.groupby(['species','breed','sub_system','prod_system','crop_prod']).sum().T
             .stack(['prod_system','crop_prod'])
             .reindex(prod.index)
             .fillna(0)
@@ -1359,8 +1358,8 @@ class GeoDistributor:
             self.demand.crop_prod_demand,
 
             self.crops.seed_demand
-            .groupby('prod_system')
-            .sum().stack().rename('seed'),
+            .groupby('prod_system').sum()
+            .stack().rename('seed'),
 
             national_feed_demand
 
@@ -1408,7 +1407,7 @@ class GeoDistributor:
             .reorder_levels(['crop','prod_system','region']),
 
             self.crops.production
-        ).groupby('demand', axis=1).sum()
+        ).T.groupby('demand').sum().T
 
         # Add data attribute
         self.crops.data_attr.add(
@@ -1443,7 +1442,7 @@ class GeoDistributor:
             con_herds.data_attr.get(
                 'feed.max_supply_from_crop_group'
             )
-            .groupby(['species','breed','sub_system','prod_system','crop_prod','crop_group'], axis=1).sum()
+            .T.groupby(['species','breed','sub_system','prod_system','crop_prod','crop_group']).sum().T
             .stack(['prod_system','crop_prod','crop_group'])
             .fillna(0)
         ).reorder_levels(['crop_prod','crop_group','prod_system','region'])
@@ -1466,7 +1465,7 @@ class GeoDistributor:
                     'feed.crop_product_demand'
                 )
                 .xs(('domestic', cp), level=('origin', 'crop_prod'), axis=1)
-                .groupby(['species','breed','sub_system','prod_system'], axis=1).sum()
+                .T.groupby(['species','breed','sub_system','prod_system']).sum().T
                 .stack(['prod_system'])
                 .fillna(0)
             ).reorder_levels(['prod_system','region'])

@@ -3,11 +3,7 @@ import pandas as pd
 
 from ..utils.retriever import ParameterRetriever
 
-from ..main_modules.animal_herd import AnimalHerd, StaticAnimalHerd
-from ..mgmt_modules.feed_mgmt import Feed
-from ..mgmt_modules.manure_mgmt import Manure
-
-from ..utils.misc import rgetattr, rsetattr, inv_dict
+from ..utils.misc import inv_dict
 
 def get_emissions(session, scn='all', years='all', interpolate=False):
     # Define emissions processes and corresponding modules
@@ -78,7 +74,7 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
                         years = years,
                         interpolate = interpolate
                     )
-                    df = df.rename_axis(columns = {'crop' : 'item'})
+                    df = df.rename_axis(columns = {'crop_group2' : 'item'})
                 elif md == 'AnimalHerd':
                     df = session.get_attr(
                         module = 'AnimalHerd',
@@ -100,11 +96,11 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
 
     res = pd.concat(d, axis=1)
     res = (
-        res.groupby(
+        res
+        .T.groupby(
             ['process','prod_system', 'item',
-             'region', 'compound'],
-            axis=1
-        ).sum()
+             'region', 'compound']
+        ).sum().T
     )
     
     return res
@@ -164,8 +160,7 @@ def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
         res
         .mul([to_GHG[cp] for cp in res.columns.get_level_values('compound')], axis=1)
         .rename(to_GHG_names, axis=1)
-        .groupby(res.columns.names, axis=1)
-        .sum()
+        .T.groupby(res.columns.names).sum().T
     )
 
     if CO2eq:

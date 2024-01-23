@@ -137,11 +137,11 @@ class MachineryAndEnergyMgmt(object):
             1000
         )
 
-        E_tractor = float( # [kWh/ha]
+        E_tractor = ( # [kWh/ha]
             (F_air + F_rr + F_acc + F_slope + F_MR) *
             (p('field_speed')/3.6) / 1000 /
             p('work_rate')
-        )
+        )[0]
 
         # APPLICATION ENERGY REQUIREMENTS
         self.par.clear()
@@ -203,7 +203,7 @@ class MachineryAndEnergyMgmt(object):
                 (A * E_per_area.loc[soil_class,:]).mul(self.crops.area, axis=0) +
                 (A * E_per_mass.loc[soil_class,:]).mul(self.crops.harvest, axis=0) +
                 (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.crop_residues_harvest.sum(axis=1), axis=0)
-            )
+            ).astype(float)
 
         # Calculate energy requirements per energy source and store
         self.par.clear()
@@ -336,8 +336,7 @@ class MachineryAndEnergyMgmt(object):
             )
             energy_use_per_prod = (
                 (prod * pf('stable_energy_use_per_prod',prod))
-                .groupby(['prod_system','animal','activity','energy_source'], axis=1)
-                .sum()
+                .T.groupby(['prod_system','animal','activity','energy_source']).sum().T
             )
 
             # Calculate energy use

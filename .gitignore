@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 .vscode
-.venv
+.venv*
 
 # Jupyter notebook
 .ipynb_checkpoints/

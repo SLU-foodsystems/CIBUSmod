@@ -131,7 +131,7 @@ class InputsMgmt(object):
             # Group and sum by compund. For compounds used now all emissions
             # are to 'air'. Different compartments will need to ba handled
             # later on
-            .groupby('compound', axis=1).sum()
+            .T.groupby('compound').sum().T
             .stack()
         )
         

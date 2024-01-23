@@ -106,11 +106,11 @@ class FeedMgmt():
             shares_per_feed = herd.par.get_from_frame('share_in_ration',df_feeds)/100
 
             # Check so that ration shares add up to 100%
-            if not np.isclose(shares_per_feed.groupby(['prod_system','animal'], axis=1).sum(),1).all():
+            if not np.isclose(shares_per_feed.T.groupby(['prod_system','animal']).sum(),1).all():
                 warnings.warn(f'\n\nAll feed ration shares did not add up to 100% for species: {herd.species}, breed: {herd.breed}. Feed rations were corrected.\n')
                 shares_per_feed = (
                     shares_per_feed / 
-                    shares_per_feed.groupby(['prod_system','animal'], axis=1).sum().align(shares_per_feed)[0]
+                    shares_per_feed.T.groupby(['prod_system','animal']).sum().T.align(shares_per_feed)[0]
                 )
 
             # If herd has feed energy requirements calculate dry
@@ -121,7 +121,7 @@ class FeedMgmt():
                 E_per_feed = self.par.get_from_frame('feed_par_E',df_feeds)
 
                 # Calculate avg. energy in feed ration [MJ/kg DM]
-                E_per_DM = (shares_per_feed * E_per_feed).groupby(['prod_system','animal'], axis=1).sum()
+                E_per_DM = (shares_per_feed * E_per_feed).T.groupby(['prod_system','animal']).sum().T
 
                 # Calculate required DM and add data attribute
                 herd.data_attr.add(
@@ -158,8 +158,7 @@ class FeedMgmt():
             # Get dry matter intake [kg DM]
             ration_DM = (
                 feed_DM
-                .groupby(['prod_system','animal'], axis=1)
-                .sum()
+                .T.groupby(['prod_system','animal']).sum().T
             )
 
             if herd.species == 'cattle':
@@ -179,8 +178,8 @@ class FeedMgmt():
                         self.par.get_from_frame('feed_par_'+par,feed_DM)
                         * feed_DM
                     )
-                    .groupby(['prod_system','animal'], axis=1).sum()
-                    / ration_DM
+                    .T.groupby(['prod_system','animal']).sum().T
+                    / ration_DM.replace({0:np.nan}) # To avoid div by 0 error
                 )
 
                 # Add data attribute
@@ -284,7 +283,7 @@ class FeedMgmt():
                 result_df.loc[:,('domestic')] = pd.concat(
                     {'domestic': (
                         multiply_aligned(feed_to_dom_prod,herd.feed.demand)
-                        .groupby(['prod_system','animal',of],sort=False,axis=1).sum()
+                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
                     )},
                     names=['origin'],
                     axis=1
@@ -293,7 +292,7 @@ class FeedMgmt():
                 result_df.loc[:,('regional')] = pd.concat(
                     {'regional': (
                         multiply_aligned(feed_to_reg_prod,herd.feed.demand)
-                        .groupby(['prod_system','animal',of],sort=False,axis=1).sum()
+                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
                     )},
                     names=['origin'],
                     axis=1
@@ -302,7 +301,7 @@ class FeedMgmt():
                 result_df.loc[:,('imported')] = pd.concat(
                     {'imported': (
                         multiply_aligned(feed_to_imp_prod,herd.feed.demand)
-                        .groupby(['prod_system','animal',of],sort=False,axis=1).sum()
+                        .T.groupby(['prod_system','animal',of],sort=False).sum().T
                     )},
                     names=['origin'],
                     axis=1
@@ -350,7 +349,7 @@ class FeedMgmt():
                     species=herd.species,
                     breed=herd.breed,
                     sub_system=herd.sub_system
-                )).T.groupby(['prod_system','crop_prod','crop_group']).sum().T/100 # The trnaspose x2 is a dirty fix to pandas sometimes returning level names as columns (pandas bug?)
+                )).T.groupby(['prod_system','crop_prod','crop_group']).sum().T/100
 
                 # Add data attribute
                 herd.data_attr.add(
@@ -396,13 +395,12 @@ class FeedMgmt():
                 # Get dry matter intake [kg DM]
                 dry_matter_intake = (
                     herd.feed.consumption
-                    .groupby(['prod_system','animal'], axis=1)
-                    .sum()
+                    .T.groupby(['prod_system','animal']).sum().T
                 )
 
 
                 # Get gross energy intake [MJ]
-                GE_intake = herd.feed.ration_GE *  herd.feed.consumption.groupby(['prod_system','animal'], axis=1).sum()
+                GE_intake = herd.feed.ration_GE *  herd.feed.consumption.T.groupby(['prod_system','animal']).sum().T
 
                 if herd.species == 'cattle':
                     # Calculate Ym (i.e. % of gross energy intake resulting in mtehane
@@ -420,9 +418,8 @@ class FeedMgmt():
                         (
                             herd.feed.consumption
                             .loc[:,idx[:,:,sel_rough]]
-                            .groupby(['prod_system','animal'], axis=1)
-                            .sum()
-                        ) / dry_matter_intake
+                            .T.groupby(['prod_system','animal']).sum().T
+                        ) / dry_matter_intake.replace({0:np.nan}) # To avoid div by 0 error
                     ) * 100
                     
 

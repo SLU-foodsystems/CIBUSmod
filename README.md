@@ -21,7 +21,7 @@ python -m venv .venv --clear --upgrade-deps --prompt 'CIBUSmod-venv'
 After activating the virtual environment, make sure that you see `('CIBUSmod-venv')` at the beginning of the command line, which indicates that the virtual environment is active. Now it´s time to install all python packages needed to run CIBUSmod and start jupyter lab. 
 ```
 pip install --upgrade pip
-pip install --require-virtualenv jupyterlab ipykernel "pandas<2" scipy==1.10 matplotlib cvxpy geopandas openpyxl ecoinvent-interface jinja2 
+pip install --require-virtualenv -r requirements.txt 
 ipython kernel install --user --name="CIBUSmod-venv"
 jupyter lab
 ```

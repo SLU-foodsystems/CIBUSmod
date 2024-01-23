@@ -512,7 +512,7 @@ def concat_herds(herds):
 
     # Go through data attributes and concatenate
     for attr in data_attr_in_all:
-        scalable = herds[0].data_attr[attr]['scalable']
+        scalable = herds.iloc[0].data_attr[attr]['scalable']
         # Only include scalable data attributes for now...
         # Potentially rethink aggregation to be
         # able to include also non-scalable data
@@ -532,10 +532,10 @@ def concat_herds(herds):
             )
 
             # Group and sum columns to avoid duplicates
-            df = df.groupby(df.columns.names, axis=1).sum()
+            df = df.T.groupby(df.columns.names).sum().T
 
             # Add data attribute
-            metadata = herds[0].data_attr[attr]
+            metadata = herds.iloc[0].data_attr[attr]
             if 'Herd' in metadata['orig'] and metadata['orig'] != 'AnimalHerd':
                 # Replace specific herd module name
                 metadata['orig'] = '<Spec.>Herd'

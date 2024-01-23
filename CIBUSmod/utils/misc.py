@@ -251,5 +251,5 @@ def check_index(herds : pd.Series) -> None:
     '''Raises Exception if all AnimalHerd indexes are not the same'''
     if len(herds)>0:
         for n in range(len(herds)-1):
-            if (herds[n].index != herds[n+1].index).any():
+            if (herds.iloc[n].index != herds.iloc[n+1].index).any():
                 raise Exception('Indexes does not match across herds!')

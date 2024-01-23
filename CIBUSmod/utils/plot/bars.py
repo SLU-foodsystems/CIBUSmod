@@ -23,8 +23,8 @@ def bar_stacked_grouped(
     # Labels
     df = data.sum(axis=1).unstack()
     x = np.linspace(-width/4,width/4,len(df.columns))
-    y = df.iloc[0,:] + (df.max().max()*0.02)
-    s = df.columns
+    y = df.iloc[0,:].values + (df.max().max()*0.02)
+    s = df.columns.values
     for i in range(len(x)):
         plt.text(
             x[i],y[i],s[i],

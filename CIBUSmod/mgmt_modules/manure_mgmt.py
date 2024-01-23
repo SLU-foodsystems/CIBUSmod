@@ -159,9 +159,9 @@ class ManureMgmt():
             )
             
             # Check that MMS shares add up to 100%, if not warn and correct
-            if not np.isclose(mms_shares.groupby(['prod_system','animal'], axis=1).sum(), 1).all():
+            if not np.isclose(mms_shares.T.groupby(['prod_system','animal']).sum().T, 1).all():
                 warnings.warn(f'MMS shares did not add up to 100% for species: {herd.species}, breed: {herd.breed}. MMS shares were corrected.')
-                mms_shares = mms_shares.groupby(['prod_system','animal'], axis=1).transform(lambda x: x/x.sum())
+                mms_shares = mms_shares.T.groupby(['prod_system','animal']).transform(lambda x: x/x.sum()).T
             
             if self.settings['MMS_grazing_from_feed']:
                 # Calculate share in MMS='grazing' from share of dry matter feed intake from grazing
@@ -173,7 +173,7 @@ class ManureMgmt():
                     # Calculate share of feed intake from grazing
                     grazing_share = (
                         feed_cons.xs('grazing', level='feed', axis=1) /
-                        feed_cons.groupby(['prod_system','animal'], axis=1).sum().replace({0:np.nan})
+                        feed_cons.T.groupby(['prod_system','animal']).sum().T.replace({0:np.nan})
                     )
 
                     # Add contribution of other feeds fed while on pasture
@@ -219,12 +219,11 @@ class ManureMgmt():
                     # Update DataFrame
                     mms_shares.update(grazing_share)
             
-            if not np.isclose(mms_shares.groupby(['prod_system','animal'], axis=1).sum(), 1).all():
+            if not np.isclose(mms_shares.T.groupby(['prod_system','animal']).sum().T, 1).all():
                 # Adjust non-grazing MMS shares
                 adjusted = (
                     mms_shares.loc[:, (slice(None), slice(None), mmss)]
-                    .groupby(['prod_system','animal'], axis=1)
-                    .transform(lambda x: x/x.sum())
+                    .T.groupby(['prod_system','animal']).transform(lambda x: x/x.sum()).T
                 )
                 adjusted = multiply_aligned(
                     adjusted,
@@ -289,20 +288,17 @@ class ManureMgmt():
             N = ( # [kg N/year]
                 DM
                 .mul(self.feed_mgmt.par.get_from_frame('feed_par_N', df)/100)
-                .groupby(['prod_system','animal','MMS'], axis=1)
-                .sum()
+                .T.groupby(['prod_system','animal','MMS']).sum().T
             )
             P = ( # [kg P/year]
                 DM
                 .mul(self.feed_mgmt.par.get_from_frame('feed_par_P', df)/100)
-                .groupby(['prod_system','animal','MMS'], axis=1)
-                .sum()
+                .T.groupby(['prod_system','animal','MMS']).sum().T
             )
             K = ( # [kg K/year]
                 DM
                 .mul(self.feed_mgmt.par.get_from_frame('feed_par_K', df)/100)
-                .groupby(['prod_system','animal','MMS'], axis=1)
-                .sum()
+                .T.groupby(['prod_system','animal','MMS']).sum().T
             )
 
             # Add data attributes
@@ -334,7 +330,7 @@ class ManureMgmt():
             pss = herd.heads.columns.get_level_values('prod_system').unique()
             anis = herd.animals
 
-            DM_intake = herd.feed.consumption.groupby(['prod_system','animal'], axis=1).sum()
+            DM_intake = herd.feed.consumption.T.groupby(['prod_system','animal']).sum().T
             if herd.species != 'poultry':
                 energy_manure = (
                     (
@@ -479,8 +475,7 @@ class ManureMgmt():
                 # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
                 feed = (
                     herd.feed.consumption
-                    .groupby(['prod_system','animal'], axis=1)
-                    .sum() *
+                    .T.groupby(['prod_system','animal']).sum().T *
                     (rgetattr(herd, 'feed.ration_' + element) / 100)
                 )
 
@@ -502,8 +497,7 @@ class ManureMgmt():
                             herd.production
                         )/1000
                     )
-                    .groupby(['prod_system','animal'], axis=1)
-                    .sum()
+                    .T.groupby(['prod_system','animal']).sum().T
                 )
 
                 # Calculate excretion from animals
@@ -585,7 +579,7 @@ class ManureMgmt():
         
             available_to_spread = (
                 herd.data_attr.get(f'manure.{element}_excr') - 
-                (loss_stable + loss_storage).groupby(['prod_system','animal','MMS'], axis=1).sum()
+                (loss_stable + loss_storage).T.groupby(['prod_system','animal','MMS']).sum().T
             )
         
             # Add data attribute
@@ -609,7 +603,7 @@ class ManureMgmt():
                 TAN_to_spread = (
                     available_to_spread * 
                     (self.par.get_from_frame('TAN_share', available_to_spread)/100)
-                ).groupby(['prod_system','animal','MMS'], axis=1).sum()
+                ).T.groupby(['prod_system','animal','MMS']).sum().T
                 
                 herd.data_attr.add(
                     TAN_to_spread,

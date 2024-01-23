@@ -84,16 +84,14 @@ class CropResidueMgmt():
         demand_for_feed = (
             pd.concat([h.feed.crop_residue_demand for h in self.herds], axis=1)
             .xs('domestic', level='origin', axis=1)
-            .groupby(['crop_resid'], axis=1)
-            .sum()
+            .T.groupby(['crop_resid']).sum().T
             # WIP
         )
         
         # Get crop residues used for bedding
         demand_for_bedding = (
             pd.concat([h.bedding_material for h in self.herds], axis=1)
-            .groupby(['feed'], axis=1)
-            .sum()
+            .T.groupby(['feed']).sum().T
             .rename_axis(columns={'feed':'crop_resid'})
         )
         
@@ -134,7 +132,10 @@ class CropResidueMgmt():
         # Add remaining demand to harvest
         crop_residues_harvest += remaining_demand * crop_residues_alloc_nat
         
-        assert np.isclose(total_demand.sum(), crop_residues_harvest.sum())
+        assert np.isclose(
+            total_demand.sum().astype(float),
+            crop_residues_harvest.sum().astype(float)
+        )
         assert (crop_residues_harvest<=self.crops.crop_residues_harvestable).all().all()
         
         # Add data attribute

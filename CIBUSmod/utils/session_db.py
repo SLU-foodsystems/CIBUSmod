@@ -691,7 +691,7 @@ f'''{module}
                         if isinstance(data_to_write, pd.DataFrame):
                             agg_lvls = aggregation_rules[(module, attr)]
                             agg_lvls = [lvl for lvl in agg_lvls if lvl in data_to_write.columns.names]
-                            data_to_write = data_to_write.groupby(agg_lvls, axis=1).sum()
+                            data_to_write = data_to_write.T.groupby(agg_lvls).sum().T
 
 
                     with closing(sqlite3.connect(self.db_path)) as con, con,  \
