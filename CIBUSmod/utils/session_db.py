@@ -20,6 +20,10 @@ class Session(object):
     name : str
         Session name
     data_path : str
+        Path to data folder
+    timeout : float (default 5)
+        How many seconds to wait for a locked table when
+        trying to write to the database file
 
     When a new Session object is initialised it checks if the file '<data_path>/output/<name>.sqlite' exists
     and if so connects to that database and any scenario definitions and output data within it.
@@ -44,13 +48,15 @@ class Session(object):
     def __init__(
             self,
             name,
-            data_path
+            data_path,
+            timeout = 5
         ):
         
         self.name = name
 
         self.data_path = _path_from_str(data_path)
         self.db_path = os.path.join(self.data_path, 'output', self.name+'.sqlite')
+        self.db_timeout = timeout
 
         ParameterRetriever.set_data_folder(self.data_path)
 
@@ -63,7 +69,7 @@ class Session(object):
         self.cashe = CasheDict(max_size=1000) 
 
         # Create main tables if they do not exist
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
             con.execute("PRAGMA foreign_keys = 1;")
@@ -178,7 +184,7 @@ Name: {self.name}
 =========
 '''
         
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
             # Get scenarios
@@ -224,7 +230,7 @@ f'''{module}
 
     def __getitem__(self, scn):
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
                 
             try:
@@ -242,7 +248,7 @@ f'''{module}
         """Returns dict with scenario names as keys and list of years as values.
         """
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
             scenarios = {}
             res = cur.execute("""
@@ -311,7 +317,7 @@ f'''{module}
             ORDER BY r.scn_id, year
         """
         
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
         
             res = cur.execute(qry)
@@ -366,7 +372,7 @@ f'''{module}
         }
         scn_def_json = json.dumps(scn_def)
       
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
             
             # Insert scenario into database if it's not alredy there
@@ -423,7 +429,7 @@ f'''{module}
         
         '''
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
             con.execute("PRAGMA foreign_keys = 1;")
@@ -531,7 +537,7 @@ f'''{module}
         
         '''
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
             con.execute("PRAGMA foreign_keys = 1;")
@@ -571,7 +577,7 @@ f'''{module}
         None
         """
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
             con.execute("PRAGMA foreign_keys = 1;")
@@ -612,7 +618,7 @@ f'''{module}
     def clean(self):
         """Performes VACUUM; on database file"""
 
-        with closing(sqlite3.connect(self.db_path)) as con, con:
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con:
             con.execute("VACUUM;")
         
 
@@ -630,7 +636,7 @@ f'''{module}
             
         '''
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
             
             res = cur.execute(f"""
@@ -671,7 +677,7 @@ f'''{module}
                 # Only include 'scalable' data attributes (i.e. those that can be aggregated)
                 data_attr_dict = {k : v for k, v in arg.data_attr.dict.items() if v['scalable']}
 
-                with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                     closing(con.cursor()) as cur:
 
                     data = [(module, attr, json.dumps(meta)) for attr, meta in data_attr_dict.items()]
@@ -694,7 +700,7 @@ f'''{module}
                             data_to_write = data_to_write.T.groupby(agg_lvls).sum().T
 
 
-                    with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                    with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                         closing(con.cursor()) as cur:
     
                         res = cur.execute("""
@@ -704,7 +710,7 @@ f'''{module}
                         attr_id = res.fetchone()[0]
                     
                     if isinstance(data_to_write, pd.DataFrame|pd.Series):
-                        data_to_write = _level_names_to_integer_key(data_to_write, self.db_path)
+                        data_to_write = _level_names_to_integer_key(data_to_write, self.db_path, self.db_timeout)
                         
                         lvl_cols = data_to_write.index.names
                         data = pd.concat(
@@ -746,7 +752,7 @@ f'''{module}
                         DELETE FROM attr_{attr_id} WHERE run_id = ?
                     """
 
-                    with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                    with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                         closing(con.cursor()) as cur:
 
                         con.execute("PRAGMA foreign_keys = 1;")
@@ -769,7 +775,7 @@ f'''{module}
             else:
                 warnings.warn(f'Passed object of type {type(arg)} ignored')
 
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
             cur.execute(f"""
@@ -804,7 +810,7 @@ f'''{module}
             )
             for agr_name in df.columns:
                 
-                with closing(sqlite3.connect(self.db_path)) as con, con,  \
+                with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                     closing(con.cursor()) as cur:
         
                     cur.execute("""
@@ -847,7 +853,7 @@ f'''{module}
             and a (list of) str designating column levels to aggregate data to.
         """
         
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
     
             res = cur.execute("""
@@ -960,7 +966,7 @@ f'''{module}
         as columns.
         '''
         
-        with closing(sqlite3.connect(self.db_path)) as con, con,  \
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
       
             res = cur.execute(f"""
@@ -1149,7 +1155,7 @@ f'''{module}
                 self.cashe[qry] = df
             
         if all_region_levels and 'region' in groupby:
-            with closing(sqlite3.connect(self.db_path)) as con, con,  \
+            with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                 closing(con.cursor()) as cur:
                 
                 # Get all region levels present in df
@@ -1276,7 +1282,7 @@ def _isiterable(obj):
     except TypeError:
         return False
 
-def _level_names_to_integer_key(data, db_path):
+def _level_names_to_integer_key(data, db_path, timeout):
 
     data = data.copy()
     
@@ -1285,7 +1291,7 @@ def _level_names_to_integer_key(data, db_path):
     if isinstance(data, pd.DataFrame):
         lvls_axs += [(lvl, 1) for lvl in data.columns.names]
 
-    with closing(sqlite3.connect(db_path)) as con, con,  \
+    with closing(sqlite3.connect(db_path, timeout=timeout)) as con, con,  \
         closing(con.cursor()) as cur:
 
         lvl_keys = []
