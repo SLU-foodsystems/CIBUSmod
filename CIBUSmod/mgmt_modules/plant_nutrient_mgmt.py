@@ -242,7 +242,7 @@ class PlantNutrientMgmt():
 
         # Create dataframe for results
         manure_TAN_application = pd.DataFrame(
-            0,
+            0.0,
             columns = herds.manure.N_to_spread.columns,
             index = self.crops.area.index
         )
@@ -627,7 +627,7 @@ class PlantNutrientMgmt():
         # Get emission factors [% of N]
         EF = (
             pd.DataFrame(
-                1,
+                1.0,
                 columns = N_appl.columns,
                 index = N_appl.index
             )

@@ -142,7 +142,7 @@ class ManureMgmt():
             
             # Create dataframe
             mms_shares = pd.DataFrame(
-                0,
+                0.0,
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
                     [tuple(list(i) + [mms]) for i in heads.columns for mms in mmss + ['grazing']],
@@ -395,7 +395,8 @@ class ManureMgmt():
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,ani,mms,cs) for ps in pss for ani in anis for mms in mmss for cs in css],
                     names=['prod_system','animal','MMS','compound']
-                )
+                ),
+                dtype = float
             )
 
             # Calculate CH4 emissions using the IPCC Tier 2 method
@@ -428,7 +429,7 @@ class ManureMgmt():
             C_loss_CO2 = C_loss_tot - C_loss_CH4
             # Set negative CO2 loss to zero. Occurs if parameter 'C_loss' yields lower
             # C losses than calculated methane emissions (e.g. for MMS=grazing)
-            C_loss_CO2 = C_loss_CO2.where(C_loss_CO2 > 0, 0)
+            C_loss_CO2 = C_loss_CO2.where(C_loss_CO2 > 0, 0.0)
             CO2_loss = C_loss_CO2 * ((12+16*2)/12)
 
             # Put results in dataframe

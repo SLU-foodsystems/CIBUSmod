@@ -255,7 +255,11 @@ animals              {self.animals}
         # conversion ratios or a fixed feed intake per animal.
         E_req = hasattr(self,'calculate_feed_E_req')
 
-        df_req = pd.DataFrame(index = self.index, columns = self.data_attr.get('heads').columns)
+        df_req = pd.DataFrame(
+            index = self.index,
+            columns = self.data_attr.get('heads').columns,
+            dtype = float
+        )
         pss = list(df_req.columns.get_level_values('prod_system'))
         anis = list(df_req.columns.get_level_values('animal'))
         if self.species == 'cattle':
@@ -280,7 +284,7 @@ animals              {self.animals}
         # Add data attribute
         if E_req:
             self.data_attr.add(
-                df_req * self.heads,
+                (df_req * self.heads),
                 name = 'feed_E_req',
                 unit = 'MJ/year',
                 orig = 'AnimalHerd',
@@ -288,7 +292,7 @@ animals              {self.animals}
             )   
         else:
             self.data_attr.add(
-                df_req * self.heads,
+                (df_req * self.heads),
                 name = 'feed_DM_req',
                 unit = 'kg DM/year',
                 orig = 'AnimalHerd',
@@ -329,7 +333,8 @@ animals              {self.animals}
         # Create production DF
         production = pd.DataFrame(
             index = self.index,
-            columns = pd.MultiIndex.from_tuples([(ps,ani,pr) for ps in pss for ani in anis for pr in prs], names=['prod_system','animal','animal_prod'])
+            columns = pd.MultiIndex.from_tuples([(ps,ani,pr) for ps in pss for ani in anis for pr in prs], names=['prod_system','animal','animal_prod']),
+            dtype = float
             )
         
         # Calculate meat production [kg CW]

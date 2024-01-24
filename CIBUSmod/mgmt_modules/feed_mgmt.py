@@ -99,7 +99,8 @@ class FeedMgmt():
                 columns = pd.MultiIndex.from_tuples(
                     [(ps,ani,fe) for ps in pss for ani in anis for fe in fes],
                     names=['prod_system','animal','feed']
-                    )
+                    ),
+                    dtype = float
                 )
 
             # Get feed rations
@@ -263,7 +264,8 @@ class FeedMgmt():
                 columns = pd.MultiIndex.from_tuples(
                     [(ori,ps,ani,pr) for ori in ['domestic','regional','imported'] for ps in pss for ani in anis for pr in prs.unique()],
                     names=['origin','prod_system','animal',of]
-                    )
+                    ),
+                dtype = float
                 )
             
             if min(result_df.shape)>0:
