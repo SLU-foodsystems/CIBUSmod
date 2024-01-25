@@ -1,11 +1,12 @@
 import sys
 import os
+import time
 sys.path.insert(0, os.path.join(os.getcwd(),'..'))
 import CIBUSmod as cm
 
 # Create session (Make sure that name and data_path match the notebook!)
 session = cm.Session(
-    name = 'multi_proc_test',
+    name = 'fai_multi_proc',
     data_path = '../data',
     timeout = 60 # Increase timeout to avoid failing to write if multiple processes try to write at the same time
 )
@@ -90,6 +91,7 @@ geodist = cm.GeoDistributor(
 
 def do_run(scn_year):
     scn, year = scn_year
+    tic = time.time()
 
     # Update all parameter values
     cm.ParameterRetriever.update_all_parameter_values(
@@ -157,4 +159,4 @@ def do_run(scn_year):
             demand, regions, crops, herds
         )
 
-    return True
+    return time.time() - tic
