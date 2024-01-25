@@ -74,9 +74,9 @@ class InputsMgmt(object):
         
         # Get activity ids that need to be downloaded
         # and download ecoinvent xml files
-        ei_activity_ids_to_download = [ei_id for ei_id,f in
+        ei_activity_ids_to_download = list({ei_id for ei_id,f in
                                        zip(inputs_and_ei_ids.ecoinvent_id,files_needed)
-                                       if f not in files_available]
+                                       if f not in files_available})
         if len(ei_activity_ids_to_download)>0:
             ep = _ei_connect(ei_version,ei_model)
             _ei_get_files(ep, Path(path), ids=ei_activity_ids_to_download)
