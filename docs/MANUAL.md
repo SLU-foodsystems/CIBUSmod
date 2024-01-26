@@ -7,7 +7,7 @@
     - [Setting data folder path](#setting-data-folder-path)
     - [Default data workbooks](#default-data-workbooks)
     - [Scenario data workbooks](#scenario-data-workbooks)
-1. Defining and running scenarios
+1. [Defining and running scenarios](#defining-and-running-scenarios)
 1. Main modules
     - Regions
     - DemandAndConversions
@@ -108,15 +108,15 @@ Scenarios are defined in Excel wrokbooks located in `data/scenarios/`. When defi
 <img src="figs/manual/scenario_data_example1.png"> \
 *Example of scenario Excel data sheet*
 
-Changes in parameter values can be specified in absolute or relative terms by writing by writing `abs` or `rel` in the ` val_is` column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if `crop='Ley for foder'` where the yield is increased by 30% (factor 1.3).
+Changes in parameter values can be specified in absolute or relative terms by writing `abs` or `rel` in the ` val_is` column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value is specified. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if `crop='Ley for fodder'` where the yield is increased by 30% (factor 1.3).
 
 Scenario parameter values can be specified for any chosen years and the model will interpolate between specified years when running the scenario.
 
-Parameter values to change in a scenario can be defined in more general terms than the default data (i.e. applying to several default parameter values, such as in the case of yield above) but never more precise. So, if the default value for the parameter `seed` from the previous example was defined for the filter levels `crop`, `crop_prod` and `prod_system` a scenario can't change this parameter independently on the `region` level without first explicitly specifying this filter level in the default data workbook.
+Parameter values to change in a scenario can be defined in more general terms than default parameters (i.e. applying to several default parameter values, such as in the case of yield above) but never more precise. So, if the default value for the parameter `seed` from the previous example was defined for the filter levels `crop`, `crop_prod` and `prod_system` a scenario can't change this parameter independently on the `region` level without first explicitly specifying this filter level in the default data workbook.
 
 # Defining and running scenarios
 
-To run a scenario defined in one of more scenario Excel workbooks it first needs to be added to the `Session` object. This is done via the method `.add_scenario()`, which takes five parameters; `name`, `years`, `scenario`, `modules` and `pars`.
+To run a scenario defined in one or more scenario Excel workbooks it first needs to be added to the `Session` object. This is done via the method `.add_scenario()`, which takes five parameters; `name`, `years`, `scenario`, `modules` and `pars`.
 
 ```python
 my_session.add_scenario(
@@ -128,4 +128,4 @@ my_session.add_scenario(
 )
 ```
 
-The `name` parameter gives the scenario a name which is what will be printed in output tables etc. and the `years` parameter specified the years to be run. The 'scenario' parameter is the filename(s) (exuding the .xlsx extension) of the scenario Excel workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario workbooks change the same parameter only the last one in the list will have an effect. The parameters `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. Using the keyword 'all' means that all modules and parameters included in the scenario workbooks will be updated. 
+The `name` parameter gives the scenario a name which is what will be printed in output tables etc. and the `years` parameter specifies the years to be run. The 'scenario' parameter is the filename(s) (exuding the .xlsx extension) of the scenario Excel workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario workbooks change the same parameter only the last one in the list will have an effect. The parameters `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. Using the keyword 'all' means that all modules and parameters included in the scenario Excel workbooks will be updated. 
