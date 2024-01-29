@@ -3,8 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import rgetattr, rsetattr, multiply_aligned, fix_herds
-from ..utils.misc import Container
+from ..utils.misc import multiply_aligned, fix_herds
 
 class FeedMgmt():
     '''Class that that calculates ammount of 'crop products' or 'by-products' needed for a certain demand of 'feed'
@@ -34,12 +33,7 @@ class FeedMgmt():
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='FeedMgmt')
-
-        # Create feed objects in herds
-        for herd in self.herds:
-            if not hasattr(herd,'feed'):
-                herd.feed = Feed()
-        
+       
         vprint('Calculating feed consumption ...')
         self.calculate_feed_consumption()
 
@@ -87,7 +81,7 @@ class FeedMgmt():
                 )
 
             # Get ouput production systems
-            pss = herd.heads.columns.get_level_values('prod_system').unique()
+            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
             # Get animals
             anis = herd.animals
             # Get feeds in rations from feeds listed in the parameters 'f_feed' column
@@ -116,7 +110,7 @@ class FeedMgmt():
 
             # If herd has feed energy requirements calculate dry
             # matter requirements from energy requirements
-            if hasattr(herd,'feed_E_req'):
+            if 'feed_E_req' in herd.data_attr:
 
                 # Get energy content of feeds [MJ/kg DM]
                 E_per_feed = self.par.get_from_frame('feed_par_E',df_feeds)
@@ -126,7 +120,7 @@ class FeedMgmt():
 
                 # Calculate required DM and add data attribute
                 herd.data_attr.add(
-                    herd.feed_E_req / E_per_DM,
+                    herd.data_attr.get('feed_E_req') / E_per_DM,
                     name = 'feed_DM_req',
                     unit = 'kg DM/year',
                     orig = 'FeedMgmt',
@@ -134,7 +128,7 @@ class FeedMgmt():
                 )
 
             # Calculate and assign feed quantities [kg DM]
-            df_feeds.loc[:,:] = shares_per_feed * herd.feed_DM_req.align(shares_per_feed)[0]
+            df_feeds.loc[:,:] = shares_per_feed * herd.data_attr.get('feed_DM_req').align(shares_per_feed)[0]
 
             # Add data attribute
             herd.data_attr.add(
@@ -155,7 +149,7 @@ class FeedMgmt():
                 breed = herd.breed
                 )
             
-            feed_DM = herd.feed.consumption
+            feed_DM = herd.data_attr.get('feed.consumption')
             # Get dry matter intake [kg DM]
             ration_DM = (
                 feed_DM
@@ -205,8 +199,8 @@ class FeedMgmt():
                 breed = herd.breed
                 )
             
-            feed_to_feeding = herd.feed.consumption * ( 1 / ( 1 - self.par.get_from_frame('feeding_losses', herd.feed.consumption)/100 ) )
-            feeding_losses = feed_to_feeding - herd.feed.consumption
+            feed_to_feeding = herd.data_attr.get('feed.consumption') * ( 1 / ( 1 - self.par.get_from_frame('feeding_losses', herd.data_attr.get('feed.consumption'))/100 ) )
+            feeding_losses = feed_to_feeding - herd.data_attr.get('feed.consumption')
 
             feed_to_storage = feed_to_feeding * ( 1 / ( 1 - self.par.get_from_frame('storage_losses', feed_to_feeding)/100 ) )
             storage_losses = feed_to_storage - feed_to_feeding
@@ -248,7 +242,7 @@ class FeedMgmt():
             )
 
             # Get ouput production systems
-            pss = herd.heads.columns.get_level_values('prod_system').unique()
+            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
             # Get animals
             anis = herd.animals
             # Get feeds
@@ -284,7 +278,7 @@ class FeedMgmt():
 
                 result_df.loc[:,('domestic')] = pd.concat(
                     {'domestic': (
-                        multiply_aligned(feed_to_dom_prod,herd.feed.demand)
+                        multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of], sort=False).sum().T
                     )},
                     names=['origin'],
@@ -293,7 +287,7 @@ class FeedMgmt():
 
                 result_df.loc[:,('regional')] = pd.concat(
                     {'regional': (
-                        multiply_aligned(feed_to_reg_prod,herd.feed.demand)
+                        multiply_aligned(feed_to_reg_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of], sort=False).sum().T
                     )},
                     names=['origin'],
@@ -302,7 +296,7 @@ class FeedMgmt():
 
                 result_df.loc[:,('imported')] = pd.concat(
                     {'imported': (
-                        multiply_aligned(feed_to_imp_prod,herd.feed.demand)
+                        multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of],sort=False).sum().T
                     )},
                     names=['origin'],
@@ -396,13 +390,13 @@ class FeedMgmt():
 
                 # Get dry matter intake [kg DM]
                 dry_matter_intake = (
-                    herd.feed.consumption
+                    herd.data_attr.get('feed.consumption')
                     .T.groupby(['prod_system','animal']).sum().T
                 )
 
 
                 # Get gross energy intake [MJ]
-                GE_intake = herd.feed.ration_GE *  herd.feed.consumption.T.groupby(['prod_system','animal']).sum().T
+                GE_intake = herd.data_attr.get('feed.ration_GE') *  herd.data_attr.get('feed.consumption').T.groupby(['prod_system','animal']).sum().T
 
                 if herd.species == 'cattle':
                     # Calculate Ym (i.e. % of gross energy intake resulting in mtehane
@@ -411,14 +405,14 @@ class FeedMgmt():
                     # greenhouse gases>> which is used in the Swedish NIR.
 
                     # Get fat in ration [g/kg DM]
-                    fat_in_ration = herd.feed.ration_fat
+                    fat_in_ration = herd.data_attr.get('feed.ration_fat')
 
                     sel_rough = ['ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing']
 
                     # Calculate concentrate share [% of DM]
                     concentrate_share = 100 - (
                         (
-                            herd.feed.consumption
+                            herd.data_attr.get('feed.consumption')
                             .loc[:,idx[:,:,sel_rough]]
                             .T.groupby(['prod_system','animal']).sum().T
                         ) / dry_matter_intake.replace({0:np.nan}) # To avoid div by 0 error
@@ -431,13 +425,13 @@ class FeedMgmt():
                     # Update values using specific method for cows
                     Ym.update(
                         (
-                            (1.39 * dry_matter_intake - 0.091 * fat_in_ration * herd.heads * 365.25)
+                            (1.39 * dry_matter_intake - 0.091 * fat_in_ration * herd.data_attr.get('heads') * 365.25)
                             / GE_intake * 100
                         ).xs('cows', level='animal', axis=1, drop_level=False)
                     )
                 else:
                     # Get specified Ym factors per animal
-                    Ym = self.par.get_from_frame('Ym_enteric',herd.heads)
+                    Ym = self.par.get_from_frame('Ym_enteric',herd.data_attr.get('heads'))
 
                 # Calculate enteric methane emissions from Ym and GE intake [kg CH4]
                 enteric_methane = GE_intake * Ym/100 / CH4_specific_energy
@@ -446,7 +440,7 @@ class FeedMgmt():
                 # Calculate enteric fermentation based on EFs [kg CH4/animal/year] per animal
                 
                 # Calculate enteric methane emissions [kg CH4]
-                enteric_methane = herd.heads * self.par.get_from_frame('EF_enteric', herd.heads)
+                enteric_methane = herd.data_attr.get('heads') * self.par.get_from_frame('EF_enteric', herd.data_attr.get('heads'))
 
             # Adjust based on enteric methane adjustment factor
             enteric_methane = enteric_methane * self.par.get_from_frame('enteric_adj', enteric_methane)
@@ -467,7 +461,4 @@ class FeedMgmt():
             )
 
             self.par.clear()
-
-class Feed(Container):
-    '''Class to store feed attributes in AnimalHerd obejcts'''
     

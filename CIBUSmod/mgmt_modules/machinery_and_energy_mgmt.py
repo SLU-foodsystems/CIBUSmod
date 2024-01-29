@@ -196,20 +196,20 @@ class MachineryAndEnergyMgmt(object):
         # Calculate final energy
         E_final = A.copy()
         # Series to get regions with soil class
-        sc = pd.Series(self.regions.soil_texture.index.values, index = self.regions.soil_texture)
+        sc = pd.Series(self.regions.data_attr.get('soil_texture').index.values, index = self.regions.data_attr.get('soil_texture'))
 
         for soil_class in soil_classes:
             E_final.loc[idx[:,:,sc[soil_class]],:] = (
-                (A * E_per_area.loc[soil_class,:]).mul(self.crops.area, axis=0) +
-                (A * E_per_mass.loc[soil_class,:]).mul(self.crops.harvest, axis=0) +
-                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.crop_residues_harvest.sum(axis=1), axis=0)
+                (A * E_per_area.loc[soil_class,:]).mul(self.crops.data_attr.get('area'), axis=0) +
+                (A * E_per_mass.loc[soil_class,:]).mul(self.crops.data_attr.get('harvest'), axis=0) +
+                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
             ).astype(float)
 
         # Calculate energy requirements per energy source and store
         self.par.clear()
-        M = self.crops.energy_use.loc[:,idx['field machinery',:]]
+        M = self.crops.data_attr.get('energy_use').loc[:,idx['field machinery',:]]
 
-        self.crops.energy_use.loc[:,idx['field machinery',:]] = (
+        self.crops.data_attr.get('energy_use').loc[:,idx['field machinery',:]] = (
             (pf('energy_source_share',M)/100)
             .mul(E_final.sum(axis=1), axis=0) /
             pf('drivetrain_efficiency',M)
@@ -277,10 +277,10 @@ class MachineryAndEnergyMgmt(object):
         idx = pd.IndexSlice
 
         self.par.clear()
-        M = self.crops.energy_use.loc[:,idx['greenhouses',:]]
-        self.crops.energy_use.loc[:,idx['greenhouses',:]] = (
+        M = self.crops.data_attr.get('energy_use').loc[:,idx['greenhouses',:]]
+        self.crops.data_attr.get('energy_use').loc[:,idx['greenhouses',:]] = (
             pf('greenhouse_energy_use',M)
-            .mul(self.crops.area, axis=0) *
+            .mul(self.crops.data_attr.get('area'), axis=0) *
             (pf('energy_source_share',M)/100)
         )
 
@@ -303,9 +303,9 @@ class MachineryAndEnergyMgmt(object):
 
             # Create dataframes of heads, inserted heads and production
             # and calculate energy use
-            heads = herd.heads.reindex(
+            heads = herd.data_attr.get('heads').reindex(
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,an,ac,es) for ps,an in herd.heads.columns for ac in acs for es in ess],
+                    [(ps,an,ac,es) for ps,an in herd.data_attr.get('heads').columns for ac in acs for es in ess],
                     names=['prod_system','animal','activity','energy_source']
                 )
             )
@@ -315,9 +315,9 @@ class MachineryAndEnergyMgmt(object):
             )
 
             if 'inserted_n' in herd.data_attr:
-                inserted_heads = herd.inserted_n.reindex(
+                inserted_heads = herd.data_attr.get('inserted_n').reindex(
                     columns = pd.MultiIndex.from_tuples(
-                        [(ps,an,ac,es) for ps,an in herd.inserted_n.columns for ac in acs for es in ess],
+                        [(ps,an,ac,es) for ps,an in herd.data_attr.get('inserted_n').columns for ac in acs for es in ess],
                         names=['prod_system','animal','activity','energy_source']
                     )
                 )
@@ -328,9 +328,9 @@ class MachineryAndEnergyMgmt(object):
             else:
                 energy_use_per_inserted_head = 0
 
-            prod = herd.production.reindex(
+            prod = herd.data_attr.get('production').reindex(
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,an,ap,ac,es) for ps,an,ap in herd.production.columns for ac in acs for es in ess],
+                    [(ps,an,ap,ac,es) for ps,an,ap in herd.data_attr.get('production').columns for ac in acs for es in ess],
                     names=['prod_system','animal','animal_prod','activity','energy_source']
                 )
             )
@@ -364,7 +364,7 @@ class MachineryAndEnergyMgmt(object):
             self.par.clear()
 
             # Get energy use. kWh --> TJ
-            energy_use = module.energy_use * 1000 * 3600 / 1e12
+            energy_use = module.data_attr.get('energy_use') * 1000 * 3600 / 1e12
 
             # Get compounds
             cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')

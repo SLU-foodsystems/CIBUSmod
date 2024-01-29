@@ -5,7 +5,7 @@ import pandas as pd
 import os
 
 from .retriever import ParameterRetriever
-from .misc import DataAttr
+from .data_attr import DataAttr
 from ..main_modules.demand_and_conversions import DemandAndConversions
 from ..main_modules.regions import Regions
 from ..main_modules.crop_prod import CropProduction
@@ -101,7 +101,7 @@ f'''{scn}: {' --> '.join(years)} {'('+str(nyears)+' years)' if nyears>1 else ''}
         modules = [t.replace('__metadata','') for t in tables if '__metadata' in t]
         for i,module in enumerate(modules):
             data_attr = DataAttr(0)
-            data_attr.dict = _db_read_metadata(module, self.db_path)
+            data_attr.metadata = _db_read_metadata(module, self.db_path)
             str2 += (
 f'''{module}
 {'-'*len(module)}

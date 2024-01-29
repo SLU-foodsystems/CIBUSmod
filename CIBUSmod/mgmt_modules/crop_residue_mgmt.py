@@ -52,7 +52,7 @@ class CropResidueMgmt():
         res = self.par.get_unique('crop_resid', qry='parameter == "crop_resid_harvestable"')
 
         # Get above ground crop residues
-        crop_residues = self.crops.crop_residues['above ground']
+        crop_residues = self.crops.data_attr.get('crop_residues')['above ground']
 
         df = pd.DataFrame(
             index = crop_residues.index,
@@ -82,7 +82,7 @@ class CropResidueMgmt():
 
         # Get crop residues used for feed
         demand_for_feed = (
-            pd.concat([h.feed.crop_residue_demand for h in self.herds], axis=1)
+            pd.concat([h.data_attr.get('feed.crop_residue_demand') for h in self.herds], axis=1)
             .xs('domestic', level='origin', axis=1)
             .T.groupby(['crop_resid']).sum().T
             # WIP
@@ -90,7 +90,7 @@ class CropResidueMgmt():
         
         # Get crop residues used for bedding
         demand_for_bedding = (
-            pd.concat([h.bedding_material for h in self.herds], axis=1)
+            pd.concat([h.data_attr.get('bedding_material') for h in self.herds], axis=1)
             .T.groupby(['feed']).sum().T
             .rename_axis(columns={'feed':'crop_resid'})
         )
@@ -103,7 +103,7 @@ class CropResidueMgmt():
         total_demand = demand_for_feed + demand_for_bedding + demand_for_energy
         
         # Calculate allocation factors to allocate harvestable crop residues to use on regional level
-        crop_residues_alloc = self.crops.crop_residues_harvestable.groupby(['region']).transform(lambda x: x/x.sum())
+        crop_residues_alloc = self.crops.data_attr.get('crop_residues_harvestable').groupby(['region']).transform(lambda x: x/x.sum())
         
         # Calculate crop residue harvest per crop, prod_system and region
         crop_residues_harvest = (
@@ -117,14 +117,14 @@ class CropResidueMgmt():
         
         # Set harvest to harvestable if harvest exceeds harvestable
         crop_residues_harvest = crop_residues_harvest.where(
-            crop_residues_harvest <= self.crops.crop_residues_harvestable,
-            self.crops.crop_residues_harvestable
+            crop_residues_harvest <= self.crops.data_attr.get('crop_residues_harvestable'),
+            self.crops.data_attr.get('crop_residues_harvestable')
         )
         
         # Calculate remaining demand that needs to be met nationally and remaining harvestable
         # crop residues
         remaining_demand = total_demand.sum() - crop_residues_harvest.sum()
-        remaining_harvestable = self.crops.crop_residues_harvestable - crop_residues_harvest
+        remaining_harvestable = self.crops.data_attr.get('crop_residues_harvestable') - crop_residues_harvest
         
         # Calculate allocation factors to allocate harvestable crop residues to use on national level
         crop_residues_alloc_nat = remaining_harvestable.transform(lambda x: x/x.sum())
@@ -136,7 +136,7 @@ class CropResidueMgmt():
             total_demand.sum().astype(float),
             crop_residues_harvest.sum().astype(float)
         )
-        assert (crop_residues_harvest<=self.crops.crop_residues_harvestable).all().all()
+        assert (crop_residues_harvest<=self.crops.data_attr.get('crop_residues_harvestable')).all().all()
         
         # Add data attribute
         self.crops.data_attr.add(

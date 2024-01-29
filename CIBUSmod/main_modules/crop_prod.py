@@ -3,9 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, DataAttr
-
-from ..mgmt_modules.plant_nutrient_mgmt import Fertiliser
+from ..utils.data_attr import DataAttr
 
 class CropProduction(object):
     '''Main module that handles crop production
@@ -125,7 +123,6 @@ class CropProduction(object):
         obj = StaticCropProduction()
 
         obj.index = self.index.copy()
-        obj.fertiliser = Fertiliser()
 
         obj.data_attr = DataAttr(obj)
 
@@ -212,7 +209,7 @@ class CropProduction(object):
             desc = 'Demand for seeds'
         )
 
-class StaticCropProduction(Container):
+class StaticCropProduction():
     '''Class used to create static copys of animal her objects. These stores all attributes except 'par'
     but does not inherit any methods'''
 

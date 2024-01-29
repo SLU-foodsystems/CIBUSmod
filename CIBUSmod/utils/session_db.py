@@ -8,7 +8,7 @@ import warnings
 from contextlib import closing
 
 from .retriever import ParameterRetriever
-from .misc import DataAttr
+from .data_attr import DataAttr
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
 class Session(object):
@@ -217,7 +217,7 @@ Name: {self.name}
         modules = sorted(list(set([i[0] for i in data_attrs])))
         for module in modules:
             data_attr = DataAttr(0)
-            data_attr.dict = dict(sorted({i[1]:json.loads(i[2]) for i in data_attrs if i[0] == module}.items()))
+            data_attr.metadata = dict(sorted({i[1]:json.loads(i[2]) for i in data_attrs if i[0] == module}.items()))
             str2 += (
 f'''{module}
 {'-'*len(module)}
@@ -675,7 +675,7 @@ f'''{module}
                 module = arg.module_name
                 
                 # Only include 'scalable' data attributes (i.e. those that can be aggregated)
-                data_attr_dict = {k : v for k, v in arg.data_attr.dict.items() if v['scalable']}
+                data_attr_dict = {k : v for k, v in arg.data_attr.items() if v['scalable']}
 
                 with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                     closing(con.cursor()) as cur:

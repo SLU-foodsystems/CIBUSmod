@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import DataAttr, Container, rgetattr
+from ..utils.data_attr import DataAttr
 
 class Regions(object):
     '''Class that handles region attributes such as soil and climate paramters as well as the baseline
@@ -45,11 +45,23 @@ class Regions(object):
             else:
                 raise ValueError(f'"{k}" is not a valid setting')
 
-        # Get initial crop areas and animal numbers
+        # Get baseline crop areas and animal numbers
         self.get_x0()
-        # Set x0
-        self.x0_crops_init = self.x0_crops.copy()
-        self.x0_animals_init = self.x0_animals.copy()
+        # Set x0_init
+        self.data_attr.add(
+            self.data_attr.get('x0_crops').copy(),
+            name = 'x0_crops_init',
+            unit = 'ha or m2',
+            orig = 'Regions',
+            desc = 'Baseline crop areas in ha (or m2 for greenhouse crops) in default data (i.e. not affected by scenarios)'
+        )
+        self.data_attr.add(
+            self.data_attr.get('x0_animals').copy(),
+            name = 'x0_animals_init',
+            unit = 'heads',
+            orig = 'Regions',
+            desc = 'Baseline numbers of defining animals per animal production system in default data (i.e. not affected by scenarios)'
+        )
 
     def calculate(self, verbose=False):
         
@@ -114,7 +126,7 @@ class Regions(object):
 
         # Get index and set filters
         self.par.clear()
-        index = self.x0_crops.index.get_level_values('region').unique()
+        index = self.data_attr.get('x0_crops').index.get_level_values('region').unique()
         p = self.par.get
         self.par.set(**index.to_frame().to_dict('list'))
 
@@ -139,7 +151,7 @@ class Regions(object):
 
         # Get index and set filters
         self.par.clear()
-        index = self.x0_crops.index.get_level_values('region').unique()
+        index = self.data_attr.get('x0_crops').index.get_level_values('region').unique()
         p = self.par.get
         self.par.set(**index.to_frame().to_dict('list'))
 
@@ -266,7 +278,7 @@ class Regions(object):
         if self.settings['max_land_use_from_scenario_x0']:
             x0_crops = self.data_attr.get('x0_crops').copy()
         else:
-            x0_crops = self.x0_crops_init.copy()
+            x0_crops = self.data_attr.get('x0_crops_init').copy()
 
         # Calculate land use in x0
         lu = (
@@ -329,7 +341,7 @@ def _point_in_polygon(point,polygon):
 
     return inside
 
-class StaticRegions(Container):
+class StaticRegions():
     '''Class used to create static copy of DemandAndConversions object. These stores all attributes except 'par'
     but does not inherit any methods'''
 

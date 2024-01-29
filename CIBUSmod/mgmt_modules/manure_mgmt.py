@@ -4,7 +4,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, multiply_aligned, rgetattr, fix_herds
+from ..utils.misc import multiply_aligned, fix_herds
 
 if TYPE_CHECKING:
     from ..utils.retriever import ParameterRetriever
@@ -85,11 +85,6 @@ class ManureMgmt():
 
         # Define function to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='ManureMgmt')
-
-        # Create manure objects in herds
-        for herd in self.herds:
-            if not hasattr(herd,'manure'):
-                herd.manure = Manure()
 
         # Calculate manure management system (MMS) shares
         vprint('Calculating MMS shares ...')
@@ -268,8 +263,8 @@ class ManureMgmt():
             df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [tuple(list(i) + [mms,fe]) for i in herd.heads.columns for mms in mmss for fe in fes],
-                    names = herd.heads.columns.names + ['MMS','feed']
+                    [tuple(list(i) + [mms,fe]) for i in herd.data_attr.get('heads').columns for mms in mmss for fe in fes],
+                    names = herd.data_attr.get('heads').columns.names + ['MMS','feed']
                 )
             )
             
@@ -279,7 +274,7 @@ class ManureMgmt():
                     self.par.get_from_frame('bedding_material_use', df),
                     herd.data_attr.get('manure.mms_shares')/100
                 ) * 365.25,
-                herd.heads
+                herd.data_attr.get('heads')
             )
             # Set bedding material use during grazing to zero
             DM.loc[:,(slice(None),slice(None),['grazing'],slice(None))] *= 0
@@ -327,26 +322,26 @@ class ManureMgmt():
             )
 
             # Get production systems, animals in herd
-            pss = herd.heads.columns.get_level_values('prod_system').unique()
+            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
             anis = herd.animals
 
-            DM_intake = herd.feed.consumption.T.groupby(['prod_system','animal']).sum().T
+            DM_intake = herd.data_attr.get('feed.consumption').T.groupby(['prod_system','animal']).sum().T
             if herd.species != 'poultry':
                 energy_manure = (
                     (
-                        herd.feed.ration_GE -
-                        herd.feed.ration_DE + 
-                        herd.feed.ration_GE * pf('UE_of_GE',herd.feed.ration_GE)
+                        herd.data_attr.get('feed.ration_GE') -
+                        herd.data_attr.get('feed.ration_DE') + 
+                        herd.data_attr.get('feed.ration_GE') * pf('UE_of_GE',herd.data_attr.get('feed.ration_GE'))
                     ) * DM_intake
                 )
             else:
                 energy_manure = (
-                    (herd.feed.ration_GE - herd.feed.ration_AME) * DM_intake
+                    (herd.data_attr.get('feed.ration_GE') - herd.data_attr.get('feed.ration_AME')) * DM_intake
                 )
 
             VS_excr = (
                 energy_manure * 
-                ((1 - herd.feed.ration_ASH/100) / herd.feed.ration_GE)
+                ((1 - herd.data_attr.get('feed.ration_ASH')/100) / herd.data_attr.get('feed.ration_GE'))
             ).fillna(0)
 
             # Distribute across MMS
@@ -412,7 +407,7 @@ class ManureMgmt():
                 # from manure emissions per head and year
                 CH4_Tier1 = multiply_aligned(
                     self.par.get_from_frame('methane_per_head',df),
-                    herd.heads
+                    herd.data_attr.get('heads')
                 ).replace({0:np.nan})
 
                 # Take Tier 2 if possible otherwise Tier 1
@@ -475,27 +470,27 @@ class ManureMgmt():
                 # SOME LOSSES SHOULD BE INCLUDED!! 
                 # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
                 feed = (
-                    herd.feed.consumption
+                    herd.data_attr.get('feed.consumption')
                     .T.groupby(['prod_system','animal']).sum().T *
-                    (rgetattr(herd, 'feed.ration_' + element) / 100)
+                    (herd.data_attr.get('feed.ration_' + element) / 100)
                 )
 
                 # Nutrients in bedding materials
-                bedding = rgetattr(herd, 'bedding_material_' + element)
+                bedding = herd.data_attr.get('bedding_material_' + element)
 
                 # Nutrients in live weight gain
                 lwg = (
-                    herd.lwg *
-                    self.par.get_from_frame(element + '_in_LW', herd.lwg)/1000
+                    herd.data_attr.get('lwg') *
+                    self.par.get_from_frame(element + '_in_LW', herd.data_attr.get('lwg'))/1000
                 )
 
                 # Nutrients in products (excl. meat)
                 prod = (
                     (
-                        herd.production *
+                        herd.data_attr.get('production') *
                         self.par.get_from_frame(
                             element + '_in_prod',
-                            herd.production
+                            herd.data_attr.get('production')
                         )/1000
                     )
                     .T.groupby(['prod_system','animal']).sum().T
@@ -621,6 +616,3 @@ _elem_to_name = {
     'P' : 'phosphorous (P)',
     'K' : 'potassium (P)'
 }
-
-class Manure(Container):
-    '''Class to store manure attributes in AnimalHerd obejcts'''

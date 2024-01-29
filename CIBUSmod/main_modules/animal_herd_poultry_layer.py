@@ -28,7 +28,7 @@ class LayerHerd(AnimalHerd):
         Returns
         -------
         Nothing.
-        Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
+        Sets data attributes heads, slaughtered_n and lost_n'''
 
         # Clear and set filters for ParameterRetriever
         self.par.clear()

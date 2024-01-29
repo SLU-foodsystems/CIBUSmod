@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, DataAttr, rgetattr, rsetattr, multiply_aligned
+from ..utils.data_attr import DataAttr
+from ..utils.misc import multiply_aligned
 from ..utils.retriever import ParameterRetriever
 
 ixsl = pd.IndexSlice
@@ -94,8 +95,8 @@ class DemandAndConversions(object):
         obj.data_attr = DataAttr(obj)
 
         for attr in self.data_attr:
-            if rgetattr(self, attr) is not None:
-                obj.data_attr.add(data=rgetattr(self, attr).copy(), name=attr, **self.data_attr[attr])
+            if self.data_attr.get(attr) is not None:
+                obj.data_attr.add(data=self.data_attr.get(attr).copy(), name=attr, **self.data_attr[attr])
             else:
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
@@ -150,7 +151,7 @@ class DemandAndConversions(object):
         # Add data attribute
         self.data_attr.add(
             # Convert to [kg/year] and factor in population
-            cons / 1000 * 365.25 * self.population * 1000000,
+            cons / 1000 * 365.25 * self.data_attr.get('population') * 1000000,
             name = 'food_demand',
             unit = 'kg/year',
             orig = 'DemandAndConversions',
@@ -164,13 +165,13 @@ class DemandAndConversions(object):
         # Get shares wasted at different levels
         waste_shares = pd.DataFrame(
             columns = pd.Index(['household','retail','processing'], name='waste_level'),
-            index = self.food_demand.index
+            index = self.data_attr.get('food_demand').index
         )
 
         waste_shares = self.par.get_from_frame('waste_share',waste_shares)/100
 
         # Apply waste shares and calculate food needed to enter each stage
-        food_to_household = self.food_demand.mul(1/(1-waste_shares['household']),axis=0)
+        food_to_household = self.data_attr.get('food_demand').mul(1/(1-waste_shares['household']),axis=0)
         food_to_retail = food_to_household.mul(1/(1-waste_shares['retail']),axis=0)
         food_to_processing = food_to_retail.mul(1/(1-waste_shares['processing']),axis=0)
 
@@ -182,7 +183,7 @@ class DemandAndConversions(object):
 
         # Calculate waste at each stage
         # Processing waste for imported foods is assumed to be generated abroad (i.e. not included)
-        waste['household'] = (food_to_household - self.food_demand).sum(axis=1)
+        waste['household'] = (food_to_household - self.data_attr.get('food_demand')).sum(axis=1)
         waste['retail'] = (food_to_retail - food_to_household).sum(axis=1)
         waste['processing'] = food_to_processing['domestic'] - food_to_retail['domestic'] 
         # waste = waste.droplevel('food_group')
@@ -264,9 +265,9 @@ class DemandAndConversions(object):
         
         # Get demand for food + non-food
         demand = pd.concat((
-            self.food_demand_to_processing['domestic'].rename('food'),
-            self.non_food_demand.rename('non-food'),
-            self.export_demand.rename('export')
+            self.data_attr.get('food_demand_to_processing')['domestic'].rename('food'),
+            self.data_attr.get('non_food_demand').rename('non-food'),
+            self.data_attr.get('export_demand').rename('export')
         ), axis=1).rename_axis('demand',axis=1)
 
         # Get crop products and by-products
@@ -325,9 +326,9 @@ class DemandAndConversions(object):
 
         # Get demand for food + non-food
         demand = pd.concat((
-            self.food_demand_to_processing['domestic'].rename('food'),
-            self.non_food_demand.rename('non-food'),
-            self.export_demand.rename('export')
+            self.data_attr.get('food_demand_to_processing')['domestic'].rename('food'),
+            self.data_attr.get('non_food_demand').rename('non-food'),
+            self.data_attr.get('export_demand').rename('export')
         ), axis=1).rename_axis('demand',axis=1)
 
         # Get animal products and by-products
@@ -425,13 +426,16 @@ class DemandAndConversions(object):
         )
 
         # Add induced skim milk exports to export demand
-        self.export_demand = self.export_demand.add(
-            pd.concat([
+        self.data_attr.update(
+            'export_demand',
+            self.data_attr.get('export_demand').add(
                 pd.concat([
-                        induced_skim_milk_exports
-                ], keys=['export'], names=['food_group'])
-            ], keys=[indeuce_export_of], names=['food']),
-            fill_value=0
+                    pd.concat([
+                            induced_skim_milk_exports
+                    ], keys=['export'], names=['food_group'])
+                ], keys=[indeuce_export_of], names=['food']),
+                fill_value=0
+            )
         )
 
         # Handle demand for animal by-products !!!
@@ -535,7 +539,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
 
     return None
 
-class StaticDemandAndConversions(Container):
+class StaticDemandAndConversions():
     '''Class used to create static copy of DemandAndConversions object. These stores all attributes except 'par'
     but does not inherit any methods'''
 

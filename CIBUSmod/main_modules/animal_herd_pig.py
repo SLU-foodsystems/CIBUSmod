@@ -25,7 +25,7 @@ class PigHerd(AnimalHerd):
         Returns
         -------
         Nothing.
-        Sets data attributes self.heads, self.slaughtered_n and self.lost_n'''
+        Sets data attributes heads, slaughtered_n and lost_n'''
 
         # Clear and set filters for ParameterRetriever
         self.par.clear()
@@ -221,7 +221,7 @@ class PigHerd(AnimalHerd):
         if ani in ['sows','boars']:
             live_weight = p('live_weight')
         elif ani == 'gilts':
-            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
+            growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             live_weight = (
                 2*p('live_weight', animal='sows') - 
                 growth_rate * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age'))
@@ -230,7 +230,7 @@ class PigHerd(AnimalHerd):
             # After weaning
             growth_rate = (p('live_weight_delivery') - p('live_weight_weaning')) / p('post_weaning_nursing_period')
         elif ani in ['growing pigs','finishing pigs']:
-            growth_rate = self.lwg.loc[:,(ps,ani)] / self.heads.loc[:,(ps,ani)] / 365.25
+            growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             
         if ani == 'sows':
             E_weaning_to_insemination = 55 * (365.25 - (p('weaning_age') + p('gestation_period')) * p('litters_per_sow')) # [2] 50-60 MJ NEs/day

@@ -2,11 +2,8 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import Container, DataAttr, rgetattr, rsetattr
+from ..utils.data_attr import DataAttr
 from ..utils.retriever import ParameterRetriever
-
-from ..mgmt_modules.feed_mgmt import Feed
-from ..mgmt_modules.manure_mgmt import Manure
 
 class AnimalHerd(object):
     '''Class that handels animal herd structure, feed requirements, production etc.
@@ -212,11 +209,7 @@ animals              {self.animals}
         # Create a StaticAnimalHerd obejct and populate with data
         obj = StaticAnimalHerd()
 
-        obj.index = self.index.copy()
-        obj.feed = Feed()
-        obj.manure = Manure()
         obj.id_attr = self.id_attr.copy()
-
         obj.data_attr = DataAttr(obj)
 
         # Set ID attributes
@@ -284,7 +277,7 @@ animals              {self.animals}
         # Add data attribute
         if E_req:
             self.data_attr.add(
-                (df_req * self.heads),
+                (df_req * self.data_attr.get('heads')),
                 name = 'feed_E_req',
                 unit = 'MJ/year',
                 orig = 'AnimalHerd',
@@ -292,7 +285,7 @@ animals              {self.animals}
             )   
         else:
             self.data_attr.add(
-                (df_req * self.heads),
+                (df_req * self.data_attr.get('heads')),
                 name = 'feed_DM_req',
                 unit = 'kg DM/year',
                 orig = 'AnimalHerd',
@@ -380,7 +373,7 @@ animals              {self.animals}
             desc = 'Total production of animal products'
         )
 
-class StaticAnimalHerd(Container):
+class StaticAnimalHerd():
     '''Class used to create static copys of animal herd objects. These stores all attributes except 'par'
     but does not inherit any methods'''
 
@@ -428,7 +421,7 @@ def make_herds(
     Returns
     -------
     pandas.Series : A series containing AnimalHerd objects representing all animals
-                    in regions.x0_animals
+                    in regions 'x0_animals' data attribute
     '''
 
     # Create Series to store AnimalHerd objects
@@ -442,7 +435,7 @@ def make_herds(
         dtype = object
     )
 
-    for (sp,br,ps) in regions.x0_animals.groupby(['species','breed','prod_system']).sum().index:
+    for (sp,br,ps) in regions.data_attr.get('x0_animals').groupby(['species','breed','prod_system']).sum().index:
 
         if (sp,br) in class_map:
 
@@ -472,7 +465,7 @@ def make_herds(
                 herds.loc[(sp,br,ps,ss)] = \
                 herd_class(
                     par = ParameterRetriever(herd_class_name),
-                    index = regions.x0_animals.index.get_level_values('region').unique(),
+                    index = regions.data_attr.get('x0_animals').index.get_level_values('region').unique(),
                     breed = br,
                     prod_system = ps,
                     sub_system = ss
@@ -498,9 +491,6 @@ def concat_herds(herds):
     res_herd.id_attr = AnimalHerd.id_attr
     for attr in AnimalHerd.id_attr:
         setattr(res_herd,attr,'aggregated')
-
-    res_herd.feed = Feed()
-    res_herd.manure = Manure()
 
     res_herd.data_attr = DataAttr(res_herd)
 

@@ -5,7 +5,6 @@ import numpy as np
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned
 from ..main_modules.animal_herd import concat_herds
-from ..utils.misc import Container
 
 class PlantNutrientMgmt():
     '''Class that that calculates ammount of plant nutrients needed for crop production
@@ -42,9 +41,6 @@ class PlantNutrientMgmt():
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='PlantNutrientMgmt')
     
-        # Create feed objects in herds
-        self.crops.fertiliser = Fertiliser()
-
         vprint('Calculating crop NPK requirements ...')
         self.calculate_TAN_req()
         self.calculate_PK_req(element='P')
@@ -87,13 +83,13 @@ class PlantNutrientMgmt():
         idx=pd.IndexSlice
 
         # Get crop yields
-        yields = (self.crops.harvest / self.crops.area).fillna(0)
+        yields = (self.crops.data_attr.get('harvest') / self.crops.data_attr.get('area')).fillna(0)
 
         # Calculate ley share per region
         lu_rel = self.par.get_rel('crop','land_use') # crop --> land_use
         cg_rel = self.par.get_rel('crop','crop_group') # crop --> crop_group
 
-        ley_share = self.crops.area.to_frame()
+        ley_share = self.crops.data_attr.get('area').to_frame()
         ley_share.loc[:,'lu'] = ley_share.index.get_level_values('crop').map(lu_rel)
         ley_share.loc[:,'cg'] = ley_share.index.get_level_values('crop').map(cg_rel)
         ley_share = (
@@ -105,9 +101,9 @@ class PlantNutrientMgmt():
 
         # Calculate area per use
         share_per_use = (
-            self.crops.production_per_use
+            self.crops.data_attr.get('production_per_use')
             .div(
-                self.crops.production_per_use.sum(axis=1),
+                self.crops.data_attr.get('production_per_use').sum(axis=1),
                 axis=0
             )
             .rename_axis('use', axis=1)
@@ -121,7 +117,7 @@ class PlantNutrientMgmt():
         share_per_use = share_per_use.T.groupby('use').sum().T
         share_per_use['none'] = 1 - share_per_use.drop('none', axis=1).sum(axis=1)
 
-        area_per_use = share_per_use.mul(self.crops.area, axis=0)
+        area_per_use = share_per_use.mul(self.crops.data_attr.get('area'), axis=0)
 
         # Propagate across uses (same yield/ley_share for all uses)
         pdf = pd.DataFrame(
@@ -243,18 +239,18 @@ class PlantNutrientMgmt():
         # Create dataframe for results
         manure_TAN_application = pd.DataFrame(
             0.0,
-            columns = herds.manure.N_to_spread.columns,
-            index = self.crops.area.index
+            columns = herds.data_attr.get('manure.N_to_spread').columns,
+            index = self.crops.data_attr.get('area').index
         )
 
         # 1. MANURE TO GRAZING AREAS ---------------------------->
         # Get crops used for grazing
         grazing_crops = self.crops.par.get_unique('crop', 'f_crop_prod=="grazing"')
         # Get menure TAN deposited while grazing
-        manure_TAN_grazing = herds.manure.TAN_to_spread.xs('grazing', level='MMS', axis=1, drop_level=False)
+        manure_TAN_grazing = herds.data_attr.get('manure.TAN_to_spread').xs('grazing', level='MMS', axis=1, drop_level=False)
         # Share of grazed biomass per "grazing crop"
         share_grazed_per_grazing_crop = (
-            self.crops.production_per_use
+            self.crops.data_attr.get('production_per_use')
             .filter(regex="feed.*")
             .loc[grazing_crops]
             .groupby(['prod_system','region'])
@@ -299,8 +295,8 @@ class PlantNutrientMgmt():
 
         # Create dataframes to track manure TAN available to spread and TAN
         # requirements that are not yet met.
-        manure_TAN = herds.manure.TAN_to_spread.drop('grazing', level='MMS', axis=1)
-        TAN_req = self.crops.fertiliser.TAN_req
+        manure_TAN = herds.data_attr.get('manure.TAN_to_spread').drop('grazing', level='MMS', axis=1)
+        TAN_req = self.crops.data_attr.get('fertiliser.TAN_req')
         manure_TAN_remaining = manure_TAN.copy()
         TAN_req_remaining = TAN_req.copy()
 
@@ -482,12 +478,12 @@ class PlantNutrientMgmt():
         p = self.crops.par.get
 
         # Get crop residues
-        crop_residues = self.crops.crop_residues.copy()
+        crop_residues = self.crops.data_attr.get('crop_residues').copy()
 
         # Subtract harvested crop residues
         crop_residues.loc[:,['above ground']] = (
             crop_residues.loc[:,['above ground']]
-            .sub(self.crops.crop_residues_harvest.sum(axis=1), axis=0)
+            .sub(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
         )
 
         # Get N in crop residue DM and multiply by total crop residues left in field
@@ -658,7 +654,7 @@ class PlantNutrientMgmt():
         self.regions.par.clear()
 
         # Get crop areas and append land_use
-        areas = self.crops.area.rename('area').to_frame()
+        areas = self.crops.data_attr.get('area').rename('area').to_frame()
         rel = self.par.get_rel('crop','land_use')
         areas['land_use'] = [rel[c] for c in areas.index.get_level_values('crop')]
         areas = areas.set_index('land_use', append=True)['area']
@@ -697,11 +693,11 @@ class PlantNutrientMgmt():
 
         # Get N additions from fertiliser, manure and crop residues
         N_add = pd.concat([
-            self.crops.fertiliser.mineral_N
+            self.crops.data_attr.get('fertiliser.mineral_N')
             .sum(axis=1).rename('fertiliser'),
-            self.crops.fertiliser.manure_N
+            self.crops.data_attr.get('fertiliser.manure_N')
             .sum(axis=1).rename('manure'),
-            self.crops.fertiliser.crop_residues_N
+            self.crops.data_attr.get('fertiliser.crop_residues_N')
             .sum(axis=1).rename('crop residues')
         ], axis=1).rename_axis(columns = 'source')
 
@@ -736,10 +732,6 @@ class PlantNutrientMgmt():
             orig = 'PlantNutrientMgmt',
             desc = 'Losses of nitrogen (N) via leaching'
         )
-
-
-class Fertiliser(Container):
-    '''Class to store fertiliser attributes in CropProduction obejcts'''
 
 _elem_to_name = {
     'C' : 'carbon (C)',

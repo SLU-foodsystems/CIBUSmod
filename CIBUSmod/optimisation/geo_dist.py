@@ -242,8 +242,8 @@ class GeoDistributor:
     def get_x0(self):
         # Get x0
         self.x0 = {
-            'ani' : self.regions.x0_animals.copy(),
-            'crp' : self.regions.x0_crops.copy()
+            'ani' : self.regions.data_attr.get('x0_animals').copy(),
+            'crp' : self.regions.data_attr.get('x0_crops').copy()
         }
 
         # Define index for x
@@ -268,8 +268,8 @@ class GeoDistributor:
         '''
         '''
         self.D = {
-            'ani' : self.demand.animal_prod_demand.sum(axis=1),
-            'crp' : self.demand.crop_prod_demand.sum(axis=1)
+            'ani' : self.demand.data_attr.get('animal_prod_demand').sum(axis=1),
+            'crp' : self.demand.data_attr.get('crop_prod_demand').sum(axis=1)
             }
         
         # Add rows for any domestically produced crop products used for feed or seed not already in crop product demand vector (D['crp'])
@@ -421,7 +421,7 @@ class GeoDistributor:
         self.A3 = self.make_A3()
         
         self.b3 = np.array([
-            self.regions.max_land_use.loc[x[1],x[0]]
+            self.regions.data_attr.get('max_land_use').loc[x[1],x[0]]
             for x in self.A3.rows
         ])
 
@@ -526,7 +526,7 @@ class GeoDistributor:
         
         # Get crop products that CAN be produced in region
         sel_cp = (
-            self.crops.production.loc[sel_cr]
+            self.crops.data_attr.get('production').loc[sel_cr]
             .stack()
             .groupby(['crop_prod','prod_system','region']).sum()
             .replace({0:np.nan}).dropna()
@@ -535,7 +535,7 @@ class GeoDistributor:
         
         # Index of crop products
         cp_idx = (
-            self.crops.production
+            self.crops.data_attr.get('production')
             .stack().droplevel('crop')
             .reorder_levels(['crop_prod','prod_system','region'])
             .index.unique()
@@ -551,7 +551,7 @@ class GeoDistributor:
         for h in self.herds:
             # Get crop products with a regional feed demand
             nsel_cp2 = (
-                (h.feed.crop_product_demand
+                (h.data_attr.get('feed.crop_product_demand')
                 .xs('regional',axis=1)
                 .stack(['prod_system','crop_prod'])
                 .sum(axis=1)
@@ -743,14 +743,14 @@ class GeoDistributor:
             ss = herd.sub_system
 
             # Go through animal products
-            for ap in herd.production.columns.get_level_values('animal_prod').unique():
+            for ap in herd.data_attr.get('production').columns.get_level_values('animal_prod').unique():
                 # Go through output production systems
-                for ops in herd.production.columns.get_level_values('prod_system').unique():
+                for ops in herd.data_attr.get('production').columns.get_level_values('prod_system').unique():
                     if (ops,sp,ap) in row_idx:
                         # Get production of animal product (ap) from output production system (ops) per head
                         # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                         # and region (re)
-                        res = herd.production.loc[:,(ops,slice(None),ap)].sum(axis=1)
+                        res = herd.data_attr.get('production').loc[:,(ops,slice(None),ap)].sum(axis=1)
 
                         # Store values and row/col nr
                         val.extend(res.values)
@@ -791,7 +791,7 @@ class GeoDistributor:
 
             # Get crop products and production systems with domestic demand from feed
             opss_cps = (
-                herd.feed.crop_product_demand
+                herd.data_attr.get('feed.crop_product_demand')
                 .xs('domestic', level='origin', axis=1)
                 # drop feeds with no (< 5e-6 kg) domestic demand
                 .round(5).replace({0:np.nan}).dropna(axis=1, how='all') 
@@ -806,7 +806,7 @@ class GeoDistributor:
                 # Get feed demand for crop product (cp) from output production system (ops) per head
                 # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                 # and region (re)
-                res = - herd.feed.crop_product_demand.loc[:,('domestic',ops,slice(None),cp)].sum(axis=1)
+                res = - herd.data_attr.get('feed.crop_product_demand').loc[:,('domestic',ops,slice(None),cp)].sum(axis=1)
 
                 # Store values and row/col nr
                 val.extend(res.values)
@@ -837,7 +837,7 @@ class GeoDistributor:
         row_nr = []
         col_nr = []
 
-        cps = self.crops.production.columns
+        cps = self.crops.data_attr.get('production').columns
 
         for cr,ps in col_idx.droplevel('region').unique():
             for cp in cps:
@@ -846,8 +846,8 @@ class GeoDistributor:
                     # from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
                     res = (
-                        self.crops.production.loc[(cr,ps,slice(None)),(cp)]
-                        - (self.crops.seed_demand.loc[(cr,ps,slice(None)),(cp)] if cp in self.crops.seed_demand.columns else 0)
+                        self.crops.data_attr.get('production').loc[(cr,ps,slice(None)),(cp)]
+                        - (self.crops.data_attr.get('seed_demand').loc[(cr,ps,slice(None)),(cp)] if cp in self.crops.data_attr.get('seed_demand').columns else 0)
                     )
 
                     # Store values and row/col nr
@@ -874,9 +874,9 @@ class GeoDistributor:
             (cp,ps,re)
             for cp in list(set([
                                 cp
-                                for herd in self.herds if 'regional' in herd.feed.crop_product_demand.columns
+                                for herd in self.herds if 'regional' in herd.data_attr.get('feed.crop_product_demand').columns
                                 for cp in (
-                                    herd.feed.crop_product_demand['regional']
+                                    herd.data_attr.get('feed.crop_product_demand')['regional']
                                     .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
                                     .columns.get_level_values('crop_prod')
                                 )
@@ -901,11 +901,11 @@ class GeoDistributor:
             ss = herd.sub_system
 
             # Check if herd has any regional demand for feeds
-            if 'regional' in herd.feed.crop_product_demand.columns:
+            if 'regional' in herd.data_attr.get('feed.crop_product_demand').columns:
 
                 # Get crop products and production systems with regional demand from feed
                 opss_cps = (
-                    herd.feed.crop_product_demand
+                    herd.data_attr.get('feed.crop_product_demand')
                     .xs('regional', level='origin', axis=1)
                     .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no domestic demand
                     .droplevel('animal', axis=1)
@@ -919,7 +919,7 @@ class GeoDistributor:
                     # Get regional feed demand for crop product (cp) from output production system (ops) per head
                     # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                     # and region (re)
-                    res = - herd.feed.crop_product_demand.loc[:,('regional',ops,slice(None),cp)].sum(axis=1)
+                    res = - herd.data_attr.get('feed.crop_product_demand').loc[:,('regional',ops,slice(None),cp)].sum(axis=1)
 
                     # Store values and row/col nr
                     val.extend(res.values)
@@ -945,9 +945,9 @@ class GeoDistributor:
             (cp,ps,re)
             for cp in list(set([
                                 cp
-                                for herd in self.herds if 'regional' in herd.feed.crop_product_demand.columns
+                                for herd in self.herds if 'regional' in herd.data_attr.get('feed.crop_product_demand').columns
                                 for cp in (
-                                    herd.feed.crop_product_demand['regional']
+                                    herd.data_attr.get('feed.crop_product_demand')['regional']
                                     .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
                                     .columns.get_level_values('crop_prod')
                                 )
@@ -966,14 +966,14 @@ class GeoDistributor:
         col_nr = []
 
 
-        for cr,ps in self.crops.production.index.droplevel('region')[
-            self.crops.production[row_idx.get_level_values('crop_prod').unique()].sum(axis=1)>0
+        for cr,ps in self.crops.data_attr.get('production').index.droplevel('region')[
+            self.crops.data_attr.get('production')[row_idx.get_level_values('crop_prod').unique()].sum(axis=1)>0
             ].unique():
             for cp in row_idx.get_level_values('crop_prod').unique():
                 if (cp,ps) in row_idx_lookup:
                     # Get production of crop product (cp) from production system (ps) per area of crop (cr)
                     # in production system (ps) and region (re)
-                    res = self.crops.production.loc[(cr,ps,slice(None)),(cp)].fillna(0)
+                    res = self.crops.data_attr.get('production').loc[(cr,ps,slice(None)),(cp)].fillna(0)
 
                     # Store values and row/col nr
                     val.extend(res.values)
@@ -996,7 +996,7 @@ class GeoDistributor:
     def make_A3(self):
 
         # Get land uses to constrain
-        land_uses = self.regions.max_land_use.columns
+        land_uses = self.regions.data_attr.get('max_land_use').columns
         # Get row index from land uses and regions (lu,re)
         row_idx = pd.MultiIndex.from_product([
             land_uses,
@@ -1315,7 +1315,7 @@ class GeoDistributor:
 
         # Get prouction per crop product
         prod = (
-            self.crops.production
+            self.crops.data_attr.get('production')
             .stack()
             .groupby(['region','prod_system','crop_prod']).sum()
         )
@@ -1326,7 +1326,7 @@ class GeoDistributor:
         # Get crop product demand for feed per region
         feed_demand = (
             con_herds
-            .feed.crop_product_demand
+            .data_attr.get('feed.crop_product_demand')
             .xs('domestic', level='origin', axis=1)
             .T.groupby(['species','breed','sub_system','prod_system','crop_prod']).sum().T
             .stack(['prod_system','crop_prod'])
@@ -1355,9 +1355,9 @@ class GeoDistributor:
 
         national_demand = pd.concat([
 
-            self.demand.crop_prod_demand,
+            self.demand.data_attr.get('crop_prod_demand'),
 
-            self.crops.seed_demand
+            self.crops.data_attr.get('seed_demand')
             .groupby('prod_system').sum()
             .stack().rename('seed'),
 
@@ -1400,13 +1400,13 @@ class GeoDistributor:
 
             total_demand_shares.unstack()
             .reindex(
-                self.crops.production
+                self.crops.data_attr.get('production')
                 .reorder_levels(['region','prod_system','crop'])
                 .index
             )
             .reorder_levels(['crop','prod_system','region']),
 
-            self.crops.production
+            self.crops.data_attr.get('production')
         ).T.groupby('demand').sum().T
 
         # Add data attribute
