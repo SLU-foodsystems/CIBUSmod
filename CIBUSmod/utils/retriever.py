@@ -383,7 +383,7 @@ Parameters
 
             if not os.path.isfile(scn_path):
                 # If file does not exist print warning and continue
-                warnings.warn(f"No xlsx file found for '{scn}' on path {scn_path}")
+                warnings.warn(f"No scenario data workbook found for '{scn}' on path {scn_path}")
                 continue
 
             wb = load_workbook(scn_path, read_only=True)
@@ -404,15 +404,18 @@ Parameters
             if len(scn_data) == 0:
                 continue
 
-            # Interpolate scenario parameter values for 'year' by selecting columns
-            # Drop 'y_' prefix in columns
-            scn_data.columns = scn_data.columns.str.replace('y_','')
+            # Interpolate scenario parameter values for 'year'
+            # Drop 'y_' prefix in columns and convert to int
+            scn_data.columns = scn_data.columns.str.replace('y_','').astype(int)
             # Add missing years
-            first_year = np.array(scn_data.columns).astype(int).min()
-            last_year = np.array(scn_data.columns).astype(int).max()
-            cols_to_add = list(set(np.array(range(first_year,last_year)).astype(str)) - set(scn_data.columns))
-            scn_data[cols_to_add] = np.nan
-            scn_data = scn_data.reindex(sorted(scn_data.columns, key=int), axis=1)
+            scn_data = scn_data.reindex(
+                pd.Index(
+                    range(
+                        min(scn_data.columns.min(), year),
+                        max(scn_data.columns.max(), year)+1
+                    )
+                ), axis=1
+            )
 
             # Interpolate values for intermediate years and if neededpropagate first/last value of a
             # parameter backward/forward.
@@ -427,8 +430,7 @@ Parameters
             # ---------------------        ----------------------------------------------------------------------
 
             # Select year
-            scn_data["value"] = scn_data[str(year)]
-            scn_data = scn_data["value"]
+            scn_data = scn_data[year].rename('value')
 
             val_iss = scn_data.index.get_level_values('val_is').unique()
 
