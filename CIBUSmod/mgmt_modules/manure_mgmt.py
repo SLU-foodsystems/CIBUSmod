@@ -226,6 +226,14 @@ class ManureMgmt():
                 )
                 mms_shares.update(adjusted)
 
+            # Drop MMSs not used in herd
+            mms_sums = mms_shares.T.groupby('MMS').sum().T.sum()
+            mms_shares = mms_shares.reindex(
+                mms_sums.loc[mms_sums>0].index,
+                level = 'MMS',
+                axis = 1
+            )
+
             herd.data_attr.add(
                 mms_shares * 100,
                 name = 'manure.mms_shares',
@@ -255,16 +263,13 @@ class ManureMgmt():
                 breed = herd.breed,
                 sub_system = herd.sub_system
             )
-
-            # Get manure management systems
-            mmss = herd.data_attr.get('manure.mms_shares').columns.get_level_values('MMS').unique()
             
             # Create dataframe
             df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [tuple(list(i) + [mms,fe]) for i in herd.data_attr.get('heads').columns for mms in mmss for fe in fes],
-                    names = herd.data_attr.get('heads').columns.names + ['MMS','feed']
+                    [tuple(list(i) + [fe]) for i in herd.data_attr.get('manure.mms_shares').columns for fe in fes],
+                    names = herd.data_attr.get('manure.mms_shares').columns.names + ['feed']
                 )
             )
             
@@ -277,7 +282,8 @@ class ManureMgmt():
                 herd.data_attr.get('heads')
             )
             # Set bedding material use during grazing to zero
-            DM.loc[:,(slice(None),slice(None),['grazing'],slice(None))] *= 0
+            if 'grazing' in DM.columns.get_level_values('MMS'):
+                DM.loc[:,(slice(None),slice(None),['grazing'],slice(None))] *= 0
             
             # Calculate nitrogen,phosphorous and potassium in bedding materials
             N = ( # [kg N/year]
@@ -541,29 +547,29 @@ class ManureMgmt():
                 element = element
             )
         
-            # Get manure management systems
-            mmss = herd.data_attr.get('manure.mms_shares').columns.get_level_values('MMS').unique()
-        
-            # Get production systems, animals in herd
-            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
-            anis = herd.animals
-        
             # Create dataframe
             df = pd.DataFrame(
+                0.0,
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,ani,mms,cmp) for ps in pss for ani in anis for mms in mmss for cmp in cmps],
-                    names=['prod_system','animal','MMS','compound']
+                    [tuple(list(i) + [cmp]) for i in herd.data_attr.get('manure.mms_shares').columns for cmp in cmps],
+                    names = herd.data_attr.get('manure.mms_shares').columns.names + ['compound']
                 )
             )
             
             # Get excretion and propagate values to all compound columns
             excr = herd.data_attr.get(f'manure.{element}_excr').align(df)[0].reindex(index=df.index, columns=df.columns)
-           
-            loss_factors_stable = self.par.get_from_frame('loss_stable', df)/100
+
+            if (self.par.data.xs((element,'loss_stable'),level=('f_element','parameter'))>0).any():
+                loss_factors_stable = self.par.get_from_frame('loss_stable', df)/100
+            else:
+                loss_factors_stable = 0.0
             loss_stable = loss_factors_stable * excr
-        
-            loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
+            
+            if (self.par.data.xs((element,'loss_storage'),level=('f_element','parameter'))>0).any():
+                loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
+            else:
+                loss_factors_storage = 0.0
             loss_storage = loss_factors_storage * (excr - loss_stable)
         
             if element == 'N':
