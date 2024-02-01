@@ -50,6 +50,7 @@ class GeoDistributor:
             self,
             use_cons:list|str = 'all',
             scale_power:int = 0.4,
+            scale_cutoff_percentile:float = 99,
             verbose:bool = False,
             **kwargs
             ):
@@ -64,6 +65,10 @@ class GeoDistributor:
             Power used to calculate scaling factors for the optimisation.
             scale_power=0 -> minimise absolute difference in crop areas/animal numbers
             scale_poqer=1 -> minimise relative difference in crop areas/animal numbers
+            See ?GeoDistributor.calculate_scaling_factors for details
+        scale_cutoff_percentile : float (0-100), default 99
+            Percentile cutoff for scaling factors. Should be <100 to avoid effectively
+            removing crops/animals where x0 is close to zero from the solution.
             See ?GeoDistributor.calculate_scaling_factors for details
         verbose : bool, default False
             Print progress messages
@@ -97,7 +102,10 @@ class GeoDistributor:
 
         vprint('Scaling ...')
         # Calculate scaling factors
-        self.calculate_scaling_factors(scale_power)
+        self.calculate_scaling_factors(
+            scale_power=scale_power,
+            cutoff_percentile=scale_cutoff_percentile
+        )
        
         # Make objective function(s)
         vprint('Making objective O1 ...')
@@ -205,7 +213,7 @@ class GeoDistributor:
                 self.apply_solution()
 
         else:
-            vprint(f'No solution found!')
+            warnings.warn(f'No solution found!')
             self.success = False
             # NEED TO IMPLEMENT A WAY TO HANDLE THIS SITUATION
 
@@ -286,10 +294,10 @@ class GeoDistributor:
             'crp' : self.D['crp'].index
         }
 
-    def calculate_scaling_factors(self,scale_power=0):
+    def calculate_scaling_factors(self, scale_power=0, cutoff_percentile=99):
         '''Calculates scaling factor to apply to x and x0 in objective O1 as f = (mean(x0)/x0) ^ scale_power.
-        In cases where f = inf (i.e. x0 = 0) f is set to the maximum value  where f != inf. scale_power = 0
-        gives no scaling.
+        A cutoff that limits the maximum scaling factor to a certain percentile is implemented to avoid that
+        crops/animals with x0 close to or equal to zero are effectively removed from the solution space.
         '''
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
@@ -297,7 +305,8 @@ class GeoDistributor:
         x0 = pd.concat((self.x0['ani'],self.x0['crp']))
 
         f = x0.mean()/x0
-        f.loc[f==np.inf] = f.loc[f!=np.inf].max()
+        cutoff_value = np.percentile(f.loc[f!=np.inf], cutoff_percentile) 
+        f.loc[f>cutoff_value] = cutoff_value
         f = f ** scale_power
         assert np.isfinite(f).all()
 
