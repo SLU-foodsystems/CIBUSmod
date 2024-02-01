@@ -24,7 +24,7 @@ demand = cm.DemandAndConversions(
 # Instantiate CropProduction
 crops = cm.CropProduction(
     par = cm.ParameterRetriever('CropProduction'),
-    index = regions.x0_crops.index
+    index = regions.data_attr.get('x0_crops').index
 )    
 
 # Instantiate AnimalHerds
@@ -117,7 +117,7 @@ def do_run(scn_year):
     
     # Distribute animals and crops
     # Make optimisation problem
-    geodist.make(use_cons=[1,2,3,4,5,6,7], scale_power=0.6)
+    geodist.make(use_cons=[1,2,3,4,5,6,7], scale_power=0.4)
     # Solve optimisation problem
     geodist.solve(
         solver_settings = {
