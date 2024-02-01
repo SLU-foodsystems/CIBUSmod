@@ -21,11 +21,9 @@ Validation and default parameters
 
 Overarching
 -----------
-- Implement DataAttr.get() across modules
   
 Session
 -------
-- Possibility to reorder scenarios
 
 ParameterRetriever
 ------------------
