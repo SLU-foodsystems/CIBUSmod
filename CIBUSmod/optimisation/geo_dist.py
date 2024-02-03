@@ -295,19 +295,38 @@ class GeoDistributor:
         }
 
     def calculate_scaling_factors(self, scale_power=0, cutoff_percentile=99):
-        '''Calculates scaling factor to apply to x and x0 in objective O1 as f = (mean(x0)/x0) ^ scale_power.
-        A cutoff that limits the maximum scaling factor to a certain percentile is implemented to avoid that
-        crops/animals with x0 close to or equal to zero are effectively removed from the solution space.
+        '''Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf where rn is a factor 
+        normalising all features (i.e. disstinct land uses and animal species) to the same range and fs is a 
+        scaling factor calculated as fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
+        maximum scaling factor to a certain percentile is implemented to avoid that crops/animals with x0 close
+        to or equal to zero are effectively removed from the solution space.
         '''
 
         scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
 
-        x0 = pd.concat((self.x0['ani'],self.x0['crp']))
+        # First all fetures (i.e. land uses and animal species) are normalised to the same range
+        # (0 - max) as land use = cropland
+        norm_max = self.x0['crp'].rename(self.crops.par.get_rel('crop','land_use')).loc['cropland'].max()
+        rn = pd.concat([
+            self.x0['ani']
+            .groupby('species')
+            .transform(lambda x: 1 / x.max())
+            * norm_max,
 
-        f = x0.mean()/x0
-        cutoff_value = np.percentile(f.loc[f!=np.inf], cutoff_percentile) 
-        f.loc[f>cutoff_value] = cutoff_value
-        f = f ** scale_power
+            self.x0['crp']
+            .rename(self.crops.par.get_rel('crop','land_use'))
+            .groupby('crop')
+            .transform(lambda x: 1 / x.max())
+            * norm_max
+        ])
+
+        x0 = pd.concat((self.x0['ani'],self.x0['crp'])) * rn.values
+        sf = x0.mean()/x0
+        cutoff_value = np.percentile(sf.loc[sf!=np.inf], cutoff_percentile) 
+        sf.loc[sf>cutoff_value] = cutoff_value
+        sf = sf ** scale_power
+
+        f = rn.values * sf.values
         assert np.isfinite(f).all()
 
         scale_f['ani'].iloc[:] = f[:len(scale_f['ani'])]
