@@ -213,9 +213,8 @@ class GeoDistributor:
                 self.apply_solution()
 
         else:
-            warnings.warn(f'No solution found!')
             self.success = False
-            # NEED TO IMPLEMENT A WAY TO HANDLE THIS SITUATION
+            raise RuntimeError('No solution found!')
 
         vprint(type='end')
 

@@ -128,40 +128,35 @@ def do_run(scn_year):
             'verbose':False
         }
     )
-
-    if geodist.success:
     
-        # Redistribute feeds (not yet implemented) and calculate enteric CH4 emissions
-        feed_mgmt.calculate2()
-        
-        # Calculate manure
-        manure_mgmt.calculate()
-        
-        # Calculate harvest of crop residues
-        crop_residue_mgmt.calculate()
-        
-        # Calculate plant nutrient management
-        plant_nutrient_mgmt.calculate()
-        
-        # Calculate energy requirements
-        machinery_and_energy_mgmt.calculate()
-        
-        # Calculate inputs supply chain emissions
-        inputs.calculate()
-        
-        # Store results (try again if first atempt fails)
-        try:
-            session.store(
-                scn, year,
-                demand, regions, crops, herds
-            )
-        except:
-            session.store(
-                scn, year,
-                demand, regions, crops, herds
-            )
-
-    else:
-        raise Exception('Solver did not find optimal solution')
+    # Redistribute feeds (not yet implemented) and calculate enteric CH4 emissions
+    feed_mgmt.calculate2()
+    
+    # Calculate manure
+    manure_mgmt.calculate()
+    
+    # Calculate harvest of crop residues
+    crop_residue_mgmt.calculate()
+    
+    # Calculate plant nutrient management
+    plant_nutrient_mgmt.calculate()
+    
+    # Calculate energy requirements
+    machinery_and_energy_mgmt.calculate()
+    
+    # Calculate inputs supply chain emissions
+    inputs.calculate()
+    
+    # Store results (try again if first atempt fails)
+    try:
+        session.store(
+            scn, year,
+            demand, regions, crops, herds
+        )
+    except:
+        session.store(
+            scn, year,
+            demand, regions, crops, herds
+        )
 
     return time.time() - tic
