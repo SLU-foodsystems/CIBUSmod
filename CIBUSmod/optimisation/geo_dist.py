@@ -11,6 +11,7 @@ from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, Paramete
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict
+from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 class GeoDistributor:
@@ -29,6 +30,8 @@ class GeoDistributor:
     par : ParameterRetriever object
     '''
 
+    module_name = 'GeoDistributor'
+
     def __init__(
             self,
             regions:Regions,
@@ -39,6 +42,7 @@ class GeoDistributor:
             par:ParameterRetriever):
         
         self.par = par
+        self.data_attr = DataAttr(self)
 
         self.regions = regions
         self.demand = demand
@@ -124,9 +128,6 @@ class GeoDistributor:
         if '7' not in use_cons:
             self.x_idx_short = {'ani':self.x_idx['ani'].copy(), 'crp':self.x_idx['crp'].copy()}
 
-        vprint('Defining problem ...')
-        self.define_cvx_problem()
-
         vprint(type='end')
 
     def solve(
@@ -174,6 +175,9 @@ class GeoDistributor:
         # make a one element list
         if not isinstance(solver_settings, list):
             solver_settings = [solver_settings]
+
+        vprint('Defining problem ...')
+        self.define_cvx_problem()
         
         vprint('Finding solution ...')
         
@@ -207,6 +211,21 @@ class GeoDistributor:
                     index = self.x_idx_short['crp']
                 ).reindex(self.x_idx['crp'], fill_value=0)
             }
+
+            self.data_attr.add(
+                self.x['crp'],
+                name = 'x_crops',
+                unit = 'ha or m2',
+                orig = 'GeoDistributor',
+                desc = 'Crop areas in solution in ha (or m2 for greenhouse crops)'
+            )
+            self.data_attr.add(
+                self.x['ani'],
+                name = 'x_animals',
+                unit = 'heads',
+                orig = 'GeoDistributor',
+                desc = 'Number of "defining animal" heads in solution'
+            )
 
             if apply_solution:
                 vprint(f'Applying solution')
