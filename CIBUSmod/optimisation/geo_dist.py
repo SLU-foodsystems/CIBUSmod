@@ -89,9 +89,7 @@ class GeoDistributor:
         
         self.matrices = [] # Keep track of matrices created
 
-        if use_cons == 'all':
-            use_cons = [1,2,3,4,5,6,7]
-        elif not isinstance(use_cons,list):
+        if not isinstance(use_cons,list):
             use_cons = [use_cons]
         use_cons = [str(e) for e in use_cons]
         # Make sure that C7 is handled last
@@ -104,7 +102,7 @@ class GeoDistributor:
         vprint('Creating demand vector ...')
         self.get_demand()
 
-        vprint('Scaling ...')
+        vprint('Calculating scaling factors ...')
         # Calculate scaling factors
         self.calculate_scaling_factors(
             scale_power=scale_power,
@@ -646,17 +644,17 @@ class GeoDistributor:
 
     def make_C8(
             self,
-            C8_crp: pd.DataFrame | None = None ,
-            C8_ani: pd.DataFrame | None = None,
+            C8_crp: pd.Series | None = None ,
+            C8_ani: pd.Series | None = None,
             C8_rel: str = '==',
             C8_tol: float = 1e-4
         ):
         '''Creates C8: A8 @ x <rel> b8
 
-        Flexible constraint that constrains given crop areas and/or animal numbers in relation
-        to given values. Constraints can be eiter equality or max/min. Equality constraints
-        (C8_rel = '==') are implemented as min and max constraints with a relative tolerance
-        of +/- C8_tol.
+        Flexible constraint that constrains crop areas and/or animal numbers corresponding
+        to the given Series in relation to the Series' values. Constraints can be eiter
+        equality or max/min. Equality constraints (C8_rel = '==') are implemented as min
+        and max constraints with a relative tolerance of +/- C8_tol.
 
         Multiple constraints can be created by supplying lists as parameters.
 
@@ -739,6 +737,97 @@ class GeoDistributor:
                 self.cons_add_exec.extend([
                     f'CONS.append(self.A8_{str(i)}.M @ x {pars["C8_rel"][i]} self.b8_{str(i)})'
                 ])
+
+        return None
+    
+    def make_C9(
+            self,
+            C9_crp: pd.Series | None = None ,
+            C9_ani: pd.Series | None = None,
+            C9_rel: str = '==',
+            C9_tol: float = 1e-4
+        ):
+        '''Creates C9: A9 @ x <rel> b9
+
+        Flexible constraint that constrains the sum of crop areas and/or animal numbers
+        corresponding to the index of passed Series in relation to the sum of given Series.
+        Constraints can be eihter equality or max/min. Equality constraints (C9_rel = '==')
+        are implemented as min and max constraints with a relative tolerance of +/- C9_tol.
+
+        Multiple constraints can be created by supplying lists as parameters.
+
+        Parameters
+        ----------
+        C9_crp : (list of) pandas.Series
+            Crop areas to constrain sum of (index must match self.x_idx['crp'])
+        C9_ani : (list of) pandas.Series
+            Animal numbers to constrain sum of (index must match self.x_idx['ani'])
+        C9_rel : (list of) string
+            Type of constraint. Equality ('=='), minimum ('>=') or maximum ('<=')
+        C9_tol : (list of) float
+
+        Returns
+        -------
+        None
+        '''
+
+        pars = {
+            'C9_crp' : C9_crp,
+            'C9_ani' : C9_ani,
+            'C9_rel' : C9_rel,
+            'C9_tol' : C9_tol
+        }
+        pars_len = {p : len(pars[p]) if isinstance(pars[p],list) else 0 for p in pars}
+        pars_len_max = max(max(pars_len.values()),1)
+
+        if any([x>1 and x<pars_len_max for x in pars_len.values()]):
+            raise ValueError('Supplied lists must have the same length')
+        
+        # Align lists
+        for p in pars:
+            if pars_len[p]<pars_len_max:
+                if pars_len[p]==1:
+                    pars[p] = pars[p] * pars_len_max
+                else:
+                    pars[p] = [pars[p]] * pars_len_max
+
+        if all([v is None for v in pars['C9_crp']]) and all([v is None for v in pars['C9_ani']]):
+            raise ValueError("At least one of 'C9_crp' or 'C9_ani' must be given to use constraint C9")
+        if any([v not in ['==','>=','<='] for v in pars['C9_rel']]):
+            raise ValueError("All 'C9_rel' must be one of '==', '>=' or '<='")
+
+        for i in range(pars_len_max):
+            if not ((pars['C9_crp'][i] is None) & (pars['C9_ani'][i] is None)):
+                # Make matrix (A9)
+                setattr(
+                    self,
+                    'A9_'+str(i),
+                    self.make_A9(pars['C9_crp'][i], pars['C9_ani'][i])
+                )
+
+                # Make right hand vector (b9)
+                setattr(
+                    self,
+                    'b9_'+str(i),
+                    sum([
+                        pars['C9_ani'][i].sum() if pars['C9_ani'][i] is not None else 0,
+                        pars['C9_crp'][i].sum() if pars['C9_crp'][i] is not None else 0
+                    ])
+                )
+
+                # Append code to include constraint when defining cvx problem
+                self.matrices.append('A9_'+str(i))
+                if C9_rel[i] == '==':
+                    self.cons_add_exec.extend([
+                        f'CONS.append(self.A9_{str(i)}.M @ x >= self.b9_{str(i)} * {1-pars["C9_tol"][i]})',
+                        f'CONS.append(self.A9_{str(i)}.M @ x <= self.b9_{str(i)} * {1+pars["C9_tol"][i]})'
+                    ])
+                else:
+                    self.cons_add_exec.extend([
+                        f'CONS.append(self.A9_{str(i)}.M @ x {pars["C9_rel"][i]} self.b9_{str(i)})'
+                    ])
+            else:
+                raise ValueError("Both 'C9_crp' and 'C9_ani' were None")
 
         return None
 
@@ -1285,7 +1374,7 @@ class GeoDistributor:
         # Get row index (cr,ps,re), (sp,br,ps,ss,re)
         row_idx = {}
         # Get col index (cr,ps,re), (sp,br,ps,ss,re)
-        col_idx = self.x_idx.copy()
+        col_idx = {k:v.copy() for k,v in self.x_idx.items()}
 
         MS = []
         for ac in ['ani','crp']:
@@ -1308,6 +1397,37 @@ class GeoDistributor:
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.vstack(MS),
+            row_idx,
+            col_idx
+        )
+
+        return M
+    
+    def make_A9(self, C9_crp, C9_ani):
+
+        # No row index, only one row
+        row_idx = None
+        # Get col index (cr,ps,re), (sp,br,ps,ss,re)
+        col_idx = self.x_idx.copy()
+
+        MS = []
+        for ac in ['ani','crp']:
+            if eval('C9_'+ac) is not None:
+                idx = eval('C9_'+ac).index
+                # Create a 1-by-len(col_idx) matrix
+                # and set cols corresponding to index to 1
+                M = scipy.sparse.lil_matrix((1, len(col_idx[ac])))
+                sel_cols = [col_idx[ac].get_loc(i) for i in idx]
+                M[:,sel_cols] = 1
+                MS.append(M)
+            else:
+                # Append zero matrix
+                Z = scipy.sparse.csc_matrix((1, len(col_idx[ac])))
+                MS.append(Z)
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.hstack(MS, format='csc'),
             row_idx,
             col_idx
         )
