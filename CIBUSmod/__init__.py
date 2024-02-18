@@ -8,7 +8,7 @@ from .utils.session_db import Session
 # Import main modules
 from .main_modules.regions import Regions
 from .main_modules.demand_and_conversions import \
-    DemandAndConversions, induce_beef_exports
+    DemandAndConversions
 from .main_modules.crop_prod import CropProduction
 from .main_modules.animal_herd import \
     CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd, SheepHerd, \
@@ -28,10 +28,15 @@ from .optimisation.geo_dist import GeoDistributor
 # Import output data manipulation functions
 from .utils.output_data_manip_db import get_emissions, get_GHG, to_ICBM
 
+# Import module with helper functions
+from .utils import helpers
+
+# Import module with plotting functions
+from .utils import plot
+
 # Import soil_modules functions and SoilData class
 from .soil_modules import data_processing
 from .soil_modules import icbm_funcs
 from .soil_modules.soil_class import SoilData
 from .soil_modules.soil_class import SoilDataExplore
 from .soil_modules import soil_utils
-
