@@ -52,7 +52,7 @@ class GeoDistributor:
 
     def make(
             self,
-            use_cons:list|str = 'all',
+            use_cons:list|str,
             scale_power:int = 0.4,
             scale_cutoff_percentile:float = 99,
             verbose:bool = False,
@@ -62,7 +62,7 @@ class GeoDistributor:
         
         Parameters
         ----------
-        use_cons : list or str, default 'all'
+        use_cons : (list of) str
             List of numbers corresponding to the constraints to be used. For descriptions
             of each constraint see ?GeoDistributor.make_C<nr>
         scale_power : int, default 0.4
@@ -86,6 +86,10 @@ class GeoDistributor:
         '''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
+
+        # Drop any old solution
+        if hasattr(self, 'x'):
+            delattr(self, 'x')
         
         self.matrices = [] # Keep track of matrices created
 
@@ -183,7 +187,13 @@ class GeoDistributor:
         # If an optimal solution is found break and do not try next solver/settings
         for kwargs in solver_settings:
             solver = kwargs['solver']
-            self.problem.solve(**kwargs)
+            try:
+                self.problem.solve(**kwargs)
+            except Exception as e:
+                if hasattr(self, 'x'):
+                    delattr(self, 'x')
+                self.success = False
+                raise e
 
             if 'optimal' in self.problem.status:
                 break
@@ -230,6 +240,8 @@ class GeoDistributor:
                 self.apply_solution()
 
         else:
+            if hasattr(self, 'x'):
+                delattr(self, 'x')
             self.success = False
             raise RuntimeError('No solution found!')
 
