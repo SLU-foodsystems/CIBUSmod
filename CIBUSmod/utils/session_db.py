@@ -45,28 +45,46 @@ class Session(object):
     
     '''
 
+    active_session = None # Stores the active Session instance
+
     def __init__(
             self,
             name,
             data_path,
+            data_path_default = None,
+            data_path_scenarios = None,
+            data_path_output = None,
             timeout = 5
         ):
         
         self.name = name
 
         self.data_path = _path_from_str(data_path)
-        self.db_path = os.path.join(self.data_path, 'output', self.name+'.sqlite')
+
+        if data_path_default is not None:
+            self.data_path_default = _path_from_str(data_path_default)
+        else:
+            self.data_path_default = os.path.join(self.data_path, 'default')
+
+        if data_path_scenarios is not None:
+            self.data_path_scenarios = _path_from_str(data_path_scenarios)
+        else:
+            self.data_path_scenarios = os.path.join(self.data_path, 'scenarios')
+
+        if data_path_output is not None:
+            self.data_path_output = _path_from_str(data_path_output)
+        else:
+            self.data_path_output = os.path.join(self.data_path, 'output')
+
+        self.db_path = os.path.join(self.data_path_output, self.name+'.sqlite')
         self.db_timeout = timeout
 
-        ParameterRetriever.set_data_folder(self.data_path)
-
         # Create output folder if it does not already exist
-        output_folder = os.path.join(self.data_path, 'output')
-        if not os.path.isdir(output_folder):
-            os.mkdir(output_folder)
+        if not os.path.isdir(self.data_path_output):
+            os.mkdir(self.data_path_output)
 
         # Dict that stores tables retrieved from database for faster access
-        self.cashe = CasheDict(max_size=1000) 
+        self.cashe = CasheDict(max_size=500) 
 
         # Create main tables if they do not exist
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -169,15 +187,16 @@ class Session(object):
             }
                 
             self.update_aggregation_rules(aggregation_rules)
-
         
-
+        self.activate()
+        
     def __repr__(self):
 
         str0 = f'''+------------------+
 | CIBUSmod SESSION |
 +------------------+
 Name: {self.name}
+Active: {'Yes' if self.active_session == self else 'No'}
 '''
         
         str1 = '''SCENARIOS
@@ -244,21 +263,56 @@ f'''{module}
         
         return scn_def
     
-    def scenarios(self):
-        """Returns dict with scenario names as keys and list of years as values.
+    def activate(self):
+        """Activates the Session instance and sets ParameterRetriever data folders"""
+
+        self.__class__.active_session = self
+
+        ParameterRetriever.set_data_folder(
+            path=self.data_path,
+            default_path=self.data_path_default,
+            scenarios_path=self.data_path_scenarios
+        )
+
+        return None
+    
+    def scenarios(self, subset='all'):
+        """Get defined scenarios
+
+        Parameters
+        ----------
+        subset : str
+            Scenarios/years to return; 'all', 'has output' or 'no output'
+
+        Returns
+        -------
+        Dict with scenario names as keys and list of years as values
+        """
+
+        qry = """
+            SELECT name, year
+                FROM runs AS r
+            INNER JOIN scenarios AS s
+                ON r.scn_id == s.scn_id
+        """
+
+        if subset == 'no output':
+            qry += """
+                WHERE calculated == 0
+            """
+        elif subset == 'has output':
+            qry += """
+                WHERE calculated == 1
+            """
+
+        qry += """
+            ORDER BY r.scn_id, year
         """
 
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
             scenarios = {}
-            res = cur.execute("""
-                SELECT
-                    s.name AS scn,
-                    year
-                FROM runs AS r
-                LEFT JOIN scenarios AS s ON s.scn_id = r.scn_id
-                ORDER BY s.scn_id, year
-            """)
+            res = cur.execute(qry)
             for r in res:
                 if r[0] not in scenarios:
                     scenarios[r[0]] = [str(r[1])]
@@ -396,7 +450,7 @@ f'''{module}
                 
         return None
 
-    def update_scenario(self, name, years=None, scenario=None, modules=None, pars=None):
+    def update_scenario(self, name, years=None, scenario=None, modules=None, pars=None, prompt=True):
         '''Updates a scenario in the Session object
 
         Parameters
@@ -417,6 +471,8 @@ f'''{module}
                 or dict with module:[parameter(s)], optional
             Parameters to be updated. If 'all', all parameters are updated otherwise only the
             specified parameters are updated (see examples)
+        prompt : bool, default True
+            If True, require confirmation before deleting any data
 
             Example 1:
             pars = ['par_A', 'par_B']
@@ -473,7 +529,7 @@ f'''{module}
                 new_years = old_years.copy()
 
             if new_def != old_def:
-                if old_years_w_data:
+                if old_years_w_data and prompt:
                     ui = input('This will remove all output data associated with this scenario. Proceed? (Y/N)')
                     if ui.capitalize() != 'Y':
                         return None
@@ -500,7 +556,7 @@ f'''{module}
             else:
                 years_to_add = [y for y in new_years if y not in old_years]
                 years_to_drop = [y for y in old_years if y not in new_years]
-                if any([y in years_to_drop for y in old_years_w_data]):
+                if any([y in years_to_drop for y in old_years_w_data]) and prompt:
                     ui = input('Some years with calculated output data will be removed. Proceed? (Y/N)')
                     if ui.capitalize() != 'Y':
                         return None
@@ -523,13 +579,15 @@ f'''{module}
         return None
                     
 
-    def remove_scenario(self, name):
+    def remove_scenario(self, name, prompt=True):
         '''Removes named scenario including all output data
         
         Parameters
         ----------
         name : str
             Name of scenario to be removed
+        prompt : bool, default True
+            If True, require confirmation before deleting any data
 
         Returns
         -------
@@ -551,7 +609,7 @@ f'''{module}
             """, (name,))
 
             # Require user confirmation if scenario has data
-            if any([r[0] for r in res.fetchall()]):
+            if any([r[0] for r in res.fetchall()]) and prompt:
                 ui = input('This scenario has output data that will also be removed. Proceed? (Y/N)')
                 if ui.capitalize() != 'Y':
                     return None
@@ -843,7 +901,7 @@ f'''{module}
         
         return None
 
-    def update_aggregation_rules(self, aggregation_rules):
+    def update_aggregation_rules(self, aggregation_rules, prompt=True):
         """Update aggregation rules
 
         Parameters
@@ -851,6 +909,8 @@ f'''{module}
         aggregation_rules : dict
             The dict should have a tuple with (<module name>, <attribute name>) as keys
             and a (list of) str designating column levels to aggregate data to.
+        prompt : bool, default True
+            If True, require confirmation before deleting any data
         """
         
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -895,7 +955,10 @@ f'''{module}
     
             # Drop affected data attribute tables
             if attrs := ['.'.join(i) for i in to_delete_data]:
-                ui = input(f'This will delete output data: {attrs}. Are you sure? (Y,N)')
+                if prompt:
+                    ui = input(f'This will delete output data: {attrs}. Are you sure? (Y,N)')
+                else:
+                    ui = 'Y'
                 if ui.capitalize() == 'Y':
                     for mod_attr in to_delete_data:
                         res = cur.execute("""
