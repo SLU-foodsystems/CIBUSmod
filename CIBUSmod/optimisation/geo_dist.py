@@ -338,13 +338,13 @@ class GeoDistributor:
         rn = pd.concat([
             self.x0['ani']
             .groupby('species')
-            .transform(lambda x: 1 / x.max())
+            .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
             * norm_max,
 
             self.x0['crp']
             .rename(self.crops.par.get_rel('crop','land_use'))
             .groupby('crop')
-            .transform(lambda x: 1 / x.max())
+            .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
             * norm_max
         ])
 
