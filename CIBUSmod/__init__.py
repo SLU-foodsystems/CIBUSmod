@@ -1,3 +1,7 @@
+import os
+
+root = os.path.join(os.path.dirname(__file__), '..')
+
 from .utils.retriever import ParameterRetriever
 from .utils.session_db import Session
 
@@ -23,3 +27,9 @@ from .optimisation.geo_dist import GeoDistributor
 
 # Import output data manipulation functions
 from .utils.output_data_manip_db import get_emissions, get_GHG, to_ICBM
+
+# Import soil modules
+import CIBUSmod.soil.data_processing as data_processing
+import CIBUSmod.soil.icbm_funcs as icbm_funcs
+import CIBUSmod.soil.soil_utils as soil_utils
+from CIBUSmod.soil.soils import SoilData
