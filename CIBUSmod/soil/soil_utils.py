@@ -1307,13 +1307,13 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     return dataset
 
 
-def check_attributes_status(instance, type='public'):
+def check_attributes_status(instance, access='public'):
     """
     Checks the status of all attributes in the given class instance.
 
     Parameters:
     - instance: An instance of a class.
-    - type: A string that selects whether to show 'public' or 'private' attributes.
+    - access: A string that selects whether to show 'public' or 'private' attributes.
 
     Returns:
     A dictionary where keys are attribute names and values are tuples containing
@@ -1323,20 +1323,18 @@ def check_attributes_status(instance, type='public'):
     for attribute in dir(instance):
         # Filter out magic methods and attributes
         if not attribute.startswith('__'):
-            if type == public:
+            if access == 'public':
                 if not attribute.startswith('_'):
                     attr_value = getattr(instance, attribute)
                     # Check if the attribute is set (not None)
                     is_set = attr_value is not None
                     # Store the type of the attribute and its set status
                     attrs_status[attribute] = (type(attr_value).__name__, is_set)
-            if type == private:
+            if access == 'private':
                 if attribute.startswith('_'):
                     attr_value = getattr(instance, attribute)
                     # Check if the attribute is set (not None)
                     is_set = attr_value is not None
                     # Store the type of the attribute and its set status
                     attrs_status[attribute] = (type(attr_value).__name__, is_set)
-            else:
-                print("Wrong type!\ntype has to be set to either 'public' or 'private'.")
     return attrs_status
