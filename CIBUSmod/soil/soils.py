@@ -448,16 +448,26 @@ class SoilData:
 
     def calc_soc_timeseries(self, verbose=False):
         """Calculate the SOC timeseries and create a soc_inventory dataset"""
+        soil_utils.colored_rule(color='cyan', height=2)
+        print('Calculating SOC timeseries...')
         self._calculate_soc(verbose=verbose)
         self._scn_icbm_calculations(verbose=verbose)
+        soil_utils.colored_rule(color='green', height=2)
 
     def calc_historic_soc_timeseries(self, verbose=False):
         """Calculate the historic SOC timeseries and update the soc_inventory dataset"""
+        soil_utils.colored_rule(color='cyan', height=2)
+        print('Calculating historic SOC timeseries...')
         self._calculate_historic_soc(verbose=verbose)
         self._historic_icbm_calculations(verbose=verbose)
+        soil_utils.colored_rule(color='green', height=2)
 
 
-    def save_inventory(self, dataset=['inputs', 'soc', 'historic']):
+    def save_inventory(self, dataset=None):
+        # check if dataset is set, otherwise set to all datasets
+        if dataset is None:
+            dataset = ['inputs', 'soc', 'historic']
+        # Save the datasets to predetermined destinations
         if dataset == 'inputs':
             # Save the input_inventory dataset to a netcdf-file
             scn_input_ds_name = f'{self.scenario}_input_ds'
@@ -476,7 +486,7 @@ class SoilData:
         """
         Checks the status of all attributes in the given class instance.
 
-        Parametesrs:
+        Parameters:
         - access: Selects whether to show 'public' or 'private' attributes. (default: 'public')
 
         Returns:
