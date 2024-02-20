@@ -476,7 +476,7 @@ class SoilData:
         """
         Checks the status of all attributes in the given class instance.
 
-        Parameters:
+        Parametesrs:
         - access: Selects whether to show 'public' or 'private' attributes. (default: 'public')
 
         Returns:
@@ -497,4 +497,4 @@ class SoilData:
             # Check if the attribute is set (not None)
             is_set = attr_value is not None
             attrs_status[attribute] = (type(attr_value).__name__, is_set)
-        return attrs_status
+        return f"The following attributes are set for {access} variables", attrs_status
