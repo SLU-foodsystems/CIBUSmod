@@ -13,7 +13,7 @@ import os
 from IPython import display
 import numpy as np
 import pandas as pd
-from typing import Union, List, Tuple, Dict, Any
+from typing import Union, List, Tuple, Dict, Any, Optional
 import xarray as xr
 
 import CIBUSmod.soil.soil_params as soil_params
@@ -368,7 +368,7 @@ def calculate_c_inputs(input_df: pd.DataFrame,
                        sources: Tuple[str, ...],
                        c_allo_df: Tuple[pd.DataFrame, ...],
                        crop_colname: str = 'crop',
-                       colprefix: Dict[str, str] = {'ag': 'i_ag', 'bg': 'i_bg'},
+                       colprefix: Optional[Dict[str, str]] = None,
                        straw_removed: bool = False,
                        verbose=False) -> pd.DataFrame:
     """
@@ -396,19 +396,22 @@ def calculate_c_inputs(input_df: pd.DataFrame,
         Tuple of DataFrames containing carbon allocation data for each source.
     crop_colname : str, optional
         Name of the crop column. Defaults to 'crop'.
-    new_colnames : Dict[str, str], optional
-        Dictionary of new column names for 'i_ag' and 'i_bg'. Defaults to {'ag': f'i_ag_ha_{crop_colname}', 'bg': f'i_bg_ha_{crop_colname}'}.
     straw_removed : bool, optional
         Whether to consider straw removal. Defaults to False.
 
     Returns:
     --------
     pd.DataFrame
-        The input DataFrame updated with 'i_ag', 'i_bg', and 'alloc_source_crop' columns.
+        A copy of the input DataFrame with 'i_ag', 'i_bg', and 'alloc_source_crop' columns.
+        The original dataframe is not changed
     """
 
     if verbose:
         print('---Executing calculate_c_inputs()---')
+    # set mutable default args if no args given
+    if colprefix is None:
+        colprefix = {'ag': 'i_ag', 'bg': 'i_bg'}
+
     output_df = input_df.copy()
     ag_ha_colname = f"{colprefix['ag']}_{crop_colname}_ha"
     bg_ha_colname = f"{colprefix['bg']}_{crop_colname}_ha"
@@ -1303,3 +1306,37 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     
     return dataset
 
+
+def check_attributes_status(instance, type='public'):
+    """
+    Checks the status of all attributes in the given class instance.
+
+    Parameters:
+    - instance: An instance of a class.
+    - type: A string that selects whether to show 'public' or 'private' attributes.
+
+    Returns:
+    A dictionary where keys are attribute names and values are tuples containing
+    the current type of the attribute and a boolean indicating if it is set (not None).
+    """
+    attrs_status = {}
+    for attribute in dir(instance):
+        # Filter out magic methods and attributes
+        if not attribute.startswith('__'):
+            if type == public:
+                if not attribute.startswith('_'):
+                    attr_value = getattr(instance, attribute)
+                    # Check if the attribute is set (not None)
+                    is_set = attr_value is not None
+                    # Store the type of the attribute and its set status
+                    attrs_status[attribute] = (type(attr_value).__name__, is_set)
+            if type == private:
+                if attribute.startswith('_'):
+                    attr_value = getattr(instance, attribute)
+                    # Check if the attribute is set (not None)
+                    is_set = attr_value is not None
+                    # Store the type of the attribute and its set status
+                    attrs_status[attribute] = (type(attr_value).__name__, is_set)
+            else:
+                print('Wrong type!\ntype has to be set to either 'public' or 'private'.')
+    return attrs_status
