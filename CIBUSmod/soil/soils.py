@@ -14,6 +14,7 @@ C inputs, SOC time-series data and CO2 fluxes for a scenario as an
 xarray inside a netcdf file
 """
 
+import inspect
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -219,13 +220,18 @@ class SoilData:
         """
         if verbose:
             print('---Executing calc_scn_inputs()---')
+        print(f'input_df index and cols point 1\n {self.input_df.index.names, self.input_df.columns}')
         _residue_col = self.input_df.filter(like='residues', axis=1)
+        print(f'input_df index and cols point 2\n {self.input_df.index.names, self.input_df.columns}')
         if len(_residue_col.columns) == 1:
             self._residue_col_name = _residue_col.columns[0]
             if '_harvest' in self._residue_col_name:
                 new_col_name = self._residue_col_name.replace('_harvest', "")
                 self.input_df.rename(columns={ self._residue_col_name: new_col_name}, inplace=True)
-        self.input_df = soil_utils.make_idx_continuous(self.input_df)
+        print(f'input_df index and cols point 3\n {self.input_df.index.names, self.input_df.columns}')
+        #self.input_df = soil_utils.make_idx_continuous(self.input_df)
+        self.input_df.reset_index(inplace=True)
+        print(f'input_df index and cols point 4\n {self.input_df.index.names, self.input_df.columns}')
         self.input_df = soil_utils.make_df_lower(self.input_df)
         if not isinstance(self.input_df, pd.DataFrame):
             return print('> Input dataframe not set. Please supply a valid input dataframe and retry')
@@ -465,3 +471,30 @@ class SoilData:
         if dataset == 'historic':
             self.historic_inventory.to_netcdf(f'{temp_path}/historic_soc_ds.nc')
             print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
+
+    def check_attributes_status(self, access='public'):
+        """
+        Checks the status of all attributes in the given class instance.
+
+        Parameters:
+        - access: Selects whether to show 'public' or 'private' attributes. (default: 'public')
+
+        Returns:
+        A dictionary where keys are attribute names and values are tuples containing
+        the current type of the attribute and a boolean indicating if it is set (not None).
+        """
+        attrs_status = {}
+        for attribute in dir(self):
+            # Filter based on access level
+            if access == 'public' and attribute.startswith('_'):
+                continue
+            elif access == 'private' and not attribute.startswith('_'):
+                continue
+            attr_value = getattr(self, attribute)
+            # Skip methods and magic methods
+            if inspect.ismethod(attr_value) or attribute.startswith('__'):
+                continue
+            # Check if the attribute is set (not None)
+            is_set = attr_value is not None
+            attrs_status[attribute] = (type(attr_value).__name__, is_set)
+        return attrs_status
