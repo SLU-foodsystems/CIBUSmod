@@ -27,8 +27,9 @@ from ..soil import temp_path
 class SoilData:
     """Class to calculate and keep track of the data related to soil carbon and CO2 fluxes in a given scenario"""
 
-    def __init__(self, input_df: pd.DataFrame, scenario: str) -> None:
+    def __init__(self, name: str, input_df: pd.DataFrame, scenario: str) -> None:
         # input variables
+        self.name = name
         self.input_df = input_df
         self.scenario = scenario
         # output variables
@@ -218,20 +219,18 @@ class SoilData:
         scenario_instance.calc_scn_inputs(new_name='input_year', save_inventory=True, verbose=True)
         ```
         """
+        soil_utils.colored_rule(color='cyan', height=2)
+        print("Calculating scenario inputs...")
         if verbose:
             print('---Executing calc_scn_inputs()---')
-        print(f'input_df index and cols point 1\n {self.input_df.index.names, self.input_df.columns}')
         _residue_col = self.input_df.filter(like='residues', axis=1)
-        print(f'input_df index and cols point 2\n {self.input_df.index.names, self.input_df.columns}')
         if len(_residue_col.columns) == 1:
             self._residue_col_name = _residue_col.columns[0]
             if '_harvest' in self._residue_col_name:
                 new_col_name = self._residue_col_name.replace('_harvest', "")
                 self.input_df.rename(columns={ self._residue_col_name: new_col_name}, inplace=True)
-        print(f'input_df index and cols point 3\n {self.input_df.index.names, self.input_df.columns}')
         #self.input_df = soil_utils.make_idx_continuous(self.input_df)
         self.input_df.reset_index(inplace=True)
-        print(f'input_df index and cols point 4\n {self.input_df.index.names, self.input_df.columns}')
         self.input_df = soil_utils.make_df_lower(self.input_df)
         if not isinstance(self.input_df, pd.DataFrame):
             return print('> Input dataframe not set. Please supply a valid input dataframe and retry')
@@ -260,6 +259,7 @@ class SoilData:
         self._make_spinup_df()
         if verbose:
             print('---calc_scn_inputs() executed successfully---')
+        soil_utils.colored_rule(color='green', height=2)
 
     def _calculate_soc(self, save_ds=False, verbose=False):
         """
@@ -481,6 +481,28 @@ class SoilData:
         if dataset == 'historic':
             self.historic_inventory.to_netcdf(f'{temp_path}/historic_soc_ds.nc')
             print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
+
+    def load_inventory(self, dataset=None):
+        # check if dataset is set, otherwise set to all datasets
+        if dataset is None:
+            dataset = ['inputs', 'soc', 'historic']
+            print(f'dataset set to {dataset}')
+            for ds in dataset:
+                self.load_inventory(ds)
+        else:
+            if dataset == 'inputs':
+                scn_input_ds_name = f'{self.scenario}_input_ds'
+                self.input_inventory = xr.load_dataset(f"{temp_path}/{scn_input_ds_name}.nc")
+                print(f"Scenario dataset loaded from {scn_input_ds_name}.nc in {temp_path}")
+            if dataset == 'soc':
+                # Save the input_inventory dataset to a netcdf-file
+                scn_soc_ds_name = f'{self.scenario}_soc_ds'
+                self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
+                print(f"SOC dataset loaded from {scn_soc_ds_name}.nc in {temp_path}")
+            if dataset == 'historic':
+                self.historic_inventory = xr.load_dataset(f'{temp_path}/historic_soc_ds.nc')
+                print(f"Historic SOC dataset loaded from historic_soc_ds.nc \n in {temp_path}")
+
 
     def check_attributes_status(self, access='public'):
         """
