@@ -467,26 +467,35 @@ class SoilData:
         # check if dataset is set, otherwise set to all datasets
         if dataset is None:
             dataset = ['inputs', 'soc', 'historic']
-        # Save the datasets to predetermined destinations
-        if dataset == 'inputs':
-            # Save the input_inventory dataset to a netcdf-file
-            scn_input_ds_name = f'{self.scenario}_input_ds'
-            self.input_inventory.to_netcdf(f"{temp_path}/{scn_input_ds_name}.nc")
-            print(f"Scenario dataset saved as {scn_input_ds_name}.nc in {temp_path}")
-        if dataset == 'soc':
-            # Save the input_inventory dataset to a netcdf-file
-            scn_soc_ds_name = f'{self.scenario}_soc_ds'
-            self.soc_inventory.to_netcdf(f"{temp_path}/{scn_soc_ds_name}.nc")
-            print(f"SOC dataset saved as {scn_soc_ds_name}.nc in {temp_path}")
-        if dataset == 'historic':
-            self.historic_inventory.to_netcdf(f'{temp_path}/historic_soc_ds.nc')
-            print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
+            print(f'dataset set to {dataset}')
+            for ds in dataset:
+                self.save_inventory(ds)
+        elif type(dataset) is list:
+            for ds in dataset:
+                self.save_inventory(ds)
+        else:
+            if dataset == 'inputs':
+                # Save the input_inventory dataset to a netcdf-file
+                scn_input_ds_name = f'{self.scenario}_input_ds'
+                self.input_inventory.to_netcdf(f"{temp_path}/{scn_input_ds_name}.nc")
+                print(f"Scenario dataset saved as {scn_input_ds_name}.nc in {temp_path}")
+            if dataset == 'soc':
+                # Save the input_inventory dataset to a netcdf-file
+                scn_soc_ds_name = f'{self.scenario}_soc_ds'
+                self.soc_inventory.to_netcdf(f"{temp_path}/{scn_soc_ds_name}.nc")
+                print(f"SOC dataset saved as {scn_soc_ds_name}.nc in {temp_path}")
+            if dataset == 'historic':
+                self.historic_inventory.to_netcdf(f'{temp_path}/historic_soc_ds.nc')
+                print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
 
     def load_inventory(self, dataset=None):
         # check if dataset is set, otherwise set to all datasets
         if dataset is None:
             dataset = ['inputs', 'soc', 'historic']
             print(f'dataset set to {dataset}')
+            for ds in dataset:
+                self.load_inventory(ds)
+        elif type(dataset) is list:
             for ds in dataset:
                 self.load_inventory(ds)
         else:
