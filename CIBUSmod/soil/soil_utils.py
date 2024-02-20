@@ -1338,5 +1338,5 @@ def check_attributes_status(instance, type='public'):
                     # Store the type of the attribute and its set status
                     attrs_status[attribute] = (type(attr_value).__name__, is_set)
             else:
-                print('Wrong type!\ntype has to be set to either 'public' or 'private'.')
+                print("Wrong type!\ntype has to be set to either 'public' or 'private'.")
     return attrs_status
