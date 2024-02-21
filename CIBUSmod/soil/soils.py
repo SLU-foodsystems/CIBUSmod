@@ -613,6 +613,7 @@ class SoilData:
     def save_instance_state(self, temp_path=temp_path):
         with open(f'{temp_path}/{self.name}.pickle', 'wb') as file:
             pickle.dump(self, file)
+        print(f'Saved instance variable states to {temp_path}/{self.name}')
 
     @classmethod
     def load_instance_state(cls, instance_name: str, temp_path=temp_path):
