@@ -29,7 +29,8 @@ from .optimisation.geo_dist import GeoDistributor
 from .utils.output_data_manip_db import get_emissions, get_GHG, to_ICBM
 
 # Import soil modules
-import CIBUSmod.soil.data_processing as data_processing
-import CIBUSmod.soil.icbm_funcs as icbm_funcs
-import CIBUSmod.soil.soil_utils as soil_utils
-from CIBUSmod.soil.soils import SoilData
+from .soil import data_processing
+from .soil import icbm_funcs
+from .soil.soils import SoilData
+from .soil import soil_utils
+
