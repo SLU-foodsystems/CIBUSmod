@@ -15,6 +15,9 @@ xarray inside a netcdf file
 """
 
 import inspect
+import os.path
+import pickle
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -57,6 +60,27 @@ class SoilData:
         self._ss_sko_sel = None  # type: list
         self._spinup_groupby_df = None # type: pd.DataFrame
 
+    def __getstate__(self):
+        # Copy the object's state using dict.copy() to avoid modifying the original state
+        state = self.__dict__.copy()
+        # Remove DataFrame and DataSet attributes before pickling
+        excluded_keys = ['input_df',
+                         'ss_input_df',
+                         'soc_ha_df',
+                         'soc_sko_df',
+                         'historic_ha_df',
+                         'historic_sko_df',
+                         'input_inventory',
+                         'soc_inventory',
+                         'historic_inventory']
+        for key in excluded_keys:
+            if key in state:
+                del state[key]
+        return state
+
+    def __setstate__(self, state):
+        # Restore instance attributes (except for excluded ones)
+        self.__dict__.update(state)
     def _add_prefixes(self, verbose=False):
         """Add input fraction prefixes to manure input"""
         if verbose:
@@ -478,14 +502,34 @@ class SoilData:
                 # Save the input_inventory dataset to a netcdf-file
                 scn_input_ds_name = f'{self.scenario}_input_ds'
                 self.input_inventory.to_netcdf(f"{temp_path}/{scn_input_ds_name}.nc")
+                if isinstance(self.ss_input_df, pd.DataFrame):
+                    soil_utils.to_csv_preserved(self.ss_input_df,
+                                                'ss_input_df',
+                                                save_type='temp')
                 print(f"Scenario dataset saved as {scn_input_ds_name}.nc in {temp_path}")
             if dataset == 'soc':
                 # Save the input_inventory dataset to a netcdf-file
                 scn_soc_ds_name = f'{self.scenario}_soc_ds'
                 self.soc_inventory.to_netcdf(f"{temp_path}/{scn_soc_ds_name}.nc")
+                if isinstance(self.soc_ha_df, pd.DataFrame):
+                    soil_utils.to_csv_preserved(self.soc_ha_df,
+                                                'soc_ha_df',
+                                                save_type='temp')
+                if isinstance(self.soc_sko_df, pd.DataFrame):
+                    soil_utils.to_csv_preserved(self.soc_sko_df,
+                                                'soc_sko_df',
+                                                save_type='temp')
                 print(f"SOC dataset saved as {scn_soc_ds_name}.nc in {temp_path}")
             if dataset == 'historic':
                 self.historic_inventory.to_netcdf(f'{temp_path}/historic_soc_ds.nc')
+                if isinstance(self.historic_ha_df, pd.DataFrame):
+                    soil_utils.to_csv_preserved(self.historic_ha_df,
+                                                'historic_ha_df',
+                                                save_type='temp')
+                if isinstance(self.historic_sko_df, pd.DataFrame):
+                    soil_utils.to_csv_preserved(self.historic_sko_df,
+                                                'historic_sko_df',
+                                                save_type='temp')
                 print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
 
     def load_inventory(self, dataset=None):
@@ -502,14 +546,24 @@ class SoilData:
             if dataset == 'inputs':
                 scn_input_ds_name = f'{self.scenario}_input_ds'
                 self.input_inventory = xr.load_dataset(f"{temp_path}/{scn_input_ds_name}.nc")
+                if os.path.exists(f'{temp_path}/ss_input_df.csv'):
+                    self.ss_input_df = soil_utils.read_csv_preserved(f'{temp_path}/ss_input_df.csv')
                 print(f"Scenario dataset loaded from {scn_input_ds_name}.nc in {temp_path}")
             if dataset == 'soc':
                 # Save the input_inventory dataset to a netcdf-file
                 scn_soc_ds_name = f'{self.scenario}_soc_ds'
                 self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
+                if os.path.exists(f'{temp_path}/soc_ha_df.csv'):
+                    self.soc_ha_df = soil_utils.read_csv_preserved(f'{temp_path}/soc_ha_df.csv')
+                if os.path.exists(f'{temp_path}/soc_sko_df.csv'):
+                    self.soc_sko_df = soil_utils.read_csv_preserved(f'{temp_path}/soc_sko_df.csv')
                 print(f"SOC dataset loaded from {scn_soc_ds_name}.nc in {temp_path}")
             if dataset == 'historic':
                 self.historic_inventory = xr.load_dataset(f'{temp_path}/historic_soc_ds.nc')
+                if os.path.exists(f'{temp_path}/.historic_ha_df.csv'):
+                    self.historic_ha_df = soil_utils.read_csv_preserved(f'{temp_path}/historic_ha_df.csv')
+                if os.path.exists(f'{temp_path}/historic_ha_df.csv'):
+                    self.historic_sko_df = soil_utils.read_csv_preserved(f'{temp_path}/historic_sko_df.csv')
                 print(f"Historic SOC dataset loaded from historic_soc_ds.nc \n in {temp_path}")
 
 
@@ -539,3 +593,29 @@ class SoilData:
             is_set = attr_value is not None
             attrs_status[attribute] = (type(attr_value).__name__, is_set)
         return f"The following attributes are set for {access} variables", attrs_status
+
+    def __getstate__(self):
+        # Copy the object's state using dict.copy() to avoid modifying the original state
+        state = self.__dict__.copy()
+        # Remove DataFrame and DataSet attributes before pickling
+        excluded_keys = ['input_df', 'ss_input_df', 'soc_ha_df', 'soc_sko_df', 'historic_ha_df', 'historic_sko_df',
+                         'input_inventory', 'soc_inventory', 'historic_inventory']
+        for key in excluded_keys:
+            if key in state:
+                del state[key]
+        return state
+
+    def __setstate__(self, state):
+        # Restore instance attributes (except for excluded ones)
+        self.__dict__.update(state)
+        # Initialize DataFrames or DataSets here if needed, or leave them to be set elsewhere
+
+    def save_instance_state(self, temp_path=temp_path):
+        with open(f'{temp_path}/{self.name}.pickle', 'wb') as file:
+            pickle.dump(self, file)
+
+    @classmethod
+    def load_instance_state(cls, instance_name: str, temp_path=temp_path):
+        with open(f'{temp_path}/{instance_name}.pickle', 'rb') as file:
+            instance = pickle.load(file)
+        return instance
