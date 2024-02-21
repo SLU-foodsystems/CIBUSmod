@@ -1404,3 +1404,51 @@ def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, List[Union[xr.D
         return [calculate_and_assign(item) for item in xarray_input]
     else:
         return calculate_and_assign(xarray_input)
+
+
+def assign_co2_flux(xarray_input,
+                    totsoc_label='tot_soc',
+                    co2flux_label='co2_flux',
+                    year_coord='output_year'
+                   ) -> None:
+    """
+    Calculates the CO2 flux between consecutive years based on the 'tot_soc' values in the input xarray objects.
+    The calculated CO2 flux is added to the input xarray Dataset or DataArray as a new variable.
+
+    Parameters:
+    -----------
+    xarray_input : Union[xr.Dataset, xr.DataArray, List[Union[xr.Dataset, xr.DataArray]]]
+        The input xarray Dataset or DataArray, or a list thereof, containing 'tot_soc' values.
+
+    totsoc_label : str, optional
+        The label for the total soil organic carbon variable. Defaults to 'tot_soc'.
+
+    co2flux_label : str, optional
+        The label for the calculated CO2 flux variable. Defaults to 'co2_flux'.
+
+    year_coord : str, optional
+        The name of the coordinate representing the temporal dimension over which the CO2 flux is calculated.
+        Defaults to 'output_year'.
+
+    Returns:
+    --------
+    None:
+        Modifies the provided xarray_input object(s) in-place, adding the 'co2_flux' variable.
+
+    Notes:
+    ------
+    - The 'co2_flux' is calculated as the negative difference in 'tot_soc' between consecutive years, multiplied
+      by a factor of 3.6, to account for the conversion between carbon and CO2 flux.
+    - This function modifies the input xarray object(s) directly; if the original data needs to be preserved,
+      consider working on a copy of the data.
+    """
+
+    if isinstance(xarray_input, list):
+        for item in xarray_input:
+            assign_co2_flux(item, totsoc_label, co2flux_label, year_coord)
+    else:
+        co2_flux = xarray_input[totsoc_label].diff(dim=year_coord) * -3.6
+        if isinstance(xarray_input, xr.DataArray):
+            raise NotImplementedError("CO2 flux calculation for xr.DataArray is not supported in this implementation.")
+        elif isinstance(xarray_input, xr.Dataset):
+            xarray_input[co2flux_label] = co2_flux
