@@ -37,12 +37,12 @@ O(t) = O(t-1)*ko*re+Y(t-1)*h*ky*re
 The num_to_dict is a helper function that takes
 """
 
-
+import CIBUSmod as cm
 import pandas as pd
 import matplotlib.pyplot as plt
 import math
 import numpy as np
-from typing import List, Dict
+from typing import List, Dict, Union
 
 def spinup_icbm(C_in = False,
              h = False,
@@ -186,7 +186,7 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
 
         for n, i in enumerate(input_df[x]):
             # For each row in the selected column, extract the C input value and perform the following tasks
-            # Calculate a soc time series using icbm_new.spinup_icbm with the C input and h-value 
+            # Calculate a soc time series using icbm_new.spinup_icbm with the C input and h-value
             c_output = spinup_icbm(i, h)
             # set the steady-state (ss) values for the young and old pool
             y_ss_col.append(c_output[0])
@@ -645,7 +645,7 @@ def run_icbm2(C_in = False,
                                                         tracking purposes).
             If False, the parameter n is used as the number of timesteps.
             (default = False)
-        inputyear (int): The year in which the first input takes place. 
+        inputyear (int): The year in which the first input takes place.
             All pools are set to 0 prior to this year. (default = 2020)
         n (int): Number of timesteps in the simulation,
                  used if endyear is False. [years]
@@ -778,7 +778,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
             Y0=input_df.iloc[n,0]
             O0=input_df.iloc[n,1]
             # for each row in the selected column, extract the C input value and perform the following tasks
-            # Calculate a soc time series using icbm_new.run_icbm2 with the C input, h-value and input year 
+            # Calculate a soc time series using icbm_new.run_icbm2 with the C input, h-value and input year
             c_output = run_icbm2(C_in=0, h=h, Y0=Y0, O0=O0, historic=True)
             # Append the output year list for each icbm result to the output_year_vector
             output_year_vector.append(c_output[1])
@@ -814,7 +814,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
                 # for each row in the selected column, extract the C input value and perform the following tasks
                 # extract the input year from the multiindex
                 input_year = idx.get_level_values(year_label)[n]
-                # Calculate a soc time series using icbm_new.run_icbm2 with the C input, h-value and input year 
+                # Calculate a soc time series using icbm_new.run_icbm2 with the C input, h-value and input year
                 c_output = run_icbm2(C_in=i, h=h, startyear=2020, inputyear=input_year.year)
                 # Append the output year list for each icbm result to the output_year_vector
                 output_year_vector.append(c_output[1])
@@ -899,3 +899,22 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
         print('---input_df_to_soc_df() executed succesfully---')
 
     return soc_df
+
+def set_df_and_name(input_data: Union[pd.DataFrame, dict], session: cm.Session) -> (pd.DataFrame, str):
+    try:
+        # if input is a dataframe
+        scn_name = str(input_data.index.get_level_values('scn').unique()[0])
+        soil_input_df = input_data
+    except AttributeError:
+        # if inut is not a dataframe, try handling as a dict
+        scenarios = {}
+        for scn in session.scenarios:
+            df = input[scn]
+            scenarios[scn] = df
+        scn_name = list(scenarios.keys())[0]
+        soil_input_df = scenarios[scn_name]
+    except Exception as e:
+        print('Unexpected problem.')
+        # Print a statement indicating the problem
+        raise ValueError('input_data  must be a pd.DataFrame or a dict') from e
+    return (soil_input_df, scn_name)
