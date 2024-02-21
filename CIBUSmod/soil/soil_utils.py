@@ -645,8 +645,6 @@ def to_csv_preserved(dataframe: pd.DataFrame,
         writer.writerow(data.keys())
         writer.writerow(data.values())
 
-
-    #print(f'File {file_name} successfully saved in {os.path.join(set_workdir, set_savedir)}')
     return
 
 
