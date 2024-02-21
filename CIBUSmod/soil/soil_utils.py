@@ -1336,3 +1336,71 @@ def check_attributes_status(instance, access='public'):
                     # Store the type of the attribute and its set status
                     attrs_status[attribute] = (type(attr_value).__name__, is_set)
     return attrs_status
+
+
+def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, List[Union[xr.Dataset, xr.DataArray]]],
+                   totsoc_label: str = 'tot_soc'
+                   ) -> Union[xr.Dataset, xr.DataArray, List[Union[xr.Dataset, xr.DataArray]]]:
+    """
+    Calculate and assign total soil organic carbon (tot_soc) based on young (y_pool) and old (o_pool) pools directly
+    within the provided xarray Dataset or DataArray. If a list of Datasets or DataArrays is provided, the operation
+    is applied to each element in the list.
+
+    This function modifies the input xarray object(s) in-place by adding a 'tot_soc' variable that represents the
+    sum of 'y_pool' and 'o_pool'.
+
+    Parameters:
+    -----------
+    xarray_input : Union[xr.Dataset, xr.DataArray, List[Union[xr.Dataset, xr.DataArray]]]
+        The input xarray Dataset or DataArray, or a list of xarray Datasets or DataArrays. Each element must contain
+        'y_pool' and 'o_pool' variables from which 'tot_soc' is calculated.
+
+    totsoc_label : str, optional
+        The label for the total soil organic carbon variable to be added to the input. Defaults to 'tot_soc'.
+
+    Returns:
+    --------
+    None
+        The function does not return any value. It modifies the provided xarray_input object(s) in-place by adding
+        a 'tot_soc' variable.
+
+    Notes:
+    ------
+    - The 'tot_soc' variable is calculated as the sum of 'y_pool' and 'o_pool'.
+    - This function directly modifies the input xarray object(s). Ensure to pass a copy if the original data should
+      remain unchanged.
+
+    Example:
+    --------
+    # For a single xarray Dataset
+    assign_tot_soc(ds)
+
+    # For a list of xarray Datasets
+    datasets = [ds1, ds2, ds3]
+    assign_tot_soc(datasets)
+
+    # For a single xarray DataArray
+    assign_tot_soc(da)
+
+    # For a list of xarray DataArrays
+    dataarrays = [da1, da2, da3]
+    assign_tot_soc(dataarrays)
+    """
+
+    def calculate_and_assign(ds_or_da):
+        if 'y_pool' in ds_or_da and 'o_pool' in ds_or_da:
+            tot_soc = ds_or_da.y_pool + ds_or_da.o_pool
+            if isinstance(ds_or_da, xr.DataArray):
+                ds_or_da = ds_or_da.to_dataset(name='var')
+                ds_or_da[totsoc_label] = tot_soc
+                ds_or_da = ds_or_da.to_array()
+            elif isinstance(ds_or_da, xr.Dataset):
+                ds_or_da[totsoc_label] = tot_soc
+        else:
+            raise ValueError("Input must contain 'y_pool' and 'o_pool'.")
+        return ds_or_da
+
+    if isinstance(xarray_input, list):
+        return [calculate_and_assign(item) for item in xarray_input]
+    else:
+        return calculate_and_assign(xarray_input)
