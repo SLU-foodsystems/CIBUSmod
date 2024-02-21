@@ -533,10 +533,12 @@ class SoilData:
                 print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
 
     def load_inventory(self, dataset=None):
+        ds_loaded = []
+        df_loaded = []
         # check if dataset is set, otherwise set to all datasets
         if dataset is None:
             dataset = ['inputs', 'soc', 'historic']
-            print(f'dataset set to {dataset}')
+            #print(f'dataset set to {dataset}')
             for ds in dataset:
                 self.load_inventory(ds)
         elif type(dataset) is list:
@@ -546,25 +548,36 @@ class SoilData:
             if dataset == 'inputs':
                 scn_input_ds_name = f'{self.scenario}_input_ds'
                 self.input_inventory = xr.load_dataset(f"{temp_path}/{scn_input_ds_name}.nc")
+                ds_loaded.append('input_inventory')
                 if os.path.exists(f'{temp_path}/ss_input_df.csv'):
                     self.ss_input_df = soil_utils.read_csv_preserved(f'{temp_path}/ss_input_df.csv')
-                print(f"Scenario dataset loaded from {scn_input_ds_name}.nc in {temp_path}")
+                    df_loaded.append('ss_input_df')
+                #print(f"Scenario dataset loaded from {scn_input_ds_name}.nc in {temp_path}")
             if dataset == 'soc':
                 # Save the input_inventory dataset to a netcdf-file
                 scn_soc_ds_name = f'{self.scenario}_soc_ds'
                 self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
+                ds_loaded.append('soc_inventory')
                 if os.path.exists(f'{temp_path}/soc_ha_df.csv'):
                     self.soc_ha_df = soil_utils.read_csv_preserved(f'{temp_path}/soc_ha_df.csv')
+                    df_loaded.append('soc_ha_df')
                 if os.path.exists(f'{temp_path}/soc_sko_df.csv'):
                     self.soc_sko_df = soil_utils.read_csv_preserved(f'{temp_path}/soc_sko_df.csv')
-                print(f"SOC dataset loaded from {scn_soc_ds_name}.nc in {temp_path}")
+                    df_loaded.append('soc_sko_df')
+                #print(f"SOC dataset loaded from {scn_soc_ds_name}.nc in {temp_path}")
             if dataset == 'historic':
                 self.historic_inventory = xr.load_dataset(f'{temp_path}/historic_soc_ds.nc')
-                if os.path.exists(f'{temp_path}/.historic_ha_df.csv'):
+                ds_loaded.append('historic_inventory')
+                if os.path.exists(f'{temp_path}/historic_ha_df.csv'):
                     self.historic_ha_df = soil_utils.read_csv_preserved(f'{temp_path}/historic_ha_df.csv')
+                    df_loaded.append('historic_ha_df')
                 if os.path.exists(f'{temp_path}/historic_ha_df.csv'):
                     self.historic_sko_df = soil_utils.read_csv_preserved(f'{temp_path}/historic_sko_df.csv')
-                print(f"Historic SOC dataset loaded from historic_soc_ds.nc \n in {temp_path}")
+                    df_loaded.append('historic_sko_df')
+                #print(f"Historic SOC dataset loaded from historic_soc_ds.nc \n in {temp_path}")
+            newline = '\n '
+            print(f"The following dataset variables have been set:{newline}{newline.join([str(ds) for ds in ds_loaded])}")
+            print(f"The following dataframe variables have been set:{newline}{newline.join([str(ds) for ds in df_loaded])}")
 
 
     def check_attributes_status(self, access='public'):
@@ -620,3 +633,9 @@ class SoilData:
         with open(f'{temp_path}/{instance_name}.pickle', 'rb') as file:
             instance = pickle.load(file)
         return instance
+
+    def add_total_soc(self):
+        soil_utils.assign_tot_soc(self.soc_inventory)
+
+    def add_co2_flux(self):
+        soil_utils.assign_co2_flux(vself.soc_inventory)
