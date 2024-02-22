@@ -537,52 +537,113 @@ class SoilData:
                                                 save_type='temp')
                 print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
 
-    def load_inventory(self, dataset=None):
-        ds_loaded = []
-        df_loaded = []
-        # check if dataset is set, otherwise set to all datasets
+    def load_inventory(self, dataset=None, temp_path=temp_path):
+        """
+        Loads inventory data based on specified dataset names.
+
+        This method supports loading single datasets, a list of datasets, or all datasets if none specified.
+        It updates the instance attributes for input, SOC (Soil Organic Carbon), and historic data inventories
+        along with their corresponding DataFrames from CSV files.
+
+        Parameters:
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be loaded ('inputs', 'soc', 'historic').
+                                          If None, all datasets will be loaded.
+        """
+        ds_loaded = []  # Tracks loaded xarray datasets
+        df_loaded = []  # Tracks loaded CSV dataframes
+        # Load specific datasets or all if none specified
         if dataset is None:
             dataset = ['inputs', 'soc', 'historic']
-            #print(f'dataset set to {dataset}')
             for ds in dataset:
                 self.load_inventory(ds)
-        elif type(dataset) is list:
+        elif isinstance(dataset, list):  # Recursively load each dataset in list
             for ds in dataset:
                 self.load_inventory(ds)
-        else:
+        else:  # Load individual dataset
             if dataset == 'inputs':
+                # Load 'inputs' dataset
                 scn_input_ds_name = f'{self.scenario}_input_ds'
                 self.input_inventory = xr.load_dataset(f"{temp_path}/{scn_input_ds_name}.nc")
                 ds_loaded.append('input_inventory')
+                # Load associated CSV if exists
                 if os.path.exists(f'{temp_path}/ss_input_df.csv'):
                     self.ss_input_df = soil_utils.read_csv_preserved(f'{temp_path}/ss_input_df.csv')
                     df_loaded.append('ss_input_df')
-                #print(f"Scenario dataset loaded from {scn_input_ds_name}.nc in {temp_path}")
-            if dataset == 'soc':
-                # Save the input_inventory dataset to a netcdf-file
+            elif dataset == 'soc':
+                # Load 'soc' dataset
                 scn_soc_ds_name = f'{self.scenario}_soc_ds'
                 self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
                 ds_loaded.append('soc_inventory')
-                if os.path.exists(f'{temp_path}/soc_ha_df.csv'):
-                    self.soc_ha_df = soil_utils.read_csv_preserved(f'{temp_path}/soc_ha_df.csv')
-                    df_loaded.append('soc_ha_df')
-                if os.path.exists(f'{temp_path}/soc_sko_df.csv'):
-                    self.soc_sko_df = soil_utils.read_csv_preserved(f'{temp_path}/soc_sko_df.csv')
-                    df_loaded.append('soc_sko_df')
-                #print(f"SOC dataset loaded from {scn_soc_ds_name}.nc in {temp_path}")
-            if dataset == 'historic':
+                # Load associated CSVs if they exist
+                self._load_csv_files(temp_path, ['soc_ha_df', 'soc_sko_df'], df_loaded)
+            elif dataset == 'historic':
+                # Load 'historic' dataset
                 self.historic_inventory = xr.load_dataset(f'{temp_path}/historic_soc_ds.nc')
                 ds_loaded.append('historic_inventory')
-                if os.path.exists(f'{temp_path}/historic_ha_df.csv'):
-                    self.historic_ha_df = soil_utils.read_csv_preserved(f'{temp_path}/historic_ha_df.csv')
-                    df_loaded.append('historic_ha_df')
-                if os.path.exists(f'{temp_path}/historic_ha_df.csv'):
-                    self.historic_sko_df = soil_utils.read_csv_preserved(f'{temp_path}/historic_sko_df.csv')
-                    df_loaded.append('historic_sko_df')
-                #print(f"Historic SOC dataset loaded from historic_soc_ds.nc \n in {temp_path}")
+                # Load associated CSVs if they exist
+                self._load_csv_files(temp_path, ['historic_ha_df', 'historic_sko_df'], df_loaded)
+
+        # Print loaded datasets and dataframes
+        self._print_loaded_items(ds_loaded, 'dataset')
+        self._print_loaded_items(df_loaded, 'dataframe')
+
+    def _load_csv_files(self, temp_path, csv_names, loaded_list):
+        """
+        Helper method to load CSV files as DataFrames if they exist.
+
+        Parameters:
+        - temp_path: str - The path where CSV files are located.
+        - csv_names: list - A list of CSV file base names to load.
+        - loaded_list: list - A list to append the names of successfully loaded CSV files.
+        """
+        for csv_name in csv_names:
+            csv_path = f'{temp_path}/{csv_name}.csv'
+            if os.path.exists(csv_path):
+                setattr(self, csv_name, soil_utils.read_csv_preserved(csv_path))
+                loaded_list.append(csv_name)
+
+    def _print_loaded_items(self, items, item_type):
+        """
+        Helper method to print loaded items.
+
+        Parameters:
+        - items: list - A list of loaded item names.
+        - item_type: str - A description of the item type ('dataset' or 'dataframe').
+        """
+        newline = '\n '
+        if items:
+            print(f"The following {item_type} variables have been set:{newline}{newline.join(items)}")
+        else:
+            print(f"No {item_type} variables have been loaded.")
+
+        def _load_csv_files(self, temp_path, csv_names, loaded_list):
+            """
+            Helper method to load CSV files as DataFrames if they exist.
+
+            Parameters:
+            - temp_path: str - The path where CSV files are located.
+            - csv_names: list - A list of CSV file base names to load.
+            - loaded_list: list - A list to append the names of successfully loaded CSV files.
+            """
+            for csv_name in csv_names:
+                csv_path = f'{temp_path}/{csv_name}.csv'
+                if os.path.exists(csv_path):
+                    setattr(self, csv_name, soil_utils.read_csv_preserved(csv_path))
+                    loaded_list.append(csv_name)
+
+        def _print_loaded_items(self, items, item_type):
+            """
+            Helper method to print loaded items.
+
+            Parameters:
+            - items: list - A list of loaded item names.
+            - item_type: str - A description of the item type ('dataset' or 'dataframe').
+            """
             newline = '\n '
-            print(f"The following dataset variables have been set:{newline}{newline.join([str(ds) for ds in ds_loaded])}")
-            print(f"The following dataframe variables have been set:{newline}{newline.join([str(ds) for ds in df_loaded])}")
+            if items:
+                print(f"The following {item_type} variables have been set:{newline}{newline.join(items)}")
+            else:
+                print(f"No {item_type} variables have been loaded.")
 
 
     def check_attributes_status(self, access='public'):
