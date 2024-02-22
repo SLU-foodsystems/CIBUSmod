@@ -87,9 +87,11 @@ class GeoDistributor:
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
 
-        # Drop any old solution
-        if hasattr(self, 'x'):
-            delattr(self, 'x')
+        # Clean up any old problem and solution
+        self.success = None
+        for attr in ['problem','x']:
+            if hasattr(self, attr):
+                delattr(self, attr)
         
         self.matrices = [] # Keep track of matrices created
 
@@ -178,8 +180,9 @@ class GeoDistributor:
         if not isinstance(solver_settings, list):
             solver_settings = [solver_settings]
 
-        vprint('Defining problem ...')
-        self.define_cvx_problem()
+        if not hasattr(self, 'problem'):
+            vprint('Defining problem ...')
+            self.define_cvx_problem()
         
         vprint('Finding solution ...')
         
@@ -243,7 +246,7 @@ class GeoDistributor:
             if hasattr(self, 'x'):
                 delattr(self, 'x')
             self.success = False
-            raise RuntimeError('No solution found!')
+            raise RuntimeError(f'No solution found! Status: \'{self.problem.status}\', Itterations: {self.problem.solver_stats.num_iters}, Solver: \'{self.problem.solver_stats.solver_name}\'')
 
         vprint(type='end')
 
