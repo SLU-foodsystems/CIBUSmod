@@ -17,6 +17,7 @@ xarray inside a netcdf file
 import inspect
 import os.path
 import pickle
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -112,7 +113,7 @@ class SoilData:
             self.input_df = self.input_df.reset_index()
             pd.to_datetime(self.input_df.input_year, format='%Y')
             self.input_df = self.input_df.set_index(idx)
-            self.input_df.index.dtypes
+            self.input_df.index.dtypes()
         else:
             self.input_df.input_year = pd.to_datetime(self.input_df.input_year, format='%Y')
         if verbose:
@@ -502,9 +503,13 @@ class SoilData:
                 # Save the input_inventory dataset to a netcdf-file
                 scn_input_ds_name = f'{self.scenario}_input_ds'
                 self.input_inventory.to_netcdf(f"{temp_path}/{scn_input_ds_name}.nc")
+                if isinstance(self.input_df, pd.DataFrame):
+                    soil_utils.to_csv_preserved(self.input_df,
+                                                save_as='input_df',
+                                                save_type='temp')
                 if isinstance(self.ss_input_df, pd.DataFrame):
                     soil_utils.to_csv_preserved(self.ss_input_df,
-                                                'ss_input_df',
+                                                save_as='ss_input_df',
                                                 save_type='temp')
                 print(f"Scenario dataset saved as {scn_input_ds_name}.nc in {temp_path}")
             if dataset == 'soc':
@@ -513,22 +518,22 @@ class SoilData:
                 self.soc_inventory.to_netcdf(f"{temp_path}/{scn_soc_ds_name}.nc")
                 if isinstance(self.soc_ha_df, pd.DataFrame):
                     soil_utils.to_csv_preserved(self.soc_ha_df,
-                                                'soc_ha_df',
+                                                save_as='soc_ha_df',
                                                 save_type='temp')
                 if isinstance(self.soc_sko_df, pd.DataFrame):
                     soil_utils.to_csv_preserved(self.soc_sko_df,
-                                                'soc_sko_df',
+                                                save_as='soc_sko_df',
                                                 save_type='temp')
                 print(f"SOC dataset saved as {scn_soc_ds_name}.nc in {temp_path}")
             if dataset == 'historic':
                 self.historic_inventory.to_netcdf(f'{temp_path}/historic_soc_ds.nc')
                 if isinstance(self.historic_ha_df, pd.DataFrame):
                     soil_utils.to_csv_preserved(self.historic_ha_df,
-                                                'historic_ha_df',
+                                                save_as='historic_ha_df',
                                                 save_type='temp')
                 if isinstance(self.historic_sko_df, pd.DataFrame):
                     soil_utils.to_csv_preserved(self.historic_sko_df,
-                                                'historic_sko_df',
+                                                save_as='historic_sko_df',
                                                 save_type='temp')
                 print(f"Historic SOC dataset saved as historic_soc_ds.nc \n in {temp_path}")
 
@@ -638,4 +643,4 @@ class SoilData:
         soil_utils.assign_tot_soc(self.soc_inventory)
 
     def add_co2_flux(self):
-        soil_utils.assign_co2_flux(vself.soc_inventory)
+        soil_utils.assign_co2_flux(self.soc_inventory)
