@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 
-"""This module contains the soil organic carbon data and methods.
+"""This module contains the soil_modules organic carbon data and methods.
 
 Calculate the SOC data and related CO2 fluxes from input in
 external modules.
 
 The total CO2 fluxes and SOC data of a scenario are directly
 accessible through a SoilData class instance after having run the
-soil calculations using the SoilCalc class.
+soil_modules calculations using the SoilCalc class.
 
 Each SoilData class instance contains the complete input_inventory of
 C inputs, SOC time-series data and CO2 fluxes for a scenario as an
@@ -23,10 +23,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-import CIBUSmod.soil.soil_utils as soil_utils
-from CIBUSmod.soil.soil_params import C_CONTENT_CROPS
-import CIBUSmod.soil.icbm_funcs as icbm_funcs
-from ..soil import temp_path
+import CIBUSmod.soil_modules.soil_utils as soil_utils
+from CIBUSmod.soil_modules.soil_params import C_CONTENT_CROPS
+import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
+from ..soil_modules import temp_path
 
 T = TypeVar('T', bound='SoilData')
 
