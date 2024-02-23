@@ -26,28 +26,55 @@ import xarray as xr
 import CIBUSmod.soil_modules.soil_utils as soil_utils
 from CIBUSmod.soil_modules.soil_params import C_CONTENT_CROPS
 import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
-from ..soil_modules import temp_path
+from CIBUSmod.soil_modules import temp_path
+
+from CIBUSmod.utils.output_data_manip_db import to_ICBM
+from CIBUSmod import Session
 
 T = TypeVar('T', bound='SoilData')
 
 class SoilData:
     """Class to calculate and keep track of the data related to soil carbon and CO2 fluxes in a given scenario"""
 
-    def __init__(self, name: str, input_df: pd.DataFrame, scenario: str) -> None:
+    def __init__(self, session: Session) -> None:
+        # Automatically set up instance upon initialization
+
+        # Convert session to ICBM format and set up dataframes and scenario name
+        icbm_df = to_ICBM(session)
         # input variables
-        self.name = name
-        self.input_df = input_df
-        self.scenario = scenario
-        # output variables
-        self.startyear = None # type: int
+        self.input_df, self.scenario = self.set_df_and_name(icbm_df, session)
+        self.name = session.name
+
+        # Initialize output variables
+        self.initialize_output_variables()
+
+        # Perform save operations
+        self.save_inventory()
+        self.save_instance_state()
+
+    @staticmethod
+    def set_df_and_name(icbm_df: pd.DataFrame, session: Session) -> (pd.DataFrame, str):
+        try:
+            scn_name = str(icbm_df.index.get_level_values('scn').unique()[0])
+            soil_input_df = icbm_df
+        except Exception as e:
+            print('Unexpected problem.')
+            # Print a statement indicating the problem
+            raise ValueError('input_data  must be a pd.DataFrame') from e
+        return (soil_input_df, scn_name)
+
+
+    def initialize_output_variables(self):
+        # Initialize output variables to None or appropriate default values
+        self.startyear = None  # type: int
         self.ss_input_df = None  # type: pd.Dataframe
-        self.soc_ha_df = None # type: pd.Dataframe
+        self.soc_ha_df = None  # type: pd.Dataframe
         self.soc_sko_df = None  # type: pd.Dataframe
         self.historic_ha_df = None  # type: pd.Dataframe
         self.historic_sko_df = None  # type: pd.Dataframe
         self.co2_fluxes = None  # type: np.ndarray
         self.input_inventory = None  # type: xr.Dataset
-        self.soc_inventory = None # type: xr.Dataset
+        self.soc_inventory = None  # type: xr.Dataset
         self.historic_inventory = None  # type: xr.Dataset
         # help variables
         self._residue_col_name = None  # type: str
@@ -57,11 +84,11 @@ class SoilData:
         self._ss_input_ha_df = None  # type: pd.Dataframe
         self._ss_input_sko_df = None  # type: pd.Dataframe
         self._h_value_dict = None  # type: Dict
-        self._scn_ha_sel = None # type: list
+        self._scn_ha_sel = None  # type: list
         self._scn_sko_sel = None  # type: list
         self._ss_ha_sel = None  # type: list
         self._ss_sko_sel = None  # type: list
-        self._spinup_groupby_df = None # type: pd.DataFrame
+        self._spinup_groupby_df = None  # type: pd.DataFrame
 
     def __getstate__(self):
         # Copy the object's state using dict.copy() to avoid modifying the original state
@@ -84,6 +111,8 @@ class SoilData:
     def __setstate__(self, state):
         # Restore instance attributes (except for excluded ones)
         self.__dict__.update(state)
+
+
     def _add_prefixes(self, verbose=False):
         """Add input fraction prefixes to manure input"""
         if verbose:
@@ -689,13 +718,13 @@ class SoilData:
         # Initialize DataFrames or DataSets here if needed, or leave them to be set elsewhere
 
     def save_instance_state(self, temp_path=temp_path):
-        with open(f'{temp_path}/{self.name}.pickle', 'wb') as file:
+        with open(f'{temp_path}/{self.scenario}.pickle', 'wb') as file:
             pickle.dump(self, file)
-        print(f'Saved instance variable states to {temp_path}/{self.name}')
+        print(f'Saved instance variable states to {temp_path}/{self.scenario}')
 
     @classmethod
-    def load_instance_state(cls: Type[T], instance_name: str, temp_path=temp_path) -> T:
-        with open(f'{temp_path}/{instance_name}.pickle', 'rb') as file:
+    def load_instance_state(cls: Type[T], scenario_name: str, temp_path=temp_path) -> T:
+        with open(f'{temp_path}/{scenario_name}.pickle', 'rb') as file:
             instance = pickle.load(file)
         return instance
 
