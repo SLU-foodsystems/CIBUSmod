@@ -700,7 +700,34 @@ class SoilData:
         return instance
 
     def add_total_soc(self):
+        """
+        Adds a 'tot_soc' data array to the class's inventory datasets.
+
+        This method applies the 'assign_tot_soc' function to both 'soc_inventory'
+        and 'historic_inventory' datasets of the class. It calculates 'tot_soc' as
+        the sum of 'y_pool' and 'o_pool' data arrays within these datasets. The
+        resulting 'tot_soc' data array represents the total soil organic carbon.
+
+        Returns:
+        --------
+        None: Modifies the 'soc_inventory' and 'historic_inventory' datasets in-place.
+        """
         soil_utils.assign_tot_soc(self.soc_inventory)
+        soil_utils.assign_tot_soc(self.historic_inventory)
 
     def add_co2_flux(self):
+        """
+        Adds a 'co2_flux' data array to the class's inventory datasets.
+
+        This method applies the 'assign_co2_flux' function to both 'soc_inventory'
+        and 'historic_inventory' datasets of the class. It calculates 'co2_flux' as
+        the difference in 'tot_soc' (total soil organic carbon) between two
+        consecutive years. The 'co2_flux' data array represents the carbon dioxide
+        flux due to changes in soil organic carbon over time.
+
+        Returns:
+        --------
+        None: Modifies the 'soc_inventory' and 'historic_inventory' datasets in-place.
+        """
         soil_utils.assign_co2_flux(self.soc_inventory)
+        soil_utils.assign_co2_flux(self.historic_inventory)
