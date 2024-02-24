@@ -47,6 +47,7 @@ class SoilData:
 
         # Initialize output variables
         self.initialize_output_variables()
+        self._set_startyear()
 
         # Perform save operations
         self.save_inventory()
@@ -133,6 +134,10 @@ class SoilData:
             self.input_df = self.input_df.rename(columns={'year': new_name})
         if verbose:
             print(">>> '_change_year_name()' executed succesfully <<<")
+
+
+    def _set_startyear(self):
+        self.startyear = self.input_df.index.get_level_values('input_year').year[0]
 
 
     def _make_datetime(self, verbose=False):
@@ -307,7 +312,6 @@ class SoilData:
         self._make_datetime(verbose=verbose)
         self._make_multiindex(verbose=verbose)
         # Set instance variables
-        self.startyear = self.input_df.index.get_level_values('input_year').year[0]
         self.input_inventory = self.input_df.to_xarray()
         if verbose:
             print('info: Finished creating scenario input_df')
