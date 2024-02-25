@@ -36,34 +36,32 @@ T = TypeVar('T', bound='SoilData')
 class SoilData:
     """Class to calculate and keep track of the data related to soil carbon and CO2 fluxes in a given scenario"""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session_df_name: str, session_name: str, import_path: str = temp_path,
+                 verbose: bool = False) -> None:
         # Automatically set up instance upon initialization
 
-        # Convert session to ICBM format and set up dataframes and scenario name
-        icbm_df = to_ICBM(session)
         # input variables
-        self.input_df, self.scenario = self.set_df_and_name(icbm_df, session)
-        self.name = session.name
+        self.input_df, self.scenario, self.name = self.set_df_and_name(session_df_name, session_name, import_path)
 
         # Initialize output variables
         self.initialize_output_variables()
-        self._set_startyear()
+        self._set_startyear(verbose=verbose)
 
         # Perform save operations
         self.save_inventory()
         self.save_instance_state()
 
     @staticmethod
-    def set_df_and_name(icbm_df: pd.DataFrame, session: Session) -> (pd.DataFrame, str):
+    def set_df_and_name(df_file_name: str, name_file_name: str, import_path: str) -> (pd.DataFrame, str, str):
         try:
-            scn_name = str(icbm_df.index.get_level_values('scn').unique()[0])
-            soil_input_df = icbm_df
+            soil_input_df = soil_utils.read_csv_preserved(f'{import_path}/{df_file_name}')
+            scenario = str(soil_input_df.index.get_level_values('scn').unique()[0])
+            name = soil_utils.load_data(name_file_name, import_path)
         except Exception as e:
             print('Unexpected problem.')
             # Print a statement indicating the problem
-            raise ValueError('input_data  must be a pd.DataFrame') from e
-        return (soil_input_df, scn_name)
-
+            raise ValueError("input_data  must be a pd.DataFrame containing an index level named 'scn'") from e
+        return (soil_input_df, scenario, name)
 
     def initialize_output_variables(self):
         # Initialize output variables to None or appropriate default values
@@ -113,7 +111,6 @@ class SoilData:
         # Restore instance attributes (except for excluded ones)
         self.__dict__.update(state)
 
-
     def _add_prefixes(self, verbose=False):
         """Add input fraction prefixes to manure input"""
         if verbose:
@@ -122,23 +119,46 @@ class SoilData:
         self.input_df = soil_utils.add_prefix('manure', 'i_ag', self.input_df)
         if verbose:
             print(">>> '_add_prefixes()' executed succesfully <<<")
-        
 
     def _change_year_name(self, new_name='input_year', verbose=False):
         """Change the column name "year" to 'new_name'(default="input_year")"""
         if verbose:
             print(">>> Executing '_change_year_name()'<<<")
         if isinstance(self.input_df.index, pd.MultiIndex):
-            self.input_df.index.set_names(['input_year'], level='year', inplace=True)
+            self.input_df.index = self.input_df.index.set_names(new_name, level='year')
         else:
             self.input_df = self.input_df.rename(columns={'year': new_name})
         if verbose:
-            print(">>> '_change_year_name()' executed succesfully <<<")
+            print(">>> '_change_year_name()' executed successfully <<<")
 
 
-    def _set_startyear(self):
-        self.startyear = self.input_df.index.get_level_values('input_year').year[0]
+    def _set_startyear(self, new_name='input_year', verbose=False) -> None:
+        """
+        Changes the name of the 'year' index level or column to 'input_year', if necessary.
+        Then sets 'startyear' to the first value of 'input_year' in 'input_df'.
 
+        Parameters
+        ----------
+        - new_name (str, optional): The new name for the 'input_year' column if 'year' is present.
+          Defaults to 'input_year'
+
+        Returns
+        -------
+        None
+
+        """
+        # make sure that the 'year' column name is unambiguous
+        if isinstance(self.input_df.index, pd.MultiIndex):
+            if new_name not in self.input_df.index.names \
+                    and 'year' in self.input_df.index.names:
+                self._change_year_name(new_name=new_name, verbose=verbose)
+        else:
+            if new_name not in self.input_df.columns \
+                    and 'year' in self.input_df.columns:
+                self._change_year_name(new_name=new_name, verbose=verbose)
+        # make sure the 'input_year' column is in datetime64 format
+        self._make_datetime(verbose=verbose)
+        self.startyear = self.input_df.index.get_level_values(new_name).year[0]
 
     def _make_datetime(self, verbose=False):
         """Change the "input_year" column dtype to datetime64"""
@@ -147,14 +167,12 @@ class SoilData:
         if isinstance(self.input_df.index, pd.MultiIndex):
             idx = list(self.input_df.index.names)
             self.input_df = self.input_df.reset_index()
-            pd.to_datetime(self.input_df.input_year, format='%Y')
+            self.input_df['input_year'] = pd.to_datetime(self.input_df['input_year'], format='%Y')
             self.input_df = self.input_df.set_index(idx)
-            self.input_df.index.dtypes()
         else:
-            self.input_df.input_year = pd.to_datetime(self.input_df.input_year, format='%Y')
+            self.input_df['input_year'] = pd.to_datetime(self.input_df['input_year'], format='%Y')
         if verbose:
             print(">>> '_make_datetime()' executed succesfully <<<")
-
 
     def _calc_input_ha(self, verbose=False):
         """
@@ -167,13 +185,13 @@ class SoilData:
         # Calculate yield per unit area
         self.input_df["areayield"] = self.input_df["harvest_kgdm"] / self.input_df["area_ha"] * C_CONTENT_CROPS
         if "crop_residues_harvest_kgdm" in self.input_df.columns:
-            self.input_df["areayield_residues"] = self.input_df["crop_residues_harvest_kgdm"] / self.input_df["area_ha"] * C_CONTENT_CROPS
+            self.input_df["areayield_residues"] = self.input_df["crop_residues_harvest_kgdm"] / self.input_df[
+                "area_ha"] * C_CONTENT_CROPS
         else:
             self.input_df["areayield_residues"] = 0
 
         if verbose:
             print(">>> '_calc_input_ha()' executed succesfully <<<")
-
 
     def _calc_amnd_ha(self, verbose=False):
         """ Calculate the amnendment input per unit area, given total manure ("_kgc") and area ("area_ha")"""
@@ -187,11 +205,10 @@ class SoilData:
             col_name = f'{i[:-4]}_ha'
             newframe[col_name] = newframe[i] / newframe['area_ha']
             if verbose:
-                print(f"--- Inserted {col_name}---")        
+                print(f"--- Inserted {col_name}---")
         self.input_df = newframe.copy(deep=True)
         if verbose:
-                print(">>> '_calc_amnd_ha()' executed succesfully <<<")
-
+            print(">>> '_calc_amnd_ha()' executed succesfully <<<")
 
     def _make_multiindex(self, verbose=False):
         """create multiindex dataframe"""
@@ -201,8 +218,7 @@ class SoilData:
         # Create a multiindex df
         self.input_df = self.input_df.set_index(scn_input_idx)
         if verbose:
-                print(">>> '_make_multiindex()' executed succesfully <<<")
-
+            print(">>> '_make_multiindex()' executed succesfully <<<")
 
     def _calc_crop_inputs(self, straw_removed=False, verbose=False):
         """Calculate the carbon inputs above and below ground based on allocation methods and factors"""
@@ -217,7 +233,7 @@ class SoilData:
         mapper = (allo_dict['crop_andren2004_map'], allo_dict['crop_jacobs_map'], allo_dict['crop_hanna_map'])
         sources = ('Andren2004', 'Jacobs2020', 'Hanna')
         allo_dfs = (allo_dict['c_allom_andren_df'], allo_dict['c_alloc_jacobs_df'], allo_dict['c_alloc_hanna_df'])
-    
+
         self.input_df = soil_utils.calculate_c_inputs(self.input_df,
                                                       mapper,
                                                       sources,
@@ -226,7 +242,6 @@ class SoilData:
                                                       verbose=verbose)
         if verbose:
             print(">>> '_calc_crop_inputs()' executed succesfully <<<")
-
 
     def _make_spinup_df(self, verbose=False):
         """
@@ -250,19 +265,11 @@ class SoilData:
         if verbose:
             print('---Leaving _make_spinup_df()---')
 
-    
-    def calc_scn_inputs(self,
-                        new_name='input_year',
-                        verbose=False
-                        ):
+    def calc_scn_inputs(self, verbose=False):
         """
         Calculate the carbon inputs used for soil organic carbon modelling in CIBUSmod.
 
         Parameters:
-        - new_name (str, optional): The new name for the 'input_year' column if 'year' is present.
-          Defaults to 'input_year'.
-        - save_inventory (bool, optional): If True, save the input_inventory dataset to a netcdf-file.
-          Defaults to False.
         - verbose (bool, optional): If True, print execution messages. Defaults to False.
 
         Returns:
@@ -289,8 +296,8 @@ class SoilData:
             self._residue_col_name = _residue_col.columns[0]
             if '_harvest' in self._residue_col_name:
                 new_col_name = self._residue_col_name.replace('_harvest', "")
-                self.input_df.rename(columns={ self._residue_col_name: new_col_name}, inplace=True)
-        #self.input_df = soil_utils.make_idx_continuous(self.input_df)
+                self.input_df.rename(columns={self._residue_col_name: new_col_name}, inplace=True)
+        # self.input_df = soil_utils.make_idx_continuous(self.input_df)
         self.input_df.reset_index(inplace=True)
         self.input_df = soil_utils.make_df_lower(self.input_df)
         if not isinstance(self.input_df, pd.DataFrame):
@@ -299,17 +306,6 @@ class SoilData:
         self._calc_amnd_ha(verbose=verbose)
         self._calc_crop_inputs(verbose=verbose)
         self._add_prefixes(verbose=verbose)
-        # make sure that the 'year' column name is unambiguous
-        if isinstance(self.input_df.index, pd.MultiIndex):
-            if 'input_year' not in self.input_df.index.names \
-            and 'year' in self.input_df.index.names:
-                self._change_year_name(new_name=new_name, verbose=verbose)
-        else:
-            if 'input_year' not in self.input_df.columns \
-            and 'year' in self.input_df.columns:
-                self._change_year_name(new_name=new_name, verbose=verbose)
-        # make sure the 'input_year' column is in datetime64 format
-        self._make_datetime(verbose=verbose)
         self._make_multiindex(verbose=verbose)
         # Set instance variables
         self.input_inventory = self.input_df.to_xarray()
@@ -341,10 +337,12 @@ class SoilData:
         # extract a list of the scenario columns by which icbm is to be run
         if verbose:
             print("Extracting filtered_namelist per ha")
-        self._scn_ha_sel = list(set(soil_utils.get_filtered_namelist(['i_a', 'i_b', 'ha'], ['manure', 'crop'], self._c_input_ha_df)))
+        self._scn_ha_sel = list(
+            set(soil_utils.get_filtered_namelist(['i_a', 'i_b', 'ha'], ['manure', 'crop'], self._c_input_ha_df)))
         if verbose:
             print("Extracting filtered_namelist per sko")
-        self._scn_sko_sel = list(set(soil_utils.get_filtered_namelist(['i_a', 'i_b', 'sko'], ['manure', 'crop'], self._c_input_sko_df)))
+        self._scn_sko_sel = list(
+            set(soil_utils.get_filtered_namelist(['i_a', 'i_b', 'sko'], ['manure', 'crop'], self._c_input_sko_df)))
         if verbose:
             print('---Leaving _calculate_soc()---')
 
@@ -379,13 +377,14 @@ class SoilData:
         if not self._ss_ha_sel:
             if verbose:
                 print("Extracting filtered_namelist per ha")
-            self._ss_ha_sel = list(set(soil_utils.get_filtered_namelist(['i_a', 'i_b'], ['manure', 'crop', 'ha'], self._ss_input_ha_df)))
+            self._ss_ha_sel = list(
+                set(soil_utils.get_filtered_namelist(['i_a', 'i_b'], ['manure', 'crop', 'ha'], self._ss_input_ha_df)))
         if not self._ss_sko_sel:
             if verbose:
                 print("Extracting filtered_namelist per sko")
-            self._ss_sko_sel = list(set(soil_utils.get_filtered_namelist(['i_a', 'i_b'], ['manure', 'crop', 'ha'], self._ss_input_sko_df)))
+            self._ss_sko_sel = list(
+                set(soil_utils.get_filtered_namelist(['i_a', 'i_b'], ['manure', 'crop', 'ha'], self._ss_input_sko_df)))
         print('---Leaving _calculate_historic_soc()---')
-
 
     def _scn_icbm_calculations(self, verbose=False):
         """
@@ -433,9 +432,9 @@ class SoilData:
         if verbose:
             print("info: Calculating SOC timeseries per ha")
         self.historic_ha_df = icbm_funcs.input_df_to_soc_df(spinup_ss_ha_df,
-                                                         self._ss_ha_sel,
-                                                         self._h_value_dict,
-                                                         historic=True)
+                                                            self._ss_ha_sel,
+                                                            self._h_value_dict,
+                                                            historic=True)
         if verbose:
             print("info: Calculating SOC timeseries per sko")
         self.historic_sko_df = icbm_funcs.input_df_to_soc_df(spinup_ss_sko_df,
@@ -477,7 +476,7 @@ class SoilData:
         if verbose:
             print('---Leaving _make_scn_area_dfs()---')
 
-    def _make_spinup_area_dfs(self,verbose=False):
+    def _make_spinup_area_dfs(self, verbose=False):
         """
         Create spinup dataframes with yields per ha and per sko
         """
@@ -505,7 +504,6 @@ class SoilData:
         if verbose:
             print('---Leaving _make_spinup_area_dfs()---')
 
-
     def calc_soc_timeseries(self, verbose=False):
         """Calculate the SOC timeseries and create a soc_inventory dataset"""
         soil_utils.colored_rule(color='cyan', height=2)
@@ -522,7 +520,6 @@ class SoilData:
         self._historic_icbm_calculations(verbose=verbose)
         soil_utils.colored_rule(color='green', height=2)
 
-
     def save_inventory(self, dataset=None):
         """
         Saves the specified inventory dataset(s) to NetCDF and CSV files.
@@ -531,12 +528,12 @@ class SoilData:
         It saves xarray Datasets to NetCDF files and pandas DataFrames to CSV files, using a naming convention based on the dataset name.
 
         Parameters:
-        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be saved ('inputs', 'soc', 'historic').
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be saved ('input', 'soc', 'historic').
                                           If None, all datasets will be saved.
         """
         # Default dataset names if none are specified
         if dataset is None:
-            dataset = ['inputs', 'soc', 'historic']
+            dataset = ['input', 'soc', 'historic']
             print(f'Dataset set to {dataset}')
 
         # Recursively save each dataset if a list is provided
@@ -564,12 +561,13 @@ class SoilData:
             print(f"{dataset_attr} saved as {scn_ds_name}.nc in {temp_path}")
 
         # Save pandas DataFrames to CSV, checking for existence
-        df_names = [f'{dataset_name}_ha_df', f'{dataset_name}_sko_df']
+        df_names = [f'{dataset_name}_df', f'ss_{dataset_name}_df', f'{dataset_name}_ha_df', f'{dataset_name}_sko_df']
         for df_name in df_names:
             if hasattr(self, df_name) and isinstance(getattr(self, df_name), pd.DataFrame):
-                csv_path = f'{temp_path}/{df_name}.csv'
-                getattr(self, df_name).to_csv(csv_path)
-                print(f"{df_name} saved as {csv_path}")
+                scn_df_name = f'{self.scenario}_{df_name}'
+                #csv_path = f'{temp_path}/{df_name}.csv'
+                soil_utils.to_csv_preserved(getattr(self, df_name), save_as=scn_df_name, save_path=temp_path)
+                print(f"{df_name} saved as {scn_df_name} in {temp_path}")
 
     def load_inventory(self, dataset=None, temp_path=temp_path):
         """
@@ -610,7 +608,8 @@ class SoilData:
                 self._load_csv_files(temp_path, ['soc_ha_df', 'soc_sko_df'], df_loaded)
             elif dataset == 'historic':
                 # Load 'historic' dataset
-                self.historic_inventory = xr.load_dataset(f'{temp_path}/historic_soc_ds.nc')
+                scn_historic_ds_name = f'{self.scenario}_historic_ds'
+                self.historic_inventory = xr.load_dataset(f'{temp_path}/{scn_historic_ds_name}.nc')
                 ds_loaded.append('historic_inventory')
                 # Load associated CSVs if they exist
                 self._load_csv_files(temp_path, ['historic_ha_df', 'historic_sko_df'], df_loaded)
@@ -629,7 +628,8 @@ class SoilData:
         - loaded_list: list - A list to append the names of successfully loaded CSV files.
         """
         for csv_name in csv_names:
-            csv_path = f'{temp_path}/{csv_name}.csv'
+            scn_input_df_name = f'{self.scenario}_{csv_name}'
+            csv_path = f'{temp_path}/{scn_input_df_name}.csv'
             if os.path.exists(csv_path):
                 setattr(self, csv_name, soil_utils.read_csv_preserved(csv_path))
                 loaded_list.append(csv_name)
@@ -647,36 +647,6 @@ class SoilData:
             print(f"The following {item_type} variables have been set:{newline}{newline.join(items)}")
         else:
             print(f"No {item_type} variables have been loaded.")
-
-    def _load_csv_files(self, temp_path, csv_names, loaded_list):
-        """
-        Helper method to load CSV files as DataFrames if they exist.
-
-        Parameters:
-        - temp_path: str - The path where CSV files are located.
-        - csv_names: list - A list of CSV file base names to load.
-        - loaded_list: list - A list to append the names of successfully loaded CSV files.
-        """
-        for csv_name in csv_names:
-            csv_path = f'{temp_path}/{csv_name}.csv'
-            if os.path.exists(csv_path):
-                setattr(self, csv_name, soil_utils.read_csv_preserved(csv_path))
-                loaded_list.append(csv_name)
-
-    def _print_loaded_items(self, items, item_type):
-        """
-        Helper method to print loaded items.
-
-        Parameters:
-        - items: list - A list of loaded item names.
-        - item_type: str - A description of the item type ('dataset' or 'dataframe').
-        """
-        newline = '\n '
-        if items:
-            print(f"The following {item_type} variables have been set:{newline}{newline.join(items)}")
-        else:
-            print(f"No {item_type} variables have been loaded.")
-
 
     def check_attributes_status(self, access='public'):
         """
@@ -704,22 +674,6 @@ class SoilData:
             is_set = attr_value is not None
             attrs_status[attribute] = (type(attr_value).__name__, is_set)
         return f"The following attributes are set for {access} variables", attrs_status
-
-    def __getstate__(self):
-        # Copy the object's state using dict.copy() to avoid modifying the original state
-        state = self.__dict__.copy()
-        # Remove DataFrame and DataSet attributes before pickling
-        excluded_keys = ['input_df', 'ss_input_df', 'soc_ha_df', 'soc_sko_df', 'historic_ha_df', 'historic_sko_df',
-                         'input_inventory', 'soc_inventory', 'historic_inventory']
-        for key in excluded_keys:
-            if key in state:
-                del state[key]
-        return state
-
-    def __setstate__(self, state):
-        # Restore instance attributes (except for excluded ones)
-        self.__dict__.update(state)
-        # Initialize DataFrames or DataSets here if needed, or leave them to be set elsewhere
 
     def save_instance_state(self, temp_path=temp_path):
         with open(f'{temp_path}/{self.scenario}.pickle', 'wb') as file:
