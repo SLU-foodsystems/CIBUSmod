@@ -28,7 +28,7 @@ from .optimisation.geo_dist import GeoDistributor
 # Import output data manipulation functions
 from .utils.output_data_manip_db import get_emissions, get_GHG, to_ICBM
 
-# Import soil_modules modules
+# Import soil_modules functions and SoilData class
 from .soil_modules import data_processing
 from .soil_modules import icbm_funcs
 from .soil_modules.soil_class import SoilData
