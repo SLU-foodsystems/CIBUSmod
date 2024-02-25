@@ -8,6 +8,7 @@ Utility functions for the CIBUSmod_soil program
 import csv
 import json
 import os
+import pickle
 
 # from ipyfilechooser import FileChooser
 from IPython import display
@@ -16,11 +17,11 @@ import pandas as pd
 from typing import Union, List, Tuple, Dict, Any, Optional
 import xarray as xr
 
-import CIBUSmod.soil.soil_params as soil_params
+import CIBUSmod.soil_modules.soil_params as soil_params
 
-from ..soil import input_path, export_path
-from ..soil import temp_path
-from ..soil import root
+from ..soil_modules import input_path, export_path
+from ..soil_modules import temp_path
+from ..soil_modules import root
 
 def colored_rule(color: str,
                  height: int = 1) -> None:
@@ -66,10 +67,10 @@ def colored_rule(color: str,
 #     '''
 #
 #     fc = FileChooser()
-#     fc.default_path = f'{root}/data/soil'
+#     fc.default_path = f'{root}/data/soil_modules'
 #     fc.show_hidden = False
 #     fc.filter_pattern = filt
-#     fc.reset(path=f'{root}/data/soil')
+#     fc.reset(path=f'{root}/data/soil_modules')
 #     fc.show_only_dirs = only_dirs
 #
 #     return fc
@@ -1337,11 +1338,28 @@ def check_attributes_status(instance, access='public'):
     return attrs_status
 
 
+def save_data(data: Any, file_name: str, save_path: str=temp_path, format: str ='json') -> None:
+    if format == 'json':
+        with open(f'{save_path}/{file_name}.{format}', 'w') as f:
+            json.dump(data, f)
+    elif format == 'pickle':
+        with open(f'{save_path}/{file_name}.{format}', 'wb') as f:
+            pickle.dump(data, f)
+
+
+def load_data(file_name: str, load_path: str=temp_path, format: str='json') -> Any:
+    if format == 'json':
+        with open(f'{load_path}/{file_name}.{format}', 'r') as f:
+            return json.load(f)
+    elif format == 'pickle':
+        with open(f'{load_path}/{file_name}.{format}', 'rb') as f:
+            return pickle.load(f)
+
 def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, List[Union[xr.Dataset, xr.DataArray]]],
                    totsoc_label: str = 'tot_soc'
                    ) -> Union[xr.Dataset, xr.DataArray, List[Union[xr.Dataset, xr.DataArray]]]:
     """
-    Calculate and assign total soil organic carbon (tot_soc) based on young (y_pool) and old (o_pool) pools directly
+    Calculate and assign total soil_modules organic carbon (tot_soc) based on young (y_pool) and old (o_pool) pools directly
     within the provided xarray Dataset or DataArray. If a list of Datasets or DataArrays is provided, the operation
     is applied to each element in the list.
 
@@ -1355,7 +1373,7 @@ def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, List[Union[xr.D
         'y_pool' and 'o_pool' variables from which 'tot_soc' is calculated.
 
     totsoc_label : str, optional
-        The label for the total soil organic carbon variable to be added to the input. Defaults to 'tot_soc'.
+        The label for the total soil_modules organic carbon variable to be added to the input. Defaults to 'tot_soc'.
 
     Returns:
     --------
@@ -1420,7 +1438,7 @@ def assign_co2_flux(xarray_input,
         The input xarray Dataset or DataArray, or a list thereof, containing 'tot_soc' values.
 
     totsoc_label : str, optional
-        The label for the total soil organic carbon variable. Defaults to 'tot_soc'.
+        The label for the total soil_modules organic carbon variable. Defaults to 'tot_soc'.
 
     co2flux_label : str, optional
         The label for the calculated CO2 flux variable. Defaults to 'co2_flux'.
