@@ -265,6 +265,7 @@ class SoilData:
         if verbose:
             print('---Leaving _make_spinup_df()---')
 
+
     def calc_scn_inputs(self, verbose=False):
         """
         Calculate the carbon inputs used for soil organic carbon modelling in CIBUSmod.
