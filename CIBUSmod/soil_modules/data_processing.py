@@ -11,12 +11,12 @@ from typing import Union, List
 import pandas as pd
 import xarray as xr
 
-import CIBUSmod.soil.icbm_funcs as icbm_funcs
-import CIBUSmod.soil.soil_utils as utils
+import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
+import CIBUSmod.soil_modules.soil_utils as utils
 
 root = os.path.abspath(os.getcwd())
-from ..soil import input_path
-from ..soil import temp_path
+from ..soil_modules import input_path
+from ..soil_modules import temp_path
 
 
 
