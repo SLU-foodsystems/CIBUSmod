@@ -75,6 +75,7 @@ class SoilData:
         self.input_inventory = None  # type: xr.Dataset
         self.soc_inventory = None  # type: xr.Dataset
         self.historic_inventory = None  # type: xr.Dataset
+        self.total_soc_inventory = None # type: xr.Dataset
         # help variables
         self._residue_col_name = None  # type: str
         self._input_grouped_df = None  # type: pd.Dataframe
@@ -112,13 +113,22 @@ class SoilData:
         self.__dict__.update(state)
 
     def _add_prefixes(self, verbose=False):
-        """Add input fraction prefixes to manure input"""
+        """Add input fraction prefixes to manure input, ensuring it's only done once."""
+        # Check for a specific prefixed column.
+        prefixed_columns = [col for col in self.input_df.columns if col.startswith('i_ag_manure')]
+        if prefixed_columns:
+            # If any prefixed columns are found, assume '_add_prefixes' has been applied and skip.
+            if verbose:
+                print(">>> '_add_prefixes()' skipped: already applied. <<<")
+            return
+
         if verbose:
             print(">>> Executing '_add_prefixes()' <<<")
         # Add prefixes to all the manure fractions so that all c input fractions follow the same naming convention
         self.input_df = soil_utils.add_prefix('manure', 'i_ag', self.input_df)
         if verbose:
             print(">>> '_add_prefixes()' executed succesfully <<<")
+            print(f"input_df.columns now: {self.input_df.columns}")
 
     def _change_year_name(self, new_name='input_year', verbose=False):
         """Change the column name "year" to 'new_name'(default="input_year")"""
@@ -180,10 +190,18 @@ class SoilData:
 
         Also assign yield and input per sko
         """
+        # Check if computations have already been applied
+        if "areayield" in self.input_df.columns and "areayield_residues" in self.input_df.columns:
+            if verbose:
+                print(">>> '_calc_input_ha()' skipped: already applied. <<<")
+            return
+
         if verbose:
             print(">>> Executing '_calc_input_ha()'<<<")
+
         # Calculate yield per unit area
         self.input_df["areayield"] = self.input_df["harvest_kgdm"] / self.input_df["area_ha"] * C_CONTENT_CROPS
+
         if "crop_residues_harvest_kgdm" in self.input_df.columns:
             self.input_df["areayield_residues"] = self.input_df["crop_residues_harvest_kgdm"] / self.input_df[
                 "area_ha"] * C_CONTENT_CROPS
@@ -192,35 +210,49 @@ class SoilData:
 
         if verbose:
             print(">>> '_calc_input_ha()' executed succesfully <<<")
+            print(f"input_df.columns now: {self.input_df.columns}")
 
     def _calc_amnd_ha(self, verbose=False):
-        """ Calculate the amnendment input per unit area, given total manure ("_kgc") and area ("area_ha")"""
+        """
+        Calculate the amnendment input per unit area, given total manure ("_kgc") and area ("area_ha")
+        Avoids re-running computations if already applied.
+        """
         if verbose:
             print(">>> Executing '_calc_amnd_ha()'<<<")
+
         # Calculate and add columns with the manure input per ha
         tot_manure_cols = soil_utils.get_filtered_namelist(['kgc'], ['manure', 'crop'], self.input_df)
-        newframe = self.input_df.copy()
-        # insert new columns with the input per ha
+        new_col_names = [f'{i[:-4]}_ha' for i in tot_manure_cols]
+
+        # Check if any of the new columns already exist
+        if all(col in self.input_df.columns for col in new_col_names):
+            if verbose:
+                print(">>> '_calc_amnd_ha()' skipped: already applied. <<<")
+            return
+
+        # Calculate and add new columns with the input per ha
         for i in tot_manure_cols:
             col_name = f'{i[:-4]}_ha'
-            newframe[col_name] = newframe[i] / newframe['area_ha']
+            self.input_df[col_name] = self.input_df[i] / self.input_df['area_ha']
             if verbose:
                 print(f"--- Inserted {col_name}---")
-        self.input_df = newframe.copy(deep=True)
         if verbose:
             print(">>> '_calc_amnd_ha()' executed succesfully <<<")
+            print(f"input_df.columns now: {self.input_df.columns}")
 
-    def _make_multiindex(self, verbose=False):
+    def _make_multiindex(self, idx, verbose=False):
         """create multiindex dataframe"""
         if verbose:
             print(">>> Executing '_make_multiindex()'<<<")
-        scn_input_idx = ['scn', 'crop', 'prod_system', 'region', 'input_year']
+        scn_input_idx = idx # ['scn', 'crop', 'prod_system', 'region', 'input_year']
         # Create a multiindex df
         self.input_df = self.input_df.set_index(scn_input_idx)
         if verbose:
             print(">>> '_make_multiindex()' executed succesfully <<<")
+            print(f"input_df.columns now: {self.input_df.columns}")
 
-    def _calc_crop_inputs(self, straw_removed=False, verbose=False):
+
+    def _calc_crop_inputs(self, straw_removed=False, verbose=False, looped=False):
         """Calculate the carbon inputs above and below ground based on allocation methods and factors"""
         if verbose:
             print(">>> Executing '_calc_crop_inputs()'<<<")
@@ -234,14 +266,28 @@ class SoilData:
         sources = ('Andren2004', 'Jacobs2020', 'Hanna')
         allo_dfs = (allo_dict['c_allom_andren_df'], allo_dict['c_alloc_jacobs_df'], allo_dict['c_alloc_hanna_df'])
 
-        self.input_df = soil_utils.calculate_c_inputs(self.input_df,
-                                                      mapper,
-                                                      sources,
-                                                      allo_dfs,
-                                                      straw_removed=straw_removed,
-                                                      verbose=verbose)
+        if looped is False:
+            self.input_df = soil_utils.calculate_c_inputs_vectorized(self.input_df,
+                                                                     sources,
+                                                                     allo_dfs,
+                                                                     straw_removed=straw_removed,
+                                                                     verbose=verbose)
+        else:
+            self.input_df = soil_utils.calculate_c_inputs(self.input_df,
+                                                          mapper,
+                                                          sources,
+                                                          allo_dfs,
+                                                          straw_removed=straw_removed,
+                                                          verbose=verbose)
+
+        #  Drop unwanted 'level_0' or 'index' columns if they were added
+        if 'level_0' in self.input_df.columns or 'index' in self.input_df.columns:
+            self.input_df = self.input_df.drop(columns=['level_0', 'index'], errors='ignore')
+
         if verbose:
             print(">>> '_calc_crop_inputs()' executed succesfully <<<")
+            print(f"input_df.columns now: {self.input_df.columns}")
+
 
     def _make_spinup_df(self, verbose=False):
         """
@@ -266,7 +312,7 @@ class SoilData:
             print('---Leaving _make_spinup_df()---')
 
 
-    def calc_scn_inputs(self, verbose=False):
+    def calc_scn_inputs(self, verbose=False, looped=False):
         """
         Calculate the carbon inputs used for soil organic carbon modelling in CIBUSmod.
 
@@ -299,15 +345,16 @@ class SoilData:
                 new_col_name = self._residue_col_name.replace('_harvest', "")
                 self.input_df.rename(columns={self._residue_col_name: new_col_name}, inplace=True)
         # self.input_df = soil_utils.make_idx_continuous(self.input_df)
+        idx = self.input_df.index.names
         self.input_df.reset_index(inplace=True)
         self.input_df = soil_utils.make_df_lower(self.input_df)
         if not isinstance(self.input_df, pd.DataFrame):
             return print('> Input dataframe not set. Please supply a valid input dataframe and retry')
         self._calc_input_ha(verbose=verbose)
         self._calc_amnd_ha(verbose=verbose)
-        self._calc_crop_inputs(verbose=verbose)
+        self._calc_crop_inputs(verbose=verbose, looped=looped)
         self._add_prefixes(verbose=verbose)
-        self._make_multiindex(verbose=verbose)
+        self._make_multiindex(idx, verbose=verbose)
         # Set instance variables
         self.input_inventory = self.input_df.to_xarray()
         if verbose:
@@ -318,7 +365,7 @@ class SoilData:
             print('---calc_scn_inputs() executed successfully---')
         soil_utils.colored_rule(color='green', height=2)
 
-    def _calculate_soc(self, save_ds=False, verbose=False):
+    def _calculate_soc(self, grouping, verbose=False):
         """
         Calculate the SOC pools for both the ha and sko dataframes
         """
@@ -327,7 +374,7 @@ class SoilData:
         if isinstance(self._c_input_ha_df, pd.DataFrame) and isinstance(self._c_input_sko_df, pd.DataFrame):
             print("'_c_input_ha_df' and '_c_input_sko_df' set. Continuing")
         else:
-            self._make_scn_area_dfs(verbose=verbose)
+            self._make_scn_area_dfs(grouping, verbose=verbose)
             if verbose:
                 print(
                     f"'_c_input_ha_df' and '_c_input_sko_df' generated")
@@ -453,13 +500,13 @@ class SoilData:
         if verbose:
             print('---_historic_icbm_calculations() executed succesfully---')
 
-    def _make_scn_area_dfs(self, verbose=False):
+    def _make_scn_area_dfs(self, grouping: list=['scn', 'prod_system', 'region', 'input_year'], verbose: bool=False) -> None:
         """Create scenario dataframes with yields per ha and per sko."""
         if verbose:
             print('---Executing _make_scn_area_dfs()---')
         scenario_name = self.scenario
         # Group the scn df by scn, prod system, region and year and calculate total input and area of all crops
-        scn_multi_groupby_idx = ['scn', 'prod_system', 'region', 'input_year']
+        scn_multi_groupby_idx = grouping
         self._input_grouped_df = self.input_df.groupby(scn_multi_groupby_idx).sum()
         # Select the columns that should hold the weighted average
         wt_at_cols = soil_utils.get_filtered_namelist(['_ha'], ['manure', 'crop'], self._input_grouped_df)
@@ -505,11 +552,11 @@ class SoilData:
         if verbose:
             print('---Leaving _make_spinup_area_dfs()---')
 
-    def calc_soc_timeseries(self, verbose=False):
+    def calc_soc_timeseries(self, group: list=['scn', 'prod_system', 'region', 'input_year'], verbose=False):
         """Calculate the SOC timeseries and create a soc_inventory dataset"""
         soil_utils.colored_rule(color='cyan', height=2)
         print('Calculating SOC timeseries...')
-        self._calculate_soc(verbose=verbose)
+        self._calculate_soc(grouping=group, verbose=verbose)
         self._scn_icbm_calculations(verbose=verbose)
         soil_utils.colored_rule(color='green', height=2)
 
@@ -719,3 +766,26 @@ class SoilData:
         """
         soil_utils.assign_co2_flux(self.soc_inventory)
         soil_utils.assign_co2_flux(self.historic_inventory)
+
+    def merge_soil_data(self) -> None:
+        """
+        Merges the current and historic soil carbon datasets into a unified dataset.
+
+        This method combines 'soc_inventory' and 'historic_inventory' datasets, both of which
+        should contain soil carbon time series data. The resulting merged dataset is stored in
+        'total_soc_inventory' class variable.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+
+        Assigns
+        -------
+        total_soc_inventory : xarray.Dataset
+            The merged dataset containing both new and historic soil carbon time series data.
+        """
+        self.total_soc_inventory = xr.merge([self.soc_inventory.sum('input_year'), self.historic_inventory])

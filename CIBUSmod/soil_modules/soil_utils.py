@@ -155,7 +155,7 @@ def make_df_lower(dataframe: pd.DataFrame,
         if df.index.names[0] == None:
             print('Warning, first index label is None, conversion of index label not possible')
         else:
-            dx = df.index
+            idx = df.index
             labels = df.index.names
             df.reset_index(inplace=True)
             old_names = list(labels)
@@ -385,6 +385,10 @@ def calculate_c_inputs(input_df: pd.DataFrame,
     Note: This function is currently hard-coded to work with the sources Andren2004, Jacobs2020 and Hanna.
           If other sources are used, the function code first needs to be manually adjusted to know how to handle the new sources.
 
+    The function also updates the input_df directly.
+    If this needs to be retained in its original state a copy of the input_df should be passed to this function.
+
+
     Parameters:
     -----------
     input_df : pd.DataFrame
@@ -409,44 +413,45 @@ def calculate_c_inputs(input_df: pd.DataFrame,
 
     if verbose:
         print('---Executing calculate_c_inputs()---')
+    idx = input_df.index.names
+    output_df = input_df.reset_index()
     # set mutable default args if no args given
     if colprefix is None:
         colprefix = {'ag': 'i_ag', 'bg': 'i_bg'}
 
-    output_df = input_df.copy()
     ag_ha_colname = f"{colprefix['ag']}_{crop_colname}_ha"
     bg_ha_colname = f"{colprefix['bg']}_{crop_colname}_ha"
     ag_tot_colname = f"{colprefix['ag']}_{crop_colname}_kgc"
     bg_tot_colname = f"{colprefix['bg']}_{crop_colname}_kgc"
           
-    for n, i in enumerate(input_df[crop_colname]):
+    for n, i in enumerate(output_df[crop_colname]):
         for m in range(len(mappings)):
             if mappings[m].get(i, 'missing') == 'missing':
                 continue
             if sources[m] == 'Andren2004': # if allometric functions for the crop can be found in Andren et al. 2004
-                ag, bg = allom_asH(input_df.areayield[n], mappings[m][i], c_allo_df[m], straw_removed=straw_removed)
+                ag, bg = allom_asH(output_df.areayield[n], mappings[m][i], c_allo_df[m], straw_removed=straw_removed)
                 output_df.at[n, ag_ha_colname] = ag
                 output_df.at[n, bg_ha_colname] = bg
                 output_df.at[n, f'alloc_source_{crop_colname}'] = sources[m]
             elif sources[m] == 'Jacobs2020': # use Jacobs
                 if straw_removed:
-                    ag, bg = alloc_input(input_df.areayield[n], mappings[m][i], c_allo_df[m])
-                    output_df.at[n, ag_ha_colname] = ag - input_df.areayield_residues[n]
+                    ag, bg = alloc_input(output.areayield[n], mappings[m][i], c_allo_df[m])
+                    output_df.at[n, ag_ha_colname] = ag - output_df.areayield_residues[n]
                     output_df.at[n, bg_ha_colname] = bg
                     output_df.at[n, f'alloc_source_{crop_colname}'] = sources[m]
                 else:
-                    ag, bg = alloc_input(input_df.areayield[n], mappings[m][i], c_allo_df[m])
+                    ag, bg = alloc_input(output_df.areayield[n], mappings[m][i], c_allo_df[m])
                     output_df.at[n, ag_ha_colname] = ag
                     output_df.at[n, bg_ha_colname] = bg
                     output_df.at[n, f'alloc_source_{crop_colname}'] = sources[m]
             else: # use sources provided by Hanna
                 if straw_removed:
-                    ag, bg = alloc_input(input_df.areayield[n], mappings[m][i], c_allo_df[m])
-                    output_df.at[n, ag_ha_colname] = ag - input_df.areayield_residues[n]
+                    ag, bg = alloc_input(output_df.areayield[n], mappings[m][i], c_allo_df[m])
+                    output_df.at[n, ag_ha_colname] = ag - output_df.areayield_residues[n]
                     output_df.at[n, bg_ha_colname] = bg
                     output_df.at[n, f'alloc_source_{crop_colname}'] = c_allo_df[m].loc[mappings[m][i], 'source']
                 else:
-                    ag, bg = alloc_input(input_df.areayield[n], mappings[m][i], c_allo_df[m])
+                    ag, bg = alloc_input(output_df.areayield[n], mappings[m][i], c_allo_df[m])
                     output_df.at[n, ag_ha_colname] = ag
                     output_df.at[n, bg_ha_colname] = bg
                     output_df.at[n, f'alloc_source_{crop_colname}'] = c_allo_df[m].loc[mappings[m][i], 'source']
@@ -461,6 +466,7 @@ def calculate_c_inputs(input_df: pd.DataFrame,
     output_df[ag_tot_colname] = output_df[ag_ha_colname] * output_df['area_ha']
     output_df[bg_tot_colname] = output_df[bg_ha_colname] * output_df['area_ha']
 
+    output_df.set_index(idx, inplace=True)
     if verbose:
         print('---Leaving calculate_c_inputs()---')
 
@@ -519,6 +525,8 @@ def allom_asH(H: float,
     return i_ag, i_bg
 
 
+
+
 def alloc_input(H: float,
                 crop: str,
                 input_df: pd.DataFrame,
@@ -553,6 +561,127 @@ def alloc_input(H: float,
     i_bg = input_df.iloc[:,1][crop] * H
     
     return i_ag, i_bg
+
+
+def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
+                                  sources: Tuple[str, ...],
+                                  c_allo_df: Tuple[pd.DataFrame, ...],
+                                  crop_colname: str = 'crop',
+                                  colprefix: Optional[Dict[str, str]] = None,
+                                  straw_removed: bool = False,
+                                  verbose=False) -> pd.DataFrame:
+    """
+    Vectorized version of calculate_c_inputs function.
+    """
+    if verbose:
+        print('---Executing calculate_c_inputs_vectorized()---')
+    if colprefix is None:
+        colprefix = {'ag': 'i_ag', 'bg': 'i_bg'}
+
+    ag_ha_colname = f"{colprefix['ag']}_{crop_colname}_ha"
+    bg_ha_colname = f"{colprefix['bg']}_{crop_colname}_ha"
+    alloc_source_colname = f'alloc_source_{crop_colname}'
+
+    output_df = input_df.copy()
+
+    if ag_ha_colname and bg_ha_colname and alloc_source_colname not in output_df.columns:
+        idx = output_df.index
+        output_df = output_df.reset_index()
+        # Initialize new columns in the DataFrame
+        output_df[ag_ha_colname] = np.nan
+        output_df[bg_ha_colname] = np.nan
+        output_df[alloc_source_colname] = 'none'
+
+        # Build crop-source mapping
+        crop_source_mapping = build_crop_source_mapping(c_allo_df)
+
+        # Iterate through each crop in input_df
+        for crop in output_df['crop'].unique():
+            source_idx = crop_source_mapping.get(crop, None)
+            if source_idx is not None:
+                source_df = c_allo_df[source_idx]
+                rows_for_crop = output_df[output_df['crop'] == crop]
+                H = rows_for_crop['harvest_kgdm']
+
+                # Select the calculation method based on source index
+                if sources[source_idx] == 'Andren2004':
+                    ag, bg = allom_asH_vectorized(H, crop, source_df, straw_removed)
+                else:  # Assuming Jacobs2020 and Hanna use alloc_input_vectorized
+                    ag, bg = alloc_input_vectorized(H, crop, source_df, straw_removed)
+
+                # Update input_df with the results
+                output_df.loc[input_df['crop'] == crop, ag_ha_colname] = ag
+                output_df.loc[input_df['crop'] == crop, bg_ha_colname] = bg
+                output_df.loc[input_df['crop'] == crop, alloc_source_colname] = sources[source_idx]
+
+        output_df = output_df.set_index(idx)
+    else:
+        if verbose:
+            print('info: ag_ha_colname, bg_ha_colname and alloc_source_colname already set')
+
+    # Assuming 'area_ha' exists in input_df to compute total ag and bg
+    ag_tot_colname = f"{colprefix['ag']}_{crop_colname}_kgc"
+    bg_tot_colname = f"{colprefix['bg']}_{crop_colname}_kgc"
+
+    if ag_tot_colname and bg_tot_colname not in output_df.columns:
+        idx = output_df.index
+        if isinstance(output_df, pd.DataFrame):
+            output_df = output_df.reset_index()
+        else:
+            output_df = input_df.reset_index()
+        output_df[ag_tot_colname] = output_df[ag_ha_colname] * output_df['area_ha']
+        output_df[bg_tot_colname] = output_df[bg_ha_colname] * output_df['area_ha']
+        output_df = output_df.set_index(idx)
+    else:
+        if verbose:
+            print('info: ag_tot_colname and bg_tot_colname already set')
+
+    if verbose:
+        print('---Leaving calculate_c_inputs_vectorized()---')
+
+    return output_df
+
+
+def allom_asH_vectorized(H: pd.Series,
+                         crop: str,
+                         param_df: pd.DataFrame,
+                         straw_removed: bool = False) -> Tuple[pd.Series, pd.Series]:
+    """
+    Vectorized version to calculate the above and below ground input for multiple crops simultaneously.
+    """
+    # Ensure H is a Series and param_df is indexed by crop
+    if straw_removed:
+        i_ag = param_df.loc[crop, 'residues_a'] + param_df.loc[crop, 'residues_s'] * H
+    else:
+        i_ag_1 = param_df.loc[crop, 'straw_a'] + param_df.loc[crop, 'straw_s'] * H
+        i_ag_2 = param_df.loc[crop, 'residues_a'] + param_df.loc[crop, 'residues_s'] * H
+        i_ag = i_ag_1 + i_ag_2
+    i_bg = param_df.loc[crop, 'roots_a'] + param_df.loc[crop, 'roots_s'] * H
+
+    return i_ag, i_bg
+
+
+def alloc_input_vectorized(H: pd.Series,
+                           crop: str,
+                           input_df: pd.DataFrame,
+                           straw_removed: bool = False) -> Tuple[pd.Series, pd.Series]:
+    """
+    Vectorized version to calculate the above and below ground input based on allocation factors for multiple crops.
+    """
+    i_ag = input_df.loc[crop, 'i_ag'] * H
+    i_bg = input_df.loc[crop, 'i_bg'] * H
+
+    return i_ag, i_bg
+
+
+def build_crop_source_mapping(allo_dfs):
+    crop_source_mapping = {}
+    for source_idx, df in enumerate(allo_dfs):
+        for crop in df.index:
+            # If the crop is not already in the mapping, add it with the current source index
+            if crop not in crop_source_mapping:
+                crop_source_mapping[crop] = source_idx
+    return crop_source_mapping
 
 
 def to_csv_preserved(dataframe: pd.DataFrame,
