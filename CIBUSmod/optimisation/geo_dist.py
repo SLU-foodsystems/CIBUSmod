@@ -138,18 +138,29 @@ class GeoDistributor:
             self,
             # Default solver settings
             #
+            # GUROBI
+            # ------
+            # This solver seem to work really well. Licence needed, but free academic licences are
+            # available and easy to get.
+            #
             # OSQP
             # ----
             # Settings for OSQP available at https://osqp.org/docs/interfaces/solver_settings.html
             # Using a too high tolerance (eps_abs, eps_rel) leads to large relative deviations
             # from x0 for crops with small areas, but a low tolerance increases time to find solution.
-            solver_settings:dict|list = {
-                'solver' : 'OSQP',
-                'max_iter' : 200000,
-                'eps_abs' : 5e-6,
-                'eps_rel' : 5e-6,
-                'verbose' : False
-            },
+            solver_settings:dict|list = [
+                {
+                    'solver' : 'GUROBI',
+                    'verbose' : False
+                },
+                {
+                    'solver' : 'OSQP',
+                    'max_iter' : 200000,
+                    'eps_abs' : 5e-6,
+                    'eps_rel' : 5e-6,
+                    'verbose' : False
+                }
+            ],
             apply_solution:bool = True,
             verbose:bool = False
             ) -> None:
@@ -184,30 +195,39 @@ class GeoDistributor:
             vprint('Defining problem ...')
             self.define_cvx_problem()
         
-        vprint('Finding solution ...')
-        
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
         for kwargs in solver_settings:
             solver = kwargs['solver']
             try:
+                vprint(f"Finding solution with '{solver}' ...")
                 self.problem.solve(**kwargs)
             except Exception as e:
                 if hasattr(self, 'x'):
                     delattr(self, 'x')
                 self.success = False
-                raise e
+                print(f" Failed with {type(e).__name__}: {e}", end='')
+                continue
 
-            if 'optimal' in self.problem.status:
+            if self.problem.status and 'optimal' in self.problem.status:
+                self.success = True
+                print(f" Optimal solution found! Status: '{self.problem.status}', Itterations: {self.problem.solver_stats.num_iters}, Solver: '{self.problem.solver_stats.solver_name}'", end='')
                 break
+            else:
+                self.success = False
+                status = self.problem.status if self.problem.status else 'None'
+                try:
+                    num_iters = self.problem.solver_stats.num_iters
+                except:
+                    num_iters = 'n/a'
+                print(f" No solution found! Status: '{status}', Itterations: {num_iters}", end='')
 
         # Check solution and print results    
-        if 'optimal' in self.problem.status:
+        if self.success:
 
-            # DO SOME MORE FEASIBILITY CHECKS ON THE SOLUTION HERE!!
+            # DO SOME MORE FEASIBILITY CHECKS ON THE SOLUTION HERE??!!
 
-            vprint(f'Optimal solution found! Status: \'{self.problem.status}\', Itterations: {self.problem.solver_stats.num_iters}, Solver: \'{self.problem.solver_stats.solver_name}\'')
-            self.success = True
+            vprint('Retrieving solution ...')
 
             # Get and store optimal value for variable
             x = self.problem.variables()[0].value
@@ -239,14 +259,13 @@ class GeoDistributor:
             )
 
             if apply_solution:
-                vprint(f'Applying solution')
+                vprint(f'Applying solution ...')
                 self.apply_solution()
 
         else:
             if hasattr(self, 'x'):
                 delattr(self, 'x')
-            self.success = False
-            raise RuntimeError(f'No solution found! Status: \'{self.problem.status}\', Itterations: {self.problem.solver_stats.num_iters}, Solver: \'{self.problem.solver_stats.solver_name}\'')
+            raise RuntimeError(f'No solution found!')
 
         vprint(type='end')
 
@@ -1708,12 +1727,12 @@ class GeoDistributor:
         mini = crop_production_per_use_adjusted.min().min()
         if mini < -5:
             # Negatives!
-            warnings.warn('Negatives of down to {mini} kg in adjusted crop allocation, these were set to zero')
+            warnings.warn(f'Negatives of down to {mini} kg in adjusted crop allocation, these were set to zero')
 
         dif = abs((crop_production_per_use_adjusted.sum(axis=1) - crop_production_per_use.sum(axis=1))).max()
         if dif > 5:
             # Dif from unadjusted
-            warnings.warn('Adjusted crop allocation differed from unadjusted by up to {dif} kg')
+            warnings.warn(f'Adjusted crop allocation differed from unadjusted by up to {dif} kg')
 
         # Set small negatives to zero
         crop_production_per_use_adjusted = crop_production_per_use_adjusted.where(crop_production_per_use_adjusted >= 0, 0) 
