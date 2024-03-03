@@ -5,6 +5,79 @@ import pandas as pd
 import numpy as np
 import warnings
 
+def check_constraints(geodist):
+    '''Produces boxplots to check constraint violation'''
+
+    import matplotlib.pyplot as plt
+    from .plot.utils import wrapText
+    
+    def _str_between(str, sub_str1, sub_str2):
+        idx1 = str.index(sub_str1) + len(sub_str1)
+        idx2 = str.index(sub_str2)
+        return str[idx1:idx2]
+
+    plot_dfs = []
+    for str in geodist.cons_add_exec:
+        cons = _str_between(str, 'CONS.append(', ')')
+        M = _str_between(str, 'append(self.', '.M @ x')
+        rel = _str_between(str, '@ x ', ')')[:2]
+        try:
+            b = _str_between(str, ' self.', ')')
+        except:
+            b = _str_between(str, '@ x ', ')')[3:]
+    
+        M_rows = getattr(geodist,M).rows
+        try:
+            M_rows = np.concatenate(list(M_rows.values()))
+        except:
+            pass
+        res = pd.DataFrame(
+            index = M_rows
+        )
+        
+        res['M @ x'] = getattr(geodist,M).M @ geodist.problem.variables()[0].value
+        try:
+            res['b'] = float(b)
+            b_is_constant = True
+        except:
+            try:
+                res['b'] = getattr(geodist,b)
+            except:
+                b_split = b.split(' ')
+                if b_split[1] == '*':
+                    res['b'] = getattr(geodist,b_split[0]) * float(b_split[2])
+                else:
+                    raise ValueError(f"Could not interpret '{str}'")
+        res['M @ x - b'] = res['M @ x'] - res['b']
+        res['(M @ x - b) / b'] = res['M @ x - b'] / res['b'].where(res['b']>0, np.nan)
+
+        plot_dfs.append(res['M @ x - b'].rename(cons))
+
+    nrow = int(np.ceil(len(plot_dfs)/3))
+    fig,axs = plt.subplots(nrow, 3, figsize=(2*3,3*nrow))
+    for i,df in enumerate(plot_dfs):
+        ax=axs.flatten()[i]
+        ax.axhline(0, c='black', linewidth=0.5, linestyle='--')
+        ax.boxplot(df, flierprops=dict(marker='.', markerfacecolor='red', markeredgecolor='red', markersize=2))
+
+        if '==' in df.name:
+            ax.text(0.05, 0.95, f'max: {df.max():.1e}', verticalalignment='center', transform=ax.transAxes)
+            ax.text(0.05, 0.05, f'min: {df.min():.1e}', verticalalignment='center', transform=ax.transAxes)
+        elif '>=' in df.name:
+            ax.text(0.05, 0.95, f'min: {df.min():.1e}', verticalalignment='center', transform=ax.transAxes)
+        elif '<=' in df.name:
+            ax.text(0.05, 0.05, f'max: {df.max():.1e}', verticalalignment='center', transform=ax.transAxes)
+            
+        
+        ax.set_ylabel(df.name.replace('==','-').replace('>=','-').replace('<=','-'))
+        ax.set_xticks([])
+        wrapText(ax.set_title(df.name))
+        
+
+    plt.tight_layout()
+    
+    return plot_dfs
+
 def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and products'):
 
     '''Induces beef exports in DemandAndConversions if beef production from dairy
