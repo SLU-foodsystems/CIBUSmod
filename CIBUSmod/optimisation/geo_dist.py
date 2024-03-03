@@ -206,12 +206,12 @@ class GeoDistributor:
                 if hasattr(self, 'x'):
                     delattr(self, 'x')
                 self.success = False
-                print(f" Failed with {type(e).__name__}: {e}", end='')
+                vprint(f"Failed with {type(e).__name__}: {e}", type='msg')
                 continue
 
             if self.problem.status and 'optimal' in self.problem.status:
                 self.success = True
-                print(f" Optimal solution found! Status: '{self.problem.status}', Itterations: {self.problem.solver_stats.num_iters}, Solver: '{self.problem.solver_stats.solver_name}'", end='')
+                vprint(f"Optimal solution found! Status: '{self.problem.status}', Itterations: {self.problem.solver_stats.num_iters}, Solver: '{self.problem.solver_stats.solver_name}'", type='msg')
                 break
             else:
                 self.success = False
@@ -220,7 +220,7 @@ class GeoDistributor:
                     num_iters = self.problem.solver_stats.num_iters
                 except:
                     num_iters = 'n/a'
-                print(f" No solution found! Status: '{status}', Itterations: {num_iters}", end='')
+                vprint(f"No solution found! Status: '{status}', Itterations: {num_iters}", type='msg')
 
         # Check solution and print results    
         if self.success:
@@ -409,10 +409,10 @@ class GeoDistributor:
         n = len(self.x_idx_short['ani'])+len(self.x_idx_short['crp'])
         x = cvxpy.Variable(n, nonneg=True)
 
-        O1 = cvxpy.sum_squares(
+        self.O1 = cvxpy.sum_squares(
             (self.P1.M @ cvxpy.multiply(sf,x)) - x0s
         )
-        OBJ = cvxpy.Minimize(O1)
+        OBJ = cvxpy.Minimize(self.O1)
 
         # Append constraints
         CONS = []
@@ -670,9 +670,10 @@ class GeoDistributor:
             except AttributeError:
                 continue
             else:
-                A.M = A.M[:,isel]
-                A.cols['ani'] = sel_an.copy()
-                A.cols['crp'] = sel_cr.copy()
+                if A.M.shape[1] > len(isel):
+                    A.M = A.M[:,isel]
+                    A.cols['ani'] = sel_an.copy()
+                    A.cols['crp'] = sel_cr.copy()
 
         return None
 
