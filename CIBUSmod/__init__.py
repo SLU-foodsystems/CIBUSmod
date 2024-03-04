@@ -32,5 +32,6 @@ from .utils.output_data_manip_db import get_emissions, get_GHG, to_ICBM
 from .soil_modules import data_processing
 from .soil_modules import icbm_funcs
 from .soil_modules.soil_class import SoilData
+from .soil_modules.soil_class import SoilDataExplore
 from .soil_modules import soil_utils
 
