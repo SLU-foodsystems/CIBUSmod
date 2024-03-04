@@ -1,6 +1,7 @@
 import geopandas as gpd
 # import pkg_resources
 import os
+import pandas as pd
 
 # Supress shapely deprecation warnings due to problems with geopandas vs shapely
 import warnings
@@ -49,3 +50,77 @@ def map_from_series(ser, reg='sko', **kwargs):
     to_plot = MAP[reg].join(ser.rename('values'))
 
     to_plot.plot(**kwargs)
+
+
+def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, font_size=15, **kwargs):
+    '''
+    Plots values from a pandas Series or DataFrame on a geographic map specified by 'reg'.
+
+    Alternative version of 'map_from_series'. Used in soil plotting functions
+
+    Parameters
+    ----------
+    ser : pandas.Series or pandas.DataFrame
+        Values to produce the map. If a Series, must have 'region' as index.
+        If a DataFrame, it must contain a 'region' column and a 'values' column.
+    reg : str
+        Specifies the geographic region for mapping ('sko', 'po8', 'kommun', 'län').
+    **kwargs
+        Additional arguments passed on to geopandas.GeoDataFrame.plot().
+    '''
+    if verbose:
+        print('---- map_from_soilseries ----')
+        print(f'ser:\n{ser}\n type(ser) {type(ser)}')
+        print(f'MAP[reg]:\n{MAP[reg]}\n type MAP[reg]: {type(MAP[reg])}')
+
+    to_plot = pd.concat([MAP[reg], ser], axis=1)
+
+    if verbose:
+        print(f'to_plot:\n{to_plot}\n type(to_plot) {type(to_plot)}')
+
+    default_style = {
+        'edgecolor': 'none',
+        'column': 'values',
+        'linewidth': 0.1,
+        'legend': True,
+    }
+    for key in default_style:
+        kwargs.setdefault(key, default_style[key])
+
+    if 'title' in kwargs:
+        title = kwargs.pop('title')
+    if 'label' in kwargs:
+        label = kwargs.pop('label')
+        if 'legend_kwds' not in kwargs:
+            kwargs['legend_kwds'] = {'label': label}
+
+    if kwargs.get('kind') is not None:
+        for key in ['vmin', 'vmax', 'legend_kwds']:
+            kwargs.pop(key, None)
+
+    if kwargs.get('kind') == 'box':
+        kwargs.pop('edgecolor', None)
+        ax.set_xlabel(kwargs.get('xlabel', ''), fontsize=font_size)  # Remove the x-axis label
+        ax.set_xticks([])  # Remove x-axis ticks
+
+    if kwargs.get('kind') in ['line', 'box']:
+        kwargs.pop('linewidth', None)
+
+    if min and max is not None:
+        if kwargs.get('kind') in ['barh', 'hist']:
+            ax.set(xlim=[min, max])
+        if kwargs.get('kind') == 'box':
+            ax.set(ylim=[min, max])
+
+    gdf = gpd.GeoDataFrame(to_plot, geometry='geometry')
+    plot = gdf.plot(ax=ax, **kwargs)
+
+    if kwargs.get('kind') is None:
+        ax.set_xlabel(kwargs.get('xlabel',''), fontsize=font_size)  # Remove the x-axis label
+        ax.set_ylabel(kwargs.get('ylabel', ''), fontsize=font_size)  # Remove the y-axis label
+        ax.set_xticks([])  # Remove x-axis ticks
+        ax.set_yticks([])  # Remove y-axis ticks
+    if title:
+        ax.set_title(title, fontsize=font_size)
+
+    return(plot)
