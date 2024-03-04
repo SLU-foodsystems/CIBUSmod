@@ -15,21 +15,22 @@ xarray inside a netcdf file
 """
 
 import inspect
+import matplotlib.pyplot as plt
 import os.path
 import pickle
-from typing import Dict, TypeVar, Type
+from typing import Dict, TypeVar, Type, List, Any, Tuple, Optional, Union
 
-import numpy as np
 import pandas as pd
+import xarray
 import xarray as xr
 
 import CIBUSmod.soil_modules.soil_utils as soil_utils
 from CIBUSmod.soil_modules.soil_params import C_CONTENT_CROPS
 import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
 from CIBUSmod.soil_modules import temp_path
+from CIBUSmod.soil_modules import export_path
 
-from CIBUSmod.utils.output_data_manip_db import to_ICBM
-from CIBUSmod import Session
+from CIBUSmod.utils import plot
 
 T = TypeVar('T', bound='SoilData')
 
@@ -71,7 +72,6 @@ class SoilData:
         self.soc_sko_df = None  # type: pd.Dataframe
         self.historic_ha_df = None  # type: pd.Dataframe
         self.historic_sko_df = None  # type: pd.Dataframe
-        self.co2_fluxes = None  # type: np.ndarray
         self.input_inventory = None  # type: xr.Dataset
         self.soc_inventory = None  # type: xr.Dataset
         self.historic_inventory = None  # type: xr.Dataset
@@ -202,15 +202,14 @@ class SoilData:
         # Calculate yield per unit area
         self.input_df["areayield"] = self.input_df["harvest_kgdm"] / self.input_df["area_ha"] * C_CONTENT_CROPS
 
-        if "crop_residues_harvest_kgdm" in self.input_df.columns:
-            self.input_df["areayield_residues"] = self.input_df["crop_residues_harvest_kgdm"] / self.input_df[
+        if "crop_residues_kgdm" in self.input_df.columns:
+            self.input_df["areayield_residues"] = self.input_df["crop_residues_kgdm"] / self.input_df[
                 "area_ha"] * C_CONTENT_CROPS
         else:
             self.input_df["areayield_residues"] = 0
 
         if verbose:
             print(">>> '_calc_input_ha()' executed succesfully <<<")
-            print(f"input_df.columns now: {self.input_df.columns}")
 
     def _calc_amnd_ha(self, verbose=False):
         """
@@ -238,7 +237,6 @@ class SoilData:
                 print(f"--- Inserted {col_name}---")
         if verbose:
             print(">>> '_calc_amnd_ha()' executed succesfully <<<")
-            print(f"input_df.columns now: {self.input_df.columns}")
 
     def _make_multiindex(self, idx, verbose=False):
         """create multiindex dataframe"""
@@ -249,7 +247,6 @@ class SoilData:
         self.input_df = self.input_df.set_index(scn_input_idx)
         if verbose:
             print(">>> '_make_multiindex()' executed succesfully <<<")
-            print(f"input_df.columns now: {self.input_df.columns}")
 
 
     def _calc_crop_inputs(self, straw_removed=False, verbose=False, looped=False):
@@ -268,6 +265,7 @@ class SoilData:
 
         if looped is False:
             self.input_df = soil_utils.calculate_c_inputs_vectorized(self.input_df,
+                                                                     mapper,
                                                                      sources,
                                                                      allo_dfs,
                                                                      straw_removed=straw_removed,
@@ -279,6 +277,7 @@ class SoilData:
                                                           allo_dfs,
                                                           straw_removed=straw_removed,
                                                           verbose=verbose)
+
 
         #  Drop unwanted 'level_0' or 'index' columns if they were added
         if 'level_0' in self.input_df.columns or 'index' in self.input_df.columns:
@@ -403,23 +402,20 @@ class SoilData:
         if verbose:
             print('---Executing _calculate_historic_soc()---')
         # Assign a name to the spinup scenario_name variable
-        scenario_name = 'spinup_soc'
         if isinstance(self._ss_input_ha_df, pd.DataFrame) and isinstance(self._ss_input_sko_df, pd.DataFrame):
             print("'_ss_input_ha_df' and '_ss_input_sko_df' set. Continuing")
         else:
             if verbose:
                 print("> One or both of '_ss_input_ha_df' and '_ss_input_sko_df' are unset")
                 print("info: Generating 'spinup_ha_df' and 'spinup_sko_df' from 'input_df'")
-                self._make_spinup_area_dfs(verbose=verbose)
+            self._make_spinup_area_dfs(verbose=verbose)
             if verbose:
                 print(f"'_ss_input_ha_df' and '_ss_input_sko_df' set using input_df for {self.scenario}")
 
         if not self._h_value_dict:
             if verbose:
                 print("> 'h_value_dict' not set.")
-            # try:
-            if not self._h_value_dict:
-                temp, self._h_value_dict = soil_utils.h_map_helper(verbose=verbose)
+            temp, self._h_value_dict = soil_utils.h_map_helper(verbose=verbose)
 
         # extract a list of the spinup columns by which icbm is to be run
         if not self._ss_ha_sel:
@@ -552,13 +548,81 @@ class SoilData:
         if verbose:
             print('---Leaving _make_spinup_area_dfs()---')
 
-    def calc_soc_timeseries(self, group: list=['scn', 'prod_system', 'region', 'input_year'], verbose=False):
+    def calc_soc_timeseries(self, group: list = ['scn', 'prod_system', 'region', 'input_year'], verbose=False,
+                            looped=False):
         """Calculate the SOC timeseries and create a soc_inventory dataset"""
         soil_utils.colored_rule(color='cyan', height=2)
         print('Calculating SOC timeseries...')
-        self._calculate_soc(grouping=group, verbose=verbose)
-        self._scn_icbm_calculations(verbose=verbose)
+        if looped:
+            self._calculate_soc(grouping=group, verbose=verbose)
+            self._scn_icbm_calculations(verbose=verbose)
+        else:
+            self._calculate_soc_new(grouping=group, verbose=verbose)
+            self._scn_icbm_calculations_new(verbose=verbose)
         soil_utils.colored_rule(color='green', height=2)
+
+    def _calculate_soc_new(self, grouping, verbose=False):
+        """
+        Calculate the SOC pools for both the ha and sko dataframes
+        """
+        if verbose:
+            print('---Executing _calculate_soc()---')
+
+        # Check if calculations have already been performed
+        if hasattr(self, '_soc_calculated') and self._soc_calculated:
+            if verbose:
+                print("SOC calculations already performed. Skipping...")
+            return
+
+        # Assuming _make_scn_area_dfs and h_map_helper are already optimized for vectorized operations
+        self._make_scn_area_dfs_new(grouping, verbose=verbose)
+        if verbose:
+            print(f"'_c_input_ha_df' and '_c_input_sko_df' generated")
+        if not self._h_value_dict:
+            if verbose:
+                print("-> 'h_value_dict' not set.")
+            _, self._h_value_dict = soil_utils.h_map_helper_new(verbose=verbose)
+
+        # Vectorized extraction of filtered namelists
+        if verbose:
+            print("Extracting filtered_namelist per ha")
+        self._scn_ha_sel = list(
+            set(soil_utils.get_filtered_namelist_new(['i_a', 'i_b', 'ha'], ['manure', 'crop'], self._c_input_ha_df)))
+        if verbose:
+            print("Extracting filtered_namelist per sko")
+        self._scn_sko_sel = list(
+            set(soil_utils.get_filtered_namelist_new(['i_a', 'i_b', 'sko'], ['manure', 'crop'], self._c_input_sko_df)))
+
+        # Mark that SOC calculations have been performed to avoid reapplication
+        self._soc_calculated = True
+
+        if verbose:
+            print('---Leaving _calculate_soc()---')
+
+    def _make_scn_area_dfs_new(self, grouping: list = ['scn', 'prod_system', 'region', 'input_year'],
+                               verbose: bool = False) -> None:
+        """Create scenario dataframes with yields per ha and per sko."""
+        if verbose:
+            print('---Executing _make_scn_area_dfs()---')
+
+        # Group the DataFrame by the specified columns and calculate the sum.
+        self._input_grouped_df = self.input_df.groupby(grouping).sum()
+
+        # Calculate weighted averages for manure and crop inputs per ha.
+        # This utilizes vectorized operations across the entire DataFrame without looping.
+        wt_at_cols = [col for col in self._input_grouped_df.columns if '_ha' in col]
+        tot_cols = [col for col in self._input_grouped_df.columns if '_kgc' in col]
+
+        # Use a vectorized approach to compute weighted averages
+        for wt_at, tot in zip(wt_at_cols, tot_cols):
+            self._input_grouped_df[wt_at] = self._input_grouped_df[tot] / self._input_grouped_df['area_ha']
+
+        # Extract specific columns for ha and sko DataFrames
+        self._c_input_ha_df = self._input_grouped_df[wt_at_cols + ['area_ha', 'harvest_kgdm']].copy()
+        self._c_input_sko_df = self._input_grouped_df[tot_cols + ['area_ha', 'harvest_kgdm']].copy()
+
+        if verbose:
+            print('---Leaving _make_scn_area_dfs()---')
 
     def calc_historic_soc_timeseries(self, verbose=False):
         """Calculate the historic SOC timeseries and update the soc_inventory dataset"""
@@ -568,6 +632,9 @@ class SoilData:
         self._historic_icbm_calculations(verbose=verbose)
         soil_utils.colored_rule(color='green', height=2)
 
+
+    # Methods to load and save inventory and state variables
+
     def save_inventory(self, dataset=None):
         """
         Saves the specified inventory dataset(s) to NetCDF and CSV files.
@@ -576,12 +643,12 @@ class SoilData:
         It saves xarray Datasets to NetCDF files and pandas DataFrames to CSV files, using a naming convention based on the dataset name.
 
         Parameters:
-        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be saved ('input', 'soc', 'historic').
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be saved ('input', 'soc', 'historic', 'total_soc').
                                           If None, all datasets will be saved.
         """
         # Default dataset names if none are specified
         if dataset is None:
-            dataset = ['input', 'soc', 'historic']
+            dataset = ['input', 'soc', 'historic', 'total_soc']
             print(f'Dataset set to {dataset}')
 
         # Recursively save each dataset if a list is provided
@@ -626,14 +693,14 @@ class SoilData:
         along with their corresponding DataFrames from CSV files.
 
         Parameters:
-        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be loaded ('inputs', 'soc', 'historic').
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be loaded ('inputs', 'soc', 'historic', 'total_soc').
                                           If None, all datasets will be loaded.
         """
         ds_loaded = []  # Tracks loaded xarray datasets
         df_loaded = []  # Tracks loaded CSV dataframes
         # Load specific datasets or all if none specified
         if dataset is None:
-            dataset = ['inputs', 'soc', 'historic']
+            dataset = ['inputs', 'soc', 'historic', 'total_soc']
             for ds in dataset:
                 self.load_inventory(ds)
         elif isinstance(dataset, list):  # Recursively load each dataset in list
@@ -649,19 +716,32 @@ class SoilData:
                 self._load_csv_files(temp_path, ['input_df', 'ss_input_df'], df_loaded)
             elif dataset == 'soc':
                 # Load 'soc' dataset
-                scn_soc_ds_name = f'{self.scenario}_soc_ds'
-                self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
-                ds_loaded.append('soc_inventory')
-                # Load associated CSVs if they exist
-                self._load_csv_files(temp_path, ['soc_ha_df', 'soc_sko_df'], df_loaded)
+                try:
+                    scn_soc_ds_name = f'{self.scenario}_soc_ds'
+                    self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
+                    ds_loaded.append('soc_inventory')
+                    # Load associated CSVs if they exist
+                    self._load_csv_files(temp_path, ['soc_ha_df', 'soc_sko_df'], df_loaded)
+                except(FileNotFoundError):
+                    pass
             elif dataset == 'historic':
-                # Load 'historic' dataset
-                scn_historic_ds_name = f'{self.scenario}_historic_ds'
-                self.historic_inventory = xr.load_dataset(f'{temp_path}/{scn_historic_ds_name}.nc')
-                ds_loaded.append('historic_inventory')
-                # Load associated CSVs if they exist
-                self._load_csv_files(temp_path, ['historic_ha_df', 'historic_sko_df'], df_loaded)
-
+                try:
+                    # Load 'historic' dataset
+                    scn_historic_ds_name = f'{self.scenario}_historic_ds'
+                    self.historic_inventory = xr.load_dataset(f'{temp_path}/{scn_historic_ds_name}.nc')
+                    ds_loaded.append('historic_inventory')
+                    # Load associated CSVs if they exist
+                    self._load_csv_files(temp_path, ['historic_ha_df', 'historic_sko_df'], df_loaded)
+                except(FileNotFoundError):
+                    pass
+            elif dataset == 'total_soc':
+                try:
+                    # Load 'total_soc' dataset
+                    scn_total_soc_ds_name = f'{self.scenario}_total_soc_ds'
+                    self.total_soc_inventory = xr.load_dataset(f'{temp_path}/{scn_total_soc_ds_name}.nc')
+                    ds_loaded.append('total_soc_inventory')
+                except(FileNotFoundError):
+                    pass
         # Print loaded datasets and dataframes
         self._print_loaded_items(ds_loaded, 'dataset')
         self._print_loaded_items(df_loaded, 'dataframe')
@@ -734,7 +814,20 @@ class SoilData:
             instance = pickle.load(file)
         return instance
 
-    def add_total_soc(self):
+
+    # Methods to print status messages
+    def print_public_parameter_status(self):
+        col1_length = len(max(self.check_attributes_status('public')[1].keys())) + 2
+        attribute = ' \n'.join([f"{key}: {' ' * (col1_length - len(key))}{value}" for key, value in self.check_attributes_status('public')[1].items()])
+        print(f"The following public attributes have been set for {self.scenario}:\n{attribute}")
+
+
+    def print_private_parameter_status(self):
+        col1_length = len(max(self.check_attributes_status('private')[1].keys())) + 2
+        attribute = ' \n'.join([f"{key}: {' ' * (col1_length - len(key))}{value}" for key, value in self.check_attributes_status('private')[1].items()])
+        print(f"The following private attributes have been set for {self.scenario}:\n{attribute}")
+
+    def _add_total_soc(self):
         """
         Adds a 'tot_soc' data array to the class's inventory datasets.
 
@@ -750,7 +843,7 @@ class SoilData:
         soil_utils.assign_tot_soc(self.soc_inventory)
         soil_utils.assign_tot_soc(self.historic_inventory)
 
-    def add_co2_flux(self):
+    def _add_co2_flux(self):
         """
         Adds a 'co2_flux' data array to the class's inventory datasets.
 
@@ -767,25 +860,896 @@ class SoilData:
         soil_utils.assign_co2_flux(self.soc_inventory)
         soil_utils.assign_co2_flux(self.historic_inventory)
 
-    def merge_soil_data(self) -> None:
-        """
-        Merges the current and historic soil carbon datasets into a unified dataset.
 
-        This method combines 'soc_inventory' and 'historic_inventory' datasets, both of which
-        should contain soil carbon time series data. The resulting merged dataset is stored in
-        'total_soc_inventory' class variable.
+    def total_merge(self):
+        """
+        Calculates total SOC fluxes by merging the historic and new input soc inventories.
+
+        This is done by first adding total SOC and annual CO2 fluxes to the historic_inventory and the soc_inventory.
+        These are then combined buy coordinate into a new inventory dataset called 'total_soc_inventory'
 
         Parameters
         ----------
-        None
+        None: In order to align the historic_inventory with the soc_inventory the dimensions 'scn' and 'input_year' are added to the historic_inventory.
+                'scn' is set to self.scenario, while 'input_year' is set to self.startyear -1.
 
         Returns
         -------
-        None
-
-        Assigns
-        -------
-        total_soc_inventory : xarray.Dataset
-            The merged dataset containing both new and historic soil carbon time series data.
+        None: The self.total_soc_inventory is set, and 'tot_soc' and 'co2_flux' are added to the historic_inventory and soc_inventory datasets.
         """
-        self.total_soc_inventory = xr.merge([self.soc_inventory.sum('input_year'), self.historic_inventory])
+        # Calculate and assign total SOC and annual co2 flux vectors to the soc_inventory and the historic_inventory.
+        self._add_total_soc()
+        self._add_co2_flux()
+
+        # Align the datasets to be merged and combine them by coordinates
+        try:
+            historic_inputyear = pd.to_datetime(self.startyear - 1, format='%Y')
+            self.historic_inventory = self.historic_inventory.expand_dims(
+                {'scn': [self.scenario.lower()], 'input_year': [historic_inputyear]}, axis=None)
+            self.total_soc_inventory = xr.combine_by_coords([self.soc_inventory, self.historic_inventory])
+        except ValueError as e:
+            print(f'The inventories have most likely already been merged: {e}')
+
+
+    # Plotting functions
+    def plot_single_region_timeseries(self,
+                                      fractions: List[str] = ['new', 'hist', 'tot'],
+                                      sko: int = 111,
+                                      system: str = 'conventional',
+                                      scenario: str = 'fai',
+                                      selection: str = '_ha'
+                                      ) -> None:
+        """
+        Plots the SOC inventory data for a single region or per ha, based on specified criteria.
+
+        This method iterates through a given list of fraction types and aggregates
+        the SOC data across all fractions and input years for the specified region (`sko`),
+        production system (`system`), and scenario (`scenario`). It then plots this aggregated
+        data. The method is intended for use with 'new', 'historical' ('hist'), and
+        'total' ('tot') SOC data.
+
+        Parameters:
+        - fractions: The types of fractions to plot. Defaults to ['new', 'hist', 'tot'].
+        - sko: The region code to plot data for. Defaults to 111.
+        - system: The production system, e.g., 'conventional'. Defaults to 'conventional'.
+        - scenario: The scenario name, e.g., 'fai'. Defaults to 'fai'.
+        - selection: The area selection to be plotted, e.g. '_ha' or '_kgc'. Defaults to '_ha'.
+        """
+
+        mask = self.total_soc_inventory['fraction'].str.contains(selection)
+        output = []
+        for frac in fractions:
+            if frac == 'new':
+                new_soc = (
+                    self.soc_inventory.tot_soc.sel(
+                        {'region': sko, 'prod_system': system, 'scn': scenario}
+                    ).where(mask, drop=True).sum('fraction').sum('input_year')
+                )
+                new_soc.plot()
+                output.append(new_soc)
+            if frac == 'hist':
+                old_soc = (
+                    self.historic_inventory.tot_soc.sel(
+                        {'region': sko, 'prod_system': system, 'scn': scenario}
+                    ).where(mask, drop=True).sum('fraction').sum('input_year')
+                )
+                old_soc.plot()
+                output.append(old_soc)
+            if frac == 'tot':
+                total_soc = (
+                    self.total_soc_inventory.tot_soc.sel(
+                        {'region': sko, 'prod_system': system, 'scn': scenario}
+                    ).where(mask, drop=True).sum('fraction').sum('input_year')
+                )
+                total_soc.plot()
+                output.append(total_soc)
+        return output
+
+    def plot_all_regions_map(self,
+                             reg='sko',
+                             system='conventional',
+                             vers='_ha',
+                             initial_year = '2020',
+                             final_year = '2050',
+                             **kwargs):
+
+        scenario = self.scenario.lower()
+        mask = self.total_soc_inventory['fraction'].str.contains(vers)
+
+        initial_soc_level = (self.total_soc_inventory.tot_soc.
+                             sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                             where(mask, drop=True).
+                             sum(['fraction', 'input_year', 'output_year']))
+        final_soc_level = (self.total_soc_inventory.tot_soc.
+                           sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                           where(mask, drop=True).
+                           sum('fraction').sum('input_year').sum('output_year'))
+
+        stock_change = (final_soc_level / initial_soc_level - 1)
+        #regions = stock_change.region.data
+        #soc_change = stock_change.data
+        stock_change_series = pd.Series(stock_change.data, index=stock_change.region.data.astype(str))
+        stock_change_series.index.name = 'region'
+        stock_change_series.name = 'values'
+        print(stock_change_series)
+        #stock_change_series = stock_change_df.loc[:, 'SOC stock change'] * 100
+        a, b, c =plot.maps.map_from_soilseries(stock_change_series, reg, **kwargs)
+        return a, b, c
+
+
+class SoilDataExplore:
+    """Class to explore and visualize the data related to soil carbon and CO2 fluxes produced with a SoilData class instance"""
+
+    def __init__(self, scenario_prefix: str, import_path: str = temp_path, verbose: bool = False) -> None:
+        # Initialize instance variables
+        self.initialize_instance_variables(verbose)
+        self.load_instance_state(scenario_prefix, import_path, verbose)
+        self.load_inventory(scenario_prefix, dataset=['inputs', 'soc', 'historic', 'total_soc'], verbose=verbose)
+
+        if verbose:
+            print(f'Initialization of {self.name} instance of SoilData class complete')
+
+
+    def initialize_instance_variables(self, verbose=False):
+        if verbose:
+            print('---Initializing variables---')
+        # Initialize output variables to None or appropriate default values
+        self.name = None # type: string
+        self.scenario = None # type: string
+        self.startyear = None  # type: int
+        self.input_inventory = None  # type: xr.Dataset
+        self.soc_inventory = None  # type: xr.Dataset
+        self.historic_inventory = None  # type: xr.Dataset
+        self.total_soc_inventory = None # type: xr.Dataset
+        if verbose:
+            print('+++Variables initialized---')
+
+
+    def load_instance_state(self, scenario_name: str, temp_path: str=temp_path, verbose: bool=False) -> None:
+        if verbose:
+            print('---executing load_instance_state----')
+        with open(f'{temp_path}/{scenario_name}.pickle', 'rb') as file:
+            instance = pickle.load(file)
+        self.name = instance.name
+        self.scenario = instance.scenario
+        self.startyear = instance.startyear
+        if verbose:
+            print('+++load_instance_state finished+++')
+
+
+    def load_inventory(self, prefix: str, dataset: list=None, temp_path: str=temp_path, verbose: bool=False) -> None:
+        """
+        Loads inventory data based on specified dataset names.
+
+        This method supports loading single datasets, a list of datasets, or all datasets if none specified.
+        It updates the instance attributes for input, SOC (Soil Organic Carbon), and historic data inventories
+        along with their corresponding DataFrames from CSV files.
+
+        Parameters:
+        -----------
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be loaded ('inputs', 'soc', 'historic', 'total_soc').
+                                          If None, all datasets will be loaded.
+        """
+        if verbose:
+            print('---Loading inventory---')
+        ds_loaded = []  # Tracks loaded xarray datasets
+        # Load specific datasets or all if none specified
+        if dataset is None:
+            dataset = ['inputs', 'soc', 'historic', 'total_soc']
+            for ds in dataset:
+                self.load_inventory(prefix, ds)
+        elif isinstance(dataset, list):  # Recursively load each dataset in list
+            for ds in dataset:
+                self.load_inventory(prefix, ds)
+        else:  # Load individual dataset
+            if dataset == 'inputs':
+                # Load 'inputs' dataset
+                try:
+                    scn_input_ds_name = f'{prefix}_input_ds'
+                    self.input_inventory = xr.load_dataset(f"{temp_path}/{scn_input_ds_name}.nc")
+                    ds_loaded.append('input_inventory')
+                except(FileNotFoundError):
+                    pass
+            elif dataset == 'soc':
+                # Load 'soc' dataset
+                try:
+                    scn_soc_ds_name = f'{prefix}_soc_ds'
+                    self.soc_inventory = xr.load_dataset(f"{temp_path}/{scn_soc_ds_name}.nc")
+                    ds_loaded.append('soc_inventory')
+                except(FileNotFoundError):
+                    pass
+            elif dataset == 'historic':
+                try:
+                    # Load 'historic' dataset
+                    scn_historic_ds_name = f'{prefix}_historic_ds'
+                    self.historic_inventory = xr.load_dataset(f'{temp_path}/{scn_historic_ds_name}.nc')
+                    ds_loaded.append('historic_inventory')
+                except(FileNotFoundError):
+                    pass
+            elif dataset == 'total_soc':
+                try:
+                    # Load 'total_soc' dataset
+                    scn_total_soc_ds_name = f'{prefix}_total_soc_ds'
+                    self.total_soc_inventory = xr.load_dataset(f'{temp_path}/{scn_total_soc_ds_name}.nc')
+                    ds_loaded.append('total_soc_inventory')
+                except(FileNotFoundError):
+                    pass
+        # Print loaded datasets
+        self._print_loaded_items(ds_loaded, 'dataset')
+        if verbose:
+            print('+++Inventory loaded+++')
+
+
+
+    def _print_loaded_items(self, items, item_type):
+        """
+        Helper method to print loaded items.
+
+        Parameters:
+        -----------
+        - items: list - A list of loaded item names.
+        - item_type: str - A description of the item type ('dataset' or 'dataframe').
+        """
+        newline = '\n '
+        if items:
+            print(f"The following {item_type} variables have been set:{newline}{newline.join(items)}")
+        else:
+            print(f"No {item_type} variables have been loaded.")
+
+
+    def _load_csv_files(self, temp_path: str, csv_names: list, loaded_list: list) -> None:
+        """
+        Helper method to load CSV files as DataFrames if they exist.
+
+        Parameters:
+        -----------
+        - temp_path: str - The path where CSV files are located.
+        - csv_names: list - A list of CSV file base names to load.
+        - loaded_list: list - A list to append the names of successfully loaded CSV files.
+        """
+        for csv_name in csv_names:
+            scn_input_df_name = f'{self.scenario}_{csv_name}'
+            csv_path = f'{temp_path}/{scn_input_df_name}.csv'
+            if os.path.exists(csv_path):
+                setattr(self, csv_name, soil_utils.read_csv_preserved(csv_path))
+                loaded_list.append(csv_name)
+
+
+    def check_attributes_status(self, access: str='public') -> tuple[str, dict[str, tuple[type, bool]]]:
+        """
+        Checks the status of all attributes in the given class instance.
+
+        Parameters:
+        -----------
+        - access: Selects whether to show 'public' or 'private' attributes. (default: 'public')
+
+        Returns:
+        --------
+        A dictionary where keys are attribute names and values are tuples containing
+        the current type of the attribute and a boolean indicating if it is set (not None).
+        """
+        attrs_status = {}
+        for attribute in dir(self):
+            # Filter based on access level
+            if access == 'public' and attribute.startswith('_'):
+                continue
+            elif access == 'private' and not attribute.startswith('_'):
+                continue
+            attr_value = getattr(self, attribute)
+            # Skip methods and magic methods
+            if inspect.ismethod(attr_value) or attribute.startswith('__'):
+                continue
+            # Check if the attribute is set (not None)
+            is_set = attr_value is not None
+            attrs_status[attribute] = (type(attr_value).__name__, is_set)
+        return f"The following attributes are set for {access} variables", attrs_status
+
+
+    # Methods to print status messages
+    def print_public_parameter_status(self):
+        """
+        Prints the current status of public attributes for the instance, specifically for the scenario set.
+
+        This method retrieves the public attributes of the instance as determined by the scenario configuration. It formats
+        the attribute names and their values neatly for display. The method is useful for debugging and verification purposes,
+        allowing users to quickly check the initialization and current state of private attributes.
+
+        Attributes are obtained by calling `check_attributes_status` with 'private' as the argument, which should return a
+        dictionary of private attribute names and their current values.
+
+        No parameters are required for this method.
+
+        Returns:
+        --------
+           None. This method prints the status of private attributes directly to the console.
+        """
+        col1_length = len(max(self.check_attributes_status('public')[1].keys())) + 2
+        attribute = ' \n'.join([f"{key}: {' ' * (col1_length - len(key))}{value}" for key, value in
+                                self.check_attributes_status('public')[1].items()])
+        print(f"The following public attributes have been set for {self.scenario}:\n{attribute}")
+
+
+    def print_private_parameter_status(self):
+        """
+        Prints the current status of private attributes for the instance, specifically for the scenario set.
+
+        This method retrieves the private attributes of the instance as determined by the scenario configuration. It formats
+        the attribute names and their values neatly for display. The method is useful for debugging and verification purposes,
+        allowing users to quickly check the initialization and current state of private attributes.
+
+        Attributes are obtained by calling `check_attributes_status` with 'private' as the argument, which should return a
+        dictionary of private attribute names and their current values.
+
+        No parameters are required for this method.
+
+        Returns:
+        --------
+           None. This method prints the status of private attributes directly to the console.
+        """
+        col1_length = len(max(self.check_attributes_status('private')[1].keys())) + 2
+        attribute = ' \n'.join([f"{key}: {' ' * (col1_length - len(key))}{value}" for key, value in
+                                self.check_attributes_status('private')[1].items()])
+        print(f"The following private attributes have been set for {self.scenario}:\n{attribute}")
+
+
+    def show_variable_values(self, variable_name='fraction'):
+        return(list(self.total_soc_inventory[variable_name].values))
+
+
+    # Plotting functions
+    def plot_single_region_timeseries(self,
+                                      fractions: List[str] = ['new', 'hist', 'tot'],
+                                      sko: int = 111,
+                                      system: str = 'conventional',
+                                      scenario: str = 'fai',
+                                      selection: str = '_ha',
+                                      plot_config:  dict[str, Any]={'label': ['New SOC', 'Historic SOC', 'Total SOC']},
+                                      label_config: dict[str, Any]={'xlabel': 'Time [Year]',
+                                                                    'ylabel': 'SOC content [kg C]'},
+                                      save_as=False,
+                                      save_path=export_path,
+                                      ) -> None:
+        """
+        Plots time series of SOC inventory data for a specified region, system, and scenario,
+        allowing comparison across old and new SOC.
+
+        This method aggregates SOC data for specified fractions and plots them as time series.
+        It supports custom plot configurations and labeling, facilitating detailed analysis
+        and visualization of SOC changes over time.
+
+        Parameters:
+        -----------
+        - fractions (List[str]): Types of SOC fractions to plot, defaulting to ['new', 'hist', 'tot'].
+        - sko (int): Region code for the data, default is 111.
+        - system (str): Production system type, default is 'conventional'.
+        - scenario (str): Scenario name, default is 'fai'.
+        - selection (str): Area selection for plotting ('_ha' or '_kgc'), default is '_ha'.
+        - plot_config (dict[str, Any]): Configuration for plot appearance, including labels.
+        - label_config (dict[str, Any]): Configuration for axis labels and plot title.
+        - save_as (str): Filename to save the plot, if specified; otherwise, no file is saved.
+        - save_path (str): Path where the plot will be saved if `save_as` is specified.
+
+        Returns:
+        --------
+        - A list of xarray.DataArray objects containing aggregated SOC data for the specified fractions.
+
+        Note: The function adjusts the plot title based on the `selection` parameter to reflect the
+        chosen area selection. Custom labels and titles can be specified through `label_config` and `plot_config`.
+        """
+
+
+        mask = self.total_soc_inventory['fraction'].str.contains(selection)
+        fig, ax = plt.subplots()
+        output = []
+        if selection == '_ha':
+            variant = 'HA'
+        elif selection == '_kgc':
+            variant = 'SKO'
+        else:
+            variant = ''
+
+        label_config['title'] = f'SOC time series per {variant}. \nRegion {sko}, System: {system}'
+        for frac in fractions:
+            if frac == 'new':
+                new_soc = (
+                    self.soc_inventory.tot_soc.sel(
+                        {'region': sko, 'prod_system': system, 'scn': scenario}
+                    ).where(mask, drop=True).sum('fraction').sum('input_year')
+                )
+                output.append(new_soc)
+            if frac == 'hist':
+                old_soc = (
+                    self.historic_inventory.tot_soc.sel(
+                        {'region': sko, 'prod_system': system, 'scn': scenario}
+                    ).where(mask, drop=True).sum('fraction').sum('input_year')
+                )
+                output.append(old_soc)
+            if frac == 'tot':
+                total_soc = (
+                    self.total_soc_inventory.tot_soc.sel(
+                        {'region': sko, 'prod_system': system, 'scn': scenario}
+                    ).where(mask, drop=True).sum('fraction').sum('input_year')
+                )
+                output.append(total_soc)
+        xr_array_list_plotter(ax, [data for data in output], plot_kwargs=plot_config, label_kwargs=label_config)
+
+        plt.show()
+        if save_as:
+            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+
+        return output
+
+
+    def plot_fraction_total_timeseries_comparison(self,
+                                                  sko: int = 111,
+                                                  system: str = 'conventional',
+                                                  scenario: str = 'fai',
+                                                  selection: str = '_ha',
+                                                  fraction: str = '_ha',
+                                                  fraction_name: str = 'fraction',
+                                                  label_config: dict[str, Any] = {'xlabel': 'Time [Year]',
+                                                                                  'ylabel': 'SOC content [kg C]'},
+                                                  min_year: Union[int, None] = None,
+                                                  max_year: Union[int, None] = None,
+                                                  save_as=False,
+                                                  save_path=export_path,
+                                                  ) -> None:
+        """
+        Plots the SOC inventory data for a single region or per ha, based on specified criteria.
+
+        This method iterates through a given list of fraction types and aggregates
+        the SOC data across all fractions and input years for the specified region (`sko`),
+        production  system (`system`), and scenario (`scenario`). It then plots this aggregated
+        data. The method is intended for use with 'new', 'historical' ('hist'), and
+        'total' ('tot') SOC data.
+
+        Parameters:
+        -----------
+        - fractions: The types of fractions to plot. Defaults to ['new', 'hist', 'tot'].
+        - sko: The region code to plot data for. Defaults to 111.
+        - system: The production system, e.g., 'conventional'. Defaults to 'conventional'.
+        - scenario: The scenario name, e.g., 'fai'. Defaults to 'fai'.
+        - selection: The area selection to be plotted, e.g. '_ha' or '_kgc'. Defaults to '_ha'.
+        """
+
+        mask1 = self.total_soc_inventory['fraction'].str.contains(selection)
+
+        output = []
+        total_soc = (
+            self.total_soc_inventory.tot_soc.sel(
+                {'region': sko, 'prod_system': system, 'scn': scenario}
+            ).where(mask1, drop=True).sum('fraction').sum('input_year')
+        )
+        output.append(total_soc)
+
+        mask2 = self.total_soc_inventory['fraction'].str.contains(fraction)
+        fraction_soc = (
+            self.total_soc_inventory.tot_soc.sel(
+                {'region': sko, 'prod_system': system, 'scn': scenario}
+            ).where(mask2, drop=True).sum('fraction').sum('input_year')
+        )
+        output.append(fraction_soc)
+
+
+        fig, ax = plt.subplots()
+
+        if selection == '_ha':
+            variant = 'HA'
+        elif selection == '_kgc':
+            variant = 'SKO'
+        else:
+            variant = ''
+
+        label_config['title'] = f'SOC time series per {variant}. \nRegion {sko}, System: {system}'
+        plot_config = {'label': ['Total', f'{fraction_name}']}
+
+        xr_array_list_plotter(ax, [data for data in output], min_year=min_year, max_year=max_year, plot_kwargs=plot_config, label_kwargs=label_config)
+
+        plt.show()
+
+        if save_as:
+            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+
+        return output
+
+    def plot_all_regions_map(self,
+                             reg: str = 'sko',
+                             system: str = 'conventional',
+                             vers: str = '_ha',
+                             initial_year: str = '2020',
+                             final_year: str = '2050',
+                             percentage: bool = True,
+                             colormap='YlOrBr_r',
+                             width: float = 10,
+                             height_scaling: float = 1.3,
+                             standard_font: int = 15,
+                             save_as: Optional[str] = None,
+                             save_path: str = export_path,
+                             **kwargs: Dict[str, Any]) -> pd.Series:
+        """
+        Generates a map visualizing the change in soil organic carbon (SOC) stocks across all regions between two specified years.
+
+        Parameters:
+        -----------
+        - reg (str): Geographic region type for mapping ('sko', 'po8', 'kommun', 'län'). Default is 'sko'.
+        - system (str): Farming system type ('conventional', 'organic', etc.). Default is 'conventional'.
+        - vers (str): Version or type of SOC stocks data to plot, typically indicating the data source or calculation method. Default is '_ha'.
+        - initial_year (str): The starting year for SOC stocks comparison. Default is '2020'.
+        - final_year (str): The ending year for SOC stocks comparison. Default is '2050'.
+        - percentage (bool): If True, displays SOC stock changes as percentages. Otherwise, displays raw values. Default is True.
+        - width (float): Width of the figure in inches. Default is 10.
+        - height_scaling (float): Factor to scale figure height based on the width, maintaining aspect ratio. Default is 1.3.
+        - standard_font (int): Base font size for plot text elements. Scales with figure width. Default is 15.
+        - save_as (Optional[str]): Filename to save the plot as SVG and PNG. If None, the plot is not saved. Default is None.
+        - save_path (str): Directory path to save the plot if 'save_as' is provided. Uses 'export_path' by default.
+        - **kwargs (Dict[str, Any]): Additional keyword arguments passed to the plotting function.
+
+        Returns:
+        --------
+        pd.Series: A pandas Series containing the calculated SOC stock changes for each region.
+
+        This method visualizes SOC stock changes across regions, providing insights into environmental and land management impacts over time.
+
+        Note:
+                * There is currently no mapping between 'sko' and other regions.
+                  Changing the 'reg' parameter will cause the method to throw an error.
+                * Changing 'width' and 'standard_font' does not affect the legend and its label, only the map and title.
+                  To find a good balane between map and legen, trial and error using these two parameters is recommended.
+        """
+        standard_width = 10
+        scaling_factor = width / standard_width
+        height = width * height_scaling
+        font_size = scaling_factor * standard_font
+
+        scenario = self.scenario.lower()
+        mask = self.total_soc_inventory['fraction'].str.contains(vers)
+
+        initial_soc_level = (self.total_soc_inventory.tot_soc.
+                             sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                             where(mask, drop=True).
+                             sum(['fraction', 'input_year', 'output_year']))
+        final_soc_level = (self.total_soc_inventory.tot_soc.
+                           sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                           where(mask, drop=True).
+                           sum('fraction').sum('input_year').sum('output_year'))
+
+        stock_change = (final_soc_level / initial_soc_level - 1)
+        # regions = stock_change.region.data
+        # soc_change = stock_change.data
+        if percentage:
+            stock_change_series = pd.Series(stock_change.data * 100, index=stock_change.region.data.astype(str))
+        else:
+            stock_change_series = pd.Series(stock_change.data, index=stock_change.region.data.astype(str))
+        stock_change_series.index.name = 'region'
+        stock_change_series.name = 'values'
+        # stock_change_series = stock_change_df.loc[:, 'SOC stock change'] * 100
+        fig, ax = plt.subplots(figsize=(width, height))
+        plot.maps.map_from_soilseries(ax, stock_change_series, reg, font_size=font_size, cmap=colormap, **kwargs)
+        plt.show()
+        if save_as:
+            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+        return stock_change_series
+
+
+    def plot_soc_co2_regions_map(self,
+                                 reg: str = 'sko',
+                                 system: str = 'conventional',
+                                 vers: str = '_ha',
+                                 initial_year: str = '2020',
+                                 final_year: str = '2050',
+                                 colormaps: List[str] = None,
+                                 percentage: bool = True,
+                                 width: float = 10,
+                                 height_scaling: float = 1.3,
+                                 standard_font: int = 15,
+                                 save_as: bool = False,
+                                 save_path: str = export_path,
+                                 verbose: bool = False
+                                 ) -> Tuple[pd.Series, pd.Series]:
+        """
+        Plots two side-by-side maps showing changes in soil organic carbon (SOC) stocks and cumulative CO2 emissions betweem specified initial and final years, allowing for visual comparison of changes over time within regions.
+
+        Parameters:
+        -----------
+        - reg: Specifies the geographic region type for mapping ('sko', 'po8', 'kommun', 'län'). Default is 'sko'.
+        - system: Farming system type ('conventional', 'organic', etc.). Default is 'conventional'.
+        - vers: Version or type of SOC stocks data to plot, typically indicating the data source or calculation method. Default is '_ha'.
+        - initial_year: The initial year for the SOC stocks and CO2 emissions comparison. Default is '2020'.
+        - final_year: The final year for the SOC stocks and CO2 emissions comparison. Default is '2050'.
+        - percentage: If True, SOC stock changes are displayed as percentages; otherwise, raw values are used. Default is True.
+        - width: Width of the figure in inches. Default is 10.
+        - height_scaling: Scaling factor to determine figure height based on width to maintain aspect ratio. Default is 1.3.
+        - standard_font: Base font size for plot text elements. Actual font size scales with figure width. Default is 15.
+        - save_as: If True, specifies the filename to save the plot as SVG and PNG. Default is False.
+        - save_path: Directory path where the plot will be saved if save_as is True. Uses 'export_path' by default.
+        - verbose: If True, prints additional information during plotting. Default is False.
+
+        Returns:
+        --------
+        Tuple[pd.Series, pd.Series]: A tuple containing two pandas Series with SOC stock changes and CO2 emissions data, indexed by region.
+
+        This method visualizes the distribution and changes in SOC stocks and CO2 emissions across specified regions for two points in time,
+         offering insights into soil organic carbon stock evolution, and environmental impact trends under different farming systems.
+
+        Note:
+                * There is currently no mapping between 'sko' and other regions.
+                  Changing the 'reg' parameter will cause the method to throw an error.
+                * Changing 'width' and 'standard_font' does not affect the legend and its label, only the map and title.
+                  To find a good balane between map and legen, trial and error using these two parameters is recommended.
+        """
+        standard_width = 10
+        scaling_factor = width / standard_width
+        height = width * height_scaling
+        font_size = scaling_factor * standard_font
+
+        scenario = self.scenario.lower()
+        mask = self.total_soc_inventory['fraction'].str.contains(vers)
+
+        initial_soc_level = (self.total_soc_inventory.tot_soc.
+                             sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                             where(mask, drop=True).
+                             sum(['fraction', 'input_year', 'output_year']))
+        final_soc_level = (self.total_soc_inventory.tot_soc.
+                           sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                           where(mask, drop=True).
+                           sum('fraction').sum('input_year').sum('output_year'))
+
+        stock_change = (final_soc_level / initial_soc_level - 1)
+        co2_emissions = (initial_soc_level - final_soc_level) * 3.6
+        if percentage:
+            stock_change_series = pd.Series(stock_change.data * 100, index=stock_change.region.data.astype(str))
+            co2_emissions_series = pd.Series(co2_emissions.data, index=co2_emissions.region.data.astype(str))
+        else:
+            stock_change_series = pd.Series(stock_change.data, index=stock_change.region.data.astype(str))
+            co2_emissions_series = pd.Series(co2_emissions.data, index=co2_emissions.region.data.astype(str))
+        stock_change_series.index.name = 'region'
+        stock_change_series.name = 'values'
+        co2_emissions_series.index.name = 'region'
+        co2_emissions_series.name = 'values'
+        # stock_change_series = stock_change_df.loc[:, 'SOC stock change'] * 100
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(width, height))
+
+        colormap = ['YlOrBr_r', 'YlGnBu']
+        if colormaps is not None:
+            if colormaps[0] != '':
+                colormap[0] = colormaps[0]
+            if colormaps[1] != '':
+                colormap[1] = colormaps[1]
+
+        kwargs1 = {'title': f'SOC stock changes {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[0],
+                     'legend_kwds':{'label': 'Percentage change in SOC stocks, top soil (%)'}}
+        kwargs2 = {'title': f'CO2-emissions {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[1],
+                     'legend_kwds':{'label': 'Cumulative CO2 emissions, top soil [kg]'}}
+
+        plot.maps.map_from_soilseries(axs[0], stock_change_series, reg, font_size=font_size, verbose=verbose, **kwargs1)
+        plot.maps.map_from_soilseries(axs[1], co2_emissions_series, reg, font_size=font_size, verbose=verbose, **kwargs2)
+        plt.tight_layout
+        plt.show()
+        if save_as:
+            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+        return stock_change_series, co2_emissions_series
+
+
+    def plot_soc_stock_maps(self,
+                            reg: str = 'sko',
+                            system: str = 'conventional',
+                            vers: str = '_ha',
+                            initial_year: str = '2020',
+                            final_year: str = '2050',
+                            colormap='YlOrBr_r',
+                            width: float = 10,
+                            height_scaling: float = 1.3,
+                            standard_font: int = 15,
+                            save_as: str = False,
+                            save_path: str = export_path,
+                            verbose: bool = False,
+                            **kwargs) -> Tuple[pd.Series, pd.Series]:
+        """
+        Plots two side-by-side maps showing soil organic carbon (SOC) stocks for two given years (initial and final),
+        allowing for visual comparison of SOC distribution changes over time within specified regions.
+
+        Parameters:
+        -----------
+        - reg (str): Specifies the geographic region type for mapping ('sko', 'po8', 'kommun', 'län'). Default is 'sko'.
+        - system (str): Farming system type ('conventional', 'organic', etc.). Default is 'conventional'.
+        - vers (str): Version or type of SOC stocks data to plot, typically indicating the data source or calculation method. Default is '_ha'.
+        - initial_year (str): The year for the first SOC stock map. Default is '2020'.
+        - final_year (str): The year for the second SOC stock map. Default is '2050'.
+        - width (float): Width of the figure in inches. Default is 10.
+        - height_scaling (float): Scaling factor to determine figure height based on width to maintain aspect ratio. Default is 1.3.
+        - standard_font (int): Base font size for plot text elements. Actual font size scales with figure width. Default is 15.
+        - save_as (bool or str): If not False, specifies the filename to save the plot as an SVG. Default is False.
+        - save_path (str): Directory path where the plot will be saved if save_as is specified. Default uses 'export_path'.
+        - verbose (bool): If True, prints additional information during plotting. Default is False.
+
+        Returns:
+        --------
+        - initial_soc_stock (pd.Series): A pandas Series containing SOC stocks data for the initial year, indexed by region.
+        - final_soc_stock (pd.Series): A pandas Series containing SOC stocks data for the final year, indexed by region.
+
+        This method visualizes the distribution and changes in SOC stocks across specified regions for two points in time,
+        offering insights into soil health and carbon sequestration trends under different farming systems.
+
+        Note:
+            * There is currently no mapping between 'sko' and other regions.
+              Changing the 'reg' parameter will cause the method to throw an error.
+            * Changing 'width' and 'standard_font' does not affect the legend and its label, only the map and title.
+              To find a good balane between map and legen, trial and error using these two parameters is recommended.
+        """
+
+        standard_width = 10
+        scaling_factor = width / standard_width
+        height = width * height_scaling
+        font_size = scaling_factor * standard_font
+
+        scenario = self.scenario.lower()
+        mask = self.total_soc_inventory['fraction'].str.contains(vers)
+
+        if system == 'both':
+            initial_org_soc_level = (self.total_soc_inventory.tot_soc.
+                                     sel({'output_year': initial_year, 'prod_system': 'organic', 'scn': scenario}).
+                                     where(mask, drop=True).
+                                     sum(['fraction', 'input_year', 'output_year']))
+            final_org_soc_level = (self.total_soc_inventory.tot_soc.
+                                   sel({'output_year': final_year, 'prod_system': 'organic', 'scn': scenario}).
+                                   where(mask, drop=True).
+                                   sum('fraction').sum('input_year').sum('output_year'))
+            initial_conv_soc_level = (self.total_soc_inventory.tot_soc.
+                                      sel({'output_year': initial_year, 'prod_system': 'conventional', 'scn': scenario}).
+                                      where(mask, drop=True).
+                                      sum(['fraction', 'input_year', 'output_year']))
+            final_conv_soc_level = (self.total_soc_inventory.tot_soc.
+                                    sel({'output_year': final_year, 'prod_system': 'conventional', 'scn': scenario}).
+                                    where(mask, drop=True).
+                                    sum('fraction').sum('input_year').sum('output_year'))
+
+            initial_org_soc_stock = pd.Series(initial_org_soc_level.data,
+                                              index=initial_org_soc_level.region.data.astype(str))
+            final_org_soc_stock = pd.Series(final_org_soc_level.data,
+                                            index=final_org_soc_level.region.data.astype(str))
+            initial_org_soc_stock.index.name = 'region'
+            initial_org_soc_stock.name = 'values'
+            final_org_soc_stock.index.name = 'region'
+            final_org_soc_stock.name = 'values'
+
+            initial_conv_soc_stock = pd.Series(initial_conv_soc_level.data,
+                                              index=initial_conv_soc_level.region.data.astype(str))
+            final_conv_soc_stock = pd.Series(final_conv_soc_level.data,
+                                            index=final_conv_soc_level.region.data.astype(str))
+            initial_conv_soc_stock.index.name = 'region'
+            initial_conv_soc_stock.name = 'values'
+            final_conv_soc_stock.index.name = 'region'
+            final_conv_soc_stock.name = 'values'
+
+            cbar_min = min(initial_org_soc_stock.min(),
+                           final_org_soc_stock.min(),
+                           initial_conv_soc_stock.min(),
+                           final_conv_soc_stock.min())
+            cbar_max = max(initial_org_soc_stock.max(),
+                           final_org_soc_stock.max(),
+                           initial_conv_soc_stock.max(),
+                           final_conv_soc_stock.max())
+
+            fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(width, height*2))
+
+            kwargs1 = {'title': f'SOC stocks in {initial_year} - conventional\n(selection: {vers})',
+                       'cmap': colormap,
+                       'vmin': cbar_min,
+                       'vmax': cbar_max,
+                       'legend_kwds': {'label': 'SOC stocks [kg]'}}
+            kwargs2 = {'title': f'SOC stocks in {final_year} - conventional\n(selection: {vers})',
+                       'cmap': colormap,
+                       'vmin': cbar_min,
+                       'vmax': cbar_max,
+                       'legend_kwds': {'label': 'SOC stocks [kg]'}}
+            kwargs3 = {'title': f'SOC stocks in {initial_year} - organic\n(selection: {vers})',
+                       'cmap': colormap,
+                       'vmin': cbar_min,
+                       'vmax': cbar_max,
+                       'legend_kwds': {'label': 'SOC stocks [kg]'}}
+            kwargs4 = {'title': f'SOC stocks in {final_year} - organic\n(selection: {vers})',
+                       'cmap': colormap,
+                       'vmin': cbar_min,
+                       'vmax': cbar_max,
+                       'legend_kwds': {'label': 'SOC stocks [kg]'}}
+
+            kwargs1.update(kwargs)
+            kwargs2.update(kwargs)
+            kwargs3.update(kwargs)
+            kwargs4.update(kwargs)
+
+            # if kwargs.get('kind') is not None:
+                # to_remove =['vmin', 'vmax']
+                # if kwargs.get('legend') is None:
+                #     to_remove.append('legend_kwds')
+                # for key in to_remove:
+                #     kwargs1.pop(key, None)
+                #     kwargs2.pop(key, None)
+                #     kwargs3.pop(key, None)
+                #     kwargs4.pop(key, None)
+            if kwargs.get('kind') in ['barh', 'hist']:
+                axs[0, 0].set(xlim=[cbar_min, cbar_max])
+                axs[0, 1].set(xlim=[cbar_min, cbar_max])
+                axs[1, 0].set(xlim=[cbar_min, cbar_max])
+                axs[1, 1].set(xlim=[cbar_min, cbar_max])
+
+            plot.maps.map_from_soilseries(axs[0,0], initial_conv_soc_stock, reg, font_size=font_size, verbose=verbose, **kwargs1)
+            plot.maps.map_from_soilseries(axs[0,1], final_conv_soc_stock, reg, font_size=font_size, verbose=verbose, **kwargs2)
+            plot.maps.map_from_soilseries(axs[1,0], initial_org_soc_stock, reg, font_size=font_size, verbose=verbose, **kwargs3)
+            plot.maps.map_from_soilseries(axs[1,1], final_org_soc_stock, reg, font_size=font_size, verbose=verbose, **kwargs4)
+            plt.tight_layout
+            plt.show()
+        else:
+            initial_soc_level = (self.total_soc_inventory.tot_soc.
+                                 sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                                 where(mask, drop=True).
+                                 sum(['fraction', 'input_year', 'output_year']))
+            final_soc_level = (self.total_soc_inventory.tot_soc.
+                               sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                               where(mask, drop=True).
+                               sum('fraction').sum('input_year').sum('output_year'))
+
+            initial_soc_stock = pd.Series(initial_soc_level.data, index=initial_soc_level.region.data.astype(str))
+            final_soc_stock = pd.Series(final_soc_level.data, index=final_soc_level.region.data.astype(str))
+            initial_soc_stock.index.name = 'region'
+            initial_soc_stock.name = 'values'
+            final_soc_stock.index.name = 'region'
+            final_soc_stock.name = 'values'
+
+            cbar_min = min(initial_soc_stock.min(), final_soc_stock.min())
+            cbar_max = max(initial_soc_stock.max(), final_soc_stock.max())
+
+            fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(width, height))
+
+            kwargs1 = {'title': f'SOC stocks in {initial_year}\n(selection: {vers})',
+                       'cmap': colormap,
+                       'vmin': cbar_min,
+                       'vmax': cbar_max,
+                       'legend_kwds':{'label': 'SOC stocks [kg]'}}
+            kwargs2 = {'title': f'SOC stocks in {final_year}\n(selection: {vers})',
+                       'cmap': colormap,
+                       'vmin': cbar_min,
+                       'vmax': cbar_max,
+                       'legend_kwds':{'label': 'SOC stocks [kg]'}}
+
+            kwargs1.update(kwargs)
+            kwargs2.update(kwargs)
+
+            if kwargs.get('kind') is True:
+                for key in ['cmap', 'vmin', 'vmax']:
+                    kwargs1.pop(key, None)
+                    kwargs2.pop(key, None)
+
+            plot.maps.map_from_soilseries(axs[0], initial_soc_stock, reg, font_size=font_size, verbose=verbose, **kwargs1)
+            plot.maps.map_from_soilseries(axs[1], final_soc_stock, reg, font_size=font_size, verbose=verbose, **kwargs2)
+            plt.tight_layout
+            plt.show()
+        if save_as:
+            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+
+
+def xr_array_list_plotter(ax, data, min_year=None, max_year=None, plot_kwargs={}, label_kwargs={}):
+    for n, item in enumerate(data):
+        # Ensure data_series is a pandas Series
+        if isinstance(item, xarray.DataArray):
+            label = plot_kwargs['label'][n]
+            local_plot_kwargs = plot_kwargs.copy()
+            local_plot_kwargs['label'] = label
+            # Plot using the series index as x-values and the series values as y-values
+            ax.plot(item.output_year.data, item.data, **local_plot_kwargs)
+
+    if min_year is not None:
+        ax.set_xlim(left=min_year)
+    if max_year is not None:
+        ax.set_xlim(right=max_year)
+    ax.set_xlabel(label_kwargs.get('xlabel', ''))
+    ax.set_ylabel(label_kwargs.get('ylabel', ''))
+    if 'title' in label_kwargs:
+        ax.set_title(label_kwargs['title'])
+    ax.legend()
+    return ax
