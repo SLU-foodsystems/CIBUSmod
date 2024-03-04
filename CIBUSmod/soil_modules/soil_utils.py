@@ -413,16 +413,28 @@ def calculate_c_inputs(input_df: pd.DataFrame,
 
     if verbose:
         print('---Executing calculate_c_inputs()---')
-    idx = input_df.index.names
-    output_df = input_df.reset_index()
+
+    output_df = input_df.copy()
+    index_reset = False
+
+    if not (isinstance(output_df.index, pd.RangeIndex) and output_df.index.start == 0 and output_df.index.step == 1):
+        idx = output_df.index
+        output_df = output_df.reset_index()
+        index_reset = True
+
     # set mutable default args if no args given
     if colprefix is None:
         colprefix = {'ag': 'i_ag', 'bg': 'i_bg'}
 
     ag_ha_colname = f"{colprefix['ag']}_{crop_colname}_ha"
     bg_ha_colname = f"{colprefix['bg']}_{crop_colname}_ha"
-    ag_tot_colname = f"{colprefix['ag']}_{crop_colname}_kgc"
-    bg_tot_colname = f"{colprefix['bg']}_{crop_colname}_kgc"
+    alloc_source_colname = f'alloc_source_{crop_colname}'
+
+    if ag_ha_colname and bg_ha_colname and alloc_source_colname not in output_df.columns:
+        # Initialize new columns in the DataFrame
+        output_df[ag_ha_colname] = np.nan
+        output_df[bg_ha_colname] = np.nan
+        output_df[alloc_source_colname] = 'none'
           
     for n, i in enumerate(output_df[crop_colname]):
         for m in range(len(mappings)):
@@ -462,11 +474,22 @@ def calculate_c_inputs(input_df: pd.DataFrame,
             output_df.at[n, bg_ha_colname] = np.nan
             output_df.at[n, f'alloc_source_{crop_colname}'] = 'none'
 
-    # Insert columns with i_ag and i_bg per sko, base on values per ha
-    output_df[ag_tot_colname] = output_df[ag_ha_colname] * output_df['area_ha']
-    output_df[bg_tot_colname] = output_df[bg_ha_colname] * output_df['area_ha']
+    ag_tot_colname = f"{colprefix['ag']}_{crop_colname}_kgc"
+    bg_tot_colname = f"{colprefix['bg']}_{crop_colname}_kgc"
 
-    output_df.set_index(idx, inplace=True)
+    if ag_tot_colname and bg_tot_colname not in output_df.columns:
+        if isinstance(output_df, pd.DataFrame):
+            output_df = output_df.reset_index()
+        else:
+            output_df = input_df.reset_index()
+        output_df[ag_tot_colname] = output_df[ag_ha_colname] * output_df['area_ha']
+        output_df[bg_tot_colname] = output_df[bg_ha_colname] * output_df['area_ha']
+    else:
+        if verbose:
+            print('info: ag_tot_colname and bg_tot_colname already set')
+
+    if index_reset == True:
+        output_df.set_index(idx, inplace=True)
     if verbose:
         print('---Leaving calculate_c_inputs()---')
 
@@ -564,6 +587,7 @@ def alloc_input(H: float,
 
 
 def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
+                                  mapper: Tuple[Dict[str, str], Dict[str, str], ...],
                                   sources: Tuple[str, ...],
                                   c_allo_df: Tuple[pd.DataFrame, ...],
                                   crop_colname: str = 'crop',
@@ -583,10 +607,15 @@ def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
     alloc_source_colname = f'alloc_source_{crop_colname}'
 
     output_df = input_df.copy()
+    index_reset = False
 
-    if ag_ha_colname and bg_ha_colname and alloc_source_colname not in output_df.columns:
+    if not (isinstance(output_df.index, pd.RangeIndex) and output_df.index.start == 0 and output_df.index.step == 1):
         idx = output_df.index
         output_df = output_df.reset_index()
+        index_reset = True
+
+    if ag_ha_colname and bg_ha_colname and alloc_source_colname not in output_df.columns:
+
         # Initialize new columns in the DataFrame
         output_df[ag_ha_colname] = np.nan
         output_df[bg_ha_colname] = np.nan
@@ -594,6 +623,8 @@ def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
 
         # Build crop-source mapping
         crop_source_mapping = build_crop_source_mapping(c_allo_df)
+        #print(f'crop_source_mapping: {crop_source_mapping}')
+        #print(f'mapper: {mapper}')
 
         # Iterate through each crop in input_df
         for crop in output_df['crop'].unique():
@@ -613,8 +644,6 @@ def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
                 output_df.loc[input_df['crop'] == crop, ag_ha_colname] = ag
                 output_df.loc[input_df['crop'] == crop, bg_ha_colname] = bg
                 output_df.loc[input_df['crop'] == crop, alloc_source_colname] = sources[source_idx]
-
-        output_df = output_df.set_index(idx)
     else:
         if verbose:
             print('info: ag_ha_colname, bg_ha_colname and alloc_source_colname already set')
@@ -624,7 +653,6 @@ def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
     bg_tot_colname = f"{colprefix['bg']}_{crop_colname}_kgc"
 
     if ag_tot_colname and bg_tot_colname not in output_df.columns:
-        idx = output_df.index
         if isinstance(output_df, pd.DataFrame):
             output_df = output_df.reset_index()
         else:
@@ -635,6 +663,9 @@ def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
     else:
         if verbose:
             print('info: ag_tot_colname and bg_tot_colname already set')
+
+    if index_reset == True:
+        output_df = output_df.set_index(idx)
 
     if verbose:
         print('---Leaving calculate_c_inputs_vectorized()---')
@@ -674,7 +705,7 @@ def alloc_input_vectorized(H: pd.Series,
     return i_ag, i_bg
 
 
-def build_crop_source_mapping(allo_dfs):
+def build_crop_source_mapping(allo_dfs, mapper):
     crop_source_mapping = {}
     for source_idx, df in enumerate(allo_dfs):
         for crop in df.index:
@@ -1598,3 +1629,205 @@ def assign_co2_flux(xarray_input,
             raise NotImplementedError("CO2 flux calculation for xr.DataArray is not supported in this implementation.")
         elif isinstance(xarray_input, xr.Dataset):
             xarray_input[co2flux_label] = co2_flux
+
+
+# New improved version of working functions
+
+def get_filtered_namelist_new(filterlist: str,
+                              namelist: Union[str, List[str]],
+                              df: pd.DataFrame) -> List[str]:
+    """Simplified and vectorized filtering of column names."""
+    # Combine the filters and namelist into a comprehensive filter
+    combined_filters = [f"{name}{flt}" for flt in filterlist for name in
+                        (namelist if isinstance(namelist, list) else [namelist])]
+
+    # Vectorized column selection
+    filtered_cols = [col for col in df.columns if any(flt in col for flt in combined_filters)]
+
+    return filtered_cols
+
+
+def h_map_helper_new(h_in_df=False,
+                     crop_in_df=False,
+                     amnd_in_df=False,
+                     map_col='h_value_type',
+                     output_col_name='h_value',
+                     verbose=False
+                     ):
+    """
+    Create and map H-values for crops and amendments based on input dataframes.
+
+    Parameters:
+    - h_in_df (pd.DataFrame): DataFrame containing H-values for different fractions (crops,
+      amendments, and crop parts). If not provided, default values are loaded from 'data_input/h_values.csv'.
+    - crop_in_df (pd.DataFrame): DataFrame containing crop data to map H-values. Must have a
+      column specified by map_col with values corresponding to H-value types.
+    - amnd_in_df (pd.DataFrame): DataFrame containing amendment data to map H-values. Must have a
+      column specified by map_col with values corresponding to H-value types.
+    - map_col (str, optional): Column in crop_in_df and amnd_in_df specifying H-value types.
+      Defaults to 'h_value_type'.
+    - output_col_name (str, optional): Column name in the resulting H-value DataFrame.
+      Defaults to 'h_value'.
+
+    Returns:
+    - pd.DataFrame: DataFrame containing mapped H-values for crops and amendments.
+    - dict: Dictionary of all mapped H-values.
+    """
+
+    if verbose:
+        print('---Executing h_map_helper()---')
+
+    # Load H-values DataFrame if not provided
+    h_map_df = h_in_df if isinstance(h_in_df, pd.DataFrame) else pd.read_csv(f'{input_path}/h_values.csv',
+                                                                             index_col=["h_value_type", "h_frac"]).pipe(
+        make_df_lower_new)
+    print(f'h_map_df: {h_map_df}')
+    # Load crop and amendment mapping DataFrames if not provided
+    crop_map_df = crop_in_df if isinstance(crop_in_df, pd.DataFrame) else pd.read_csv(
+        f'{input_path}/crop_carbon_map.csv', index_col="CIBUS").pipe(make_df_lower_new)
+    amnd_map_df = amnd_in_df if isinstance(amnd_in_df, pd.DataFrame) else pd.read_csv(f'{input_path}/amnd_map.csv',
+                                                                                      index_col="CIBUS").pipe(
+        make_df_lower_new)
+
+    # Mapping H-values
+    h_value_df_crops = map_cin_h_to_dataframe_new(map_col, crop_map_df, h_map_df, output_col_name)
+    h_value_df_amendments = map_cin_h_to_dataframe_new(map_col, amnd_map_df, h_map_df, output_col_name)
+    h_value_df = pd.concat([h_value_df_crops, h_value_df_amendments])
+
+    # Create a dict from h_value_df for quick lookup
+    h_value_dict = h_value_df[output_col_name].to_dict()
+
+    if verbose:
+        print('---Leaving h_map_helper()---')
+
+    return h_value_df, h_value_dict
+
+
+def make_df_lower_new(dataframe: pd.DataFrame,
+                      mode: Tuple[int, int, int, int] = (1, 2, 3, 4),
+                      index_sorted: bool = True) -> pd.DataFrame:
+    '''
+    Transform the data, index, and column strings of a pandas DataFrame to lowercase, without altering names.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        The DataFrame to be case-sanitized.
+    mode : tuple, optional
+        List of switches that control which elements of the DataFrame to operate on:
+        - 1: index labels
+        - 2: column labels only
+        - 3: index values
+        - 4: data strings
+        All four are selected as default. (default: (1, 2, 3, 4))
+    index_sorted : bool, optional
+        Apply sort_index to make operations on the generated DataFrame more efficient. (default: True)
+
+    Returns
+    -------
+    pd.DataFrame
+        A copy of the DataFrame with all index and column names in lowercase.
+
+    Examples
+    --------
+    >>> df = pd.DataFrame({'A': [1, 2, 3], 'B': ['X', 'Y', 'Z']}, index=['one', 'Two', 'ThReE'])
+    >>> make_df_lower(df)
+          a  b
+    one   1  X
+    two   2  Y
+    three 3  Z
+
+    >>> make_df_lower(df, mode=(2, 4))
+          a  b
+    one   1  x
+    two   2  y
+    three 3  z
+    '''
+    df = dataframe.copy()
+
+    # Lowercase index labels
+    if 1 in mode:
+        if isinstance(df.index, pd.MultiIndex):
+            new_levels = []
+            for level in df.index.levels:
+                if level.dtype == 'object':
+                    new_levels.append(level.str.lower())
+                else:
+                    new_levels.append(level)
+            df.index = df.index.set_levels(new_levels)
+        elif df.index.dtype == 'object':
+            df.index = df.index.str.lower()
+
+    # Lowercase column labels
+    if 2 in mode:
+        df.columns = df.columns.str.lower()
+
+    # Lowercase index values
+    if 3 in mode:
+        if isinstance(df.index, pd.MultiIndex):
+            new_codes = [df.index.codes[i] for i in range(len(df.index.levels))]
+            new_levels = [level.str.lower() if level.dtype == 'object' else level for level in df.index.levels]
+            df.index = pd.MultiIndex(levels=new_levels, codes=new_codes, names=df.index.names)
+        elif df.index.dtype == 'object':
+            df.index = df.index.str.lower()
+
+    # Lowercase data strings
+    if 4 in mode:
+        object_columns = df.select_dtypes(include='object').columns
+        df[object_columns] = df[object_columns].apply(lambda x: x.str.lower())
+
+    if index_sorted:
+        df = df.sort_index()
+
+    return df
+
+
+def map_cin_h_to_dataframe_new(match_col: str,
+                               input_df: pd.DataFrame,
+                               mapping_df: pd.DataFrame,
+                               output_col_name: str = 'h_value',
+                               index_sorted: bool = True) -> pd.DataFrame:
+    """
+    Calculates a multiindex dataframe containing a mapping from crop to individual carbon input fractions used in icbm
+
+    Parameters:
+    -----------
+    match_col : str
+        The name of the column in the 'input_df' that is used to match the first index in 'mapping_df'
+    input_df : pd.DataFrame
+        Dataframe with original crop names as index and name for matching h-values in a column (match_col)
+    mapping_df : pd.DataFrame
+        Multiindex dataframe with h-values. First index values correspond to match_col, second index to fractions
+    output_col_name : str
+        Column name for the h-values (Default='h_value')
+    index_sorted : bool
+        Sort_index applied to make operation on generated dataframe more efficient (default: True)
+
+    Returns:
+    --------
+    pd.DataFrame:
+        A multiindex dataframe with index:(input, fraction) and column value: h-value
+    """
+    output_idx = pd.MultiIndex(levels=[[], []],
+                               codes=[[], []],
+                               names=[u'input', 'fraction'])
+    output_df = pd.DataFrame(index=output_idx, columns=[output_col_name])
+    for i, x in enumerate(input_df[match_col]):
+        crop = input_df.index[i]
+        for y in mapping_df.loc[x].index:
+            value = mapping_df.loc[(x, y), :].item()
+            output_df.loc[(crop, y), :] = value
+
+    if index_sorted:
+        return output_df.sort_index()
+    else:
+        return output_df
+    # NOne working code below
+    # # Ensure mapping_df's index is reset for merging
+    # mapping_df_reset = mapping_df.reset_index()
+    # merged_df = input_df.reset_index().merge(mapping_df_reset, left_on=match_col, right_on='h_value_type')
+    #
+    # # Constructing the output DataFrame
+    # output_df = merged_df.set_index(['input', 'fraction'])[output_col_name].to_frame()
+    #
+    # return output_df.sort_index() if index_sorted else output_df
