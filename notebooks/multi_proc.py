@@ -117,17 +117,9 @@ def do_run(scn_year):
     
     # Distribute animals and crops
     # Make optimisation problem
-    geodist.make(use_cons=[1,2,3,4,5,6,7], scale_power=0.4)
+    geodist.make(use_cons=[1,2,3,4,5,6,7])
     # Solve optimisation problem
-    geodist.solve(
-        solver_settings = {
-            'solver':'OSQP',
-            'max_iter':200000,
-            'eps_abs':5e-6,
-            'eps_rel':5e-6,
-            'verbose':False
-        }
-    )
+    geodist.solve()
     
     # Redistribute feeds (not yet implemented) and calculate enteric CH4 emissions
     feed_mgmt.calculate2()
