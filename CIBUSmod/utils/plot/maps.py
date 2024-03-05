@@ -1,7 +1,15 @@
+from bokeh.models import GeoJSONDataSource, HoverTool
+from bokeh.plotting import figure, show
+from bokeh.io import output_notebook
+
+import matplotlib.pyplot as plt
+
 import geopandas as gpd
-# import pkg_resources
 import os
 import pandas as pd
+
+
+
 
 # Supress shapely deprecation warnings due to problems with geopandas vs shapely
 import warnings
@@ -124,3 +132,43 @@ def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, f
         ax.set_title(title, fontsize=font_size)
 
     return(plot)
+
+def plot_regions(gdf_name='sko', **kwargs):
+
+    if gdf_name == 'sko':
+        gdf = sko
+        region = 'SKO'
+    elif gdf_name == 'po8':
+        gdf = po8
+        region = 'PO8'
+    elif gdf_name == 'kommun':
+        gdf = kommun
+        region = 'Kommun'
+    elif gdf_name == 'Region':
+        gdf = 'lan'
+        region = 'Län'
+
+    # Reproject to Sweref99 TM (EPSG:3006)
+    gdf = gdf.to_crs(epsg=3006)
+
+    # convert geodataframe to json, compatible with bokeh
+    gdf_json = gdf.reset_index().to_json()
+
+    output_notebook() # For Jupyter notebooks. Use output_file("output.html") for scripts
+
+    # Convert GeoDataFrame to GeoJSON DataSource
+    geo_source = GeoJSONDataSource(geojson=gdf_json)
+
+    # Initialize figure
+    p = figure()
+    p.patches('xs', 'ys', source=geo_source, fill_alpha=0.7, line_color="black", line_width=0.5)
+
+    # Add hover tool
+    hover = HoverTool()
+    hover.tooltips = [(region, '@region')]  # Adjust '@region_column_name' to your column name
+    p.add_tools(hover)
+
+    show(p)
+
+
+

@@ -1489,14 +1489,25 @@ class SoilDataExplore:
         # Extract the correct soc data arrays
         mask = self.total_soc_inventory['fraction'].str.contains(vers)
 
-        initial_soc_level = (self.total_soc_inventory.tot_soc.
-                             sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
-                             where(mask, drop=True).
-                             sum(['fraction', 'input_year', 'output_year']))
-        final_soc_level = (self.total_soc_inventory.tot_soc.
-                           sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
-                           where(mask, drop=True).
-                           sum('fraction').sum('input_year').sum('output_year'))
+        if system == 'all':
+            initial_soc_level = (self.total_soc_inventory.tot_soc.
+                                 sel({'output_year': initial_year, 'scn': scenario}).
+                                 where(mask, drop=True).
+                                 sum(['fraction', 'input_year', 'output_year', 'prod_system']))
+            final_soc_level = (self.total_soc_inventory.tot_soc.
+                               sel({'output_year': final_year, 'scn': scenario}).
+                               where(mask, drop=True).
+                               sum(['fraction', 'input_year', 'output_year']))
+
+        else:
+            initial_soc_level = (self.total_soc_inventory.tot_soc.
+                                 sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                                 where(mask, drop=True).
+                                 sum(['fraction', 'input_year', 'output_year']))
+            final_soc_level = (self.total_soc_inventory.tot_soc.
+                               sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                               where(mask, drop=True).
+                               sum('fraction').sum('input_year').sum('output_year'))
 
         # calculate and create the dataseries with soc stock change and co2 emissions
         stock_change = (final_soc_level / initial_soc_level - 1)
@@ -1512,8 +1523,12 @@ class SoilDataExplore:
         co2_emissions_series.index.name = 'region'
         co2_emissions_series.name = 'values'
         # calculate the total area changed per region dataseries
-        area1 = self.input_inventory.area_ha.sel({'input_year': initial_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
-        area2 = self.input_inventory.area_ha.sel({'input_year': final_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
+        if system == 'all':
+            area1 = self.input_inventory.area_ha.sel({'input_year': initial_year}).sum(['scn', 'crop', 'input_year', 'prod_system'])
+            area2 = self.input_inventory.area_ha.sel({'input_year': final_year}).sum(['scn', 'crop', 'input_year', 'prod_system'])
+        else:
+            area1 = self.input_inventory.area_ha.sel({'input_year': initial_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
+            area2 = self.input_inventory.area_ha.sel({'input_year': final_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
         area_change = area2-area1
         area_change_series  = pd.Series(area_change, index=area_change.region.data.astype(str))
         area_change_series.index.name = 'region'
@@ -1523,6 +1538,29 @@ class SoilDataExplore:
         area_change_perc_series = pd.Series(area_change_fraction * 100, index=area_change_fraction.region.data.astype(str))
         area_change_perc_series.index.name = 'region'
         area_change_perc_series.name = 'values'
+
+        # calculate totals for Sweden
+        mask_swe = self.total_soc_inventory['fraction'].str.contains('_kgc')
+
+        initial_soc_level_swe = (self.total_soc_inventory.tot_soc.
+                                 sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                                 where(mask_swe, drop=True).
+                                 sum(['fraction', 'input_year', 'output_year', 'region']))
+        final_soc_level_swe = (self.total_soc_inventory.tot_soc.
+                               sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                               where(mask_swe, drop=True).
+                               sum(['fraction', 'input_year', 'output_year', 'region']))
+
+        absolute_CO2_emissions_swe = (initial_soc_level_swe - final_soc_level_swe) * 3.6
+        relative_soc_stock_change_swe = (final_soc_level_swe / initial_soc_level_swe) - 1
+
+        area1_swe = area1.sum()
+        area2_swe = area2.sum()
+
+        absolute_area_change_swe = area2_swe - area1_swe
+        relative_area_change_swe = area2_swe / area1_swe
+
+        ## plotting
         # stock_change_series = stock_change_df.loc[:, 'SOC stock change'] * 100
         fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(width, height))
 
@@ -1555,7 +1593,17 @@ class SoilDataExplore:
         if save_as:
             fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
             fig.savefig(f'{save_path}/{save_as}.png', format='png')
-        #return stock_change_series, co2_emissions_series
+
+        output_dict = {'soc_stock_change_series': stock_change_series,
+                       'co2_emission_series': co2_emissions_series,
+                       'area_change_series': area_change_series,
+                       'area_change_perc_series': area_change_perc_series,
+                       'absolute_CO2_emission_swe': absolute_CO2_emissions_swe,
+                       'relative_soc_stock_change_swe': relative_soc_stock_change_swe,
+                       'absolute_area_change_swe': absolute_area_change_swe,
+                       'relative_area_change_swe': relative_area_change_swe
+                       }
+        return output_dict
 
 
     def plot_soc_stock_maps(self,
@@ -1756,6 +1804,21 @@ class SoilDataExplore:
             fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
             fig.savefig(f'{save_path}/{save_as}.png', format='png')
 
+
+    def plot_regions(self, region_type: str='sko'):
+        '''
+        Plots an interactive map of Sweden which shows the identification code used in the geodataframes and inventories when mouse is howvered over a region.
+
+        Parameters
+        ----------
+        region_type: A string indicating the type of region to be plotted. Available options are 'sko' (default), 'po8, 'kommun' and 'Region'.
+
+        Returns
+        -------
+        None: Outputs an interactive map to the notebook
+
+        '''
+        plot.maps.plot_regions(gdf_name=region_type)
 
 def xr_array_list_plotter(ax, data, min_year=None, max_year=None, plot_kwargs={}, label_kwargs={}):
     for n, item in enumerate(data):
