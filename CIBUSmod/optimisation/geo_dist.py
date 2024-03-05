@@ -488,10 +488,11 @@ class GeoDistributor:
 
     def make_C2(self):
         '''Creates C2: A2 @ x >= 0
+
+        Constraint the share of feed demand for different crop products that must be met regionally.
+        The minimum share is set via the parameter 'share_regional' in the 'FeedMgmt' module and can differ
+        for different animals.
         
-        Constrain the maximum area per 'land_use' in each region. The maximum area is set relative to areas
-        in x0 via the parameter 'max_land_use_factor' in the 'Regions' module. A 'max_land_use_factor' of 1
-        implies that areas can't exceed current areas in each region.
         '''
 
         # Regional feed demand for crop products
@@ -518,10 +519,13 @@ class GeoDistributor:
 
     def make_C3(self):
         '''Creates C3: A3 @ x <= b3
-        
-        Constraint the share of feed demand for different crop products that must be met regionally.
-        The minimum share is set via the parameter 'share_regional' in the 'FeedMgmt' module and can differ
-        for different animals.
+
+        Constrain the maximum area per 'land_use' in each region. The maximum area is set relative to areas
+        in x0 via the parameter 'max_land_use_factor' in the 'Regions' module. A 'max_land_use_factor' of 1
+        implies that areas can't exceed current areas in each region.
+        If the Regions setting 'max_land_use_from_scenario_x0' is set to True (default is False) maximum land
+        use changes if there are changes to 'x0_crops' in a scenario, otherwise default values of 'x0_crops'
+        are used irrespective of any changes in scenarios.
         '''
 
         A3 = self.make_A3()
@@ -540,7 +544,7 @@ class GeoDistributor:
         }})
 
     def make_C4(self):
-        '''Creates C6: A6 @ x <= 0
+        '''Creates C4: A4 @ x <= 0
         
         Constrain the maximum share of defining animal heads per species, breed and prod_system belonging
         to a given sub_system on national level
@@ -563,8 +567,8 @@ class GeoDistributor:
         '''Creates C5: A5 @ x <= 0
         
         Constrain the maxuimum share of a crop product demand for feed that can be supplied by a
-        particular crop. This constraint is used to e.g. constrain the share of 'grazing' that can be
-        supplied by 'Semi-natural pastures', but can also be used to constrain e.g. share of wheat for
+        particular crop group. This constraint is used to e.g. constrain the share of 'grazing' that can be
+        supplied by 'semi-natural grasslands', but can also be used to constrain e.g. share of wheat for
         feed from winter/spring variaties. 
 
         The maximum share is set via the parameter 'max_crop_in_crop_prod' in the 'FeedMgmt'
@@ -625,7 +629,7 @@ class GeoDistributor:
         The number of GDD5 in each region is defined by the parameter 'GDD' in the 'Regions' module.
         
         This constraint also indirectly constrains animals with regional demand for crops that can't
-        be grown in a  (see ?make_C2).'''
+        be grown in a region.'''
 
         # This constraint is not implemented as a constraint in the solver but instead dropps
         # variables representing crops or animals that can't be present in a region. 
