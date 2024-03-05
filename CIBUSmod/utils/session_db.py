@@ -1045,6 +1045,9 @@ f'''{module}
                 exact = [r for r in all_res
                          if (r[2].capitalize() == attr.capitalize() and module.capitalize() in r[1].capitalize())
                          or (attr.capitalize() in r[2].capitalize() and r[1].capitalize() == module.capitalize())]
+                if len(exact) > 1:
+                    exact = [r for r in exact
+                            if (r[2].capitalize() == attr.capitalize() and r[1].capitalize() == module.capitalize())]
                 if len(exact) == 1:
                     attr_id = exact[0][0]
                     module = exact[0][1]
