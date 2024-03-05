@@ -5,10 +5,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import geopandas as gpd
 
-from bokeh.models import GeoJSONDataSource, HoverTool
-from bokeh.plotting import figure, show
-from bokeh.io import output_notebook
-
 # Supress shapely deprecation warnings due to problems with geopandas vs shapely
 import warnings
 from shapely.errors import ShapelyDeprecationWarning
@@ -172,6 +168,10 @@ def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, f
     return(plot)
 
 def plot_regions(gdf_name='sko', **kwargs):
+
+    from bokeh.models import GeoJSONDataSource, HoverTool
+    from bokeh.plotting import figure, show
+    from bokeh.io import output_notebook
 
     if gdf_name == 'sko':
         gdf = sko
