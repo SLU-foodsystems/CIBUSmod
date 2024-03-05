@@ -2,15 +2,11 @@ from bokeh.models import GeoJSONDataSource, HoverTool
 from bokeh.plotting import figure, show
 from bokeh.io import output_notebook
 
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy
-
 import geopandas as gpd
 # import pkg_resources
 import os
 import pandas as pd
-import plotly.express as px
+
 
 
 
