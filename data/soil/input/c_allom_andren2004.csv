@@ -1,0 +1,10 @@
+crop,straw_a,straw_s,residues_a,residues_s,roots_a,roots_s
+Fallow,0,0,0,"0,3",0,"0,6"
+Green_fallow,0,0,0,"0,3",0,"0,6"
+Ley,0,0,330,"0,2",0,"0,4"
+Root_crops,0,0,0,"0,42",0,"0,2"
+Seed_ley,2700,0,905,0,540,0
+Spring_cereals,140,"0,83",500,"0,15",570,"0,2"
+Spring_oilseed,0,"1,6",0,"1,6",0,"0,7"
+Winter_cereals,320,"0,62",540,"0,4",670,"0,06"
+Winter_oilseed,0,"0,85",0,"0,85",740,"0,7"
