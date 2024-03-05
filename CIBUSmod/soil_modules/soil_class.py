@@ -1486,6 +1486,7 @@ class SoilDataExplore:
         font_size = scaling_factor * standard_font
 
         scenario = self.scenario.lower()
+        # Extract the correct soc data arrays
         mask = self.total_soc_inventory['fraction'].str.contains(vers)
 
         initial_soc_level = (self.total_soc_inventory.tot_soc.
@@ -1497,6 +1498,7 @@ class SoilDataExplore:
                            where(mask, drop=True).
                            sum('fraction').sum('input_year').sum('output_year'))
 
+        # calculate and create the dataseries with soc stock change and co2 emissions
         stock_change = (final_soc_level / initial_soc_level - 1)
         co2_emissions = (initial_soc_level - final_soc_level) * 3.6
         if percentage:
@@ -1509,29 +1511,51 @@ class SoilDataExplore:
         stock_change_series.name = 'values'
         co2_emissions_series.index.name = 'region'
         co2_emissions_series.name = 'values'
+        # calculate the total area changed per region dataseries
+        area1 = self.input_inventory.area_ha.sel({'input_year': initial_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
+        area2 = self.input_inventory.area_ha.sel({'input_year': final_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
+        area_change = area2-area1
+        area_change_series  = pd.Series(area_change, index=area_change.region.data.astype(str))
+        area_change_series.index.name = 'region'
+        area_change_series.name = 'values'
+        # calculate the percentage area change per region dataseries
+        area_change_fraction = area2 / area1 - 1
+        area_change_perc_series = pd.Series(area_change_fraction * 100, index=area_change_fraction.region.data.astype(str))
+        area_change_perc_series.index.name = 'region'
+        area_change_perc_series.name = 'values'
         # stock_change_series = stock_change_df.loc[:, 'SOC stock change'] * 100
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(width, height))
+        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(width, height))
 
-        colormap = ['YlOrBr_r', 'YlGnBu']
+        colormap = ['YlOrBr_r', 'YlGnBu', 'Spectral', 'Spectral']
         if colormaps is not None:
             if colormaps[0] != '':
                 colormap[0] = colormaps[0]
             if colormaps[1] != '':
                 colormap[1] = colormaps[1]
+            if colormaps[2] != '':
+                colormap[2] = colormaps[2]
+            if colormaps[3] != '':
+                colormap[3] = colormaps[3]
 
         kwargs1 = {'title': f'SOC stock changes {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[0],
-                     'legend_kwds':{'label': 'Percentage change in SOC stocks, top soil (%)'}}
+                   'legend_kwds':{'label': 'Percentage change in SOC stocks, top soil (%)'}}
         kwargs2 = {'title': f'CO2-emissions {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[1],
-                     'legend_kwds':{'label': 'Cumulative CO2 emissions, top soil [kg]'}}
+                   'legend_kwds':{'label': 'Cumulative CO2 emissions, top soil [kg]'}}
+        kwargs3 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[2],
+                   'legend_kwds': {'label': f'Change in hectares (ha) of {system} agricultural land'}}
+        kwargs4 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[3],
+                   'legend_kwds': {'label': f'Change in percentage (%) of {system} agricultural land'}}
 
-        plot.maps.map_from_soilseries(axs[0], stock_change_series, reg, font_size=font_size, verbose=verbose, **kwargs1)
-        plot.maps.map_from_soilseries(axs[1], co2_emissions_series, reg, font_size=font_size, verbose=verbose, **kwargs2)
+        plot.maps.map_from_soilseries(axs[0, 0], stock_change_series, reg, font_size=font_size, verbose=verbose, **kwargs1)
+        plot.maps.map_from_soilseries(axs[0, 1], co2_emissions_series, reg, font_size=font_size, verbose=verbose, **kwargs2)
+        plot.maps.map_from_soilseries(axs[1, 0], area_change_series, reg, font_size=font_size, verbose=verbose, **kwargs3)
+        plot.maps.map_from_soilseries(axs[1, 1], area_change_perc_series, reg, font_size=font_size, verbose=verbose, **kwargs4)
         plt.tight_layout
         plt.show()
         if save_as:
             fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
             fig.savefig(f'{save_path}/{save_as}.png', format='png')
-        return stock_change_series, co2_emissions_series
+        #return stock_change_series, co2_emissions_series
 
 
     def plot_soc_stock_maps(self,
