@@ -6,6 +6,7 @@ import cvxpy
 import scipy
 
 import time
+import re as regex
 
 from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
 
@@ -87,13 +88,13 @@ class GeoDistributor:
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
 
-        # Clean up any old problem and solution
+        # Reset problem definitions and solution
         self.success = None
+        self.constraints = dict()
+        self.objective = dict()
         for attr in ['problem','x']:
             if hasattr(self, attr):
                 delattr(self, attr)
-        
-        self.matrices = [] # Keep track of matrices created
 
         if not isinstance(use_cons,list):
             use_cons = [use_cons]
@@ -120,7 +121,6 @@ class GeoDistributor:
         self.make_O1()
 
         # Make constraints
-        self.cons_add_exec = [] # List to store code sniplets for including constraints
         for nr in use_cons:
             fun = getattr(self,'make_C'+nr)
             vprint(f'Making constraint C{nr} ...')
@@ -270,6 +270,15 @@ class GeoDistributor:
         vprint(type='end')
 
         return None
+    
+    def matrices(self):
+        mats = {'OBJ.P1' : self.P1}
+        mats.update(
+            {f'{cn[:cn.index(":")]}.{mn}':m for cn,c in self.constraints.items()
+            for mn,m in c['pars'].items()
+            if isinstance(m, IndexedMatrix)}
+        )
+        return mats
 
     def apply_solution(self, x=None):
         '''Update CropProduction and AnumalHerds according to found solution'''
@@ -294,7 +303,7 @@ class GeoDistributor:
         
         # Allocate crop production to uses
         self.allocate_crop_production_per_use()
-        if 'A5' in self.matrices:
+        if 'A5' in self.matrices():
             self.adjust_crop_allocation()
 
     def get_x0(self):
@@ -416,8 +425,19 @@ class GeoDistributor:
 
         # Append constraints
         CONS = []
-        for ex in self.cons_add_exec:
-            exec(ex)
+        operators = {
+            '==' : lambda left, right: left == right,
+            '>=' : lambda left, right: left >= right,
+            '<=' : lambda left, right: left <= right,
+        }
+        for cons in self.constraints.values():
+            
+            left = cons['left']
+            right = cons['right']
+            rel = cons['rel']
+            pars = cons['pars']
+
+            CONS.append(operators[rel](left(x, **pars), right(**pars)))
 
         # Define problem
         self.problem = cvxpy.Problem(
@@ -433,34 +453,38 @@ class GeoDistributor:
         '''
 
         # Animal product demand
-        self.A1_1 = self.make_A1_1()
+        A1_1 = self.make_A1_1()
         # Feed demand
-        self.A1_2 = self.make_A1_2()
+        A1_2 = self.make_A1_2()
         # Crop product demand
-        self.A1_3 = self.make_A1_3()
+        A1_3 = self.make_A1_3()
 
         # Stack matrices
         A1 = scipy.sparse.vstack([
             scipy.sparse.hstack([
-                self.A1_1.M,
-                scipy.sparse.csc_matrix((self.A1_1.M.shape[0],self.A1_3.M.shape[1]))
+                A1_1.M,
+                scipy.sparse.csc_matrix((A1_1.M.shape[0],A1_3.M.shape[1]))
             ]),
             scipy.sparse.hstack([
-                self.A1_2.M,
-                self.A1_3.M
+                A1_2.M,
+                A1_3.M
             ])
         ], format='csc')
 
-        self.A1 = IndexedMatrix(
+        A1 = IndexedMatrix(
             matrix=A1,
-            row_idx={'ani':self.A1_1.rows, 'crp':self.A1_2.rows},
-            col_idx={'ani':self.A1_1.cols, 'crp':self.A1_3.cols}
+            row_idx={'ani':A1_1.rows, 'crp':A1_2.rows},
+            col_idx={'ani':A1_1.cols, 'crp':A1_3.cols}
         )
-        self.b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
+        b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
 
-        # Append code to include constraint when defining cvx problem
-        self.matrices.append('A1')
-        self.cons_add_exec.extend(['CONS.append(self.A1.M @ x == self.b1)'])
+        # Append constraint
+        self.constraints.update({'C1: A1 @ x == b1' : {
+            'left' : lambda x,A1,b1: A1.M @ x,
+            'right' : lambda A1,b1: b1,
+            'rel' : '==',
+            'pars' : {'A1':A1, 'b1':b1}
+        }})
 
     def make_C2(self):
         '''Creates C2: A2 @ x >= 0
@@ -471,22 +495,26 @@ class GeoDistributor:
         '''
 
         # Regional feed demand for crop products
-        self.A2_1 = self.make_A2_1()
+        A2_1 = self.make_A2_1()
         # Production of crop products
-        self.A2_2 = self.make_A2_2()
+        A2_2 = self.make_A2_2()
 
         # Stack matrices
-        A2 = scipy.sparse.hstack([self.A2_1.M,self.A2_2.M], format='csc')
+        A2 = scipy.sparse.hstack([A2_1.M,A2_2.M], format='csc')
 
-        self.A2 = IndexedMatrix(
+        A2 = IndexedMatrix(
             matrix=A2,
-            row_idx=self.A2_1.rows,
-            col_idx={'ani':self.A2_1.cols, 'crp':self.A2_2.cols}
+            row_idx=A2_1.rows,
+            col_idx={'ani':A2_1.cols, 'crp':A2_2.cols}
         )
 
-        # Append code to include constraint when defining cvx problem
-        self.matrices.append('A2')
-        self.cons_add_exec.extend(['CONS.append(self.A2.M @ x >= 0)'])
+        # Append constraint
+        self.constraints.update({'C2: A2 @ x >= 0' : {
+            'left' : lambda x,A2: A2.M @ x,
+            'right' : lambda A2: 0,
+            'rel' : '>=',
+            'pars' : {'A2':A2}
+        }})
 
     def make_C3(self):
         '''Creates C3: A3 @ x <= b3
@@ -496,16 +524,20 @@ class GeoDistributor:
         for different animals.
         '''
 
-        self.A3 = self.make_A3()
+        A3 = self.make_A3()
         
-        self.b3 = np.array([
+        b3 = np.array([
             self.regions.data_attr.get('max_land_use').loc[x[1],x[0]]
-            for x in self.A3.rows
+            for x in A3.rows
         ])
 
-        # Append code to include constraint when defining cvx problem
-        self.matrices.append('A3')
-        self.cons_add_exec.extend(['CONS.append(self.A3.M @ x <= self.b3)'])
+        # Append constraint
+        self.constraints.update({'C3: A3 @ x <= b3' : {
+            'left' : lambda x,A3,b3: A3.M @ x,
+            'right' : lambda A3,b3: b3,
+            'rel' : '<=',
+            'pars' : {'A3':A3, 'b3':b3}
+        }})
 
     def make_C4(self):
         '''Creates C6: A6 @ x <= 0
@@ -517,11 +549,15 @@ class GeoDistributor:
         modules and can differ by breed.
         '''
 
-        self.A4 = self.make_A4()
+        A4 = self.make_A4()
 
-        # Append code to include constraint when defining cvx problem
-        self.matrices.append('A4')
-        self.cons_add_exec.extend(['CONS.append(self.A4.M @ x <= 0)'])
+        # Append constraint
+        self.constraints.update({'C4: A4 @ x <= 0' : {
+            'left' : lambda x,A4: A4.M @ x,
+            'right' : lambda A4: 0,
+            'rel' : '<=',
+            'pars' : {'A4':A4}
+        }})
 
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0
@@ -536,22 +572,26 @@ class GeoDistributor:
         '''
 
         # Maximum supply of crop product(s) from crop(s)
-        self.A5_1 = self.make_A5_1()
+        A5_1 = self.make_A5_1()
         # Production of crop products
-        self.A5_2 = self.make_A5_2()
+        A5_2 = self.make_A5_2()
 
         # Stack matrices
-        A5 = scipy.sparse.hstack([self.A5_1.M,self.A5_2.M], format='csc')
+        A5 = scipy.sparse.hstack([A5_1.M,A5_2.M], format='csc')
 
-        self.A5 = IndexedMatrix(
+        A5 = IndexedMatrix(
             matrix=A5,
-            row_idx=self.A5_1.rows,
-            col_idx={'ani':self.A5_1.cols, 'crp':self.A5_2.cols}
+            row_idx=A5_1.rows,
+            col_idx={'ani':A5_1.cols, 'crp':A5_2.cols}
         )
 
-        # Append code to include constraint when defining cvx problem
-        self.matrices.append('A5')
-        self.cons_add_exec.extend(['CONS.append(self.A5.M @ x <= 0)'])
+        # Append constraint
+        self.constraints.update({'C5: A5 @ x <= 0' : {
+            'left' : lambda x,A5: A5.M @ x,
+            'right' : lambda A5: 0,
+            'rel' : '<=',
+            'pars' : {'A5':A5}
+        }})
     
     def make_C6(self):
         '''Creates C6: A6 @ x <= 0
@@ -567,11 +607,15 @@ class GeoDistributor:
         # - Would it be usefull with a constraint for minimum share?
         # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
         
-        self.A6 = self.make_A6()
+        A6 = self.make_A6()
 
-        # Append code to include constraint when defining cvx problem
-        self.matrices.append('A6')
-        self.cons_add_exec.extend(['CONS.append(self.A6.M @ x <= 0)'])
+        # Append constraint
+        self.constraints.update({'C6: A6 @ x <= 0' : {
+            'left' : lambda x,A6: A6.M @ x,
+            'right' : lambda A6: 0,
+            'rel' : '<=',
+            'pars' : {'A6':A6}
+        }})
 
     def make_C7(self) -> None:
         '''Creates C7: Drops variables
@@ -664,16 +708,11 @@ class GeoDistributor:
         self.x_idx_short = {'ani':sel_an, 'crp':sel_cr}
         
         # Drop variables from objective and constraint matrices
-        for mat in self.matrices:
-            try:
-                A = getattr(self,mat)
-            except AttributeError:
-                continue
-            else:
-                if A.M.shape[1] > len(isel):
-                    A.M = A.M[:,isel]
-                    A.cols['ani'] = sel_an.copy()
-                    A.cols['crp'] = sel_cr.copy()
+        for mat in self.matrices().values():
+            if mat.M.shape[1] > len(isel):
+                mat.M = mat.M[:,isel]
+                mat.cols['ani'] = sel_an.copy()
+                mat.cols['crp'] = sel_cr.copy()
 
         return None
 
@@ -733,45 +772,52 @@ class GeoDistributor:
         if any([v not in ['==','>=','<='] for v in pars['C8_rel']]):
             raise ValueError("All 'C8_rel' must be one of '==', '>=' or '<='")
 
+        # Get number of previously defined C8 constraints
+        try:
+            n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C8' in s]) + 1
+        except:
+            n_def = 0
+
         for i in range(pars_len_max):
             # Make matrix (A8)
-            setattr(
-                self,
-                'A8_'+str(i),
-                self.make_A8(pars['C8_crp'][i], pars['C8_ani'][i])
-            )
+            A8 = self.make_A8(pars['C8_crp'][i], pars['C8_ani'][i])
 
             # Make right hand vector (b8)
             if (pars['C8_crp'][i] is not None) & (pars['C8_ani'][i] is not None):
-                setattr(
-                    self,
-                    'b8_'+str(i),
-                    np.concatenate((pars['C8_ani'][i].values,pars['C8_crp'][i].values))
-                )
+                b8 = np.concatenate((pars['C8_ani'][i].values,pars['C8_crp'][i].values))
             elif pars['C8_crp'][i] is not None:
-                setattr(
-                    self,
-                    'b8_'+str(i),
-                    pars['C8_crp'][i].values
-                )
+                b8 = pars['C8_crp'][i].values
             else:
-                setattr(
-                    self,
-                    'b8_'+str(i),
-                    pars['C8_ani'][i].values
-                )
+                b8 = pars['C8_ani'][i].values
 
-            # Append code to include constraint when defining cvx problem
-            self.matrices.append('A8_'+str(i))
-            if C8_rel[i] == '==':
-                self.cons_add_exec.extend([
-                    f'CONS.append(self.A8_{str(i)}.M @ x >= self.b8_{str(i)} * {1-pars["C8_tol"][i]})',
-                    f'CONS.append(self.A8_{str(i)}.M @ x <= self.b8_{str(i)} * {1+pars["C8_tol"][i]})'
-                ])
+            rel = pars["C8_rel"][i]
+
+            # Append constraint
+            if rel == '==':
+                tol = pars["C8_tol"][i]
+
+                # Lower bound
+                self.constraints.update({f'C8_{str(i+n_def)}(low): A8 @ x >= b8 * (1-tol)' : {
+                    'left' : lambda x,A8,b8,tol: A8.M @ x,
+                    'right' : lambda A8,b8,tol: b8 * (1-tol),
+                    'rel' : '>=',
+                    'pars' : {'A8':A8, 'b8':b8, 'tol':tol}
+                }})
+                # Upper bound
+                self.constraints.update({f'C8_{str(i+n_def)}(upp): A8 @ x <= b8 * (1+tol)' : {
+                    'left' : lambda x,A8,b8,tol: A8.M @ x,
+                    'right' : lambda A8,b8,tol: b8 * (1+tol),
+                    'rel' : '<=',
+                    'pars' : {'A8':A8, 'b8':b8, 'tol':tol}
+                }})
+
             else:
-                self.cons_add_exec.extend([
-                    f'CONS.append(self.A8_{str(i)}.M @ x {pars["C8_rel"][i]} self.b8_{str(i)})'
-                ])
+                self.constraints.update({f'C8_{str(i+n_def)}: A8 @ x {rel} b8' : {
+                    'left' : lambda x,A8,b8: A8.M @ x,
+                    'right' : lambda A8,b8: b8,
+                    'rel' : rel,
+                    'pars' : {'A8':A8, 'b8':b8}
+                }})
 
         return None
     
@@ -830,37 +876,52 @@ class GeoDistributor:
             raise ValueError("At least one of 'C9_crp' or 'C9_ani' must be given to use constraint C9")
         if any([v not in ['==','>=','<='] for v in pars['C9_rel']]):
             raise ValueError("All 'C9_rel' must be one of '==', '>=' or '<='")
+        
+        # Get number of previously defined C9 constraints
+        try:
+            n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C9' in s]) + 1
+        except:
+            n_def = 0
 
         for i in range(pars_len_max):
             if not ((pars['C9_crp'][i] is None) & (pars['C9_ani'][i] is None)):
                 # Make matrix (A9)
-                setattr(
-                    self,
-                    'A9_'+str(i),
-                    self.make_A9(pars['C9_crp'][i], pars['C9_ani'][i])
-                )
+                A9 = self.make_A9(pars['C9_crp'][i], pars['C9_ani'][i])
 
                 # Make right hand vector (b9)
-                setattr(
-                    self,
-                    'b9_'+str(i),
-                    sum([
-                        pars['C9_ani'][i].sum() if pars['C9_ani'][i] is not None else 0,
-                        pars['C9_crp'][i].sum() if pars['C9_crp'][i] is not None else 0
-                    ])
-                )
+                b9 = sum([
+                    pars['C9_ani'][i].sum() if pars['C9_ani'][i] is not None else 0,
+                    pars['C9_crp'][i].sum() if pars['C9_crp'][i] is not None else 0
+                ])
 
-                # Append code to include constraint when defining cvx problem
-                self.matrices.append('A9_'+str(i))
-                if C9_rel[i] == '==':
-                    self.cons_add_exec.extend([
-                        f'CONS.append(self.A9_{str(i)}.M @ x >= self.b9_{str(i)} * {1-pars["C9_tol"][i]})',
-                        f'CONS.append(self.A9_{str(i)}.M @ x <= self.b9_{str(i)} * {1+pars["C9_tol"][i]})'
-                    ])
+                rel = pars["C9_rel"][i]
+
+                # Append constraint
+                if rel == '==':
+                    tol = pars["C9_tol"][i]
+
+                    # Lower bound
+                    self.constraints.update({f'C9_{str(i+n_def)}(low): A9 @ x >= b9 * (1-tol)' : {
+                        'left' : lambda x,A9,b9,tol: A9.M @ x,
+                        'right' : lambda A9,b9,tol: b9 * (1-tol),
+                        'rel' : '>=',
+                        'pars' : {'A9':A9, 'b9':b9, 'tol':tol}
+                    }})
+                    # Upper bound
+                    self.constraints.update({f'C9_{str(i+n_def)}(upp): A9 @ x <= b9 * (1+tol)' : {
+                        'left' : lambda x,A9,b9,tol: A9.M @ x,
+                        'right' : lambda A9,b9,tol: b9 * (1+tol),
+                        'rel' : '<=',
+                        'pars' : {'A9':A9, 'b9':b9, 'tol':tol}
+                    }})
+
                 else:
-                    self.cons_add_exec.extend([
-                        f'CONS.append(self.A9_{str(i)}.M @ x {pars["C9_rel"][i]} self.b9_{str(i)})'
-                    ])
+                    self.constraints.update({f'C9_{str(i+n_def)}: A9 @ x {rel} b9' : {
+                        'left' : lambda x,A9,b9: A9.M @ x,
+                        'right' : lambda A9,b9: b9,
+                        'rel' : rel,
+                        'pars' : {'A9':A9, 'b9':b9}
+                    }})
             else:
                 raise ValueError("Both 'C9_crp' and 'C9_ani' were None")
 
@@ -889,8 +950,6 @@ class GeoDistributor:
             row_idx={'ani':P1_1.rows, 'crp':P1_2.rows},
             col_idx={'ani':P1_1.cols, 'crp':P1_2.cols}
         )
-        
-        self.matrices.append('P1')
         
     def make_A1_1(self):
 

@@ -11,22 +11,16 @@ def check_constraints(geodist):
     import matplotlib.pyplot as plt
     from .plot.utils import wrapText
     
-    def _str_between(str, sub_str1, sub_str2):
-        idx1 = str.index(sub_str1) + len(sub_str1)
-        idx2 = str.index(sub_str2)
-        return str[idx1:idx2]
+    x = geodist.problem.variables()[0].value
 
     plot_dfs = []
-    for str in geodist.cons_add_exec:
-        cons = _str_between(str, 'CONS.append(', ')')
-        M = _str_between(str, 'append(self.', '.M @ x')
-        rel = _str_between(str, '@ x ', ')')[:2]
-        try:
-            b = _str_between(str, ' self.', ')')
-        except:
-            b = _str_between(str, '@ x ', ')')[3:]
+    for str, cons in geodist.constraints.items():
+        left = cons['left']
+        right = cons['right']
+        rel = cons['rel']
+        pars = cons['pars']
     
-        M_rows = getattr(geodist,M).rows
+        M_rows = [m.rows for m in pars.values() if hasattr(m, 'rows')][0]
         try:
             M_rows = np.concatenate(list(M_rows.values()))
         except:
@@ -35,26 +29,15 @@ def check_constraints(geodist):
             index = M_rows
         )
         
-        res['M @ x'] = getattr(geodist,M).M @ geodist.problem.variables()[0].value
-        try:
-            res['b'] = float(b)
-            b_is_constant = True
-        except:
-            try:
-                res['b'] = getattr(geodist,b)
-            except:
-                b_split = b.split(' ')
-                if b_split[1] == '*':
-                    res['b'] = getattr(geodist,b_split[0]) * float(b_split[2])
-                else:
-                    raise ValueError(f"Could not interpret '{str}'")
-        res['M @ x - b'] = res['M @ x'] - res['b']
-        res['(M @ x - b) / b'] = res['M @ x - b'] / res['b'].where(res['b']>0, np.nan)
+        res['left'] = left(x, **pars)
+        res['right'] = right(**pars)
+        res['left - right'] = res['left'] - res['right']
+        res['(left - right) / right'] = res['left - right'] / res['right'].where(res['right']>0, np.nan)
 
-        plot_dfs.append(res['M @ x - b'].rename(cons))
+        plot_dfs.append(res['left - right'].rename(str))
 
     nrow = int(np.ceil(len(plot_dfs)/3))
-    fig,axs = plt.subplots(nrow, 3, figsize=(2*3,3*nrow))
+    fig,axs = plt.subplots(nrow, 3, figsize=(3*3,3*nrow))
     for i,df in enumerate(plot_dfs):
         ax=axs.flatten()[i]
         ax.axhline(0, c='black', linewidth=0.5, linestyle='--')
@@ -69,9 +52,9 @@ def check_constraints(geodist):
             ax.text(0.05, 0.05, f'max: {df.max():.1e}', verticalalignment='center', transform=ax.transAxes)
             
         
-        ax.set_ylabel(df.name.replace('==','-').replace('>=','-').replace('<=','-'))
+        ax.set_ylabel('left - right')
         ax.set_xticks([])
-        wrapText(ax.set_title(df.name))
+        wrapText(ax.set_title(df.name, size=9))
         
 
     plt.tight_layout()
