@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib
-import matplotlib.pyplot as plt
 import geopandas as gpd
 
 # Supress shapely deprecation warnings due to problems with geopandas vs shapely
@@ -62,7 +61,7 @@ def map_from_series(ser, reg='sko', cmap_zero_midpoint = False, **kwargs):
         except KeyError:
             raise TypeError("Argument 'cmap' must be specified when 'cmap_zero_midpoint' is True")
 
-        
+
         try:
             max_neg = kwargs.pop('vmin')
         except KeyError:
@@ -71,7 +70,7 @@ def map_from_series(ser, reg='sko', cmap_zero_midpoint = False, **kwargs):
             max_pos = kwargs.pop('vmax')
         except KeyError:
             max_pos = ser.max()
-        
+
         max_one_dir = max(max_neg, max_pos)
         range = max_neg + max_pos
 
@@ -225,15 +224,15 @@ def remappedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
       cmap : The matplotlib colormap to be altered
       start : Offset from lowest point in the colormap's range.
           Defaults to 0.0 (no lower ofset). Should be between
-          0.0 and 0.5; if your dataset mean is negative you should leave 
-          this at 0.0, otherwise to (vmax-abs(vmin))/(2*vmax) 
-      midpoint : The new center of the colormap. Defaults to 
+          0.0 and 0.5; if your dataset mean is negative you should leave
+          this at 0.0, otherwise to (vmax-abs(vmin))/(2*vmax)
+      midpoint : The new center of the colormap. Defaults to
           0.5 (no shift). Should be between 0.0 and 1.0; usually the
-          optimal value is abs(vmin)/(vmax+abs(vmin)) 
+          optimal value is abs(vmin)/(vmax+abs(vmin))
       stop : Offset from highets point in the colormap's range.
           Defaults to 1.0 (no upper ofset). Should be between
-          0.5 and 1.0; if your dataset mean is positive you should leave 
-          this at 1.0, otherwise to (abs(vmin)-vmax)/(2*abs(vmin)) 
+          0.5 and 1.0; if your dataset mean is positive you should leave
+          this at 1.0, otherwise to (abs(vmin)-vmax)/(2*abs(vmin))
     '''
     cdict = {
         'red': [],
@@ -244,13 +243,13 @@ def remappedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
 
     # regular index to compute the colors
     reg_index = np.hstack([
-        np.linspace(start, 0.5, 128, endpoint=False), 
+        np.linspace(start, 0.5, 128, endpoint=False),
         np.linspace(0.5, stop, 129)
     ])
 
     # shifted index to match the data
     shift_index = np.hstack([
-        np.linspace(0.0, midpoint, 128, endpoint=False), 
+        np.linspace(0.0, midpoint, 128, endpoint=False),
         np.linspace(midpoint, 1.0, 129)
     ])
 

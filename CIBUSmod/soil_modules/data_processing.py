@@ -15,8 +15,8 @@ import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
 import CIBUSmod.soil_modules.soil_utils as utils
 
 root = os.path.abspath(os.getcwd())
-from ..soil_modules import input_path
-from ..soil_modules import temp_path
+from ..soil_modules import soil_input_path
+from ..soil_modules import soil_temp_path
 
 
 
@@ -48,8 +48,8 @@ def crop_map_helper(input_df=False,
         # create a df from default file input
         if verbose:
             print("No input dataframe exists.")
-            print(f"Creating 'input_df' from 'crop_carbon_map.csv'in {input_path}")
-        input_df = utils.make_df_lower(pd.read_csv(f'{input_path}/crop_carbon_map.csv', index_col="CIBUS"))
+            print(f"Creating 'input_df' from 'crop_carbon_map.csv'in {soil_input_path}")
+        input_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/crop_carbon_map.csv', index_col="CIBUS"))
     else:
         pass
     # Create a dict to map CIBUS crop types to the re-crop types
@@ -108,8 +108,8 @@ def h_map_helper(h_in_df=False,
         # Import default h_values to use for different fractions (crops, amendments and crop parts) as a pandas df
         if verbose:
             print("An h-value mapping dataframe does not exist.")
-            print(f"Creating h_map_df from 'h_values.csv' in {input_path}")
-        h_map_df = utils.make_df_lower(pd.read_csv(f'{input_path}/h_values.csv', index_col=["h_value_type", "h_frac"]))
+            print(f"Creating h_map_df from 'h_values.csv' in {soil_input_path}")
+        h_map_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/h_values.csv', index_col=["h_value_type", "h_frac"]))
     else:
         # Make sure all text is lower case
         if verbose:
@@ -132,8 +132,8 @@ def h_map_helper(h_in_df=False,
         # create an input dataframe for amendments from default import
         if verbose:
             print("An amendment mapping dataframe does not exist")
-            print(f"Creating 'amnd_map_df' from 'amnd_map.csv' in {input_path}")
-        amnd_map_df = utils.make_df_lower(pd.read_csv(f'{input_path}/amnd_map.csv', index_col="CIBUS"))
+            print(f"Creating 'amnd_map_df' from 'amnd_map.csv' in {soil_input_path}")
+        amnd_map_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/amnd_map.csv', index_col="CIBUS"))
     else:
         # Make sure all text is lower case
         if verbose:
@@ -224,7 +224,7 @@ def alloc_helper(name_df=False,
         print('---Executing alloc_helper()---')
     
     if not isinstance(name_df, pd.DataFrame):
-        name_map_all_df = utils.make_df_lower(pd.read_csv(f'{input_path}/name_map_all.csv')).dropna(subset='crop')
+        name_map_all_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/name_map_all.csv')).dropna(subset='crop')
     else:
         name_map_all_df = utils.make_df_lower(name_df).dropna(subset='crop')
         
@@ -237,17 +237,17 @@ def alloc_helper(name_df=False,
     
     # Create dfs with the allometric function parameters or allocation factors
     if not isinstance(allo1_df, pd.DataFrame):
-        c_allo1_df = utils.make_df_lower(pd.read_csv(f'{input_path}/c_allom_andren2004.csv', index_col=0, decimal=','))
+        c_allo1_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_allom_andren2004.csv', index_col=0, decimal=','))
     else: 
         c_allo1__df = utils.make_df_lower(allo1_df)
     
     if not isinstance(allo2_df, pd.DataFrame):
-        c_allo2_df = utils.make_df_lower(pd.read_csv(f'{input_path}/c_alloc_jacobs2020.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg'], decimal=','))
+        c_allo2_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_alloc_jacobs2020.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg'], decimal=','))
     else:
         c_allo2_df = utils.make_df_lower(allo2_df)
     
     if not isinstance(allo3_df, pd.DataFrame):
-        c_allo3_df = utils.make_df_lower(pd.read_csv(f'{input_path}/c_alloc_hanna.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg','source'], decimal=','))
+        c_allo3_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_alloc_hanna.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg', 'source'], decimal=','))
     else:
         c_allo3_df = utils.make_df_lower(allo3_df)
     
@@ -489,10 +489,10 @@ def make_scn_multi_df(scn_inputs_df=False,
         utils.to_csv_preserved(scn_multi_df,
                                f'{scenario_name}_input_df',
                                save_type='temp')
-        print(f"{scenario_name} multiindex dataframe saved to {scenario_name}_input_df in {temp_path}")
+        print(f"{scenario_name} multiindex dataframe saved to {scenario_name}_input_df in {soil_temp_path}")
 
-        scn_input_ds.to_netcdf(f'{temp_path}/{scn_input_ds_name}.nc')
-        print(f"Scenario dataset saved as {scn_input_ds_name}.nc in {temp_path}")
+        scn_input_ds.to_netcdf(f'{soil_temp_path}/{scn_input_ds_name}.nc')
+        print(f"Scenario dataset saved as {scn_input_ds_name}.nc in {soil_temp_path}")
     else:
         if verbose:
             print('_make_spinup_df called recursively. No scenario files saved')
@@ -583,7 +583,7 @@ def make_spinup_df(input_df=False,
                            'spinup_input_df',
                            save_type='temp')
     if verbose:
-        print(f"Spinup dataframe saved to 'spinup_indput_df.csv' in {temp_path}")
+        print(f"Spinup dataframe saved to 'spinup_indput_df.csv' in {soil_temp_path}")
     
     scenario_dict.update({'spinup_multi_df': spinup_multi_df})
     
@@ -786,16 +786,16 @@ def calculate_scn_soc(scn_ha_df=False,
     scn_ha_soc_ds_name = f'{scenario_name}_ha_soc_ds'
     
     scn_ha_soc_ds = scn_ha_soc_df.to_xarray()
-    scn_ha_soc_ds.to_netcdf(f'{temp_path}/{scn_ha_soc_ds_name}.nc')
+    scn_ha_soc_ds.to_netcdf(f'{soil_temp_path}/{scn_ha_soc_ds_name}.nc')
     if verbose:
-        print(f"{scenario_name}-scenario SOC dataset saved as {scn_ha_soc_ds_name}.nc \n in {temp_path}")
+        print(f"{scenario_name}-scenario SOC dataset saved as {scn_ha_soc_ds_name}.nc \n in {soil_temp_path}")
 
     scn_sko_soc_ds_name = f'{scenario_name}_sko_soc_ds'
 
     scn_sko_soc_ds = scn_sko_soc_df.to_xarray()
-    scn_sko_soc_ds.to_netcdf(f'{temp_path}/{scn_sko_soc_ds_name}.nc')
+    scn_sko_soc_ds.to_netcdf(f'{soil_temp_path}/{scn_sko_soc_ds_name}.nc')
     if verbose:
-        print(f"{scenario_name}-scenario SOC dataset saved as {scn_sko_soc_ds_name}.nc \n in {temp_path}")
+        print(f"{scenario_name}-scenario SOC dataset saved as {scn_sko_soc_ds_name}.nc \n in {soil_temp_path}")
 
     scenario_dict.update({'scenario_ha_soc_df': scn_ha_soc_df,
                           'scenario_sko_soc_df':  scn_sko_soc_df,
@@ -901,14 +901,14 @@ def calculate_historic_soc(spinup_ha_df=False,
 
     # Create and save spinup soc scenario to xarray dataset
     spinup_ha_soc_ds = spinup_ha_soc_df.to_xarray()
-    spinup_ha_soc_ds.to_netcdf(f'{temp_path}/spinup_ha_soc_ds.nc')
+    spinup_ha_soc_ds.to_netcdf(f'{soil_temp_path}/spinup_ha_soc_ds.nc')
     if verbose:
-        print(f"Spinup SOC dataset saved as spinup_ha_soc_ds.nc \n in {temp_path}")
+        print(f"Spinup SOC dataset saved as spinup_ha_soc_ds.nc \n in {soil_temp_path}")
     
     spinup_sko_soc_ds = spinup_sko_soc_df.to_xarray()
-    spinup_sko_soc_ds.to_netcdf(f'{temp_path}/spinup_sko_soc_ds.nc')
+    spinup_sko_soc_ds.to_netcdf(f'{soil_temp_path}/spinup_sko_soc_ds.nc')
     if verbose:
-        print(f"Spinup SOC dataset saved as spinup_sko_soc_ds.nc \n in {temp_path}")
+        print(f"Spinup SOC dataset saved as spinup_sko_soc_ds.nc \n in {soil_temp_path}")
 
     scenario_dict.update({'spinup_ha_soc_df': spinup_ha_soc_df,
                           'spinup_sko_soc_df':  spinup_sko_soc_df,
