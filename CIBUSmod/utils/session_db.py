@@ -59,20 +59,20 @@ class Session(object):
         
         self.name = name
 
-        self.data_path = _path_from_str(data_path)
+        self.data_path = os.path.abspath(_path_from_str(data_path))
 
         if data_path_default is not None:
-            self.data_path_default = _path_from_str(data_path_default)
+            self.data_path_default = os.path.abspath(_path_from_str(data_path_default))
         else:
             self.data_path_default = os.path.join(self.data_path, 'default')
 
         if data_path_scenarios is not None:
-            self.data_path_scenarios = _path_from_str(data_path_scenarios)
+            self.data_path_scenarios = os.path.abspath(_path_from_str(data_path_scenarios))
         else:
             self.data_path_scenarios = os.path.join(self.data_path, 'scenarios')
 
         if data_path_output is not None:
-            self.data_path_output = _path_from_str(data_path_output)
+            self.data_path_output = os.path.abspath(_path_from_str(data_path_output))
         else:
             self.data_path_output = os.path.join(self.data_path, 'output')
 
