@@ -17,35 +17,33 @@ class ParameterRetriever:
     including parameter names and corresponding values. Any filter columns should be named 'f_<name>'.
     Any other columns are not used by the ParameterRetriever. All rows without a value in the 'parameter'
     column are also ignored allowing e.g. headings in the parameter sheets.
-
-    Scenrios are defined by creating new sheets named 'scn_<scenario name>'. The scenario sheets are
-    structured in a similar way as the 'default' sheet but with values for each year stored in columns
-    named 'y_<year>' (e.g. y_2030). The scenario sheets also needs to include a column named 'type'
-    that defines how the new parameters are defined:
-        'rel'     : relative to default value | new par = def par * scn par
-        'rel_chg' : relative change from default value | new par = def par * (1 + scn par)
-        'abs'     : absolute value | new par = scn par
-        'abs_chg' : absolute change from default value | new par = def par + scn par
-
     
     Parameters
     ----------
-    file : str
-        A path to the Excel file storing parameter values relative to the model 'data' folder.
-        Use '/' as file path separator.'''
+    name : str
+        Name of the Excel file (excluding the .xlsx file extension) in the 'default data' folder storing
+        parameter values.'''
 
     instances = weakref.WeakSet() # WeakSet of all ParameterRetriever instances
     data_path_default = None # Path to default data
     data_path_scenarios = None # Path to scenario data
 
     @classmethod
-    def set_data_folder(cls,path):
+    def set_data_folder(cls, path, default_path=None, scenarios_path=None):
         # Set data path
         cls.data_path = _path_from_str(path)
+
         # Set default data path
-        cls.data_path_default = os.path.join(cls.data_path,'default')
+        if default_path is not None:
+            cls.data_path_default = _path_from_str(default_path)
+        else:
+            cls.data_path_default = os.path.join(cls.data_path, 'default')
+
         # Set scenario data path
-        cls.data_path_scenarios = os.path.join(cls.data_path,'scenarios')
+        if scenarios_path is not None:
+            cls.data_path_scenarios = _path_from_str(scenarios_path)
+        else:
+            cls.data_path_scenarios = os.path.join(cls.data_path, 'scenarios')
 
         # Read relation tables
         cls.update_relation_tables()

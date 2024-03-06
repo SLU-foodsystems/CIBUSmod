@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
@@ -136,7 +137,8 @@ class CropResidueMgmt():
             total_demand.sum().astype(float),
             crop_residues_harvest.sum().astype(float)
         )
-        assert (crop_residues_harvest<=self.crops.data_attr.get('crop_residues_harvestable')).all().all()
+        if not (crop_residues_harvest<=self.crops.data_attr.get('crop_residues_harvestable')).all().all():
+            warnings.warn("CropResidueMgmt: Crop residue demand exceeds availability")
         
         # Add data attribute
         self.crops.data_attr.add(

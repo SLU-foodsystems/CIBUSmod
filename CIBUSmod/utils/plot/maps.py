@@ -1,18 +1,9 @@
-from bokeh.models import GeoJSONDataSource, HoverTool
-from bokeh.plotting import figure, show
-from bokeh.io import output_notebook
-
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy
-
-import geopandas as gpd
-# import pkg_resources
 import os
+import numpy as np
 import pandas as pd
-import plotly.express as px
-
-
+import matplotlib
+import matplotlib.pyplot as plt
+import geopandas as gpd
 
 # Supress shapely deprecation warnings due to problems with geopandas vs shapely
 import warnings
@@ -35,7 +26,7 @@ MAP = {
     'län' : lan
 }
 
-def map_from_series(ser, reg='sko', **kwargs):
+def map_from_series(ser, reg='sko', cmap_zero_midpoint = False, **kwargs):
     '''
     Parameters
     ----------
@@ -43,6 +34,11 @@ def map_from_series(ser, reg='sko', **kwargs):
         A series values to produce the map. Must have 'region' as index
     reg : str
         Defines what 'region' refers to ('sko', 'po8', 'kommun' or 'län')
+    cmap_zero_midpoint : 'shrink', 'shift' or False (default)
+        Puts the middle of the color map range on zero
+        If 'shirk' the color map's range is shurnk on the postive or negative side
+        If 'shift' the colormap's center is shifted but the full range is used on
+        both the positive and negative side
     **kwargs
         passed on to geopandas.GeoDataFrame.plot()
     '''
@@ -57,6 +53,41 @@ def map_from_series(ser, reg='sko', **kwargs):
     for key in default_style:
         if key not in kwargs:
             kwargs[key] = default_style[key]
+
+    if cmap_zero_midpoint:
+        if cmap_zero_midpoint not in ['shrink','shift']:
+            raise ValueError("'cmap_zero_midpoint' must be one of 'shrink' or 'shift'")
+        try:
+            cmap = kwargs.pop('cmap')
+        except KeyError:
+            raise TypeError("Argument 'cmap' must be specified when 'cmap_zero_midpoint' is True")
+
+        
+        try:
+            max_neg = kwargs.pop('vmin')
+        except KeyError:
+            max_neg = abs(ser.min())
+        try:
+            max_pos = kwargs.pop('vmax')
+        except KeyError:
+            max_pos = ser.max()
+        
+        max_one_dir = max(max_neg, max_pos)
+        range = max_neg + max_pos
+
+        if isinstance(cmap, str):
+            cmap = matplotlib.colormaps[cmap]
+
+        remapped_cmap = remappedColorMap(
+            cmap = cmap,
+            start = 0.5 - max_neg / max_one_dir * 0.5 if cmap_zero_midpoint == 'shrink' else 0,
+            midpoint = max_neg / range,
+            stop = 0.5 + max_pos / max_one_dir * 0.5 if cmap_zero_midpoint == 'shrink' else 1
+        )
+
+        kwargs['vmin'] = -max_neg
+        kwargs['vmax'] = max_pos
+        kwargs['cmap'] = remapped_cmap
 
     to_plot = MAP[reg].join(ser.rename('values'))
 
@@ -138,6 +169,10 @@ def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, f
 
 def plot_regions(gdf_name='sko', **kwargs):
 
+    from bokeh.models import GeoJSONDataSource, HoverTool
+    from bokeh.plotting import figure, show
+    from bokeh.io import output_notebook
+
     if gdf_name == 'sko':
         gdf = sko
         region = 'SKO'
@@ -175,3 +210,58 @@ def plot_regions(gdf_name='sko', **kwargs):
 
 
 
+def remappedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
+    # This function is sourced from https://github.com/TheChymera/chr-helpers/blob/d05eec9e42ab8c91ceb4b4dcc9405d38b7aed675/chr_matplotlib.py
+    # Authors: Paul H, Horea Christian
+    # Licence: GNU GENERAL PUBLIC LICENSE, Version 3
+    '''
+    Function to offset the median value of a colormap, and scale the
+    remaining color range. Useful for data with a negative minimum and
+    positive maximum where you want the middle of the colormap's dynamic
+    range to be at zero.
+
+    Input
+    -----
+      cmap : The matplotlib colormap to be altered
+      start : Offset from lowest point in the colormap's range.
+          Defaults to 0.0 (no lower ofset). Should be between
+          0.0 and 0.5; if your dataset mean is negative you should leave 
+          this at 0.0, otherwise to (vmax-abs(vmin))/(2*vmax) 
+      midpoint : The new center of the colormap. Defaults to 
+          0.5 (no shift). Should be between 0.0 and 1.0; usually the
+          optimal value is abs(vmin)/(vmax+abs(vmin)) 
+      stop : Offset from highets point in the colormap's range.
+          Defaults to 1.0 (no upper ofset). Should be between
+          0.5 and 1.0; if your dataset mean is positive you should leave 
+          this at 1.0, otherwise to (abs(vmin)-vmax)/(2*abs(vmin)) 
+    '''
+    cdict = {
+        'red': [],
+        'green': [],
+        'blue': [],
+        'alpha': []
+    }
+
+    # regular index to compute the colors
+    reg_index = np.hstack([
+        np.linspace(start, 0.5, 128, endpoint=False), 
+        np.linspace(0.5, stop, 129)
+    ])
+
+    # shifted index to match the data
+    shift_index = np.hstack([
+        np.linspace(0.0, midpoint, 128, endpoint=False), 
+        np.linspace(midpoint, 1.0, 129)
+    ])
+
+    for ri, si in zip(reg_index, shift_index):
+        r, g, b, a = cmap(ri)
+
+        cdict['red'].append((si, r, r))
+        cdict['green'].append((si, g, g))
+        cdict['blue'].append((si, b, b))
+        cdict['alpha'].append((si, a, a))
+
+    newcmap = matplotlib.colors.LinearSegmentedColormap(name, cdict)
+
+    return newcmap
