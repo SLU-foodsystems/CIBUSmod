@@ -25,11 +25,12 @@ import seaborn as sns
 from typing import Dict, TypeVar, Type, List, Any, Tuple, Optional, Union
 import xarray as xr
 
+import CIBUSmod.soil_modules
 import CIBUSmod.soil_modules.soil_utils as soil_utils
 from CIBUSmod.soil_modules.soil_params import C_CONTENT_CROPS
 import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
-from CIBUSmod.soil_modules import temp_path
-from CIBUSmod.soil_modules import export_path
+from CIBUSmod.soil_modules import soil_temp_path
+from CIBUSmod.soil_modules import soil_export_path
 
 from CIBUSmod.utils import plot
 
@@ -38,7 +39,7 @@ T = TypeVar('T', bound='SoilData')
 class SoilData:
     """Class to calculate and keep track of the data related to soil carbon and CO2 fluxes in a given scenario"""
 
-    def __init__(self, session_df_name: str, session_name: str, import_path: str = temp_path,
+    def __init__(self, session_df_name: str, session_name: str, import_path: str = soil_temp_path,
                  verbose: bool = False) -> None:
         # Automatically set up instance upon initialization
 
@@ -130,6 +131,15 @@ class SoilData:
         if verbose:
             print(">>> '_add_prefixes()' executed succesfully <<<")
             print(f"input_df.columns now: {self.input_df.columns}")
+
+    def _show_paths():
+        print('The current paths are set in the soil module:')
+        print('---------------------------------------------')
+        print(f'    input_path:   {CIBUSmod.soil_modules.soil_input_path}')
+        print(f'    soil_temp_path:    {soil_temp_path}')
+        print(f'    soil_export_path:  {soil_export_path}')
+
+
 
     def _change_year_name(self, new_name='input_year', verbose=False):
         """Change the column name "year" to 'new_name'(default="input_year")"""
@@ -661,7 +671,7 @@ class SoilData:
         # Save individual dataset
         self._save_dataset(dataset)
 
-    def _save_dataset(self, dataset_name, temp_path=temp_path):
+    def _save_dataset(self, dataset_name, temp_path=soil_temp_path):
         """
         Helper method to save an individual dataset to the appropriate file format.
 
@@ -681,11 +691,11 @@ class SoilData:
         for df_name in df_names:
             if hasattr(self, df_name) and isinstance(getattr(self, df_name), pd.DataFrame):
                 scn_df_name = f'{self.scenario}_{df_name}'
-                #csv_path = f'{temp_path}/{df_name}.csv'
+                #csv_path = f'{soil_temp_path}/{df_name}.csv'
                 soil_utils.to_csv_preserved(getattr(self, df_name), save_as=scn_df_name, save_path=temp_path)
                 print(f"{df_name} saved as {scn_df_name} in {temp_path}")
 
-    def load_inventory(self, dataset=None, temp_path=temp_path):
+    def load_inventory(self, dataset=None, temp_path=soil_temp_path):
         """
         Loads inventory data based on specified dataset names.
 
@@ -752,7 +762,7 @@ class SoilData:
         Helper method to load CSV files as DataFrames if they exist.
 
         Parameters:
-        - temp_path: str - The path where CSV files are located.
+        - soil_temp_path: str - The path where CSV files are located.
         - csv_names: list - A list of CSV file base names to load.
         - loaded_list: list - A list to append the names of successfully loaded CSV files.
         """
@@ -804,13 +814,13 @@ class SoilData:
             attrs_status[attribute] = (type(attr_value).__name__, is_set)
         return f"The following attributes are set for {access} variables", attrs_status
 
-    def save_instance_state(self, temp_path=temp_path):
+    def save_instance_state(self, temp_path=soil_temp_path):
         with open(f'{temp_path}/{self.scenario}.pickle', 'wb') as file:
             pickle.dump(self, file)
         print(f'Saved instance variable states to {temp_path}/{self.scenario}')
 
     @classmethod
-    def load_instance_state(cls: Type[T], scenario_name: str, temp_path=temp_path) -> T:
+    def load_instance_state(cls: Type[T], scenario_name: str, temp_path=soil_temp_path) -> T:
         with open(f'{temp_path}/{scenario_name}.pickle', 'rb') as file:
             instance = pickle.load(file)
         return instance
@@ -981,7 +991,7 @@ class SoilData:
 class SoilDataExplore:
     """Class to explore and visualize the data related to soil carbon and CO2 fluxes produced with a SoilData class instance"""
 
-    def __init__(self, scenario_prefix: str, import_path: str = temp_path, verbose: bool = False) -> None:
+    def __init__(self, scenario_prefix: str, import_path: str = soil_temp_path, verbose: bool = False) -> None:
         # Initialize instance variables
         self.initialize_instance_variables(verbose)
         self.load_instance_state(scenario_prefix, import_path, verbose)
@@ -1006,7 +1016,7 @@ class SoilDataExplore:
             print('+++Variables initialized---')
 
 
-    def load_instance_state(self, scenario_name: str, temp_path: str=temp_path, verbose: bool=False) -> None:
+    def load_instance_state(self, scenario_name: str, temp_path: str=soil_temp_path, verbose: bool=False) -> None:
         if verbose:
             print('---executing load_instance_state----')
         with open(f'{temp_path}/{scenario_name}.pickle', 'rb') as file:
@@ -1018,7 +1028,7 @@ class SoilDataExplore:
             print('+++load_instance_state finished+++')
 
 
-    def load_inventory(self, prefix: str, dataset: list=None, temp_path: str=temp_path, verbose: bool=False) -> None:
+    def load_inventory(self, prefix: str, dataset: list=None, temp_path: str=soil_temp_path, verbose: bool=False) -> None:
         """
         Loads inventory data based on specified dataset names.
 
@@ -1104,7 +1114,7 @@ class SoilDataExplore:
 
         Parameters:
         -----------
-        - temp_path: str - The path where CSV files are located.
+        - soil_temp_path: str - The path where CSV files are located.
         - csv_names: list - A list of CSV file base names to load.
         - loaded_list: list - A list to append the names of successfully loaded CSV files.
         """
@@ -1208,7 +1218,7 @@ class SoilDataExplore:
                                       label_config: dict[str, Any]={'xlabel': 'Time [Year]',
                                                                     'ylabel': 'SOC content [kg C]'},
                                       save_as=False,
-                                      save_path=export_path,
+                                      save_path=soil_export_path,
                                       ) -> None:
         """
         Plots time series of SOC inventory data for a specified region, system, and scenario,
@@ -1294,7 +1304,7 @@ class SoilDataExplore:
                                                   min_year: Union[int, None] = None,
                                                   max_year: Union[int, None] = None,
                                                   save_as=False,
-                                                  save_path=export_path,
+                                                  save_path=soil_export_path,
                                                   ) -> None:
         """
         Plots the SOC inventory data for a single region or per ha, based on specified criteria.
@@ -1367,7 +1377,7 @@ class SoilDataExplore:
                              height_scaling: float = 1.3,
                              standard_font: int = 15,
                              save_as: Optional[str] = None,
-                             save_path: str = export_path,
+                             save_path: str = soil_export_path,
                              **kwargs: Dict[str, Any]) -> pd.Series:
         """
         Generates a map visualizing the change in soil organic carbon (SOC) stocks across all regions between two specified years.
@@ -1384,7 +1394,7 @@ class SoilDataExplore:
         - height_scaling (float): Factor to scale figure height based on the width, maintaining aspect ratio. Default is 1.3.
         - standard_font (int): Base font size for plot text elements. Scales with figure width. Default is 15.
         - save_as (Optional[str]): Filename to save the plot as SVG and PNG. If None, the plot is not saved. Default is None.
-        - save_path (str): Directory path to save the plot if 'save_as' is provided. Uses 'export_path' by default.
+        - save_path (str): Directory path to save the plot if 'save_as' is provided. Uses 'soil_export_path' by default.
         - **kwargs (Dict[str, Any]): Additional keyword arguments passed to the plotting function.
 
         Returns:
@@ -1447,7 +1457,7 @@ class SoilDataExplore:
                                  height_scaling: float = 1.3,
                                  standard_font: int = 15,
                                  save_as: bool = False,
-                                 save_path: str = export_path,
+                                 save_path: str = soil_export_path,
                                  verbose: bool = False
                                  ) -> Tuple[pd.Series, pd.Series]:
         """
@@ -1465,7 +1475,7 @@ class SoilDataExplore:
         - height_scaling: Scaling factor to determine figure height based on width to maintain aspect ratio. Default is 1.3.
         - standard_font: Base font size for plot text elements. Actual font size scales with figure width. Default is 15.
         - save_as: If True, specifies the filename to save the plot as SVG and PNG. Default is False.
-        - save_path: Directory path where the plot will be saved if save_as is True. Uses 'export_path' by default.
+        - save_path: Directory path where the plot will be saved if save_as is True. Uses 'soil_export_path' by default.
         - verbose: If True, prints additional information during plotting. Default is False.
 
         Returns:
@@ -1628,7 +1638,7 @@ class SoilDataExplore:
                             height_scaling: float = 1.3,
                             standard_font: int = 15,
                             save_as: str = False,
-                            save_path: str = export_path,
+                            save_path: str = soil_export_path,
                             verbose: bool = False,
                             **kwargs) -> Tuple[pd.Series, pd.Series]:
         """
@@ -1646,7 +1656,7 @@ class SoilDataExplore:
         - height_scaling (float): Scaling factor to determine figure height based on width to maintain aspect ratio. Default is 1.3.
         - standard_font (int): Base font size for plot text elements. Actual font size scales with figure width. Default is 15.
         - save_as (bool or str): If not False, specifies the filename to save the plot as an SVG. Default is False.
-        - save_path (str): Directory path where the plot will be saved if save_as is specified. Default uses 'export_path'.
+        - save_path (str): Directory path where the plot will be saved if save_as is specified. Default uses 'soil_export_path'.
         - verbose (bool): If True, prints additional information during plotting. Default is False.
 
         Returns:

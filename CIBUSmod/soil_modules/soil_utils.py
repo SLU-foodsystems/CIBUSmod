@@ -19,8 +19,8 @@ import xarray as xr
 
 import CIBUSmod.soil_modules.soil_params as soil_params
 
-from ..soil_modules import input_path, export_path
-from ..soil_modules import temp_path
+from ..soil_modules import soil_input_path, soil_export_path
+from ..soil_modules import soil_temp_path
 from ..soil_modules import root
 
 def colored_rule(color: str,
@@ -741,8 +741,8 @@ def to_csv_preserved(dataframe: pd.DataFrame,
         determines where to save file. 
         Can be either 'none'(default), 'temp' or 'result'
         if 'none', save_path is set to current working dir
-        if 'temp',  save_path is set to 'temp_path'
-        if 'result',  save_path is set to 'export_path'
+        if 'temp',  save_path is set to 'soil_temp_path'
+        if 'result',  save_path is set to 'soil_export_path'
     **kwarg : Any
         Additional keyword arguments for DataFrame.to_csv().
 
@@ -758,9 +758,9 @@ def to_csv_preserved(dataframe: pd.DataFrame,
         # Save the current working directory
         save_path = os.getcwd()
     elif save_type == 'temp':
-        save_path = temp_path
+        save_path = soil_temp_path
     elif save_type == 'result':
-        save_path = export_path
+        save_path = soil_export_path
     else:
         print('the save_type parameter is not set correctly. Please revise')
 
@@ -790,13 +790,13 @@ def to_csv_preserved(dataframe: pd.DataFrame,
         data[key] = json.dumps(data[key])
 
     # Create save_dir if it does not exist
-    
-    current_dir = os.curdir
-    os.chdir(save_path)
-    if not os.path.isdir(set_savedir):
-        os.mkdir(set_savedir)
-    os.chdir(current_dir)
-    
+
+    # set_savedir is the name of the new directory to create
+    savedir_path = os.path.join(save_path, set_savedir)
+
+    # Check if the directory does not exist before creating it
+    if not os.path.isdir(savedir_path):
+        os.mkdir(savedir_path)
 
     # Save the dictionary to a CSV file, with the same name as the DataFrame
     file_name = f'{save_as}_help'
@@ -928,7 +928,7 @@ def crop_map_helper(input_df=False,
 
     Parameters:
     - input_df (pd.DataFrame, optional): DataFrame containing mapping of CIBUS crop types to re-crop types.
-      If not provided, default values are loaded from '<input_path>/crop_carbon_map.csv'.
+      If not provided, default values are loaded from '<soil_input_path>/crop_carbon_map.csv'.
     - re_col_name (str, optional): Column name in input_df specifying re-crop types. Defaults to 're'.
 
     Returns:
@@ -942,8 +942,8 @@ def crop_map_helper(input_df=False,
         # create a df from default file input
         if verbose:
             print("No input dataframe exists.")
-            print(f"Creating 'input_df' from 'crop_carbon_map.csv'in {input_path}")
-        input_df = make_df_lower(pd.read_csv(f'{input_path}/crop_carbon_map.csv', index_col="CIBUS"))
+            print(f"Creating 'input_df' from 'crop_carbon_map.csv'in {soil_input_path}")
+        input_df = make_df_lower(pd.read_csv(f'{soil_input_path}/crop_carbon_map.csv', index_col="CIBUS"))
     else:
         pass
     # Create a dict to map CIBUS crop types to the re-crop types
@@ -993,8 +993,8 @@ def h_map_helper(h_in_df=False,
         # Import default h_values to use for different fractions (crops, amendments and crop parts) as a pandas df
         if verbose:
             print("An h-value mapping dataframe does not exist.")
-            print(f"Creating h_map_df from 'h_values.csv' in {input_path}")
-        h_map_df = make_df_lower(pd.read_csv(f'{input_path}/h_values.csv', index_col=["h_value_type", "h_frac"]))
+            print(f"Creating h_map_df from 'h_values.csv' in {soil_input_path}")
+        h_map_df = make_df_lower(pd.read_csv(f'{soil_input_path}/h_values.csv', index_col=["h_value_type", "h_frac"]))
     else:
         # Make sure all text is lower case
         if verbose:
@@ -1017,8 +1017,8 @@ def h_map_helper(h_in_df=False,
         # create an input dataframe for amendments from default import
         if verbose:
             print("An amendment mapping dataframe does not exist")
-            print(f"Creating 'amnd_map_df' from 'amnd_map.csv' in {input_path}")
-        amnd_map_df = make_df_lower(pd.read_csv(f'{input_path}/amnd_map.csv', index_col="CIBUS"))
+            print(f"Creating 'amnd_map_df' from 'amnd_map.csv' in {soil_input_path}")
+        amnd_map_df = make_df_lower(pd.read_csv(f'{soil_input_path}/amnd_map.csv', index_col="CIBUS"))
     else:
         # Make sure all text is lower case
         if verbose:
@@ -1091,7 +1091,7 @@ def alloc_helper(name_df=False,
         print('---Executing alloc_helper()---')
 
     if not isinstance(name_df, pd.DataFrame):
-        name_map_all_df = make_df_lower(pd.read_csv(f'{input_path}/name_map_all.csv')).dropna(subset='crop')
+        name_map_all_df = make_df_lower(pd.read_csv(f'{soil_input_path}/name_map_all.csv')).dropna(subset='crop')
     else:
         name_map_all_df = make_df_lower(name_df).dropna(subset='crop')
 
@@ -1106,20 +1106,20 @@ def alloc_helper(name_df=False,
     if isinstance(allo1_df, pd.DataFrame):
         c_allo1__df = make_df_lower(allo1_df)
     else:
-        c_allo1_df = make_df_lower(pd.read_csv(f'{input_path}/c_allom_andren2004.csv', index_col=0, decimal=','))
+        c_allo1_df = make_df_lower(pd.read_csv(f'{soil_input_path}/c_allom_andren2004.csv', index_col=0, decimal=','))
 
     if isinstance(allo2_df, pd.DataFrame):
         c_allo2_df = make_df_lower(allo2_df)
     else:
         c_allo2_df = make_df_lower(
-            pd.read_csv(f'{input_path}/c_alloc_jacobs2020.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg'],
+            pd.read_csv(f'{soil_input_path}/c_alloc_jacobs2020.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg'],
                         decimal=','))
 
     if isinstance(allo3_df, pd.DataFrame):
         c_allo3_df = make_df_lower(allo3_df)
     else:
         c_allo3_df = make_df_lower(
-            pd.read_csv(f'{input_path}/c_alloc_hanna.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg', 'source'],
+            pd.read_csv(f'{soil_input_path}/c_alloc_hanna.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg', 'source'],
                         decimal=','))
 
     out_dict = dict(zip(('c_allom_andren_df', 'c_alloc_jacobs_df', 'c_alloc_hanna_df', 'crop_andren2004_map',
@@ -1498,7 +1498,7 @@ def check_attributes_status(instance, access='public'):
     return attrs_status
 
 
-def save_data(data: Any, file_name: str, save_path: str=temp_path, format: str ='json') -> None:
+def save_data(data: Any, file_name: str, save_path: str=soil_temp_path, format: str = 'json') -> None:
     if format == 'json':
         with open(f'{save_path}/{file_name}.{format}', 'w') as f:
             json.dump(data, f)
@@ -1507,7 +1507,7 @@ def save_data(data: Any, file_name: str, save_path: str=temp_path, format: str =
             pickle.dump(data, f)
 
 
-def load_data(file_name: str, load_path: str=temp_path, format: str='json') -> Any:
+def load_data(file_name: str, load_path: str=soil_temp_path, format: str= 'json') -> Any:
     if format == 'json':
         with open(f'{load_path}/{file_name}.{format}', 'r') as f:
             return json.load(f)
@@ -1678,14 +1678,14 @@ def h_map_helper_new(h_in_df=False,
         print('---Executing h_map_helper()---')
 
     # Load H-values DataFrame if not provided
-    h_map_df = h_in_df if isinstance(h_in_df, pd.DataFrame) else pd.read_csv(f'{input_path}/h_values.csv',
+    h_map_df = h_in_df if isinstance(h_in_df, pd.DataFrame) else pd.read_csv(f'{soil_input_path}/h_values.csv',
                                                                              index_col=["h_value_type", "h_frac"]).pipe(
         make_df_lower_new)
     print(f'h_map_df: {h_map_df}')
     # Load crop and amendment mapping DataFrames if not provided
     crop_map_df = crop_in_df if isinstance(crop_in_df, pd.DataFrame) else pd.read_csv(
-        f'{input_path}/crop_carbon_map.csv', index_col="CIBUS").pipe(make_df_lower_new)
-    amnd_map_df = amnd_in_df if isinstance(amnd_in_df, pd.DataFrame) else pd.read_csv(f'{input_path}/amnd_map.csv',
+        f'{soil_input_path}/crop_carbon_map.csv', index_col="CIBUS").pipe(make_df_lower_new)
+    amnd_map_df = amnd_in_df if isinstance(amnd_in_df, pd.DataFrame) else pd.read_csv(f'{soil_input_path}/amnd_map.csv',
                                                                                       index_col="CIBUS").pipe(
         make_df_lower_new)
 
@@ -1831,3 +1831,10 @@ def map_cin_h_to_dataframe_new(match_col: str,
     # output_df = merged_df.set_index(['input', 'fraction'])[output_col_name].to_frame()
     #
     # return output_df.sort_index() if index_sorted else output_df
+
+def _show_soil_paths():
+    print('The current paths are set in the soil module:')
+    print('---------------------------------------------')
+    print(f'    soil_input_path:   {soil_input_path}')
+    print(f'    soil_temp_path:    {soil_temp_path}')
+    print(f'    soil_export_path:  {soil_export_path}')
