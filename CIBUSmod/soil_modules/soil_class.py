@@ -16,12 +16,13 @@ xarray inside a netcdf file
 
 import inspect
 import matplotlib.pyplot as plt
+import numpy as np
 import os.path
-import pickle
-from typing import Dict, TypeVar, Type, List, Any, Tuple, Optional, Union
-
 import pandas as pd
-import xarray
+import pickle
+from scipy import stats
+import seaborn as sns
+from typing import Dict, TypeVar, Type, List, Any, Tuple, Optional, Union
 import xarray as xr
 
 import CIBUSmod.soil_modules.soil_utils as soil_utils
@@ -1497,7 +1498,7 @@ class SoilDataExplore:
             final_soc_level = (self.total_soc_inventory.tot_soc.
                                sel({'output_year': final_year, 'scn': scenario}).
                                where(mask, drop=True).
-                               sum(['fraction', 'input_year', 'output_year']))
+                               sum(['fraction', 'input_year', 'output_year', 'prod_system']))
 
         else:
             initial_soc_level = (self.total_soc_inventory.tot_soc.
@@ -1542,14 +1543,24 @@ class SoilDataExplore:
         # calculate totals for Sweden
         mask_swe = self.total_soc_inventory['fraction'].str.contains('_kgc')
 
-        initial_soc_level_swe = (self.total_soc_inventory.tot_soc.
-                                 sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
-                                 where(mask_swe, drop=True).
-                                 sum(['fraction', 'input_year', 'output_year', 'region']))
-        final_soc_level_swe = (self.total_soc_inventory.tot_soc.
-                               sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
-                               where(mask_swe, drop=True).
-                               sum(['fraction', 'input_year', 'output_year', 'region']))
+        if system == 'all':
+            initial_soc_level_swe = (self.total_soc_inventory.tot_soc.
+                                     sel({'output_year': initial_year, 'scn': scenario}).
+                                     where(mask_swe, drop=True).
+                                     sum(['fraction', 'input_year', 'output_year', 'region', 'prod_system']))
+            final_soc_level_swe = (self.total_soc_inventory.tot_soc.
+                                   sel({'output_year': final_year, 'scn': scenario}).
+                                   where(mask_swe, drop=True).
+                                   sum(['fraction', 'input_year', 'output_year', 'region', 'prod_system']))
+        else:
+            initial_soc_level_swe = (self.total_soc_inventory.tot_soc.
+                                     sel({'output_year': initial_year, 'prod_system': system, 'scn': scenario}).
+                                     where(mask_swe, drop=True).
+                                     sum(['fraction', 'input_year', 'output_year', 'region']))
+            final_soc_level_swe = (self.total_soc_inventory.tot_soc.
+                                   sel({'output_year': final_year, 'prod_system': system, 'scn': scenario}).
+                                   where(mask_swe, drop=True).
+                                   sum(['fraction', 'input_year', 'output_year', 'region']))
 
         absolute_CO2_emissions_swe = (initial_soc_level_swe - final_soc_level_swe) * 3.6
         relative_soc_stock_change_swe = (final_soc_level_swe / initial_soc_level_swe) - 1
@@ -1820,10 +1831,65 @@ class SoilDataExplore:
         '''
         plot.maps.plot_regions(gdf_name=region_type)
 
+
+    def outlier_detect(self, x: pd.Series,
+                       y: pd.Series=None,
+                       type: str='box',
+                       xlabel='Unset label',
+                       ylabel='Unset label',
+                       threshold=3):
+        '''
+        Choose between a number of plots that can help detect the presence of outliers
+
+        Parameters
+        ----------
+        x:      Main dataseries to be used for plotting. Mandatory
+        y:      (optional) dataseries to be used for plotting in scatter plots
+        type:   (optional) The name of the plot type to be plotted. Available options are 'box', 'scatter', 'z'.
+        xlabel: (optional) The label for the x-axis in scatterplots.
+        ylabel: (optional) The label for the x-axis in scatterplots.
+        threshold: (optional) The value used to detect outliers with the Z-method (default: 3)
+
+        Returns
+        -------
+        None: Generates a plot of the choosen type in the notebook
+        '''
+        if type == 'box':
+            # Create a boxplot
+            sns.boxplot(x=x)
+        elif type == 'scatter':
+            # Create a scatterplot
+            if y is not None:
+                fig, ax = plt.subplots(figsize=(16, 8))
+                ax.scatter(x, y, color='green')
+                ax.set_xlabel(xlabel)
+                ax.set_ylabel(ylabel)
+                plt.show()
+            else:
+                print("'A series is require for the 'y' coordinate when chosing type='scatter'")
+        elif type == 'z':
+            # Run a Z-test and a do a line plot
+            # Z-score outlier detection
+            threshold = threshold
+            z = np.abs(stats.zscore(x))
+            ar = np.where(z > threshold)[0]
+            print(ar)
+            for i in ar:
+                print(
+                    f'sko {z.index[i]} has a Z-score of {z.iloc[i]}')  # prints the sko no. and zscore of the identified outliers
+                print(f"It's nominal value is {x.iloc[i]}")
+            drop_map = z.index[ar]
+            new_set = x.drop(drop_map)
+            z_new = np.abs(stats.zscore(new_set))
+            print(f"For comparison, the summary statistics of the remaining dataset is:\n{new_set.describe()}\nand it's Z-scores are:\n {z_new}")
+            z.plot()
+        else:
+            print("The available options for type are 'box' and 'scatter")
+
 def xr_array_list_plotter(ax, data, min_year=None, max_year=None, plot_kwargs={}, label_kwargs={}):
     for n, item in enumerate(data):
         # Ensure data_series is a pandas Series
-        if isinstance(item, xarray.DataArray):
+        if isinstance(item, xr.DataArray):
             label = plot_kwargs['label'][n]
             local_plot_kwargs = plot_kwargs.copy()
             local_plot_kwargs['label'] = label

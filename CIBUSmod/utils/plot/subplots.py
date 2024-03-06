@@ -3,6 +3,8 @@ import numpy as np
 from itertools import product
 import matplotlib.pyplot as plt
 
+from .utils import wrapText
+
 def subplots(
     data,
     index = None,
@@ -10,6 +12,7 @@ def subplots(
     plot_fn = None,
     ncols = None,
     size = (5,5),
+    title_fontsize = 12,
     **kwargs
 ):
     '''Function to plot subplots based on a pandas.DataFrame or Series
@@ -100,6 +103,10 @@ def subplots(
         else:
             plot_df.plot(ax=ax, **kwargs)
 
-        ax.set_title('\n'.join([lab for lab in idx+col if lab != '']))
+        wrapText(ax.set_title('\n'.join([lab for lab in idx+col if lab != '']), size=title_fontsize))
+
+    for ax in axs.flatten()[nplots:]:
+        ax.axis('off')
+
 
     return fig, axs
