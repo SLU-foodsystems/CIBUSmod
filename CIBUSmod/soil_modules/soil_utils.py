@@ -446,7 +446,7 @@ def calculate_c_inputs(input_df: pd.DataFrame,
                 output_df.at[n, f'alloc_source_{crop_colname}'] = sources[m]
             elif sources[m] == 'Jacobs2020': # use Jacobs
                 if straw_removed:
-                    ag, bg = alloc_input(output.areayield[n], mappings[m][i], c_allo_df[m])
+                    ag, bg = alloc_input(output_df.areayield[n], mappings[m][i], c_allo_df[m])
                     output_df.at[n, ag_ha_colname] = ag - output_df.areayield_residues[n]
                     output_df.at[n, bg_ha_colname] = bg
                     output_df.at[n, f'alloc_source_{crop_colname}'] = sources[m]
