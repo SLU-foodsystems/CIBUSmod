@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Utility functions for the CIBUSmod_soil program
+Utility functions for the CIBUSmod soil_modules
 
 """
 
@@ -21,7 +21,6 @@ import CIBUSmod.soil_modules.soil_params as soil_params
 
 from ..soil_modules import soil_input_path, soil_export_path
 from ..soil_modules import soil_temp_path
-from ..soil_modules import root
 
 def colored_rule(color: str,
                  height: int = 1) -> None:
@@ -809,16 +808,13 @@ def to_csv_preserved(dataframe: pd.DataFrame,
     return
 
 
-def read_csv_preserved(filepath,
-                       set_helpdir='support_csv',
-                       **kwargs):
+def read_csv_preserved(filepath, set_helpdir='support_csv'):
     """
     Read a CSV file with preserved data types and index, using supporting information from a separate file.
 
     Args:
     filepath (str): Path to the CSV file.
-    set_helpdir (str, optional): Directory containing supporting information files. Defaults to 'support_csv'.
-    **kwargs: Additional keyword arguments.
+    set_helpdir (str, optional): Directory containing supporting information files. Defaults to 'support_csv'
 
     Returns:
     pd.DataFrame: DataFrame with preserved data types and index.
@@ -827,16 +823,10 @@ def read_csv_preserved(filepath,
     The supporting information is stored in a separate file (CSV with "_help" suffix) in the specified directory.
 
     """
-
-    current_dir = os.getcwd()
-
     # Extract file information
     filename = os.path.basename(filepath)
     df_dir = os.path.dirname(filepath)
     name, extension = os.path.splitext(filename)
-
-    # Initialize help_dict
-    help_dict = {}
 
     # Open the CSV-help file for reading
     with open(f'{df_dir}/{set_helpdir}/{name}_help.csv', mode='r') as file:
@@ -1833,8 +1823,8 @@ def map_cin_h_to_dataframe_new(match_col: str,
     # return output_df.sort_index() if index_sorted else output_df
 
 def _show_soil_paths():
-    print('The current paths are set in the soil module:')
-    print('---------------------------------------------')
+    print('The current paths set in the soil module:')
+    print('-----------------------------------------------------------------------')
     print(f'    soil_input_path:   {soil_input_path}')
     print(f'    soil_temp_path:    {soil_temp_path}')
     print(f'    soil_export_path:  {soil_export_path}')
