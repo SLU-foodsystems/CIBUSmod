@@ -88,15 +88,15 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     '''  
 
     # Get cattle milk and meat demand
-    milk_demand = demand.animal_prod_demand.xs(('cattle', 'milk'), level=('species', 'animal_prod')).sum(axis=1)
-    meat_demand = demand.animal_prod_demand.xs(('cattle', 'meat'), level=('species', 'animal_prod')).sum(axis=1)
+    milk_demand = demand.data_attr.get('animal_prod_demand').xs(('cattle', 'milk'), level=('species', 'animal_prod')).sum(axis=1)
+    meat_demand = demand.data_attr.get('animal_prod_demand').xs(('cattle', 'meat'), level=('species', 'animal_prod')).sum(axis=1)
 
     # Calculate meat/milk for all dairy herds
     meat_per_milk = pd.DataFrame()
     for herd in herds:
         if herd.species == 'cattle' and herd.breed == 'dairy':
             ps = herd.prod_system
-            prod = herd.production.groupby(['prod_system','animal_prod'], axis=1).sum()
+            prod = herd.data_attr.get('production').T.groupby(['prod_system','animal_prod']).sum().T
             milk = prod.xs('milk', axis=1, level='animal_prod').loc[:,ps]
             meat = prod.xs('meat', axis=1, level='animal_prod')
             # Calculate meat per milk add herd production system and append to DF
@@ -107,11 +107,11 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
 
     # Check that meat/milk is equal across herds and take mean
     # otherwise take median and warn
-    if meat_per_milk.groupby(['herd_prod_system', 'prod_system'], axis=1).transform(lambda x: abs(x-x.mean()) < 1e-6).all(axis=1).all():
-        meat_per_milk = meat_per_milk.groupby(['herd_prod_system', 'prod_system'], axis=1).mean()
+    if meat_per_milk.T.groupby(['herd_prod_system', 'prod_system']).transform(lambda x: abs(x-x.mean()) < 1e-6).T.all(axis=1).all():
+        meat_per_milk = meat_per_milk.T.groupby(['herd_prod_system', 'prod_system']).mean().T
     else:
         warnings.warn('meat/milk from dairy herds not equal across all sub_systems. median(meat/milk) is used but this is likely to induce more beef exports than strictly needed')
-        meat_per_milk = meat_per_milk.groupby(['herd_prod_system', 'prod_system'], axis=1).median()
+        meat_per_milk = meat_per_milk.T.groupby(['herd_prod_system', 'prod_system']).median().T
     
     # Check that meat/milk is equal across regions and take mean
     # otherwise take median and warn
@@ -148,9 +148,12 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
         )
         
         # Add induced beef exports to export demand
-        demand.export_demand = demand.export_demand.add(
-            induced_beef_exports,
-            fill_value = 0
+        demand.data_attr.update(
+            name = 'export_demand',
+            data = demand.data_attr.get('export_demand').add(
+                induced_beef_exports,
+                fill_value = 0
+            )
         )
         # Recalculate animal product demand and by-products
         demand.calculate_animal_product_demand()
