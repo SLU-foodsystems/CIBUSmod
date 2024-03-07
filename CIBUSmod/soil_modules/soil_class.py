@@ -27,6 +27,7 @@ import xarray as xr
 
 import CIBUSmod.soil_modules
 import CIBUSmod.soil_modules.soil_utils as soil_utils
+import CIBUSmod.soil_modules.statistics_utils as statistics_utils
 from CIBUSmod.soil_modules.soil_params import C_CONTENT_CROPS
 import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
 from CIBUSmod.soil_modules import soil_temp_path
@@ -132,7 +133,7 @@ class SoilData:
             print(">>> '_add_prefixes()' executed succesfully <<<")
             print(f"input_df.columns now: {self.input_df.columns}")
 
-    def _show_paths():
+    def _show_paths(self):
         print('The current paths are set in the soil module:')
         print('---------------------------------------------')
         print(f'    input_path:   {CIBUSmod.soil_modules.soil_input_path}')
@@ -1458,7 +1459,10 @@ class SoilDataExplore:
                                  standard_font: int = 15,
                                  save_as: bool = False,
                                  save_path: str = soil_export_path,
-                                 verbose: bool = False
+                                 verbose: bool = False,
+                                 mask_outlier: bool = False,
+                                 mask_subplots: list = None,
+                                 outlier_threshold: int = 3
                                  ) -> Tuple[pd.Series, pd.Series]:
         """
         Plots two side-by-side maps showing changes in soil organic carbon (SOC) stocks and cumulative CO2 emissions betweem specified initial and final years, allowing for visual comparison of changes over time within regions.
@@ -1476,6 +1480,9 @@ class SoilDataExplore:
         - standard_font: Base font size for plot text elements. Actual font size scales with figure width. Default is 15.
         - save_as: If True, specifies the filename to save the plot as SVG and PNG. Default is False.
         - save_path: Directory path where the plot will be saved if save_as is True. Uses 'soil_export_path' by default.
+        - mask_outlier: If True, masks the outliers detected with the z-method with the given threshold.
+        - mask_subplots: A list with the subplots for which the detected outliers should be masked. Options: 1-4 (defaults to None)
+        - outlier_threshold: The numeric value used to detect outliers using the z-method. Default is 3.
         - verbose: If True, prints additional information during plotting. Default is False.
 
         Returns:
@@ -1579,7 +1586,7 @@ class SoilDataExplore:
         area2_swe = area2.sum()
 
         absolute_area_change_swe = area2_swe - area1_swe
-        relative_area_change_swe = area2_swe / area1_swe
+        relative_area_change_swe = area2_swe / area1_swe - 1
 
         ## plotting
         # stock_change_series = stock_change_df.loc[:, 'SOC stock change'] * 100
@@ -1605,15 +1612,125 @@ class SoilDataExplore:
         kwargs4 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[3],
                    'legend_kwds': {'label': f'Change in percentage (%) of {system} agricultural land'}}
 
-        plot.maps.map_from_soilseries(axs[0, 0], stock_change_series, reg, font_size=font_size, verbose=verbose, **kwargs1)
-        plot.maps.map_from_soilseries(axs[0, 1], co2_emissions_series, reg, font_size=font_size, verbose=verbose, **kwargs2)
-        plot.maps.map_from_soilseries(axs[1, 0], area_change_series, reg, font_size=font_size, verbose=verbose, **kwargs3)
-        plot.maps.map_from_soilseries(axs[1, 1], area_change_perc_series, reg, font_size=font_size, verbose=verbose, **kwargs4)
+        # Test for outliers, using a z-test
+        test1_dict = self.outlier_detect(stock_change_series, version='box', z_threshold=outlier_threshold)
+        test2_dict = self.outlier_detect(co2_emissions_series, version='box', z_threshold=outlier_threshold)
+        test3_dict = self.outlier_detect(area_change_series, version='box', z_threshold=outlier_threshold)
+        test4_dict = self.outlier_detect(area_change_perc_series,
+                                         area_change_series,
+                                         version='scatter',
+                                         xlabel='%-area change',
+                                         ylabel='absolute area change',
+                                         z_threshold=outlier_threshold)
+        all_dicts = [test1_dict, test2_dict, test3_dict, test4_dict]
+        for i in all_dicts:
+            if i == test1_dict:
+                name = "stock_change_series"
+                output_name = "output['soc_stock_change_series']"
+                subplt = 1
+            elif i == test2_dict:
+                name = "co2_emissions_series"
+                output_name = "output['co2_emissions_series']"
+                subplt = 2
+            elif i == test3_dict:
+                name = "area_change_series"
+                output_name = "output['area_change_series']"
+                subplt = 3
+            elif i == test4_dict:
+                name = "area_change_perc_series"
+                output_name = "output['area_change_perc_series']"
+                subplt = 4
+            if i['num_outliers'] is not None and i['num_outliers']> 0:
+                if not hasattr(self, 'outliers'):
+                    setattr(self, 'outliers', {})
+                self.outliers[f'{name}_num_outliers'] = i['num_outliers']
+                self.outliers[f'{name}_outlier_index'] = i['outlier_index']
+                self.outliers[f'{name}_outlier_positions'] = i['outlier_positions']
+                self.outliers[f'{name}_dirty_series'] = i['dirty_series']
+                self.outliers[f'{name}_cleaned_series'] = i['cleaned_series']
+                print(f'WARNING:\n{i["num_outliers"]} potential outliers detected in the {name}.')
+                print(f'Run "{self.scenario}.outlier_report({output_name})" for more info.')
+                print('Or, if you want to test your luck directly:')
+                print(' re-run the plot-method with the "mask_outlier" parameter set to True,')
+                print('        (mask_outlier=True)')
+                print(f'and add the number of the subplot to the "mask_subplots" parameter list')
+                print(f'        (mask_subplots=[{subplt},])')
+            else:
+                print(f'No outliers detected in {name}.')
+        if mask_outlier:
+            print(f'The following subplots will be masked: {mask_subplots}')
+            unmasked_subplots = [i for i in [1, 2, 3, 4] if i not in mask_subplots]
+            mask_dicts = [all_dicts[i - 1] for i in mask_subplots]
+            unmasked_dicts = [all_dicts[i - 1] for i in unmasked_subplots]
+            mask_subplot_map = {'1': axs[0,0], '2': axs[0,1], '3': axs[1,0], '4': axs[1,1]}
+            masked_ax_list = [mask_subplot_map[str(i)] for i in mask_subplots]
+            unmasked_ax_list = [mask_subplot_map[str(i)] for i in unmasked_subplots]
+            kwarg_subplot_map = {'1': kwargs1, '2': kwargs2, '3': kwargs3, '4': kwargs4}
+            masked_kwarg_list = [kwarg_subplot_map[str(i)] for i in mask_subplots]
+            unmasked_kwarg_list = [kwarg_subplot_map[str(i)] for i in unmasked_subplots]
+            print('outliers will be masked')
+            for subplot_no in [1,2,3,4]:
+                if subplot_no in mask_subplots:
+                    print(f'The subplot {subplot_no} will be plotted masked')
+                    for n, i in enumerate(mask_dicts):
+                        mask = i['dirty_series'].index.isin(i['outlier_index'])
+                        i['masked_series'] = i['dirty_series']
+                        i['masked_series'].loc[mask] = np.nan
+                        current_kwarg = masked_kwarg_list[n]
+                        plot.maps.map_from_soilseries(masked_ax_list[n],
+                        i['masked_series'],
+                        reg,
+                        font_size = font_size,
+                        verbose = verbose,
+                        **current_kwarg)
+                else:
+                    print(f'The subplot {subplot_no} will be plotted UN-masked')
+                    for n, i in enumerate(unmasked_dicts):
+                        current_kwarg = unmasked_kwarg_list[n]
+                        plot.maps.map_from_soilseries(unmasked_ax_list[n],
+                        i['dirty_series'],
+                        reg,
+                        font_size = font_size,
+                        verbose = verbose,
+                        **current_kwarg)
+            self.current_plot_masked = True
+
+        else:
+            print('outliers will not be masked')
+            plot.maps.map_from_soilseries(axs[0, 0], stock_change_series, reg, font_size=font_size, verbose=verbose, **kwargs1)
+            plot.maps.map_from_soilseries(axs[0, 1], co2_emissions_series, reg, font_size=font_size, verbose=verbose, **kwargs2)
+            plot.maps.map_from_soilseries(axs[1, 0], area_change_series, reg, font_size=font_size, verbose=verbose, **kwargs3)
+            plot.maps.map_from_soilseries(axs[1, 1], area_change_perc_series, reg, font_size=font_size, verbose=verbose, **kwargs4)
+            self.current_plot_masked = False
         plt.tight_layout
         plt.show()
         if save_as:
+            if self.current_plot_masked:
+                save_as = f'{save_as}_(masked)'
             fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
             fig.savefig(f'{save_path}/{save_as}.png', format='png')
+
+        print('|--------------------------------------------------------|')
+        print('|            Some summarizing statistics                 |')
+        print('|                 for Sweden as a whole                  |')
+        print('|--------------------------------------------------------|')
+        print(f'TOTAL CO2-emissions due to agricultural SOC stock changes {initial_year}-{final_year}:')
+        print(f'        {round(absolute_CO2_emissions_swe.item())} kg of CO2')
+        print(f'            which is equal to:  {round(absolute_CO2_emissions_swe.item()/1000)} Mg of CO2')
+        print(f'                           or:  {round(absolute_CO2_emissions_swe.item()/1000000000)} Million Mg of CO2')
+        print(f'                           or:  {round(absolute_CO2_emissions_swe.item()/1000/(int(final_year)-int(initial_year)))} Mg of CO2 per year')
+        print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+        print(f'TOTAL relative (%) SOC stock change between {initial_year} and {final_year}:')
+        print(f'        {round(relative_soc_stock_change_swe.item() * 100)} % of SOC stocks in {initial_year}')
+        print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+        print(f'TOTAL absolute area change between {initial_year} and {final_year}:')
+        print(f'        {round(absolute_area_change_swe.item())} ha')
+        print(f'            which is equal to:  {round(absolute_area_change_swe.item() * 100 * 100)} m2')
+        print(f'                           or:  {round(absolute_area_change_swe.item() / 10 / 10)} km2')
+        print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+        print(f'TOTAL relative (%) area change between {initial_year} and {final_year}:')
+        print(f'        {round(relative_area_change_swe.item() * 100)}  % of agricultural land in {initial_year}')
+        print(f'_________________________________________________________')
 
         output_dict = {'soc_stock_change_series': stock_change_series,
                        'co2_emission_series': co2_emissions_series,
@@ -1842,20 +1959,22 @@ class SoilDataExplore:
         plot.maps.plot_regions(gdf_name=region_type)
 
 
-    def outlier_detect(self, x: pd.Series,
-                       y: pd.Series=None,
-                       type: str='box',
+    def outlier_detect(self,
+                       data1: pd.Series,
+                       data2: pd.Series=None,
+                       version: str='box',
                        xlabel='Unset label',
                        ylabel='Unset label',
-                       threshold=3):
+                       z_threshold=3,
+                       verbose: bool = False):
         '''
         Choose between a number of plots that can help detect the presence of outliers
 
         Parameters
         ----------
-        x:      Main dataseries to be used for plotting. Mandatory
-        y:      (optional) dataseries to be used for plotting in scatter plots
-        type:   (optional) The name of the plot type to be plotted. Available options are 'box', 'scatter', 'z'.
+        data1:      Main dataseries to be used for plotting. Mandatory
+        data2:      (optional) dataseries to be used for plotting in scatter plots
+        version:   (optional) The name of the plot type to be plotted. Available options are 'box', 'scatter', 'z'.
         xlabel: (optional) The label for the x-axis in scatterplots.
         ylabel: (optional) The label for the x-axis in scatterplots.
         threshold: (optional) The value used to detect outliers with the Z-method (default: 3)
@@ -1864,37 +1983,35 @@ class SoilDataExplore:
         -------
         None: Generates a plot of the choosen type in the notebook
         '''
-        if type == 'box':
-            # Create a boxplot
-            sns.boxplot(x=x)
-        elif type == 'scatter':
-            # Create a scatterplot
-            if y is not None:
-                fig, ax = plt.subplots(figsize=(16, 8))
-                ax.scatter(x, y, color='green')
-                ax.set_xlabel(xlabel)
-                ax.set_ylabel(ylabel)
-                plt.show()
-            else:
-                print("'A series is require for the 'y' coordinate when chosing type='scatter'")
-        elif type == 'z':
-            # Run a Z-test and a do a line plot
-            # Z-score outlier detection
-            threshold = threshold
-            z = np.abs(stats.zscore(x))
-            ar = np.where(z > threshold)[0]
-            print(ar)
-            for i in ar:
-                print(
-                    f'sko {z.index[i]} has a Z-score of {z.iloc[i]}')  # prints the sko no. and zscore of the identified outliers
-                print(f"It's nominal value is {x.iloc[i]}")
-            drop_map = z.index[ar]
-            new_set = x.drop(drop_map)
-            z_new = np.abs(stats.zscore(new_set))
-            print(f"For comparison, the summary statistics of the remaining dataset is:\n{new_set.describe()}\nand it's Z-scores are:\n {z_new}")
-            z.plot()
-        else:
-            print("The available options for type are 'box' and 'scatter")
+        outlier_dict = statistics_utils.detect_outliers(x=data1,
+                                                        y=data2,
+                                                        test=version,
+                                                        xlabel=xlabel,
+                                                        ylabel=ylabel,
+                                                        z_threshold=z_threshold,
+                                                        verbose=verbose)
+        return outlier_dict
+
+
+    def outlier_report(self, dataseries):
+        print(f'Report on outliers for {dataseries}:')
+        print('------------------------------------\n')
+        print(f'There were {self.outliers[f"{dataseries}_num_outliers"]} detected in {dataseries}.\n')
+        print('Their index name and position were:')
+        for i in list(zip(self.outliers[f"{dataseries}_outlier_index"], self.outliers[f"{dataseries}_outlier_positions"])):
+            print(i)
+        print('------------------------------------\n')
+        print(f'The list of index names can be retrieved with. {self.scenario}.outliers["{dataseries}_outlier_index"]')
+        print(f'The list of positions can be retrieved with. {self.scenario}.outliers["{dataseries}_outlier_positions"]')
+        print('-------------------------------------\n')
+        print('The dirty (original) and cleaned (outliers removed) series can be retrieved with:\n')
+        print(f'{self.scenario}.outliers["{dataseries}_dirty_series"]')
+        print(f'{self.scenario}.outliers["{dataseries}_cleaned_series"]')
+        print('-------------------------------------\n')
+        print('IMPORTANT: To create the plot without the outliers interfering with the colormap scale,')
+        print('           re-run the same method, but add and set the "mask_outlier" parameter to True (mask_outlier=True).')
+        print('           also add the number of the subplot to mask to the "mask_subplots" parameter list (e.g. mask_subplots=[1,4])')
+
 
 def xr_array_list_plotter(ax, data, min_year=None, max_year=None, plot_kwargs={}, label_kwargs={}):
     for n, item in enumerate(data):

@@ -1,4 +1,6 @@
 import os
+from typing import Union, Optional, Any
+
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -6,6 +8,8 @@ import geopandas as gpd
 
 # Supress shapely deprecation warnings due to problems with geopandas vs shapely
 import warnings
+
+from matplotlib import pyplot as plt
 from shapely.errors import ShapelyDeprecationWarning
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
@@ -93,28 +97,59 @@ def map_from_series(ser, reg='sko', cmap_zero_midpoint = False, **kwargs):
     to_plot.plot(**kwargs)
 
 
-def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, font_size=15, **kwargs):
-    '''
-    Plots values from a pandas Series or DataFrame on a geographic map specified by 'reg'.
+def map_from_soilseries(ax: matplotlib.axes.Axes,
+                        ser: Union[pd.Series, pd.DataFrame],
+                        min: Optional[float] = None,
+                        max: Optional[float] = None,
+                        reg: str = 'sko',
+                        verbose: bool = False,
+                        font_size: int = 15,
+                        **kwargs: Any
+                        ) -> matplotlib.axes.Axes:
+    """
+    Plots values from a pandas Series or DataFrame on a geographic map specified by the region ('reg') parameter. It leverages geopandas for mapping, allowing for customization through additional keyword arguments.
 
-    Alternative version of 'map_from_series'. Used in soil plotting functions
+    This function has been adapted to include a call to `clear_colorbars` to ensure that any duplicate colorbars generated in previous iterations are removed, providing cleaner, more accurate visualizations.
 
     Parameters
     ----------
-    ser : pandas.Series or pandas.DataFrame
-        Values to produce the map. If a Series, must have 'region' as index.
-        If a DataFrame, it must contain a 'region' column and a 'values' column.
-    reg : str
-        Specifies the geographic region for mapping ('sko', 'po8', 'kommun', 'län').
-    **kwargs
-        Additional arguments passed on to geopandas.GeoDataFrame.plot().
-    '''
+    ax : matplotlib.axes.Axes
+        The matplotlib Axes object where the map will be plotted.
+    ser : Union[pd.Series, pd.DataFrame]
+        The data to plot. If a Series, it must have 'region' as its index. If a DataFrame, it must contain 'region' and 'values' columns.
+    min : Optional[float], default=None
+        The minimum value for scaling the color map. If None, it's automatically determined.
+    max : Optional[float], default=None
+        The maximum value for scaling the color map. If None, it's automatically determined.
+    reg : str, default='sko'
+        Specifies the geographic region type for mapping. Supports 'sko', 'po8', 'kommun', 'län'.
+    verbose : bool, default=False
+        If True, prints additional information during the function execution.
+    font_size : int, default=15
+        Base font size for plot text elements. The actual font size scales with figure dimensions.
+    **kwargs : Any
+        Additional keyword arguments passed on to geopandas.GeoDataFrame.plot() for customizing the map appearance.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The Axes object with the map plotted.
+
+    Notes
+    -----
+    - The function automatically manages colorbars to prevent duplication across multiple calls.
+    - It's designed to integrate seamlessly with geospatial data processing and visualization workflows in Python.
+    """
     if verbose:
         print('---- map_from_soilseries ----')
         print(f'ser:\n{ser}\n type(ser) {type(ser)}')
         print(f'MAP[reg]:\n{MAP[reg]}\n type MAP[reg]: {type(MAP[reg])}')
 
+    # Remove duplicate colorbars that were dynamically generated in for loops
+    clear_colorbars(ax)
+
     to_plot = pd.concat([MAP[reg], ser], axis=1)
+    to_plot['values'] = np.ma.masked_invalid(to_plot['values'])
 
     if verbose:
         print(f'to_plot:\n{to_plot}\n type(to_plot) {type(to_plot)}')
@@ -134,6 +169,10 @@ def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, f
         label = kwargs.pop('label')
         if 'legend_kwds' not in kwargs:
             kwargs['legend_kwds'] = {'label': label}
+    if 'cmap' in kwargs:
+        colourmap = kwargs.pop('cmap')
+    else:
+        colourmap = 'RdBu'
 
     if kwargs.get('kind') is not None:
         for key in ['vmin', 'vmax', 'legend_kwds']:
@@ -153,6 +192,11 @@ def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, f
         if kwargs.get('kind') == 'box':
             ax.set(ylim=[min, max])
 
+    colmap = plt.get_cmap(colourmap)
+    colmap.set_bad('white', 1.0)
+
+    kwargs['cmap'] = colmap
+
     gdf = gpd.GeoDataFrame(to_plot, geometry='geometry')
     plot = gdf.plot(ax=ax, **kwargs)
 
@@ -165,6 +209,62 @@ def map_from_soilseries(ax, ser, min=None, max=None, reg='sko', verbose=False, f
         ax.set_title(title, fontsize=font_size)
 
     return(plot)
+
+
+def clear_colorbars(ax: matplotlib.axes.Axes) -> None:
+    """
+    Removes duplicate colorbar Axes from a matplotlib figure.
+
+    This function iterates over all Axes objects within the figure that contains the
+    specified Axes (`ax`). If an Axes object is identified as a colorbar (determined by
+    the presence of 'colorbar' in its label), the function checks if its label (specifically,
+    the ylabel, which is used here as an identifier for colorbars) has already been encountered.
+    If so, it is considered a duplicate and is removed from the figure. This helps prevent
+    clutter from duplicate colorbars when repeatedly plotting onto the same Axes or figure.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The Axes object from which the figure will be accessed to identify and remove
+        duplicate colorbar Axes. This is not necessarily a colorbar Axes itself but
+        belongs to the figure being cleaned.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> fig, ax = plt.subplots()
+    >>> # Plotting operations that may inadvertently create duplicate colorbars
+    >>> clear_colorbars(ax)
+    This will remove any duplicate colorbars associated with the figure containing 'ax'.
+
+    Note
+    ----
+    This function uses the ylabel of the colorbar Axes as the primary means to identify
+    duplicates. This approach assumes that duplicate colorbars will have the same ylabel,
+    which may not always be the case depending on the plotting logic used.
+    """
+    all_axes = ax.figure.axes
+    colorbar_labels = set()
+
+    for cbar_ax in all_axes:
+        if 'colorbar' in cbar_ax.get_label():
+            label = cbar_ax.get_ylabel()
+            if label in colorbar_labels:
+                cbar_ax.remove()
+            else:
+                colorbar_labels.add(label)
+
+def clear_colorbars_old(ax):
+    print(f'cbar is being removed from {ax}')
+    print(f'type(ax.figure.axes): {type(ax.figure.axes)}\n len(ax.figure.axes): {len(ax.figure.axes)}\n list(ax.figure.axes): {list(ax.figure.axes)}')
+    for cbar in ax.figure.axes:
+        print(f'type(cbar): {type(cbar)}')
+        print(f'cbar evaluates to {cbar}')
+        if isinstance(cbar, matplotlib.colorbar.Colorbar):
+            cbar.remove()
 
 def plot_regions(gdf_name='sko', **kwargs):
 
