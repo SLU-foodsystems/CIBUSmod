@@ -681,23 +681,24 @@ class GeoDistributor:
         sel_an = []
 
         for h in self.herds:
-            if h.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
-                # Get crop products with a regional feed demand
-                nsel_cp2 = (
-                    h.data_attr.get('feed.regional_crop_product_demand')
-                    .stack(['prod_system','crop_prod'])
-                    .reorder_levels(['crop_prod','prod_system','region'])
-                    .index
-                )
-
-                # Get regions where herd has a regional demand
-                # for a feed that can't be grown.
-                nsel_re = nsel_cp.intersection(nsel_cp2).get_level_values('region').unique()
-
-                # Get regions where herd CAN be present
-                sel_re = h.index.difference(nsel_re)
-            else:
-                sel_re = h.index
+            # Get crop products with a regional feed demand
+            nsel_cp2 = (
+                (h.data_attr.get('feed.crop_product_demand')
+                .xs('regional',axis=1)
+                .stack(['prod_system','crop_prod'], future_stack=True)
+                .sum(axis=1)
+                .reorder_levels(['crop_prod','prod_system','region'])
+                > 0)
+                .replace({False:np.nan}).dropna()
+                .index
+            )
+            
+            # Get regions where herd has a regional demand
+            # for a feed that can't be grown. 
+            nsel_re = nsel_cp.intersection(nsel_cp2).get_level_values('region').unique()
+            
+            # Get regions where herd CAN be present
+            sel_re = h.index.difference(nsel_re)
 
             # Add herds allowed to animal selection
             sp = h.species
@@ -1609,7 +1610,7 @@ class GeoDistributor:
             .data_attr.get('feed.crop_product_demand')
             .xs('domestic', level='origin', axis=1)
             .T.groupby(['species','breed','sub_system','prod_system','crop_prod']).sum().T
-            .stack(['prod_system','crop_prod'])
+            .stack(['prod_system','crop_prod'], future_stack=True)
             .reindex(prod.index)
             .fillna(0)
         )
@@ -1723,7 +1724,7 @@ class GeoDistributor:
                 'feed.max_supply_from_crop_group'
             )
             .T.groupby(['species','breed','sub_system','prod_system','crop_prod','crop_group']).sum().T
-            .stack(['prod_system','crop_prod','crop_group'])
+            .stack(['prod_system','crop_prod','crop_group'], future_stack=True)
             .fillna(0)
         ).reorder_levels(['crop_prod','crop_group','prod_system','region'])
         max_feed_from_crop.columns = max_feed_from_crop.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
@@ -1746,7 +1747,7 @@ class GeoDistributor:
                 )
                 .xs(('domestic', cp), level=('origin', 'crop_prod'), axis=1)
                 .T.groupby(['species','breed','sub_system','prod_system']).sum().T
-                .stack(['prod_system'])
+                .stack(['prod_system'], future_stack=True)
                 .fillna(0)
             ).reorder_levels(['prod_system','region'])
             cp_demand_per_herd.columns = cp_demand_per_herd.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
