@@ -1644,19 +1644,19 @@ class SoilDataExplore:
                                          z_threshold=outlier_threshold)
         all_dicts = [test1_dict, test2_dict, test3_dict, test4_dict]
         for i in all_dicts:
-            if i == test1_dict:
+            if i is test1_dict:
                 name = "stock_change_series"
                 output_name = "output['soc_stock_change_series']"
                 subplt = 1
-            elif i == test2_dict:
+            elif i is test2_dict:
                 name = "co2_emissions_series"
                 output_name = "output['co2_emissions_series']"
                 subplt = 2
-            elif i == test3_dict:
+            elif i is test3_dict:
                 name = "area_change_series"
                 output_name = "output['area_change_series']"
                 subplt = 3
-            elif i == test4_dict:
+            elif i is test4_dict:
                 name = "area_change_perc_series"
                 output_name = "output['area_change_perc_series']"
                 subplt = 4
