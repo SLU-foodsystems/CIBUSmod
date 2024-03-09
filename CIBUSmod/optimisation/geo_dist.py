@@ -685,7 +685,7 @@ class GeoDistributor:
             nsel_cp2 = (
                 (h.data_attr.get('feed.crop_product_demand')
                 .xs('regional',axis=1)
-                .stack(['prod_system','crop_prod'], future_stack=True)
+                .stack(['prod_system','crop_prod'])
                 .sum(axis=1)
                 .reorder_levels(['crop_prod','prod_system','region'])
                 > 0)
@@ -1610,7 +1610,7 @@ class GeoDistributor:
             .data_attr.get('feed.crop_product_demand')
             .xs('domestic', level='origin', axis=1)
             .T.groupby(['species','breed','sub_system','prod_system','crop_prod']).sum().T
-            .stack(['prod_system','crop_prod'], future_stack=True)
+            .stack(['prod_system','crop_prod'])
             .reindex(prod.index)
             .fillna(0)
         )
@@ -1724,7 +1724,7 @@ class GeoDistributor:
                 'feed.max_supply_from_crop_group'
             )
             .T.groupby(['species','breed','sub_system','prod_system','crop_prod','crop_group']).sum().T
-            .stack(['prod_system','crop_prod','crop_group'], future_stack=True)
+            .stack(['prod_system','crop_prod','crop_group'])
             .fillna(0)
         ).reorder_levels(['crop_prod','crop_group','prod_system','region'])
         max_feed_from_crop.columns = max_feed_from_crop.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
@@ -1747,7 +1747,7 @@ class GeoDistributor:
                 )
                 .xs(('domestic', cp), level=('origin', 'crop_prod'), axis=1)
                 .T.groupby(['species','breed','sub_system','prod_system']).sum().T
-                .stack(['prod_system'], future_stack=True)
+                .stack(['prod_system'])
                 .fillna(0)
             ).reorder_levels(['prod_system','region'])
             cp_demand_per_herd.columns = cp_demand_per_herd.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')

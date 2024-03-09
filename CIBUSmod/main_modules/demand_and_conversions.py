@@ -395,8 +395,8 @@ class DemandAndConversions(object):
         crop_by_products = multiply_aligned((CF_by_prod),crop_prod_demand)
 
         # Aggregate
-        crop_prod_demand = crop_prod_demand.stack('crop_prod', future_stack=True).groupby(['prod_system','crop_prod']).sum()
-        crop_by_products = crop_by_products.stack(['crop_prod','by_prod'], future_stack=True).groupby(['prod_system','crop_prod','by_prod']).sum()
+        crop_prod_demand = crop_prod_demand.stack('crop_prod').groupby(['prod_system','crop_prod']).sum()
+        crop_by_products = crop_by_products.stack(['crop_prod','by_prod']).groupby(['prod_system','crop_prod','by_prod']).sum()
 
         # Add data attributes
         self.data_attr.add(
@@ -457,8 +457,8 @@ class DemandAndConversions(object):
         animal_by_products = multiply_aligned((CF_by_prod),animal_prod_demand)
 
         # Aggregate
-        animal_prod_demand = animal_prod_demand.stack(['species','animal_prod'], future_stack=True).groupby(['prod_system','species','animal_prod']).sum()
-        animal_by_products = animal_by_products.stack(['species','animal_prod','by_prod'], future_stack=True).groupby(['prod_system','species','animal_prod','by_prod']).sum()
+        animal_prod_demand = animal_prod_demand.stack(['species','animal_prod']).groupby(['prod_system','species','animal_prod']).sum()
+        animal_by_products = animal_by_products.stack(['species','animal_prod','by_prod']).groupby(['prod_system','species','animal_prod','by_prod']).sum()
 
         # Handle dairy "cream balance". As consumption of high fat dairy products and associated demand for cream exceeds
         # the ammount of cream generated from consumption of low fat dairy products this induces an export of low fat

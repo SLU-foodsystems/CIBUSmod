@@ -1512,7 +1512,7 @@ def _level_names_to_integer_key(data, db_path, timeout):
                     # Fix problem with single-level MultiIndex stacking by
                     # converting to Index
                     data.columns = data.columns.get_level_values(0)
-                data = data.stack(data.columns.names, future_stack=True)
+                data = data.stack(data.columns.names)
             
         data = data.rename_axis(index = lvl_keys)
         data = data.dropna()
