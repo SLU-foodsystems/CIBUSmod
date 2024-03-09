@@ -907,7 +907,7 @@ class SoilData:
                                       fractions: List[str] = ['new', 'hist', 'tot'],
                                       sko: int = 111,
                                       system: str = 'conventional',
-                                      scenario: str = 'fai',
+                                      scenario: str = None,
                                       selection: str = '_ha'
                                       ) -> None:
         """
@@ -927,6 +927,7 @@ class SoilData:
         - selection: The area selection to be plotted, e.g. '_ha' or '_kgc'. Defaults to '_ha'.
         """
 
+        scenario = self.scenario.lower()
         mask = self.total_soc_inventory['fraction'].str.contains(selection)
         output = []
         for frac in fractions:
@@ -1212,7 +1213,7 @@ class SoilDataExplore:
                                       fractions: List[str] = ['new', 'hist', 'tot'],
                                       sko: int = 111,
                                       system: str = 'conventional',
-                                      scenario: str = 'fai',
+                                      scenario: str = None,
                                       selection: str = '_ha',
                                       plot_config:  dict[str, Any]={'label': ['New SOC', 'Historic SOC', 'Total SOC']},
                                       label_config: dict[str, Any]={'xlabel': 'Time [Year]',
@@ -1260,7 +1261,7 @@ class SoilDataExplore:
         and optionally saves the plot in SVG and PNG formats to the given path.
         """
 
-
+        scenario = self.scenario.lower()
         mask = self.total_soc_inventory['fraction'].str.contains(selection)
         fig, ax = plt.subplots()
         output = []
@@ -1271,7 +1272,7 @@ class SoilDataExplore:
         else:
             variant = ''
 
-        label_config['title'] = f'SOC time series per {variant}. \nRegion {sko}, System: {system}'
+        label_config['title'] = f'SOC time series per {variant}. \nRegion {sko}, System: {system}\n{self.name}'
         for frac in fractions:
             if frac == 'new':
                 new_soc = (
@@ -1298,8 +1299,8 @@ class SoilDataExplore:
 
         plt.show()
         if save_as:
-            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
-            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.png', format='png')
 
         return output
 
@@ -1307,7 +1308,7 @@ class SoilDataExplore:
     def plot_fraction_total_timeseries_comparison(self,
                                                   sko: int = 111,
                                                   system: str = 'conventional',
-                                                  scenario: str = 'fai',
+                                                  scenario: str = None,
                                                   selection: str = '_ha',
                                                   fraction: str = '_ha',
                                                   fraction_name: str = 'fraction',
@@ -1345,6 +1346,7 @@ class SoilDataExplore:
         This function generates a plot and optionally saves it, demonstrating the temporal change in total SOC inventory versus a selected SOC fraction for specific agricultural scenarios and systems.
         """
 
+        scenario = self.scenario.lower()
         mask1 = self.total_soc_inventory['fraction'].str.contains(selection)
 
         output = []
@@ -1373,7 +1375,7 @@ class SoilDataExplore:
         else:
             variant = ''
 
-        label_config['title'] = f'SOC time series per {variant}. \nRegion {sko}, System: {system}'
+        label_config['title'] = f'SOC time series per {variant}.\nRegion {sko}, System: {system}\n{self.name}'
         plot_config = {'label': ['Total', f'{fraction_name}']}
 
         xr_array_list_plotter(ax, [data for data in output], min_year=min_year, max_year=max_year, plot_kwargs=plot_config, label_kwargs=label_config)
@@ -1381,8 +1383,8 @@ class SoilDataExplore:
         plt.show()
 
         if save_as:
-            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
-            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.png', format='png')
 
         return output
 
@@ -1461,8 +1463,8 @@ class SoilDataExplore:
         plot.maps.map_from_soilseries(ax, stock_change_series, reg, font_size=font_size, cmap=colormap, **kwargs)
         plt.show()
         if save_as:
-            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
-            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.png', format='png')
         return stock_change_series
 
 
@@ -1562,11 +1564,11 @@ class SoilDataExplore:
         co2_emissions_series.name = 'values'
         # calculate the total area changed per region dataseries
         if system == 'all':
-            area1 = self.input_inventory.area_ha.sel({'input_year': initial_year}).sum(['scn', 'crop', 'input_year', 'prod_system'])
-            area2 = self.input_inventory.area_ha.sel({'input_year': final_year}).sum(['scn', 'crop', 'input_year', 'prod_system'])
+            area1 = self.input_inventory.area_ha.sel({'input_year': initial_year}).sum(['scn', 'crop', 'prod_system']).squeeze('input_year')
+            area2 = self.input_inventory.area_ha.sel({'input_year': final_year}).sum(['scn', 'crop', 'prod_system']).squeeze('input_year')
         else:
-            area1 = self.input_inventory.area_ha.sel({'input_year': initial_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
-            area2 = self.input_inventory.area_ha.sel({'input_year': final_year, 'prod_system': system}).sum(['scn', 'crop', 'input_year'])
+            area1 = self.input_inventory.area_ha.sel({'input_year': initial_year, 'prod_system': system}).sum(['scn', 'crop']).squeeze('input_year')
+            area2 = self.input_inventory.area_ha.sel({'input_year': final_year, 'prod_system': system}).sum(['scn', 'crop']).squeeze('input_year')
         area_change = area2-area1
         area_change_series  = pd.Series(area_change, index=area_change.region.data.astype(str))
         area_change_series.index.name = 'region'
@@ -1623,13 +1625,13 @@ class SoilDataExplore:
             if colormaps[3] != '':
                 colormap[3] = colormaps[3]
 
-        kwargs1 = {'title': f'SOC stock changes {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[0],
+        kwargs1 = {'title': f'SOC stock changes {initial_year}-{final_year}\n{system} agriculture\n{self.name}', 'cmap': colormap[0],
                    'legend_kwds':{'label': 'Percentage change in SOC stocks, top soil (%)'}}
-        kwargs2 = {'title': f'CO2-emissions {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[1],
+        kwargs2 = {'title': f'CO2-emissions {initial_year}-{final_year}\n{system} agriculture\n{self.name}', 'cmap': colormap[1],
                    'legend_kwds':{'label': 'Cumulative CO2 emissions, top soil [kg]'}}
-        kwargs3 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[2],
+        kwargs3 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture\n{self.name}', 'cmap': colormap[2],
                    'legend_kwds': {'label': f'Change in hectares (ha) of {system} agricultural land'}}
-        kwargs4 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture', 'cmap': colormap[3],
+        kwargs4 = {'title': f'Agricultural land use change {initial_year}-{final_year}\n{system} agriculture\n{self.name}', 'cmap': colormap[3],
                    'legend_kwds': {'label': f'Change in percentage (%) of {system} agricultural land'}}
 
         # Test for outliers, using a z-test
@@ -1726,9 +1728,9 @@ class SoilDataExplore:
         plt.show()
         if save_as:
             if self.current_plot_masked:
-                save_as = f'{save_as}_(masked)'
-            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
-            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+                save_as = f'{save_as}_{self.scenario}_(masked)'
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.png', format='png')
 
         print('|--------------------------------------------------------|')
         print('|            Some summarizing statistics                 |')
@@ -1866,22 +1868,22 @@ class SoilDataExplore:
 
             fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(width, height*2))
 
-            kwargs1 = {'title': f'SOC stocks in {initial_year} - conventional\n(selection: {vers})',
+            kwargs1 = {'title': f'SOC stocks in {initial_year} - conventional\n(selection: {vers})\n{self.name}',
                        'cmap': colormap,
                        'vmin': cbar_min,
                        'vmax': cbar_max,
                        'legend_kwds': {'label': 'SOC stocks [kg]'}}
-            kwargs2 = {'title': f'SOC stocks in {final_year} - conventional\n(selection: {vers})',
+            kwargs2 = {'title': f'SOC stocks in {final_year} - conventional\n(selection: {vers}\n{self.name})',
                        'cmap': colormap,
                        'vmin': cbar_min,
                        'vmax': cbar_max,
                        'legend_kwds': {'label': 'SOC stocks [kg]'}}
-            kwargs3 = {'title': f'SOC stocks in {initial_year} - organic\n(selection: {vers})',
+            kwargs3 = {'title': f'SOC stocks in {initial_year} - organic\n(selection: {vers})\n{self.name}',
                        'cmap': colormap,
                        'vmin': cbar_min,
                        'vmax': cbar_max,
                        'legend_kwds': {'label': 'SOC stocks [kg]'}}
-            kwargs4 = {'title': f'SOC stocks in {final_year} - organic\n(selection: {vers})',
+            kwargs4 = {'title': f'SOC stocks in {final_year} - organic\n(selection: {vers})\n{self.name}',
                        'cmap': colormap,
                        'vmin': cbar_min,
                        'vmax': cbar_max,
@@ -1935,12 +1937,12 @@ class SoilDataExplore:
 
             fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(width, height))
 
-            kwargs1 = {'title': f'SOC stocks in {initial_year}\n(selection: {vers})',
+            kwargs1 = {'title': f'SOC stocks in {initial_year}\n(selection: {vers}\n{self.name})',
                        'cmap': colormap,
                        'vmin': cbar_min,
                        'vmax': cbar_max,
                        'legend_kwds':{'label': 'SOC stocks [kg]'}}
-            kwargs2 = {'title': f'SOC stocks in {final_year}\n(selection: {vers})',
+            kwargs2 = {'title': f'SOC stocks in {final_year}\n(selection: {vers}\n{self.name})',
                        'cmap': colormap,
                        'vmin': cbar_min,
                        'vmax': cbar_max,
@@ -1959,8 +1961,8 @@ class SoilDataExplore:
             plt.tight_layout
             plt.show()
         if save_as:
-            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
-            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.png', format='png')
 
     def plot_soc_map(self,
                      reg: str = 'sko',
@@ -1974,27 +1976,27 @@ class SoilDataExplore:
                      standard_font: int = 15,
                      save_as: Optional[str] = None,
                      save_path: str = soil_export_path,
-                     title: str = 'Random title for beautiful plot',
+                     title: str = '{self.name}',
                      **kwargs: Dict[str, Any]) -> pd.Series:
 
         mask = self.total_soc_inventory['fraction'].str.contains('_kgc')
 
         if system == 'all':  # Calculate total values (conventional + organic)
             initial_reg = (self.total_soc_inventory.tot_soc.
-                           sel({'output_year': initial_year, 'scn': 'fai'}).
+                           sel({'output_year': initial_year, 'scn': self.scenario.lower()}).
                            where(mask, drop=True).
                            sum(['fraction', 'input_year', 'output_year', 'prod_system']))
             areas_initial = (self.input_inventory.area_ha.
-                             sel({'input_year': initial_year, 'scn': 'fai'}).
+                             sel({'input_year': initial_year, 'scn': self.scenario.lower()}).
                              sum(['crop', 'prod_system', 'input_year']))
             initial_ha = initial_reg / areas_initial
 
             final_reg = (self.total_soc_inventory.tot_soc.
-                         sel({'output_year': final_year, 'scn': 'fai'}).
+                         sel({'output_year': final_year, 'scn': self.scenario.lower()}).
                          where(mask, drop=True).
                          sum(['fraction', 'input_year', 'output_year', 'prod_system']))
             areas_final = (self.input_inventory.area_ha.
-                           sel({'input_year': final_year, 'scn': 'fai'}).
+                           sel({'input_year': final_year, 'scn': self.scenario.lower()}).
                            sum(['crop', 'prod_system', 'input_year']))
             final_ha = final_reg / areas_final
             total_change_reg = final_reg - initial_reg
@@ -2003,19 +2005,19 @@ class SoilDataExplore:
             percentage_change_ha = (total_change_ha / initial_ha) * 100
         else:  # Calculate values per agricultural system (conventional or organic)
             initial_reg = (self.total_soc_inventory.tot_soc.
-                           sel({'output_year': initial_year, 'prod_system': system, 'scn': 'fai'}).
+                           sel({'output_year': initial_year, 'prod_system': system, 'scn': self.scenario.lower()}).
                            where(mask, drop=True).
                            sum(['fraction', 'input_year', 'output_year']))
             areas_initial = (self.input_inventory.area_ha.
-                             sel({'input_year': initial_year, 'prod_system': system, 'scn': 'fai'}).
+                             sel({'input_year': initial_year, 'prod_system': system, 'scn': self.scenario.lower()}).
                              sum(['crop', 'input_year']))
             initial_ha = initial_reg / areas_initial
             final_reg = (self.total_soc_inventory.tot_soc.
-                         sel({'output_year': final_year, 'prod_system': system, 'scn': 'fai'}).
+                         sel({'output_year': final_year, 'prod_system': system, 'scn': self.scenario.lower()}).
                          where(mask, drop=True).
                          sum(['fraction', 'input_year', 'output_year']))
             areas_final = (self.input_inventory.area_ha.
-                           sel({'input_year': final_year, 'prod_system': system, 'scn': 'fai'}).
+                           sel({'input_year': final_year, 'prod_system': system, 'scn': self.scenario.lower()}).
                            sum(['crop', 'input_year']))
             final_ha = final_reg / areas_final
             total_change_reg = final_reg - initial_reg
@@ -2060,8 +2062,8 @@ class SoilDataExplore:
 
         # Save figure
         if save_as:
-            fig.savefig(f'{save_path}/{save_as}.svg', format='svg')
-            fig.savefig(f'{save_path}/{save_as}.png', format='png')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{self.scenario}.png', format='png')
 
         return output
 
