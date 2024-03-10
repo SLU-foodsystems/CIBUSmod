@@ -31,6 +31,7 @@ from CIBUSmod.soil_modules.soil_params import C_CONTENT_CROPS
 import CIBUSmod.soil_modules.icbm_funcs as icbm_funcs
 from CIBUSmod.soil_modules import soil_temp_path
 from CIBUSmod.soil_modules import soil_export_path
+from CIBUSmod.temp_calc import temp_utils
 
 from CIBUSmod.utils import plot
 
@@ -2137,6 +2138,289 @@ class SoilDataExplore:
         print('           re-run the same method, but add and set the "mask_outlier" parameter to True (mask_outlier=True).')
         print('           also add the number of the subplot to mask to the "mask_subplots" parameter list (e.g. mask_subplots=[1,4])')
 
+
+class ScenarioTempCalc():
+    def __init__(self, *datasets):
+        self.datasets = []
+        self.scenarios = []
+        self.timeseries_dataset = None
+        self.timeseries_Sweden = None
+        self.timeseries_regions = None
+        self.timeseries_Sweden_prod_system = None
+        self.timeseries_regions_prod_system = None
+        for dataset in datasets:
+            self.add_dataset(dataset)
+        self.select_and_merge(self.datasets)
+        self.create_ts_prodsys_reg()
+        self.add_temp_response()
+        self.create_agregated_datasets()
+
+    def add_dataset(self, dataset):
+        if isinstance(dataset, xr.Dataset):
+            self.datasets.append(dataset)
+            self.scenarios.append(dataset.coords["scn"].values[0])
+        elif isinstance(dataset, str) and os.path.isfile(dataset):
+            self.datasets.append(self.read_netcdf(dataset))
+            self.scenarios.append(dataset)
+        else:
+            raise ValueError("Unsupported dataset format")
+
+    def read_netcdf(self, filepath):
+        """Read a netcdf file and convert it onto a dataset"""
+        try:
+            return xr.open_dataset(filepath)
+        except Exception as e:
+            raise IOError(f"Could not read {filepath}: {e}")
+
+    def select_and_merge(self, datasets):
+        cropped_datasets = []
+        for ds in datasets:
+            cropped_vars_ds = ds[['co2_flux', 'tot_soc']]
+            cropped_datasets.append(cropped_vars_ds)
+
+        self.timeseries_dataset = xr.merge(cropped_datasets)
+
+    def create_ts_prodsys_reg(self):
+        self.timeseries_regions_prod_system = self.timeseries_dataset.sum(['input_year', 'fraction'])
+
+    def create_agregated_datasets(self):
+        # Total - Sweden
+        self.timeseries_Sweden = self.timeseries_regions_prod_system.sum(['prod_system', 'region'])
+        self.timeseries_Sweden_prod_system = self.timeseries_regions_prod_system.sum(['region'])
+        # Total - regions
+        self.timeseries_regions = self.timeseries_regions_prod_system.sum(['prod_system'])
+
+    def add_temp_response(self):
+       self.timeseries_regions_prod_system = temp_utils.add_temp_response(self.timeseries_regions_prod_system)
+
+    # End of init methods
+
+    def check_attributes_status(self, access: str='public') -> tuple[str, dict[str, tuple[type, bool]]]:
+        """
+        Checks the status of all attributes in the given class instance.
+
+        Parameters:
+        -----------
+        - access: Selects whether to show 'public' or 'private' attributes. (default: 'public')
+
+        Returns:
+        --------
+        A dictionary where keys are attribute names and values are tuples containing
+        the current type of the attribute and a boolean indicating if it is set (not None).
+        """
+        attrs_status = {}
+        for attribute in dir(self):
+            # Filter based on access level
+            if access == 'public' and attribute.startswith('_'):
+                continue
+            elif access == 'private' and not attribute.startswith('_'):
+                continue
+            attr_value = getattr(self, attribute)
+            # Skip methods and magic methods
+            if inspect.ismethod(attr_value) or attribute.startswith('__'):
+                continue
+            # Check if the attribute is set (not None)
+            is_set = attr_value is not None
+            attrs_status[attribute] = (type(attr_value).__name__, is_set)
+        return f"The following attributes are set for {access} variables", attrs_status
+
+
+    # Methods to print status messages
+    def print_public_parameter_status(self):
+        """
+        Prints the current status of public attributes for the instance, specifically for the scenario set.
+
+        This method retrieves the public attributes of the instance as determined by the scenario configuration. It formats
+        the attribute names and their values neatly for display. The method is useful for debugging and verification purposes,
+        allowing users to quickly check the initialization and current state of private attributes.
+
+        Attributes are obtained by calling `check_attributes_status` with 'private' as the argument, which should return a
+        dictionary of private attribute names and their current values.
+
+        No parameters are required for this method.
+
+        Returns:
+        --------
+           None. This method prints the status of private attributes directly to the console.
+        """
+        col1_length = len(max(self.check_attributes_status('public')[1].keys())) + 2
+        attribute = ' \n'.join([f"{key}: {' ' * (col1_length - len(key))}{value}" for key, value in
+                                self.check_attributes_status('public')[1].items()])
+        print(f"The following public attributes have been set for {self.scenario}:\n{attribute}")
+
+
+    def print_private_parameter_status(self):
+        """
+        Prints the current status of private attributes for the instance, specifically for the scenario set.
+
+        This method retrieves the private attributes of the instance as determined by the scenario configuration. It formats
+        the attribute names and their values neatly for display. The method is useful for debugging and verification purposes,
+        allowing users to quickly check the initialization and current state of private attributes.
+
+        Attributes are obtained by calling `check_attributes_status` with 'private' as the argument, which should return a
+        dictionary of private attribute names and their current values.
+
+        No parameters are required for this method.
+
+        Returns:
+        --------
+           None. This method prints the status of private attributes directly to the console.
+        """
+        col1_length = len(max(self.check_attributes_status('private')[1].keys())) + 2
+        attribute = ' \n'.join([f"{key}: {' ' * (col1_length - len(key))}{value}" for key, value in
+                                self.check_attributes_status('private')[1].items()])
+        print(f"The following private attributes have been set for {self.scenario}:\n{attribute}")
+
+
+    def _print_loaded_items(self, items, item_type):
+        """
+        Helper method to print loaded items.
+
+        Parameters:
+        - items: list - A list of loaded item names.
+        - item_type: str - A description of the item type ('dataset' or 'dataframe').
+        """
+        newline = '\n '
+        if items:
+            print(f"The following {item_type} variables have been set:{newline}{newline.join(items)}")
+        else:
+            print(f"No {item_type} variables have been loaded.")
+
+
+    def save_inventory(self, dataset=None):
+        """
+        Saves the specified inventory dataset(s) to NetCDF and CSV files.
+
+        This method supports saving individual datasets, a list of datasets, or all predefined datasets if none specified.
+        It saves xarray Datasets to NetCDF files, using a naming convention based on the dataset name.
+
+        Parameters:
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be saved.
+                                          If None, all datasets will be saved.
+        """
+        # Default dataset names if none are specified
+        if dataset is None:
+            dataset = ["timeseries_Sweden", "timeseries_regions", "timeseries_Sweden_prod_system", "timeseries_regions_prod_system"]
+            print(f'Dataset set to {dataset}')
+
+        # Recursively save each dataset if a list is provided
+        if isinstance(dataset, list):
+            for ds in dataset:
+                self.save_inventory(ds)
+            return
+
+        # Save individual dataset
+        self._save_dataset(dataset)
+
+    def _save_dataset(self, dataset_name, temp_path=soil_temp_path):
+        """
+        Helper method to save an individual dataset to the appropriate file format.
+
+        Parameters:
+        - dataset_name: str - The name of the dataset to save.
+        """
+        print('---Saving datasets---')
+        scn_ds_name = f'{dataset_name}'
+        dataset_attr = f'{dataset_name}'
+
+        # Save xarray Dataset to NetCDF
+        if hasattr(self, dataset_attr) and isinstance(getattr(self, dataset_attr), xr.Dataset):
+            getattr(self, dataset_attr).to_netcdf(f"{temp_path}/{scn_ds_name}.nc")
+            print(f"{dataset_attr} saved as {scn_ds_name}.nc in {temp_path}")
+        print('+++Datsets saved+++')
+
+
+    def load_inventory(self, dataset=None, temp_path=soil_temp_path):
+        """
+        Loads inventory data based on specified dataset names.
+
+        This method supports loading single datasets, a list of datasets, or all datasets if none specified.
+
+        Parameters:
+        - dataset: Optional[str, list] - Name(s) of the dataset(s) to be loaded ('inputs', 'soc', 'historic', 'total_soc').
+                                          If None, all datasets will be loaded.
+        """
+        print('---Loading datasets---')
+        ds_loaded = []  # Tracks loaded xarray datasets
+        # Load specific datasets or all if none specified
+        if dataset is None:
+            dataset = ["timeseries_Sweden", "timeseries_regions", "timeseries_Sweden_prod_system", "timeseries_regions_prod_system"]
+            for ds in dataset:
+                self.load_inventory(ds)
+        elif isinstance(dataset, list):  # Recursively load each dataset in list
+            for ds in dataset:
+                self.load_inventory(ds)
+        else:  # Load individual dataset
+            if dataset ==  "timeseries_Sweden":
+                self.timeseries_Sweden = xr.load_dataset(f"{temp_path}/{dataset}.nc")
+                ds_loaded.append(f'{dataset}')
+            if dataset == "timeseries_regions":
+                self.timeseries_regions = xr.load_dataset(f"{temp_path}/{dataset}.nc")
+                ds_loaded.append(f'{dataset}')
+            if dataset == "timeseries_Sweden_prod_system":
+                self.timeseries_Sweden_prod_system = xr.load_dataset(f"{temp_path}/{dataset}.nc")
+                ds_loaded.append(f'{dataset}')
+            if dataset == "timeseries_regions_prod_system":
+                self.timeseries_Sweden_prod_system = xr.load_dataset(f"{temp_path}/{dataset}.nc")
+                ds_loaded.append(f'{dataset}')
+        # Print loaded datasets and dataframes
+        self._print_loaded_items(ds_loaded, 'dataset')
+        print("+++Datasets loaded+++")
+
+    def save_instance_state(self, name, temp_path=soil_temp_path):
+        print('---Saving current instance state---')
+        with open(f'{temp_path}/{name}.pickle', 'wb') as file:
+            pickle.dump(self, file)
+        print(f'+++Saved instance variable states to {temp_path}/{name}.pickle+++')
+
+    @classmethod
+    def load_instance_state(cls: Type[T], name: str, temp_path=soil_temp_path) -> T:
+        print('---Loading saved instance state---')
+        with open(f'{temp_path}/{name}.pickle', 'rb') as file:
+            instance = pickle.load(file)
+        print('+++Instance state loaded+++')
+        return instance
+
+
+    ### Plotting methods ###
+
+    def plot_series_Sweden(self,
+                           dataset,
+                           type='temp',
+                           yr_range=None,
+                           save_as: Optional[str] = None,
+                           save_path: str = soil_export_path
+                           ):
+        fig, ax = plt.subplots()
+        if type == 'co2':
+            for i in dataset.co2_flux:
+                i.plot(ax=ax, label="Annual CO2 flux [kg CO2]")
+        if type == 'soc':
+            for i in dataset.tot_soc:
+                i.plot(ax=ax, label="Total SOC stock level [kg]")
+        if type == 'temp':
+            if yr_range:
+                try:
+                    yr_range = [pd.to_datetime(str(yr_range[0])), pd.to_datetime(str(yr_range[1]))]
+                except:
+                    raise ValueError(
+                        'the "y_range" parameter has to be a list of two values, in int, str or pd.Datetime')
+                dataset_mod = dataset.sel(output_year=slice(yr_range[0], yr_range[1]))
+            else:
+                dataset_mod = dataset
+            for i in dataset_mod.scn.values:
+                scn_data = dataset_mod.sel(scn=i).sum('output_year')
+                scn_data.temp_response.plot(ax=ax, label=f"Scenario {i}")
+        ax.legend()
+        ax.set_title(f'total {type} in all scenarios')
+        plt.show()
+        if save_as:
+            fig.savefig(f'{save_path}/{save_as}_{type}.svg', format='svg')
+            fig.savefig(f'{save_path}/{save_as}_{type}.png', format='png')
+
+
+
+#    xr_utils.add_temp_response(scn_ha_soc_all)
 
 def xr_array_list_plotter(ax, data, min_year=None, max_year=None, plot_kwargs={}, label_kwargs={}):
     # Ensure the input years are in correct datetime format
