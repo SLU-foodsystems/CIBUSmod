@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 import json
+from datetime import datetime, date
 import sqlite3
 import warnings
 from contextlib import closing
@@ -236,8 +237,18 @@ Active: {'Yes' if self.active_session == self else 'No'}
 
         for _,scn in scns.iterrows():
             run = runs.loc[runs['scn_id']==scn['scn_id'], :].sort_values('year')
+            calc_dates = []
+            for calc in run['calculated']:
+                try:
+                    calc_dates += [_parse_datetime_str(str(calc)).strftime('%Y-%m-%d %H:%M:%S')]
+                except:
+                    pass
+            if len(calc_dates)>0:
+                last_calc = f" Last calculated: {max(calc_dates)}"
+            else:
+                last_calc = ""
 
-            str1 += f"""{scn['name']}: {', '.join([str(y) if c == 0 else '['+str(y)+']' for y,c in zip(run['year'], run['calculated'])])}
+            str1 += f"""{scn['name']}: {', '.join([str(y) if c == 0 else '['+str(y)+']' for y,c in zip(run['year'], run['calculated'])])}{last_calc}
 """
             
         str2 = '''OUTPUT DATA
@@ -312,7 +323,7 @@ f'''{module}
             """
         elif subset == 'has output':
             qry += """
-                WHERE calculated == 1
+                WHERE calculated != 0
             """
 
         qry += """
@@ -336,7 +347,7 @@ f'''{module}
         
         Parameters
         ----------
-        subset : 'all', 'no output' (default) or (list of) scenario name(s)
+        subset : 'all', 'no output' (default), date/time string or (list of) scenario name(s)
             If 'all', all scenarios are iterated over
             If 'no output', only scenarios without outputs are iterated over
             If (list of) scenario name(s) are provided those scenarios are iterated over
@@ -367,16 +378,25 @@ f'''{module}
             """
         elif subset != 'all':
             if isinstance(subset, str):
-                subset = [subset]
-            if len(subset)>1:
+                try:
+                    # Try to parse as date/time string
+                    cutoff_date = _parse_datetime_str(subset)
+                    qry += f"""
+                        WHERE datetime(calculated) < datetime("{cutoff_date}")
+                    """
+                except ValueError:
+                    # If that fails see if it's a scenario name
+                    if subset in self.scenarios():
+                        qry += f"""
+                            WHERE name == "{subset}"
+                        """
+                    else:
+                        raise ValueError('subset string not recognized as date/time nor a scenario name')
+            else:
                 qry += f"""
                     WHERE name IN {tuple(subset)}
                 """
-            else:
-                qry += f"""
-                    WHERE name == "{subset[0]}"
-                """
-
+                
         qry += """
             ORDER BY r.scn_id, year
         """
@@ -846,11 +866,13 @@ f'''{module}
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
             cur.execute(f"""
                 UPDATE runs
-                    SET calculated = 1
+                    SET calculated = ?
                 WHERE run_id = ?
-            """, (run_id,))
+            """, (timestamp, run_id))
 
         self.cashe.clear()
         
@@ -1479,3 +1501,22 @@ def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
         raise TypeError(f"Data attribute '{attr}' not a pandas.Series, pandas.DataFrame or numpy.float")
 
     return data
+
+def _parse_datetime_str(str):
+    formats = [
+        '%Y-%m-%d',
+        '%Y-%m-%d %H:%M',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M:%S.%f'
+    ]
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(str, fmt)
+        except ValueError:
+            try:
+                today_date = date.today()
+                return datetime.strptime(f"{today_date} {str}", fmt)
+            except ValueError:
+                pass
+    raise ValueError('Unrecognized datetime format')
