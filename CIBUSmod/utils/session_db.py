@@ -21,9 +21,18 @@ class Session(object):
         Session name
     data_path : str
         Path to data folder
+    data_path_default : str (default None)
+        Path to default data. If None 'data_path/default' is used
+    data_path_scenarios : str (default None)
+        Path to scenario data. If None 'data_path/scenarios' is used
+    data_path_output : str (default None)
+        Path to output data. If None 'data_path/output' is used
     timeout : float (default 5)
         How many seconds to wait for a locked table when
         trying to write to the database file
+    max_cashe : int (default 200)
+        Number of database query results stored in cashe for faster re-access
+        Set to 0 to disable cashe
 
     When a new Session object is initialised it checks if the file '<data_path>/output/<name>.sqlite' exists
     and if so connects to that database and any scenario definitions and output data within it.
@@ -54,7 +63,8 @@ class Session(object):
             data_path_default = None,
             data_path_scenarios = None,
             data_path_output = None,
-            timeout = 5
+            timeout = 5,
+            max_cashe = 200
         ):
         
         self.name = name
@@ -84,7 +94,7 @@ class Session(object):
             os.mkdir(self.data_path_output)
 
         # Dict that stores tables retrieved from database for faster access
-        self.cashe = CasheDict(max_size=500) 
+        self.cashe = CasheDict(max_size=max_cashe) 
 
         # Create main tables if they do not exist
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -1322,14 +1332,16 @@ class CasheDict(dict):
         super(CasheDict, self).__init__(*args, **kwargs)
         
     def __setitem__(self, key, val):
-        if key not in self:
-            max_size = self.max_size-1  # so the dict is sized properly after adding a key
-            self._prune_dict(max_size)
-        super(CasheDict, self).__setitem__(key, val)
+        if self.max_size > 0:
+            if key not in self:
+                max_size = self.max_size-1  # so the dict is sized properly after adding a key
+                self._prune_dict(max_size)
+            super(CasheDict, self).__setitem__(key, val)
         
     def update(self, **kwargs):
-        super(CasheDict, self).update(**kwargs)
-        self._prune_dict(self.max_size)
+        if self.max_size > 0:
+            super(CasheDict, self).update(**kwargs)
+            self._prune_dict(self.max_size)
 
     def _prune_dict(self, max_size):
         if len(self) >= max_size:
