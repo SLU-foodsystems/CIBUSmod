@@ -281,6 +281,10 @@ f'''{module}
                 raise KeyError(f"No scenario named '{scn}'")   
 
             scn_def = json.loads(res.fetchone()[0])
+
+            # For compatibility with older database files
+            if 'scenario' in scn_def:
+                scn_def['scenario_workbooks'] = scn_def.pop('scenario')
         
         return scn_def
     
@@ -412,7 +416,7 @@ f'''{module}
             year = row[1]
             yield (scn, str(year))
 
-    def add_scenario(self, name, years, scenario=None, modules='all', pars='all'):
+    def add_scenario(self, name, years, scenario_workbooks=None, modules='all', pars='all'):
         '''Adds a scenario to the Session object
 
         Parameters
@@ -421,10 +425,10 @@ f'''{module}
             Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
         years : (list of) int or str
             Years to be run
-        scenario : None or (list of) str with scenario Excel sheet name(s), optional
-            Name of scenaro Excel sheet(s) to use. If None default data are used
-            If a list is supplied data is uppdated based on all scenario Excel sheets but if
-            the same parameter is updated in several Excel sheets only the latest one in the
+        scenario_workbooks : None or (list of) str, optional
+            Name of scenaro Excel workbook(s) to use. If None default data are used
+            If a list is supplied data is uppdated based on all scenario workbooks but if
+            the same parameter is updated in several workbooks only the latest one in the
             list will have an effect.
         modules : 'all' or (list of) str with module names, optional
             Modules to be updated. If 'all', all modules will be updated otherwise only the
@@ -450,7 +454,7 @@ f'''{module}
 
         # Crate scenario definition dict
         scn_def = {
-            'scenario' : scenario,
+            'scenario_workbooks' : scenario_workbooks,
             'modules' : modules,
             'pars' : pars,
         }
@@ -538,7 +542,7 @@ f'''{module}
             """, (scn_id,))
             res = res.fetchall()
             old_years = [r[0] for r in res]
-            old_years_w_data = [r[0] for r in res if r[1] == 1]
+            old_years_w_data = [r[0] for r in res if r[1] != 0]
 
             new_def = old_def.copy()
 
@@ -1241,7 +1245,7 @@ f'''{module}
                         FROM
                             runs AS r
                         LEFT JOIN scenarios AS s ON r.scn_id = s.scn_id
-                        {qry_where + ("WHERE" if qry_where == "" else " AND")} r.calculated = 1
+                        {qry_where + ("WHERE" if qry_where == "" else " AND")} r.calculated != 0
                         ORDER BY
                             s.scn_id, year
                     """
