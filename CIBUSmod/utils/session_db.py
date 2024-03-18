@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 import json
+from datetime import datetime, date
 import sqlite3
 import warnings
 from contextlib import closing
@@ -21,9 +22,18 @@ class Session(object):
         Session name
     data_path : str
         Path to data folder
+    data_path_default : str (default None)
+        Path to default data. If None 'data_path/default' is used
+    data_path_scenarios : str (default None)
+        Path to scenario data. If None 'data_path/scenarios' is used
+    data_path_output : str (default None)
+        Path to output data. If None 'data_path/output' is used
     timeout : float (default 5)
         How many seconds to wait for a locked table when
         trying to write to the database file
+    max_cashe : int (default 200)
+        Number of database query results stored in cashe for faster re-access
+        Set to 0 to disable cashe
 
     When a new Session object is initialised it checks if the file '<data_path>/output/<name>.sqlite' exists
     and if so connects to that database and any scenario definitions and output data within it.
@@ -54,7 +64,8 @@ class Session(object):
             data_path_default = None,
             data_path_scenarios = None,
             data_path_output = None,
-            timeout = 5
+            timeout = 5,
+            max_cashe = 200
         ):
         
         self.name = name
@@ -84,7 +95,7 @@ class Session(object):
             os.mkdir(self.data_path_output)
 
         # Dict that stores tables retrieved from database for faster access
-        self.cashe = CasheDict(max_size=500) 
+        self.cashe = CasheDict(max_size=max_cashe) 
 
         # Create main tables if they do not exist
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -190,62 +201,120 @@ class Session(object):
         
         self.activate()
         
-    def __repr__(self):
+    def _repr_html_(self):
 
-        str0 = f'''+------------------+
-| CIBUSmod SESSION |
-+------------------+
-Name: {self.name}
-Active: {'Yes' if self.active_session == self else 'No'}
-'''
-        
-        str1 = '''SCENARIOS
-=========
-'''
+        file_size = os.path.getsize(self.db_path)
+        for ext in ['bytes','KB','MB','GB','TB']:
+            if file_size < 1024 or ext == 'TB':
+                size_str = f"{file_size:.1f} {ext}"
+                break
+            else:
+                file_size /= 1024
+
         
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
-            # Get scenarios
-            res = cur.execute("""
-                SELECT scn_id, name FROM scenarios ORDER BY scn_id
-            """)
-            scns = pd.DataFrame(res.fetchall(), columns = ['scn_id', 'name'])
+            scns = pd.read_sql_query("SELECT * FROM scenarios ORDER BY scn_id", con, index_col='scn_id')
+            runs = pd.read_sql_query("SELECT * FROM runs ORDER BY scn_id, year", con, index_col=['scn_id','year'])
+            data_attrs = pd.read_sql_query("SELECT * FROM data_attributes", con, index_col=['module', 'attr_id'])
+            levels = pd.read_sql_query("SELECT * FROM levels", con, index_col='lvl_id')['name']
 
-            # Get runs
-            res = cur.execute("""
-                SELECT scn_id, year, calculated FROM runs ORDER BY scn_id, year
-            """)
-            runs = pd.DataFrame(res.fetchall(), columns = ['scn_id', 'year', 'calculated'])
+            # Get levels for each data attribute
+            data_attrs['levels'] = None
+            for attr_id in data_attrs.index.unique('attr_id'):
+                res = cur.execute(f"PRAGMA table_info(attr_{attr_id})")
+                data_attrs.loc[(slice(None), attr_id), 'levels'] = \
+                    str([levels.loc[int(c[1].replace('lvl_',''))] for c in res.fetchall() if 'lvl' in c[1]])
 
-            # Get data attributes
-            res = cur.execute("""
-                SELECT module, attr, metadata FROM data_attributes
-            """)
-            data_attrs = res.fetchall()
+        # Create basic information html
+        main_html = f"""
+        <h3>CIBUSmod Session</h3>
+        <div>
+            <b>Name:</b> {self.name}<br>
+            <b>Path:</b> {self.db_path}<br>
+            <b>File size:</b> {size_str}<br>
+            <b>Active:</b> {'Yes' if self is self.active_session else 'No'}
+        </div>
+        """
 
-        for _,scn in scns.iterrows():
-            run = runs.loc[runs['scn_id']==scn['scn_id'], :].sort_values('year')
+        # Create scenarios information html
+        scns_html = """
+        <h4>Scenarios</h4>
+        """
+        if len(scns) > 0:
+            for scn_id in scns.index:
+                name = scns.loc[scn_id]['name']
+                scn_def = json.loads(scns.loc[scn_id]['def'])
+                if 'scenario' in scn_def:
+                    scn_def['scenario_workbooks'] = scn_def.pop('scenario')
+                    
+                scns_html += f"""
+        <details>
+            <summary style="font-size: 14px;">{name}</summary>
+            <div style="padding-left: 20px;">
+                <b>scenario_workbooks:</b> {scn_def['scenario_workbooks']}<br>
+                <b>modules:</b> {scn_def['modules']}<br>
+                <b>pars:</b> {scn_def['pars']}
+            </div>
+            <div style="padding-left: 20px;">
+                {runs.xs(scn_id)[['calculated']].replace({0:'Not calculated'}).to_html()}
+            </div>
+        </details>
+                """
+        else:
+            scns_html += """
+        <div>
+            No scenarios defined
+        </div>
+            """
 
-            str1 += f"""{scn['name']}: {', '.join([str(y) if c == 0 else '['+str(y)+']' for y,c in zip(run['year'], run['calculated'])])}
-"""
-            
-        str2 = '''OUTPUT DATA
-===========
-'''
-        modules = sorted(list(set([i[0] for i in data_attrs])))
-        for module in modules:
-            data_attr = DataAttr(0)
-            data_attr.metadata = dict(sorted({i[1]:json.loads(i[2]) for i in data_attrs if i[0] == module}.items()))
-            str2 += (
-f'''{module}
-{'-'*len(module)}
-{data_attr}
+        # Create data attributes information html
+        data_attrs_html = """
+        <h4>Data attributes</h4>
+        """
+        if len(data_attrs) > 0:
+            for mod in data_attrs.index.unique('module'):
+                data_attrs_mod = data_attrs.xs(mod).sort_values('attr')
+                data_attrs_html += f"""
+        <details>
+            <summary style="font-size: 14px;">{mod}</summary>
+            <div style="padding-left: 20px;">
+                """
+                for attr_id in data_attrs_mod.index:
+                    attr = data_attrs_mod.loc[attr_id, 'attr']
+                    metadata = json.loads(data_attrs_mod.loc[attr_id, 'metadata'])
+                    levels = data_attrs_mod.loc[attr_id, 'levels']
+                    data_attrs_html += f"""
+                    <details>
+                        <summary>{attr}</summary>
+                        <div style="padding-left: 20px;">
+                            <b>Description:</b> {metadata['desc']}<br>
+                            <b>Unit:</b> {metadata['unit']}<br>
+                            <b>Origin module:</b> {metadata['orig']}<br>
+                            <b>Levels:</b> {levels}
+                        </div>
+                    </details>
+                    """
+                data_attrs_html += """
+            </div>
+        </details>
+                """
+        else:
+            data_attrs_html += """
+        <div>
+            No data stored
+        </div>
+            """
 
-'''
-            )
-
-        return '\n'.join([str0, str1, str2])
+        # Combine parts
+        html = main_html + scns_html + data_attrs_html + """
+        <div style="padding-top: 20px;">
+            <i><b>Note:</b> Items under Scenarios and Data attributes are clickable to show more details</i>
+        </div>
+        """
+        
+        return html
 
     def __getitem__(self, scn):
 
@@ -260,6 +329,10 @@ f'''{module}
                 raise KeyError(f"No scenario named '{scn}'")   
 
             scn_def = json.loads(res.fetchone()[0])
+
+            # For compatibility with older database files
+            if 'scenario' in scn_def:
+                scn_def['scenario_workbooks'] = scn_def.pop('scenario')
         
         return scn_def
     
@@ -302,7 +375,7 @@ f'''{module}
             """
         elif subset == 'has output':
             qry += """
-                WHERE calculated == 1
+                WHERE calculated != 0
             """
 
         qry += """
@@ -326,7 +399,7 @@ f'''{module}
         
         Parameters
         ----------
-        subset : 'all', 'no output' (default) or (list of) scenario name(s)
+        subset : 'all', 'no output' (default), date/time string or (list of) scenario name(s)
             If 'all', all scenarios are iterated over
             If 'no output', only scenarios without outputs are iterated over
             If (list of) scenario name(s) are provided those scenarios are iterated over
@@ -357,16 +430,25 @@ f'''{module}
             """
         elif subset != 'all':
             if isinstance(subset, str):
-                subset = [subset]
-            if len(subset)>1:
+                try:
+                    # Try to parse as date/time string
+                    cutoff_date = _parse_datetime_str(subset)
+                    qry += f"""
+                        WHERE datetime(calculated) < datetime("{cutoff_date}")
+                    """
+                except ValueError:
+                    # If that fails see if it's a scenario name
+                    if subset in self.scenarios():
+                        qry += f"""
+                            WHERE name == "{subset}"
+                        """
+                    else:
+                        raise ValueError('subset string not recognized as date/time nor a scenario name')
+            else:
                 qry += f"""
                     WHERE name IN {tuple(subset)}
                 """
-            else:
-                qry += f"""
-                    WHERE name == "{subset[0]}"
-                """
-
+                
         qry += """
             ORDER BY r.scn_id, year
         """
@@ -382,7 +464,7 @@ f'''{module}
             year = row[1]
             yield (scn, str(year))
 
-    def add_scenario(self, name, years, scenario=None, modules='all', pars='all'):
+    def add_scenario(self, name, years, scenario_workbooks=None, modules='all', pars='all'):
         '''Adds a scenario to the Session object
 
         Parameters
@@ -391,10 +473,10 @@ f'''{module}
             Name of scenario (not necessarily the same as the name of the scenario Excel sheet)
         years : (list of) int or str
             Years to be run
-        scenario : None or (list of) str with scenario Excel sheet name(s), optional
-            Name of scenaro Excel sheet(s) to use. If None default data are used
-            If a list is supplied data is uppdated based on all scenario Excel sheets but if
-            the same parameter is updated in several Excel sheets only the latest one in the
+        scenario_workbooks : None or (list of) str, optional
+            Name of scenaro Excel workbook(s) to use. If None default data are used
+            If a list is supplied data is uppdated based on all scenario workbooks but if
+            the same parameter is updated in several workbooks only the latest one in the
             list will have an effect.
         modules : 'all' or (list of) str with module names, optional
             Modules to be updated. If 'all', all modules will be updated otherwise only the
@@ -420,7 +502,7 @@ f'''{module}
 
         # Crate scenario definition dict
         scn_def = {
-            'scenario' : scenario,
+            'scenario_workbooks' : scenario_workbooks,
             'modules' : modules,
             'pars' : pars,
         }
@@ -508,7 +590,7 @@ f'''{module}
             """, (scn_id,))
             res = res.fetchall()
             old_years = [r[0] for r in res]
-            old_years_w_data = [r[0] for r in res if r[1] == 1]
+            old_years_w_data = [r[0] for r in res if r[1] != 0]
 
             new_def = old_def.copy()
 
@@ -836,11 +918,13 @@ f'''{module}
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
 
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
             cur.execute(f"""
                 UPDATE runs
-                    SET calculated = 1
+                    SET calculated = ?
                 WHERE run_id = ?
-            """, (run_id,))
+            """, (timestamp, run_id))
 
         self.cashe.clear()
         
@@ -1209,7 +1293,7 @@ f'''{module}
                         FROM
                             runs AS r
                         LEFT JOIN scenarios AS s ON r.scn_id = s.scn_id
-                        {qry_where + ("WHERE" if qry_where == "" else " AND")} r.calculated = 1
+                        {qry_where + ("WHERE" if qry_where == "" else " AND")} r.calculated != 0
                         ORDER BY
                             s.scn_id, year
                     """
@@ -1322,14 +1406,16 @@ class CasheDict(dict):
         super(CasheDict, self).__init__(*args, **kwargs)
         
     def __setitem__(self, key, val):
-        if key not in self:
-            max_size = self.max_size-1  # so the dict is sized properly after adding a key
-            self._prune_dict(max_size)
-        super(CasheDict, self).__setitem__(key, val)
+        if self.max_size > 0:
+            if key not in self:
+                max_size = self.max_size-1  # so the dict is sized properly after adding a key
+                self._prune_dict(max_size)
+            super(CasheDict, self).__setitem__(key, val)
         
     def update(self, **kwargs):
-        super(CasheDict, self).update(**kwargs)
-        self._prune_dict(self.max_size)
+        if self.max_size > 0:
+            super(CasheDict, self).update(**kwargs)
+            self._prune_dict(self.max_size)
 
     def _prune_dict(self, max_size):
         if len(self) >= max_size:
@@ -1467,3 +1553,22 @@ def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
         raise TypeError(f"Data attribute '{attr}' not a pandas.Series, pandas.DataFrame or numpy.float")
 
     return data
+
+def _parse_datetime_str(str):
+    formats = [
+        '%Y-%m-%d',
+        '%Y-%m-%d %H:%M',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M:%S.%f'
+    ]
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(str, fmt)
+        except ValueError:
+            try:
+                today_date = date.today()
+                return datetime.strptime(f"{today_date} {str}", fmt)
+            except ValueError:
+                pass
+    raise ValueError('Unrecognized datetime format')

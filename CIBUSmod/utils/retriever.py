@@ -79,7 +79,7 @@ class ParameterRetriever:
             warnings.warn(f"Could not update relation tables. '{str(path)}' not found.")
     
     @classmethod
-    def update_all_parameter_values(cls,scenario=None,year=None,modules='all',pars='all'):
+    def update_all_parameter_values(cls,scenario_workbooks=None,year=None,modules='all',pars='all'):
 
         if modules != 'all':
             if not isinstance(modules,list):
@@ -98,7 +98,7 @@ class ParameterRetriever:
                 else:
                     pars_ = pars
 
-                pr.update_parameter_values(scenario,year,pars_)
+                pr.update_parameter_values(scenario_workbooks,year,pars_)
             else:
                 # Update to default data
                 pr.update_parameter_values()
@@ -321,8 +321,8 @@ Parameters
 
         return result.align(df, join='right')[0]
 
-    def update_parameter_values(self,scenario=None,year=None,pars='all'):
-        '''Method to update parameter values in ParameterRetriever according to specified scenario and year.
+    def update_parameter_values(self,scenario_workbooks=None,year=None,pars='all'):
+        '''Method to update parameter values in ParameterRetriever according to specified scenario workbooks and year.
         
         New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
         same name as default parameter xlsx file. In the scenario sheet new values are defined in year columns with
@@ -357,13 +357,13 @@ Parameters
         # Get path to default data
         def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
 
-        if scenario is None:
+        if scenario_workbooks is None:
             self.data = _read_xl(def_path,'default')
             return
 
         year = int(year)
-        if isinstance(scenario,str):
-            scenario = [scenario]
+        if isinstance(scenario_workbooks,str):
+            scenario_workbooks = [scenario_workbooks]
 
         # Read default parameter values
         data = _read_xl(def_path,'default')
@@ -374,14 +374,14 @@ Parameters
         # If the same parameter is updated in multiple scenarios
         # only the scenario that is latest in the list will have
         # an effect.
-        for scn in scenario:
+        for scn_wb in scenario_workbooks:
 
             # Get path to scenario data
-            scn_path = os.path.join(self.data_path_scenarios, scn + '.xlsx')
+            scn_path = os.path.join(self.data_path_scenarios, scn_wb + '.xlsx')
 
             if not os.path.isfile(scn_path):
                 # If file does not exist print warning and continue
-                warnings.warn(f"No scenario data workbook found for '{scn}' on path {scn_path}")
+                warnings.warn(f"No scenario data workbook found on path {scn_path}")
                 continue
 
             wb = load_workbook(scn_path, read_only=True)
