@@ -308,7 +308,11 @@ class Session(object):
             """
 
         # Combine parts
-        html = main_html + scns_html + data_attrs_html
+        html = main_html + scns_html + data_attrs_html + """
+        <div style="padding-top: 20px;">
+            <i><b>Note:</b> Items under Scenarios and Data attributes are clickable to show more details</i>
+        </div>
+        """
         
         return html
 
