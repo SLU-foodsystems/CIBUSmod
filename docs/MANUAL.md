@@ -3,28 +3,43 @@
 # Users guide
 
 1. [Introduction](#introduction)
+1. [Importing CIBUSmod](#importing-cibusmod)
 1. [Data structure](#data-structure)
     - [Setting data folder path](#setting-data-folder-path)
     - [Default data workbooks](#default-data-workbooks)
     - [Scenario data workbooks](#scenario-data-workbooks)
 1. [Defining and running scenarios](#defining-and-running-scenarios)
-1. [Retrieving model outputs](#retrieving-model-outputs)
-1. Main modules
-    - Regions
-    - DemandAndConversions
-    - CropProduction
-    - AnimalHerd
-1. Management (Mgmt) modules
-    - FeedMgmt
-    - ManureMgmt
-    - PlantNutrientMgmt
-    - MachineryAndEnergyMgmt
-    - InputsMgmt
-1. GeoDistributor
-    - Constraints
+    - [Adding scenarios to a `Session`](#adding-scenarios-to-a-session)
+    - [Initialising `CIBUSmod` modules](#initialising-cibusmod-modules)
+    - [Performing the calculations](#performing-the-calculations)
+    - [Storing model output](#storing-model-output)
+1. [Retrieving model output](#retrieving-model-output)
 
 # Introduction
 Intro here
+
+This users guide assumes that `CIBUSmod` is run in a Jupyter notebook (i.e. a *.ipynb* file).
+
+# Importing CIBUSmod
+To be able to import `CIBUSmod` it first needs to be added to the system path. This is done via Python's `sys` module:
+
+```Python
+import sys
+sys.path.insert(0, 'C:\path\to\CIBUSmod')
+import CIBUSmod as cm
+```
+
+or using a path relative to the current working directory (i.e. the directory of the present notebook)
+
+```Python
+import sys
+import os
+sys.path.insert(0, os.path.join(os.getcwd(),'..'))
+import CIBUSmod as cm
+```
+
+The above code assumes that the notebook is located in a folder contained in the main `CIBUSmod` folder.
+
 
 # Data structure
 All data used to run the model and outputs produced are stored in a data folder with the folder structure shown below. The `default` and `scenarios` folders stores all default input data and data used to define different scenarios in the form of Excel workbooks. The `output` folder stores model outputs in SQLite database files and the `ecoinvent` folder stores ecoinvent activity data use by the `InputsMgmt` module.
@@ -48,7 +63,6 @@ All data used to run the model and outputs produced are stored in a data folder 
 The path to the datafolder is set by initialising a new `Session` object with a `name` and a `data_path`. This also sets the `ParameterRetriever.data_path` class attribute which is used by all modules when accessing default and scenario data workbooks.
 
 ```python
-import CIBUSmod as cm
 my_session = cm.Session(
     name = 'name_of_session',
     data_path = '../path/to/data'
@@ -136,18 +150,28 @@ my_session.add_scenario(
 )
 ```
 
-The `name` argument gives the scenario a name which is what will be printed in output tables etc. and the `years` argument specifies the years to be run. The `scenario_workbooks` argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks change the same parameter only the last one in the list will have an effect. The arguments `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. `pars` can also take a `dict` with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword `'all'` means that all modules and/or parameters included in the scenario data workbooks will be updated.
+The `name` argument gives the scenario a name which is what will be printed in output tables etc. and the `years` argument specifies the years to be run. The `scenario_workbooks` argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks change the same parameter only the last one in the list will have an effect. The arguments `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. `pars` can also take a `dict` with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword `'all'` means that all modules and/or parameters included in the scenario data workbooks will be updated. 
+
+Displaying a `Session` object (i.e. calling it in a code block) will give an overview of the `Session` including name, path defined scenarios and available output data attributes. 
+
+```Python
+my_session
+```
+
+<img src="figs/manual/session_repr_example1.png">
+
+The overview is interactive and clicking the items under *Scenarios* and *Data attributes* will show additional information. In the example above the details for 'my_scenario' has been expanded and the `Session` object does not contain any stored output data.
 
 > [!TIP]
 > Additional `Session` methods for working with scenario definitions are `.remove_scenario()`, `.update_scenario()` and `.reorder_scenarios()`.
 
-> [!NOTE]
-> The database files grows quite large in size (~120 MB per scenario $\times$ year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the `.clean()` method will tidy up the database file and potentially save som space.
-
-## Instantiating CIBUSmod modules
+## Initialising `CIBUSmod` modules
 
 ## Performing the calculations
 
 ## Storing model output
+
+> [!NOTE]
+> The database files grows quite large in size (~120 MB per scenario $\times$ year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the `.clean()` method will tidy up the database file and potentially save som space.
 
 # Retrieving model output
