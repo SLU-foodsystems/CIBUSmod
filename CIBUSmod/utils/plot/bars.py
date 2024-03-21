@@ -24,9 +24,9 @@ def bar(
     
     axis_padding = 10,
     
-    sort_groups = True,
-    sort_xlabels = True,
-    sort_categories = True,
+    sort_groups = False,
+    sort_xlabels = False,
+    sort_categories = False,
     
     xlabel = '',
     xlabel_fontsize = 11,
