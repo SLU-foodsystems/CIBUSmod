@@ -392,7 +392,8 @@ Parameters
             wb._archive.close()
 
             # Read scenario parameter values
-            scn_data = _read_xl(scn_path,self.name)
+            scn_data_raw = _read_xl(scn_path,self.name)
+            scn_data = scn_data_raw.copy()
 
             # Select parameters to update
             if pars != 'all':
@@ -432,16 +433,27 @@ Parameters
 
             val_iss = scn_data.index.get_level_values('val_is').unique()
 
+            # Create series to keep track of accessed rows in scenario data workbook
+            scn_data_rows = pd.Series(
+                range(len(scn_data)),
+                index=scn_data.index
+            )
+            accessed_rows = []
+
             # Go through parameters defined in relative (rel) and absolute (abs) terms
             for val_is in [v for v in ['rel','abs'] if v in val_iss]:
 
                 scn_data_ = scn_data.xs(val_is, level='val_is')
+                scn_data_rows_ = scn_data_rows.xs(val_is, level='val_is')
 
                 # Go through parameters in scenario and update values
                 for parameter in scn_data_.index.get_level_values('parameter').unique():
 
                     # Create selection
-                    selection = self.data.xs(parameter,level='parameter', drop_level=False).index
+                    try:
+                        selection = self.data.xs(parameter, level='parameter', drop_level=False).index
+                    except KeyError:
+                        continue
                     scn_selection = selection.droplevel('parameter')
                     
                     # If no filter columns in scenarios sheet (i.e. values to update parameters apply universaly)
@@ -451,6 +463,10 @@ Parameters
                         values = pd.Series(
                             scn_data_.xs(parameter),
                             index=selection
+                        )
+                        # Get accessed rows
+                        accessed_rows.append(
+                            np.atleast_1d(scn_data_rows_.xs(parameter))
                         )
                     else:
                         # Drop selection levels not in scenario filter columns
@@ -462,6 +478,10 @@ Parameters
                             _get_parameter_values(scn_data_, scn_selection, parameter),
                             index=selection
                         )
+                        # Get accessed rows
+                        accessed_rows.append(
+                            np.unique(_get_parameter_values(scn_data_rows_, scn_selection, parameter))
+                        )
 
                     # If in relative terms multiply with original value
                     if val_is=='rel':
@@ -469,7 +489,21 @@ Parameters
 
                     # Update values
                     updated_data.update(values)
-            
+                    
+            # Check for data in scenario data workbook that was not accessed
+            not_accessed_data = scn_data_raw.loc[scn_data_rows.index[~scn_data_rows.isin(np.concatenate(accessed_rows))], :]
+            if len(not_accessed_data) > 0:
+                warnings.warn(
+f"""
+Some scenario parameter value(s) did not match any default parameter value and thus did not have any effect. Check scenario data workbook!
+Module: '{self.name}'
+Scenario workbook: {scn_path}
+----------------
+{not_accessed_data.to_string()}
+----------------
+"""
+                )
+
         self.data = updated_data
 
                 

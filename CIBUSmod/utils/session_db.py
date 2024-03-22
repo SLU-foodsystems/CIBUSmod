@@ -31,9 +31,9 @@ class Session(object):
     timeout : float (default 5)
         How many seconds to wait for a locked table when
         trying to write to the database file
-    max_cashe : int (default 200)
-        Number of database query results stored in cashe for faster re-access
-        Set to 0 to disable cashe
+    max_cache : int (default 200)
+        Number of database query results stored in cache for faster re-access
+        Set to 0 to disable cache
 
     When a new Session object is initialised it checks if the file '<data_path>/output/<name>.sqlite' exists
     and if so connects to that database and any scenario definitions and output data within it.
@@ -65,7 +65,7 @@ class Session(object):
             data_path_scenarios = None,
             data_path_output = None,
             timeout = 5,
-            max_cashe = 200
+            max_cache = 200
         ):
         
         self.name = name
@@ -95,7 +95,7 @@ class Session(object):
             os.mkdir(self.data_path_output)
 
         # Dict that stores tables retrieved from database for faster access
-        self.cashe = CasheDict(max_size=max_cashe) 
+        self.cache = CacheDict(max_size=max_cache) 
 
         # Create main tables if they do not exist
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -656,7 +656,7 @@ class Session(object):
                     INSERT INTO runs(scn_id, year) VALUES(?, ?);
                 """, data)
 
-        self.cashe.clear()
+        self.cache.clear()
         
         return None
                     
@@ -700,7 +700,7 @@ class Session(object):
                 DELETE FROM scenarios WHERE name = ?
             """, (name,))
 
-        self.cashe.clear()
+        self.cache.clear()
 
         return None
 
@@ -751,7 +751,7 @@ class Session(object):
                 WHERE name = ?
             """, new_ids_names)
 
-            self.cashe.clear()
+            self.cache.clear()
 
         return None
 
@@ -926,7 +926,7 @@ class Session(object):
                 WHERE run_id = ?
             """, (timestamp, run_id))
 
-        self.cashe.clear()
+        self.cache.clear()
         
         print("Outputs stored!")
 
@@ -981,7 +981,7 @@ class Session(object):
                         index = False
                     )
 
-        self.cashe.clear()
+        self.cache.clear()
         
         return None
 
@@ -1249,10 +1249,10 @@ class Session(object):
                     s.scn_id, year
             """
 
-            if qry in self.cashe:
+            if qry in self.cache:
 
-                # Read from cashe
-                df = self.cashe[qry]
+                # Read from cache
+                df = self.cache[qry]
                 
             else:
                 
@@ -1303,8 +1303,8 @@ class Session(object):
                         names = ['scn', 'year']
                     )
 
-                # Add to cashe
-                self.cashe[qry] = df
+                # Add to cache
+                self.cache[qry] = df
             
         if all_region_levels and 'region' in groupby:
             with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -1396,25 +1396,25 @@ class Session(object):
         
         return df
 
-class CasheDict(dict):
+class CacheDict(dict):
     # Implementation slightly modified from
     # https://gist.github.com/bencharb/729971d4a9e4633ea08a
     
     default_max_size = 100
     def __init__(self, *args, **kwargs):
         self.max_size = kwargs.pop('max_size', self.default_max_size)
-        super(CasheDict, self).__init__(*args, **kwargs)
+        super(CacheDict, self).__init__(*args, **kwargs)
         
     def __setitem__(self, key, val):
         if self.max_size > 0:
             if key not in self:
                 max_size = self.max_size-1  # so the dict is sized properly after adding a key
                 self._prune_dict(max_size)
-            super(CasheDict, self).__setitem__(key, val)
+            super(CacheDict, self).__setitem__(key, val)
         
     def update(self, **kwargs):
         if self.max_size > 0:
-            super(CasheDict, self).update(**kwargs)
+            super(CacheDict, self).update(**kwargs)
             self._prune_dict(self.max_size)
 
     def _prune_dict(self, max_size):
