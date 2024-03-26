@@ -256,13 +256,19 @@ class FeedMgmt():
             result_df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ori,ps,ani,pr) for ori in ['domestic','regional','imported'] for ps in pss for ani in anis for pr in prs.unique()],
+                    [(ori,ps,ani,pr) for ori in ['domestic','imported'] for ps in pss for ani in anis for pr in prs.unique()],
                     names=['origin','prod_system','animal',of]
                     ),
                 dtype = float
-                )
-            
-            if min(result_df.shape)>0:
+            )
+
+            result_df_reg = pd.DataFrame(
+                index = herd.index,
+                columns = result_df.columns.droplevel('origin').unique(),
+                dtype = float
+            )
+
+            if result_df.shape[1]>0:
                 retrieve_df = pd.DataFrame(
                     index = herd.index,
                     columns = pd.MultiIndex.from_tuples(
@@ -274,20 +280,10 @@ class FeedMgmt():
                 feed_to_prod = self.par.get_from_frame('feed_to_prod',retrieve_df)
                 feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported',retrieve_df)/100
                 feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
-                feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional',retrieve_df)/100
 
                 result_df.loc[:,('domestic')] = pd.concat(
                     {'domestic': (
                         multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
-                    )},
-                    names=['origin'],
-                    axis=1
-                )
-
-                result_df.loc[:,('regional')] = pd.concat(
-                    {'regional': (
-                        multiply_aligned(feed_to_reg_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of], sort=False).sum().T
                     )},
                     names=['origin'],
@@ -303,7 +299,16 @@ class FeedMgmt():
                     axis=1
                 )
 
-            # Add data attributes
+                if of == 'crop_prod':
+                    # Calculate regional demand for crop products
+                    feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional',retrieve_df)/100
+                    result_df_reg.loc[:,:] = (
+                        multiply_aligned(feed_to_reg_prod,herd.data_attr.get('feed.demand'))
+                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
+                    )
+
+            # Add data attributes (drop zero cols)
+            result_df = result_df.loc[:, result_df.sum() > 0]
             herd.data_attr.add(
                 result_df,
                 name = 'feed.' + of + ('ue_demand' if of == 'crop_resid' else 'uct_demand'),
@@ -311,6 +316,16 @@ class FeedMgmt():
                 orig = 'FeedMgmt',
                 desc = f'Demand for {"crop products" if of == "crop_prod" else "by-products" if of=="by_prod" else "crop residues"} for feed'
             )
+
+            if of == 'crop_prod':
+                result_df_reg = result_df_reg.loc[:, result_df_reg.sum() > 0]
+                herd.data_attr.add(
+                    result_df_reg,
+                    name = 'feed.regional_crop_product_demand',
+                    unit = 'kg/year',
+                    orig = 'FeedMgmt',
+                    desc = 'Demand for crop products for feed that must be supplied regionally'
+                )
 
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
