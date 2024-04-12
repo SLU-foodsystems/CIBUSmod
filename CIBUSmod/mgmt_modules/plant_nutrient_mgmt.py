@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned
+from ..utils.misc import multiply_aligned, inv_dict
 from ..main_modules.animal_herd import concat_herds
 
 class PlantNutrientMgmt():
@@ -85,20 +85,6 @@ class PlantNutrientMgmt():
         # Get crop yields
         yields = (self.crops.data_attr.get('harvest') / self.crops.data_attr.get('area')).fillna(0)
 
-        # Calculate ley share per region
-        lu_rel = self.par.get_rel('crop','land_use') # crop --> land_use
-        cg_rel = self.par.get_rel('crop','crop_group') # crop --> crop_group
-
-        ley_share = self.crops.data_attr.get('area').to_frame()
-        ley_share.loc[:,'lu'] = ley_share.index.get_level_values('crop').map(lu_rel)
-        ley_share.loc[:,'cg'] = ley_share.index.get_level_values('crop').map(cg_rel)
-        ley_share = (
-            ley_share.set_index(['lu','cg'], append=True)[0]
-            .loc[idx[:,:,:,'cropland',:]]
-            .groupby(['cg','prod_system','region']).sum()
-        )
-        ley_share = (ley_share / ley_share.groupby(['prod_system','region']).transform('sum')).loc['Ley']
-
         # Calculate area per use
         share_per_use = (
             self.crops.data_attr.get('production_per_use')
@@ -127,7 +113,6 @@ class PlantNutrientMgmt():
         )
 
         yields = pdf.mul(yields, axis=0)
-        ley_share = pdf.mul(ley_share, axis=0)
         
         # Recommendation [kg TAN/ha]
         TAN_rec = (
@@ -135,17 +120,33 @@ class PlantNutrientMgmt():
             self.par.get_from_frame('N_rec_b',yields) * yields/1000 +
             self.par.get_from_frame('N_rec_m',yields)
         )
-        # Adjustment for ley [-]
-        TAN_ley_adj = (
-            self.par.get_from_frame('N_ley_a',ley_share) * ley_share +
-            self.par.get_from_frame('N_ley_m',ley_share)
+
+        TAN_req = (TAN_rec * area_per_use)
+
+        # Calculate residual N from crops [kg N]
+        self.par.clear()
+        residual_N = (
+            self.crops.data_attr.get('area') *
+            self.par.get('N_resid_crop', **self.crops.index.to_frame().to_dict('list'))
+        ).groupby(['prod_system','region']).sum()
+
+        # Allocate residual N from crops to crops in 'crop_groups' based on
+        # TAN requirements
+        crop_groups = ['Cereals, winter', 'Cereals, spring', 'Ley', 'Fodder crops']
+        sel = [c for k,v in inv_dict(self.par.get_rel('crop','crop_group')).items() for c in v if k in crop_groups]
+        residual_N_allocation = (
+            TAN_req.sum(axis=1)
+            .where(TAN_req.index.get_level_values('crop').isin(sel), 0)
+            .groupby(['prod_system', 'region'])
+            .transform(lambda x: x / x.sum())
         )
 
-        TAN_req = (TAN_rec * TAN_ley_adj * area_per_use)
+        # Calculate adjustment of TAN requirements for residual N
+        TAN_req_adj = residual_N * residual_N_allocation
 
         # Add data attribute
         self.crops.data_attr.add(
-            TAN_req.sum(axis=1),
+            (TAN_req.sum(axis=1) - TAN_req_adj).clip(lower=0),
             name = 'fertiliser.TAN_req',
             unit = 'kg TAN/year',
             orig = 'PlantNutrientMgmt',
@@ -431,6 +432,7 @@ class PlantNutrientMgmt():
         # fertilisers have been applied. 
 
         self.par.clear()
+        element_ = 'TAN' if element == 'N' else element
 
         # Get share of fertiliser types
         fertiliser_type_shares = \
@@ -447,12 +449,28 @@ class PlantNutrientMgmt():
             )
         )/100
 
+        # Get TAN/P/K requirements
+        req = self.crops.data_attr.get(f'fertiliser.{element_}_req')
+
+        # Get manure TAN/P/K input
+        manure = self.crops.data_attr.get(f'fertiliser.manure_{element_}').drop('grazing', level='MMS', axis=1).sum(axis=1)
+
+        # Get long term N from manure
+        if element == 'N':
+            self.par.clear()
+            manure_long = (
+                self.crops.data_attr.get(f'fertiliser.manure_N') -
+                self.crops.data_attr.get(f'fertiliser.manure_TAN')
+            ).mul(
+                self.par.get('N_resid_manure', **self.crops.data_attr.get(f'fertiliser.manure_N').columns.to_frame().to_dict('list'))/100,
+                axis = 1
+            ).sum(axis=1)
+        else:
+            manure_long = 0
+
         # Calculate TAN, P or K to apply
-        element_ = 'TAN' if element == 'N' else element
         mineral_fertiliser_to_apply = (
-            self.crops.data_attr.get(f'fertiliser.{element_}_req') - 
-            # self.crops.data_attr.get(f'organic_{element_}').sum(axis=1) - !!! TO BE ADDED !!!
-            self.crops.data_attr.get(f'fertiliser.manure_{element_}').drop('grazing', level='MMS', axis=1).sum(axis=1)
+            req - manure - manure_long
         ).clip(lower=0) # set to zero if manure supplies more than requirement
 
         # Calculate mineral fertiliser application per fertiliser type

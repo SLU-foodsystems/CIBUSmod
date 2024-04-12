@@ -128,11 +128,12 @@ class FeedMgmt():
                 )
 
             # Calculate and assign feed quantities [kg DM]
-            df_feeds.loc[:,:] = shares_per_feed * herd.data_attr.get('feed_DM_req').align(shares_per_feed)[0]
+            df_feeds.loc[:,:] = multiply_aligned(shares_per_feed, herd.data_attr.get('feed_DM_req'))
 
-            # Add data attribute
+            # Add data attribute (drop zero cols)
+            df_feeds = df_feeds.loc[:, df_feeds.sum() > 0]
             herd.data_attr.add(
-                df_feeds.reindex(columns=herd.animals, level='animal'),
+                df_feeds,
                 name = 'feed.consumption',
                 unit = 'kg DM/year',
                 orig = 'FeedMgmt',
@@ -231,6 +232,9 @@ class FeedMgmt():
           
     def calculate_product_demand(self, of='crop_prod'):
 
+        # Get Series of crop/by- products or crod residues with feed as index
+        prs = self.par.get_unique(['feed',of]).set_index('feed')[of]
+
         for herd in self.herds:
 
             # Set species and breed filters for ParameterRetriever
@@ -241,69 +245,76 @@ class FeedMgmt():
                 sub_system = herd.sub_system
             )
 
-            # Get ouput production systems
-            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
-            # Get animals
-            anis = herd.animals
-            # Get feeds
-            fes = herd.par.get_unique('feed')
-            # Get crop/by products
-            qry = 'f_feed.isin([' + ', '.join(f'"{fe}"' for fe in fes) + '])'
-            prs = self.par.get_unique(['feed',of],qry=qry).set_index('feed')[of]
-            # Remove feeds not supplied by crop/by products
-            fes = fes[np.isin(fes,prs.index)]
+            # Construct retrieve dataframe columns
+            df_cols = []
+            for ps, ani, fe in herd.data_attr.get('feed.demand').columns:
+                if fe in prs.index:
+                    for pr in prs[fe] if not isinstance(prs[fe], str) else [prs[fe]]:
+                        df_cols += [(ps, ani, pr, fe)]
 
-            result_df = pd.DataFrame(
+            retrieve_df = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ori,ps,ani,pr) for ori in ['domestic','regional','imported'] for ps in pss for ani in anis for pr in prs.unique()],
-                    names=['origin','prod_system','animal',of]
+                    df_cols,
+                    names=['prod_system', 'animal', of, 'feed']
                     ),
                 dtype = float
-                )
-            
-            if min(result_df.shape)>0:
-                retrieve_df = pd.DataFrame(
-                    index = herd.index,
-                    columns = pd.MultiIndex.from_tuples(
-                        [(ps,ani,prs[fe],fe) for ps in pss for ani in anis for fe in fes],
-                        names=['prod_system','animal',of,'feed']
-                        )
-                    )
+            )
 
-                feed_to_prod = self.par.get_from_frame('feed_to_prod',retrieve_df)
-                feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported',retrieve_df)/100
+            if retrieve_df.shape[1] > 0:
+
+                feed_to_prod = self.par.get_from_frame('feed_to_prod', retrieve_df)
+                feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported', retrieve_df)/100
                 feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
-                feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional',retrieve_df)/100
 
-                result_df.loc[:,('domestic')] = pd.concat(
-                    {'domestic': (
-                        multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
-                    )},
-                    names=['origin'],
-                    axis=1
-                )
+                result_df = pd.concat([
+                    pd.concat(
+                        {'domestic': (
+                            multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
+                            .T.groupby(['prod_system','animal',of], sort=False).sum().T
+                        )},
+                        names=['origin'],
+                        axis=1
+                    ),
 
-                result_df.loc[:,('regional')] = pd.concat(
-                    {'regional': (
+                    pd.concat(
+                        {'imported': (
+                            multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
+                            .T.groupby(['prod_system','animal',of],sort=False).sum().T
+                        )},
+                        names=['origin'],
+                        axis=1
+                    )
+                ], axis=1)
+
+                if of == 'crop_prod':
+                    # Calculate regional demand for crop products
+                    feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional', retrieve_df)/100
+                    result_df_reg = (
                         multiply_aligned(feed_to_reg_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of], sort=False).sum().T
-                    )},
-                    names=['origin'],
-                    axis=1
+                    )
+            else:
+                # Empty result dataframes
+                result_df = pd.DataFrame(
+                    index = herd.index,
+                    columns = pd.MultiIndex.from_tuples(
+                        [],
+                        names = ['origin', 'prod_system', 'animal', of]
+                    ),
+                    dtype = float
+                )
+                result_df_reg = pd.DataFrame(
+                    index = herd.index,
+                    columns = pd.MultiIndex.from_tuples(
+                        [],
+                        names = ['prod_system', 'animal', of]
+                    ),
+                    dtype = float
                 )
 
-                result_df.loc[:,('imported')] = pd.concat(
-                    {'imported': (
-                        multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of],sort=False).sum().T
-                    )},
-                    names=['origin'],
-                    axis=1
-                )
-
-            # Add data attributes
+            # Add data attributes (drop zero cols)
+            result_df = result_df.loc[:, result_df.sum() > 0]
             herd.data_attr.add(
                 result_df,
                 name = 'feed.' + of + ('ue_demand' if of == 'crop_resid' else 'uct_demand'),
@@ -311,6 +322,16 @@ class FeedMgmt():
                 orig = 'FeedMgmt',
                 desc = f'Demand for {"crop products" if of == "crop_prod" else "by-products" if of=="by_prod" else "crop residues"} for feed'
             )
+
+            if of == 'crop_prod':
+                result_df_reg = result_df_reg.loc[:, result_df_reg.sum() > 0]
+                herd.data_attr.add(
+                    result_df_reg,
+                    name = 'feed.regional_crop_product_demand',
+                    unit = 'kg/year',
+                    orig = 'FeedMgmt',
+                    desc = 'Demand for crop products for feed that must be supplied regionally'
+                )
 
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
@@ -407,7 +428,9 @@ class FeedMgmt():
                     # Get fat in ration [g/kg DM]
                     fat_in_ration = herd.data_attr.get('feed.ration_fat')
 
-                    sel_rough = ['ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing']
+                    # FUTURE FIX: Not ideal that roughage feeds are hardcoded here... Use relation_tables instead??
+                    rough_feeds = {'ley silage, 1st cut','ley silage, regrowth','other silage','maize silage','grazing'}
+                    sel_rough = list(set(herd.data_attr.get('feed.consumption').columns.get_level_values('feed')).intersection(rough_feeds))
 
                     # Calculate concentrate share [% of DM]
                     concentrate_share = 100 - (
