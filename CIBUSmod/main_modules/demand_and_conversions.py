@@ -100,17 +100,35 @@ class DemandAndConversions(object):
 
     def get_population(self):
 
-        self.par.clear()
-
+        # Get total population
         population = self.par.get('population')[0]
 
-        # Add data attribute
+        # Get population per region
+        population_per_region = pd.Series(
+            self.par.get('population_region', region = self.par.get_unique('region')),
+            index = pd.Index(
+                self.par.get_unique('region'),
+                name = 'region'
+            )
+        )
+
+        # Adjust population per region to match total population
+        population_per_region = population_per_region / population_per_region.sum() * population * 1_000_000
+
+        # Add data attributes
         self.data_attr.add(
             population,
             name = 'population',
             unit = 'millions',
             orig = 'DemandAndConversions',
             desc = 'Human population'
+        )
+        self.data_attr.add(
+            population_per_region,
+            name = 'population_per_region',
+            unit = 'nr',
+            orig = 'DemandAndConversions',
+            desc = 'Human population per region'
         )
 
     def calculate_food_demand(self):
