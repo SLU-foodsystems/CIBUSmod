@@ -391,8 +391,9 @@ class ManureMgmt():
             manure_VS_to_treatment = \
                 manure_VS * (self.par.get_from_frame('off-farm_treatment', manure_VS)/100)
             manure_VS = manure_VS - manure_VS_to_treatment
-            # Drop zero columns
-            manure_VS_to_treatment.loc[:,(manure_VS_to_treatment != 0).any(axis=0)]
+
+            # Calculate B0 for manure to treatment
+            manure_B0_to_treatment = manure_VS_to_treatment * self.par.get_from_frame('methane_B0', manure_VS_to_treatment)
 
             # Compounds emitted
             css = ['CH4bio','CO2bio']
@@ -455,6 +456,13 @@ class ManureMgmt():
                 unit = 'kg C/year',
                 orig = 'ManureMgmt',
                 desc = 'Volatile solids (VS) in manure to off-farm treatment'
+            )
+            herd.data_attr.add(
+                manure_B0_to_treatment,
+                name = 'manure.B0_to_treatment',
+                unit = 'Nm3 CH4/year',
+                orig = 'ManureMgmt',
+                desc = 'Methane production potential (B0) in manure to off-farm treatment'
             )
             herd.data_attr.add(
                 manure_C_to_treatment,
@@ -583,8 +591,6 @@ class ManureMgmt():
             to_treatment = \
                 to_storage * (self.par.get_from_frame('off-farm_treatment', to_storage)/100)
             to_storage = to_storage - to_treatment
-            # Drop zero columns
-            to_treatment.loc[:,(to_treatment != 0).any(axis=0)]
 
             # Calculate losses in storage
             if (self.par.data.xs((element,'loss_storage'),level=('f_element','parameter'))>0).any():
