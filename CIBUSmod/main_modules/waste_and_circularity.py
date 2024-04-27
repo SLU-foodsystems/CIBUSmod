@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
+from .. utils.misc import multiply_aligned
 
 if TYPE_CHECKING:
     from .demand_and_conversions import DemandAndConversions
@@ -103,7 +104,7 @@ class WasteAndCircularity(object):
         waste_level = 'crop feedstock'
         sel = self.par.get_unique('waste', qry=f'f_waste_level == "{waste_level}"')
         non_waste = (
-            demand.data_attr.get('non_food_demand').loc[sel]
+            self.demand.data_attr.get('non_food_demand').loc[sel]
             .groupby(['food', 'food_group'])
             .sum()
             .rename_axis(index={'food':'waste', 'food_group':'waste_group'})
@@ -123,18 +124,18 @@ class WasteAndCircularity(object):
         for item in non_waste.index:
             food = item[0]
             # Get crop products supplying item
-            cps = demand.par.get_unique(
+            cps = self.demand.par.get_unique(
                 'crop_prod',
                 qry=f'f_food == "{food}" & parameter == "conv_factor_main"'
             )
             # Get crops supplying crop product(s)
-            crs = crops.par.get_unique(
+            crs = self.crops.par.get_unique(
                 'crop',
                 qry=f'f_crop_prod.isin({list(cps)}) & parameter == "crop_to_prod"'
             )
             # Calculate regional distribution key
             reg_dist = (
-                crops.data_attr.get('production_per_use')
+                self.crops.data_attr.get('production_per_use')
                 .loc[crs, 'non-food']
                 .groupby('region')
                 .sum()
