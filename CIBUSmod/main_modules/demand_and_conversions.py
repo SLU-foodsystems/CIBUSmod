@@ -283,7 +283,7 @@ class DemandAndConversions(object):
             .add(animal_by_products, fill_value=0)
             .add(crop_resid_by_products, fill_value=0)
             .add(by_prod_by_products, fill_value=0)
-        )
+        ).sum(axis=1)
 
         # Add data attributes
         self.data_attr.add(
