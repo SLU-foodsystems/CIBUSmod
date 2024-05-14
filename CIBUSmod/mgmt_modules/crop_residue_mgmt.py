@@ -7,6 +7,7 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import fix_herds, index_to_multi
 
 if TYPE_CHECKING:
+    from ..main_modules.demand_and_conversions import DemandAndConversions
     from ..main_modules.crop_prod import CropProduction
     from ..main_modules.animal_herd import AnimalHerd
     from ..utils.retriever import ParameterRetriever
@@ -23,6 +24,7 @@ class CropResidueMgmt():
 
     def __init__(
             self,
+            demand : "DemandAndConversions",
             crops : "CropProduction",
             herds : "pd.Series | AnimalHerd",
             par : "ParameterRetriever"
@@ -30,6 +32,7 @@ class CropResidueMgmt():
         
         self.par = par
 
+        self.demand = demand
         self.crops = crops
         self.herds = fix_herds(herds)
 
@@ -88,58 +91,66 @@ class CropResidueMgmt():
             .T.groupby(['crop_resid']).sum().T
             # WIP
         )
-        
+
         # Get crop residues used for bedding
         demand_for_bedding = (
             pd.concat([h.data_attr.get('bedding_material') for h in self.herds], axis=1)
             .T.groupby(['feed']).sum().T
             .rename_axis(columns={'feed':'crop_resid'})
         )
-        
-        # Get crop residues used for energy
-        demand_for_energy = 0
-        # TO BE IMPLEMNTED!
-        
-        # Calculate total crop residue demand
-        total_demand = demand_for_feed + demand_for_bedding + demand_for_energy
-        
+
+        # Get crop residues used for other purposes
+        demand_other = self.demand.data_attr.get('crop_resid_demand').sum(axis=1).groupby('crop_resid').sum()
+
+        # Calculate total regional crop residue demand (i.e. for feed and bedding)
+        regional_demand = demand_for_feed + demand_for_bedding
+
         # Calculate allocation factors to allocate harvestable crop residues to use on regional level
         crop_residues_alloc = self.crops.data_attr.get('crop_residues_harvestable').groupby(['region']).transform(lambda x: x/x.sum())
-        
+
         # Calculate crop residue harvest per crop, prod_system and region
         crop_residues_harvest = (
-            index_to_multi(total_demand)
+            index_to_multi(regional_demand)
             .reindex(crop_residues_alloc.index.reorder_levels(['region','prod_system','crop']))
             .reorder_levels(['crop','prod_system','region'])
             .mul(
                 crop_residues_alloc
             )
         )
-        
+
         # Set harvest to harvestable if harvest exceeds harvestable
         crop_residues_harvest = crop_residues_harvest.where(
             crop_residues_harvest <= self.crops.data_attr.get('crop_residues_harvestable'),
             self.crops.data_attr.get('crop_residues_harvestable')
         )
-        
-        # Calculate remaining demand that needs to be met nationally and remaining harvestable
-        # crop residues
-        remaining_demand = total_demand.sum() - crop_residues_harvest.sum()
+
+        # Calculate remaining feed and bedding demand that needs to be met nationally and 
+        # add in total demand for other purposes
+        remaining_demand = regional_demand.sum() - crop_residues_harvest.sum() + demand_other
+        # Calculate remaining harvestable crop residues
         remaining_harvestable = self.crops.data_attr.get('crop_residues_harvestable') - crop_residues_harvest
-        
+
         # Calculate allocation factors to allocate harvestable crop residues to use on national level
         crop_residues_alloc_nat = remaining_harvestable.transform(lambda x: x/x.sum())
-        
+
         # Add remaining demand to harvest
         crop_residues_harvest += remaining_demand * crop_residues_alloc_nat
-        
+
         assert np.isclose(
-            total_demand.sum().astype(float),
+            (regional_demand.sum() + demand_other).astype(float),
             crop_residues_harvest.sum().astype(float)
         )
+        # Check that demand does not exceed what is harvestable
+        # NOTE: Might be good to include some automatic adjustment of "other" demand
+        # if this happens.
         if not (crop_residues_harvest<=self.crops.data_attr.get('crop_residues_harvestable')).all().all():
-            warnings.warn("CropResidueMgmt: Crop residue demand exceeds availability")
-        
+            # Get crop residues with too high demand
+            crs = (crop_residues_harvest>self.crops.data_attr.get('crop_residues_harvestable')).any()
+            crs = crs.index[crs].to_list()
+            warnings.warn(f"\nCropResidueMgmt: Crop residue demand exceeds availability for:\n{crs}")
+            # Set harvest to harvestable
+            crop_residues_harvest = self.crops.data_attr.get('crop_residues_harvestable')
+
         # Add data attribute
         self.crops.data_attr.add(
             crop_residues_harvest,
