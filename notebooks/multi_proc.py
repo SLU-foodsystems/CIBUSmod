@@ -49,6 +49,7 @@ manure_mgmt = cm.ManureMgmt(
 
 # Instantiate crop residue managment
 crop_residue_mgmt = cm.CropResidueMgmt(
+    demand = demand,
     crops = crops,
     herds = herds,
     par = cm.ParameterRetriever('CropResidueMgmt')
