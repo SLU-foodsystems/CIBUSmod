@@ -1481,9 +1481,15 @@ def _level_names_to_integer_key(data, db_path, timeout):
                 data = data.rename(txt_to_int, axis=ax, level=lvl)
 
                 if ax == 0:
-                    lvl_dtype = data.index.get_level_values(lvl).dtype
+                    if len(data.index) == 0:
+                        lvl_dtype = int
+                    else:
+                        lvl_dtype = data.index.get_level_values(lvl).dtype
                 else:
-                    lvl_dtype = data.columns.get_level_values(lvl).dtype
+                    if len(data.columns) == 0:
+                        lvl_dtype = int
+                    else:
+                        lvl_dtype = data.columns.get_level_values(lvl).dtype
                     
                 if pd.api.types.is_integer_dtype(lvl_dtype):
                     break

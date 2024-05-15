@@ -126,7 +126,7 @@ class CropResidueMgmt():
 
         # Calculate remaining feed and bedding demand that needs to be met nationally and 
         # add in total demand for other purposes
-        remaining_demand = regional_demand.sum() - crop_residues_harvest.sum() + demand_other
+        remaining_demand = (regional_demand.sum() - crop_residues_harvest.sum()).add(demand_other, fill_value=0)
         # Calculate remaining harvestable crop residues
         remaining_harvestable = self.crops.data_attr.get('crop_residues_harvestable') - crop_residues_harvest
 
@@ -137,7 +137,7 @@ class CropResidueMgmt():
         crop_residues_harvest += remaining_demand * crop_residues_alloc_nat
 
         assert np.isclose(
-            (regional_demand.sum() + demand_other).astype(float),
+            (regional_demand.sum().add(demand_other, fill_value=0)).astype(float),
             crop_residues_harvest.sum().astype(float)
         )
         # Check that demand does not exceed what is harvestable
