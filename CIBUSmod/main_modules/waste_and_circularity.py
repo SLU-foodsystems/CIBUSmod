@@ -42,7 +42,7 @@ class WasteAndCircularity(object):
         vprint = verbose_init(verbose, id_str='WasteAndCircularity')
 
         vprint('Collecting feedstocks and calculating composition ...')
-        self.collect_waste()
+        self.collect_feedstock()
 
         vprint('Creating data attribute tables ...')
         self.create_data_attribute_tables()
@@ -120,7 +120,7 @@ class WasteAndCircularity(object):
             )
 
 
-    def collect_waste(self):
+    def collect_feedstock(self):
         '''
         '''
 
