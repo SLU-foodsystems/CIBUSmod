@@ -156,7 +156,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
             )
         )
         # Recalculate animal product demand and by-products
-        demand.calculate_animal_product_demand()
+        demand.calculate_product_demand_and_by_products()
 
         print(f"Induced export of {round(induced_beef_exports.sum()/1000):,} tonnes '{beef_food_name}'")
 
