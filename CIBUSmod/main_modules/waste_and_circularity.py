@@ -47,7 +47,7 @@ class WasteAndCircularity(object):
         vprint('Creating data attribute tables ...')
         self.create_data_attribute_tables()
 
-        for treatment in self.data_attr.get('feedstock_VS').columns.unique('waste_treatment'):
+        for treatment in self.data_attr.get('feedstock_VS').columns.unique('treatment'):
             vprint(f'Calculating {treatment} ...')
 
             try:
@@ -133,7 +133,8 @@ class WasteAndCircularity(object):
             .groupby(['food', 'food_group'])
             .sum()
             .stack()
-            .rename_axis(index={'food':'waste', 'food_group':'waste_group'})
+            .rename_axis(index={'food':'feedstock', 'food_group':'feedstock_group', 'waste_level':'feedstock_type'})
+            .rename(index = lambda x: 'food waste, ' + x, level='feedstock_type')
         )
         
         # Get human population distribution
@@ -161,27 +162,27 @@ class WasteAndCircularity(object):
         # TO BE DONE... ???
         
         # COLLECT CROP FEEDSTOCKS ----------------------------------------------------|
-        waste_level = 'crop feedstock'
-        sel = self.par.get_unique('waste', qry=f'f_waste_level == "{waste_level}"')
-        non_waste = (
+        feedstock_type = 'crop feedstock'
+        sel = self.par.get_unique('feedstock', qry=f'f_feedstock_type == "{feedstock_type}"')
+        crops = (
             self.demand.data_attr.get('non_food_demand').loc[sel]
             .groupby(['food', 'food_group'])
             .sum()
-            .rename_axis(index={'food':'waste', 'food_group':'waste_group'})
+            .rename_axis(index={'food':'feedstock', 'food_group':'feedstock_group'})
             .to_frame()
-            .rename_axis(columns='waste_level')
-            .rename(columns={0:waste_level})
+            .rename_axis(columns='feedstock_type')
+            .rename(columns={0:feedstock_type})
             .stack()
         )
         # Distribute over regions based on production for non-food use
-        # of crops supplying the non-waste feedstocks
-        non_waste_reg = pd.DataFrame(
+        # of crops supplying the feedstocks
+        crops_reg = pd.DataFrame(
             1.0,
             index = pop_dist.index,
-            columns = non_waste.index
+            columns = crops.index
         )
-        non_waste_reg = non_waste_reg.mul(non_waste, axis=1)
-        for item in non_waste.index:
+        crops_reg = crops_reg.mul(crops, axis=1)
+        for item in crops.index:
             food = item[0]
             # Get crop products supplying item
             cps = self.demand.par.get_unique(
@@ -201,19 +202,19 @@ class WasteAndCircularity(object):
                 .sum()
                 .transform(lambda x: x/x.sum())
             )
-            non_waste_reg.loc[:,item] *= reg_dist
+            crops_reg.loc[:,item] *= reg_dist
         
         # COMBINE --------------------------------------------------------------------------|
         
-        waste = pd.concat([food_waste_reg, non_waste_reg], axis=1).fillna(0)
+        feedstock = pd.concat([food_waste_reg, crops_reg], axis=1).fillna(0)
 
         # CALCULATE FEEDSTOCK COMPOSITION AND GET MANURE FOR CENTRALISED TREATMENT ---------|
         
         # Set ParameterRetriver filters to get feedstock composition
-        self.par.set(**waste.columns.to_frame().to_dict('list'))
+        self.par.set(**feedstock.columns.to_frame().to_dict('list'))
         
         # Calculate dry matter
-        waste_DM = waste.mul(self.par.get('waste_DM'), axis=1)
+        feedstock_DM = feedstock.mul(self.par.get('feedstock_DM'), axis=1)
         
         # Calculate volatile solids (VS), methane production potential (B0), nitrogen (N), phosphorous (P) and potassium (K)
         items = {
@@ -225,17 +226,17 @@ class WasteAndCircularity(object):
             'K' : 'potassium (K)'
         }
         
-        waste_dfs = dict()
+        feedstock_dfs = dict()
         manure_dfs = dict()
         
         for i in items:
             if i in ['B0','C']:
-                df = waste_dfs['VS']
+                df = feedstock_dfs['VS']
             else:
-                df = waste_DM
+                df = feedstock_DM
         
             # Calculate item for waste
-            waste_dfs.update({i : df.mul(self.par.get(f'waste_{i}'), axis=1)})
+            feedstock_dfs.update({i : df.mul(self.par.get(f'feedstock_{i}'), axis=1)})
         
             # Get item from manure
             m_list = []
@@ -245,7 +246,7 @@ class WasteAndCircularity(object):
                 # Create column index
                 m.columns = pd.MultiIndex.from_tuples(
                     [(f'Manure, {herd.species}, {herd.breed}', mms, 'manure') for mms in m.columns],
-                    names = ['waste', 'waste_group', 'waste_level']
+                    names = ['feedstock', 'feedstock_group', 'feedstock_type']
                 )
             
                 m_list += [m]
@@ -254,14 +255,14 @@ class WasteAndCircularity(object):
                 i : 
                 pd.concat(m_list, axis=1)
                 # Sum duplicates
-                .T.groupby(['waste', 'waste_group', 'waste_level']).sum().T
+                .T.groupby(['feedstock', 'feedstock_group', 'feedstock_type']).sum().T
                 # Drop columns with all zeros
                 .replace({0:np.nan})
                 .dropna(axis=1, how='all')
                 .fillna(0)
             })
         
-        dfs = {i : pd.concat([waste_dfs[i], manure_dfs[i]], axis=1) for i in items}
+        dfs = {i : pd.concat([feedstock_dfs[i], manure_dfs[i]], axis=1) for i in items}
 
         # DISTRIBUTE ACROSS WASTE TREATMENTS ----------------------------------------------------|
         
@@ -270,8 +271,8 @@ class WasteAndCircularity(object):
             index = list(dfs.values())[0].index,
             columns = pd.MultiIndex.from_tuples(
                 [(w, wg, wl, tr) for w,wg,wl in list(dfs.values())[0].columns
-                 for tr in self.par.get_unique('waste_treatment')],
-                names = ['waste', 'waste_group', 'waste_level', 'waste_treatment']
+                 for tr in self.par.get_unique('treatment')],
+                names = ['feedstock', 'feedstock_group', 'feedstock_type', 'treatment']
             )
         )
         
@@ -279,7 +280,7 @@ class WasteAndCircularity(object):
         treatment_shares = self.par.get_from_frame('treatment_share', retrieve_df)
         
         # Check that treatment shares all add up to 100%
-        shares_sum = treatment_shares.T.groupby(['waste','waste_group','waste_level']).sum().T
+        shares_sum = treatment_shares.T.groupby(['feedstock','feedstock_group','feedstock_type']).sum().T
         check_shares = shares_sum != 100
         if check_shares.any().any():
             warnings.warn(f''''treatment_share' did not add up to 100% for:
@@ -311,9 +312,9 @@ class WasteAndCircularity(object):
         CH4se = g('CH4_specific_energy')[0] # kWh/kg
 
         # Get feedstock VS, C and B0
-        feedstock_VS = self.data_attr.get('feedstock_VS').xs('anaerobic digestion', level='waste_treatment', axis=1, drop_level=False)
-        feedstock_C = self.data_attr.get('feedstock_C').xs('anaerobic digestion', level='waste_treatment', axis=1, drop_level=False)
-        feedstock_B0 = self.data_attr.get('feedstock_B0').xs('anaerobic digestion', level='waste_treatment', axis=1, drop_level=False)
+        feedstock_VS = self.data_attr.get('feedstock_VS').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
+        feedstock_C = self.data_attr.get('feedstock_C').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
+        feedstock_B0 = self.data_attr.get('feedstock_B0').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
 
         # Calculate volume [Nm3] of generated biogas CH4 and CO2 
         CH4_prod_vol = feedstock_B0 * gf('biogas_CH4_yield', feedstock_B0)/100
@@ -453,13 +454,13 @@ class WasteAndCircularity(object):
 
             # Get ammount of N, P or K in digestate assuming
             # no losses of NPK during biogas production
-            digestate = self.data_attr.get('feedstock_'+element).xs('anaerobic digestion', level='waste_treatment', axis=1, drop_level=False)
+            digestate = self.data_attr.get('feedstock_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
             
             # Get compounds emitted
             cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
 
             # Get losses dataframe slice
-            df = self.data_attr.get('losses_'+element).xs('anaerobic digestion', level='waste_treatment', axis=1, drop_level=False)
+            df = self.data_attr.get('losses_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
 
             if (self.par.data.xs((element,'digestate_loss_storage'),level=('f_element','parameter'))>0).any():
 
@@ -479,7 +480,7 @@ class WasteAndCircularity(object):
                 loss_storage = df * 0.0
 
             digestate_to_spread = \
-                digestate - loss_storage.T.groupby(['waste','waste_group','waste_level','waste_treatment']).sum().T
+                digestate - loss_storage.T.groupby(['feedstock','feedstock_group','feedstock_type','treatment']).sum().T
 
             self.data_attr.get('organic_fertiliser_'+element).loc[:, digestate_to_spread.columns] = digestate_to_spread
             self.data_attr.get('losses_'+element).loc[:, loss_storage.columns] = loss_storage
