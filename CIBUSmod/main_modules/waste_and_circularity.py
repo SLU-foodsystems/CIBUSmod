@@ -78,6 +78,7 @@ class WasteAndCircularity(object):
             'organic_fertiliser_N' : ('kg N', 'Nitrogen (N) in organic fertilisers available to spread'),
             'organic_fertiliser_P' : ('kg P', 'Phosphorous (P) in organic fertilisers available to spread'),
             'organic_fertiliser_K' : ('kg K', 'Potassium (K) in organic fertilisers available to spread'),
+            'organic_fertiliser_TAN' : ('kg TAN', 'Total plant available nitrogen (TAN) in organic fertilisers available to spread'),
             'energy_prod' : ('kWh', 'Total energy production'),
             'energy_use' : ('kWh', 'Total energy use')
         }
@@ -459,7 +460,6 @@ def anaerobic_digestion(waste:WasteAndCircularity):
         pd.concat({'CH4bio': (CH4_loss_prod + CH4_loss_use_agg + CH4_loss_store)}, names=['compound'], axis=1).reorder_levels([1,2,3,4,0], axis=1),
         pd.concat({'CO2bio': (CO2_loss_prod + CO2_loss_store)}, names=['compound'], axis=1).reorder_levels([1,2,3,4,0], axis=1)
     ], axis=1)
-    # self.data_attr.get('losses_VS').update(VS_loss)
     waste.data_attr.get('losses_VS').loc[:, VS_loss.columns] = VS_loss
 
     # Update data attribute
@@ -503,6 +503,11 @@ def anaerobic_digestion(waste:WasteAndCircularity):
 
         waste.data_attr.get('organic_fertiliser_'+element).loc[:, digestate_to_spread.columns] = digestate_to_spread
         waste.data_attr.get('losses_'+element).loc[:, loss_storage.columns] = loss_storage
+
+        if element == 'N':
+            # Calculate and store plant available nitrogen in digestate
+            waste.data_attr.get('organic_fertiliser_TAN').loc[:, digestate_to_spread.columns] = \
+                digestate_to_spread * (waste.par.get_from_frame('digestate_TAN_share', digestate_to_spread)/100)
         
 
 def composting(waste:WasteAndCircularity):
