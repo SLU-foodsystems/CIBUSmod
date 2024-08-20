@@ -30,6 +30,14 @@ class WasteAndCircularity(object):
         self.data_attr = DataAttr(self)
         self.par = par
 
+        # Create dict with treatment-specific functions
+        self.tratment_funs = {
+            'anaerobic digestion' : anaerobic_digestion,
+            'composting' : composting,
+            'incineration' : incineration,
+            'landfill' : landfill
+        }
+
         self.demand = demand
         self.crops = crops
         self.herds = herds
@@ -50,12 +58,7 @@ class WasteAndCircularity(object):
         for treatment in self.data_attr.get('feedstock_VS').columns.unique('treatment'):
             vprint(f'Calculating {treatment} ...')
 
-            try:
-                calc_fun = getattr(self, 'calculate_' + treatment.replace(' ', '_'))
-            except AttributeError:
-                warnings.warn(f"WasteAndCircularity: No method to handle waste treatment '{treatment}'")
-            else:
-                calc_fun()
+            self.calculate_treatment(treatment)
 
         vprint('Calculating regional distribution of bio-fertilisers ...')
         self.distribute_biofert()
@@ -299,201 +302,214 @@ class WasteAndCircularity(object):
 
         return None
         
-    def calculate_anaerobic_digestion(self):
-
-        # Shorthands to retriever
-        g = self.par.get
-        gf = self.par.get_from_frame
-
-        # Get CH4 and CO2 density and CH4 specific energy
-        self.par.clear()
-        CH4d = g('CH4_density')[0] # kg/Nm3
-        CO2d = g('CO2_density')[0] # kg/Nm3
-        CH4se = g('CH4_specific_energy')[0] # kWh/kg
-
-        # Get feedstock VS, C and B0
-        feedstock_VS = self.data_attr.get('feedstock_VS').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
-        feedstock_C = self.data_attr.get('feedstock_C').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
-        feedstock_B0 = self.data_attr.get('feedstock_B0').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
-
-        # Calculate volume [Nm3] of generated biogas CH4 and CO2 
-        CH4_prod_vol = feedstock_B0 * gf('biogas_CH4_yield', feedstock_B0)/100
-        CO2_prod_vol = CH4_prod_vol * (1/(gf('biogas_CH4_frac', CH4_prod_vol)/100) - 1)
-
-        # Calculate mass [kg] of generated biogas CH4 and CO2
-        CH4_prod = CH4_prod_vol * CH4d
-        CO2_prod = CO2_prod_vol * CO2d
-
-        # Calculate CH4 and CO2 losses (slip and flare) during biogas production [kg]
-        slip = gf('biogas_CH4_slip', CH4_prod)/100
-        flare = gf('biogas_flare_frac', CH4_prod)/100
-        flare_slip = gf('biogas_flare_slip', CH4_prod)/100
-
-        CH4_loss_slip = CH4_prod * slip
-        CO2_loss_slip = CO2_prod * slip
-
-        CH4_loss_flare = CH4_prod * flare
-        CO2_loss_flare = CO2_prod * flare
-
-        # Sum production losses and recalculate flared CH4 to CO2
-        CH4_loss_prod = CH4_loss_slip + CH4_loss_flare * flare_slip
-        CO2_loss_prod = CO2_loss_slip + CO2_loss_flare + \
-            CH4_loss_flare *  (1-flare_slip) * ((12+2*16)/(12+4*1))
-
-        # Get uses of biogas
-        uses = self.par.get_unique('energy_prod', qry="parameter == 'biogas_use_share'")
-
-        # Construct dataframe and get use shares
-        use_shares = gf(
-            'biogas_use_share',
-            pd.DataFrame(
-                index = CH4_prod.index,
-                columns = pd.MultiIndex.from_tuples(
-                    [i+(u,) for i in CH4_prod.columns for u in uses],
-                    names = CH4_prod.columns.names + ['energy_prod']
-                )
-            )
-        )/100
-
-        # Check that shares add up to 100%
-        if not (use_shares.T.groupby(use_shares.columns.names[:-1]).sum().T == 1).all().all():
-            raise ValueError("WasteAndCircularity: 'biogas_use_share' did not add up to 100%")
-
-        # Calculate CH4 per use [kg]
-        CH4_per_use = multiply_aligned(
-            use_shares,
-            ( CH4_prod - CH4_loss_slip - CH4_loss_flare )
-        )
-
-        # Calculate CH4 slip per use and aggregate
-        CH4_loss_use = CH4_per_use * (gf('biogas_use_CH4_slip', CH4_per_use)/100)
-        CH4_loss_use_agg = CH4_loss_use.T.groupby(CH4_loss_use.columns.names[:-1]).sum().T
-
-        CH4_per_use_after_losses = CH4_per_use - CH4_loss_use
-
-        # Calculate energy in produced biogas per use [kWh]
-        energy_prod = CH4_per_use_after_losses * CH4se
-
-        # Update energy_prod data attribute
-        self.data_attr.get('energy_prod').loc[:, energy_prod.columns] = energy_prod
-
-        # Calculate energy use in biogas production and use [kWh]
-        energy_sources = self.par.get_unique('energy_source')
-
-        energy_use_prod = gf(
-            'biogas_energy_use',
-            pd.DataFrame(
-                index = CH4_prod_vol.index,
-                columns = pd.MultiIndex.from_tuples(
-                    [i+(es,) for i in CH4_prod_vol.columns for es in energy_sources],
-                    names = CH4_prod_vol.columns.names + ['energy_source']
-                )
-            )
-        )
-        energy_use_prod = multiply_aligned(energy_use_prod, CH4_prod_vol)
-
-        energy_use_use = gf(
-            'biogas_use_energy_use',
-            pd.DataFrame(
-                index = CH4_per_use.index,
-                columns = pd.MultiIndex.from_tuples(
-                    [i+(es,) for i in CH4_per_use.columns for es in energy_sources],
-                    names = CH4_per_use.columns.names + ['energy_source']
-                )
-            )
-        )
-        energy_use_use = multiply_aligned(energy_use_use, CH4_per_use).T.groupby(energy_use_prod.columns.names).sum().T
-
-        energy_use = energy_use_prod + energy_use_use
-
-        # Update energy_use data attribute
-        self.data_attr.get('energy_use').loc[:, energy_use.columns] = energy_use
-
-        # Calculate VS remaining in digestate assuming that C/VS
-        # remains constant [kg]
-        digestate_C = (
-            feedstock_C -
-            CH4_prod * (12/(12+4*1)) -
-            CO2_prod * (12/(12+2*16))
-        )
-        digestate_VS = digestate_C * (feedstock_VS/feedstock_C).fillna(0)
-
-        # Calculate storage losses of CH4 and CO2 assuming same CH4 frac as
-        # in produced biogas [Nm3]
-        digestate_B0 = digestate_VS * gf('digestate_B0', digestate_VS)
-        CH4_loss_store_vol = digestate_B0 * gf('digestate_MCF', digestate_B0)/100
-        CO2_loss_sore_vol = CH4_loss_store_vol * (1/(gf('biogas_CH4_frac', CH4_loss_store_vol)/100) - 1)
-
-        # Calculate mass [kg] of storage losses
-        CH4_loss_store = CH4_loss_store_vol * CH4d
-        CO2_loss_store = CO2_loss_sore_vol * CO2d
-
-        # Calculate carbon (C) in digestate after storage [kg]
-        digestate_C_to_spread = (
-            digestate_C -
-            CH4_loss_store * (12/(12+4*1)) -
-            CO2_loss_store * (12/(12+2*16))
-        )
-
-        # Aggregate VS losses and update data attribute
-        VS_loss = pd.concat([
-            pd.concat({'CH4bio': (CH4_loss_prod + CH4_loss_use_agg + CH4_loss_store)}, names=['compound'], axis=1).reorder_levels([1,2,3,4,0], axis=1),
-            pd.concat({'CO2bio': (CO2_loss_prod + CO2_loss_store)}, names=['compound'], axis=1).reorder_levels([1,2,3,4,0], axis=1)
-        ], axis=1)
-        # self.data_attr.get('losses_VS').update(VS_loss)
-        self.data_attr.get('losses_VS').loc[:, VS_loss.columns] = VS_loss
-
-        # Update data attribute
-        self.data_attr.get('organic_fertiliser_C').loc[:, digestate_C_to_spread.columns] = digestate_C_to_spread
-
-        # Calculate losses of NPK during digestate storage and store data attributes
-        for element in ['N','P','K']:
-
-            self.par.clear()
-            self.par.set(element = element)
-
-            # Get ammount of N, P or K in digestate assuming
-            # no losses of NPK during biogas production
-            digestate = self.data_attr.get('feedstock_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
-            
-            # Get compounds emitted
-            cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
-
-            # Get losses dataframe slice
-            df = self.data_attr.get('losses_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
-
-            if (self.par.data.xs((element,'digestate_loss_storage'),level=('f_element','parameter'))>0).any():
-
-                loss_factors_storage = self.par.get_from_frame('digestate_loss_storage', df)/100
-                loss_storage = multiply_aligned(loss_factors_storage, digestate)
-            
-                if element == 'N':
-                    # NOx-N and N2 storage losses are calculated from plant available nitrogen
-                    loss_storage.update(
-                        (
-                            multiply_aligned(loss_factors_storage, digestate) *
-                            (self.par.get_from_frame('digestate_TAN_share', df)/100)
-                        )
-                        .loc[:,(slice(None), slice(None), slice(None), slice(None), ['NOx-N', 'N2'])]
-                    )
-            else:
-                loss_storage = df * 0.0
-
-            digestate_to_spread = \
-                digestate - loss_storage.T.groupby(['feedstock','feedstock_group','feedstock_type','treatment']).sum().T
-
-            self.data_attr.get('organic_fertiliser_'+element).loc[:, digestate_to_spread.columns] = digestate_to_spread
-            self.data_attr.get('losses_'+element).loc[:, loss_storage.columns] = loss_storage
-
-    def calculate_composting(self):
-        print('NOT IMPLEMENTED!', end=' ')
-
-    def calculate_incineration(self):
-        print('NOT IMPLEMENTED!', end=' ')
-
-    def calculate_landfill(self):
-        print('NOT IMPLEMENTED!', end=' ')
+    def calculate_treatment(self, treatment):
+        try:
+            treatment_fun = self.tratment_funs[treatment]
+        except KeyError:
+            warnings.warn(f"WasteAndCircularity: No function to handle waste treatment '{treatment}' found in .treatment_funs")
+        else:
+            treatment_fun(self)
+    
 
     def distribute_biofert(self):
         print('NOT IMPLEMENTED!', end=' ')
+
+
+# BELOW TREATMENT-SPECIFIC FUNCTIONS ADDED TO .treatment_funs ARE DEFINED
+# THESE SHOULD TAKE A WasteAndCircularity OBJECT AS ONLY INPUT
+
+def anaerobic_digestion(waste:WasteAndCircularity):
+
+    # Shorthands to retriever
+    g = waste.par.get
+    gf = waste.par.get_from_frame
+
+    # Get CH4 and CO2 density and CH4 specific energy
+    waste.par.clear()
+    CH4d = g('CH4_density')[0] # kg/Nm3
+    CO2d = g('CO2_density')[0] # kg/Nm3
+    CH4se = g('CH4_specific_energy')[0] # kWh/kg
+
+    # Get feedstock VS, C and B0
+    feedstock_VS = waste.data_attr.get('feedstock_VS').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
+    feedstock_C = waste.data_attr.get('feedstock_C').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
+    feedstock_B0 = waste.data_attr.get('feedstock_B0').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
+
+    # Calculate volume [Nm3] of generated biogas CH4 and CO2 
+    CH4_prod_vol = feedstock_B0 * gf('biogas_CH4_yield', feedstock_B0)/100
+    CO2_prod_vol = CH4_prod_vol * (1/(gf('biogas_CH4_frac', CH4_prod_vol)/100) - 1)
+
+    # Calculate mass [kg] of generated biogas CH4 and CO2
+    CH4_prod = CH4_prod_vol * CH4d
+    CO2_prod = CO2_prod_vol * CO2d
+
+    # Calculate CH4 and CO2 losses (slip and flare) during biogas production [kg]
+    slip = gf('biogas_CH4_slip', CH4_prod)/100
+    flare = gf('biogas_flare_frac', CH4_prod)/100
+    flare_slip = gf('biogas_flare_slip', CH4_prod)/100
+
+    CH4_loss_slip = CH4_prod * slip
+    CO2_loss_slip = CO2_prod * slip
+
+    CH4_loss_flare = CH4_prod * flare
+    CO2_loss_flare = CO2_prod * flare
+
+    # Sum production losses and recalculate flared CH4 to CO2
+    CH4_loss_prod = CH4_loss_slip + CH4_loss_flare * flare_slip
+    CO2_loss_prod = CO2_loss_slip + CO2_loss_flare + \
+        CH4_loss_flare *  (1-flare_slip) * ((12+2*16)/(12+4*1))
+
+    # Get uses of biogas
+    uses = waste.par.get_unique('energy_prod', qry="parameter == 'biogas_use_share'")
+
+    # Construct dataframe and get use shares
+    use_shares = gf(
+        'biogas_use_share',
+        pd.DataFrame(
+            index = CH4_prod.index,
+            columns = pd.MultiIndex.from_tuples(
+                [i+(u,) for i in CH4_prod.columns for u in uses],
+                names = CH4_prod.columns.names + ['energy_prod']
+            )
+        )
+    )/100
+
+    # Check that shares add up to 100%
+    if not (use_shares.T.groupby(use_shares.columns.names[:-1]).sum().T == 1).all().all():
+        raise ValueError("WasteAndCircularity: 'biogas_use_share' did not add up to 100%")
+
+    # Calculate CH4 per use [kg]
+    CH4_per_use = multiply_aligned(
+        use_shares,
+        ( CH4_prod - CH4_loss_slip - CH4_loss_flare )
+    )
+
+    # Calculate CH4 slip per use and aggregate
+    CH4_loss_use = CH4_per_use * (gf('biogas_use_CH4_slip', CH4_per_use)/100)
+    CH4_loss_use_agg = CH4_loss_use.T.groupby(CH4_loss_use.columns.names[:-1]).sum().T
+
+    CH4_per_use_after_losses = CH4_per_use - CH4_loss_use
+
+    # Calculate energy in produced biogas per use [kWh]
+    energy_prod = CH4_per_use_after_losses * CH4se
+
+    # Update energy_prod data attribute
+    waste.data_attr.get('energy_prod').loc[:, energy_prod.columns] = energy_prod
+
+    # Calculate energy use in biogas production and use [kWh]
+    energy_sources = waste.par.get_unique('energy_source')
+
+    energy_use_prod = gf(
+        'biogas_energy_use',
+        pd.DataFrame(
+            index = CH4_prod_vol.index,
+            columns = pd.MultiIndex.from_tuples(
+                [i+(es,) for i in CH4_prod_vol.columns for es in energy_sources],
+                names = CH4_prod_vol.columns.names + ['energy_source']
+            )
+        )
+    )
+    energy_use_prod = multiply_aligned(energy_use_prod, CH4_prod_vol)
+
+    energy_use_use = gf(
+        'biogas_use_energy_use',
+        pd.DataFrame(
+            index = CH4_per_use.index,
+            columns = pd.MultiIndex.from_tuples(
+                [i+(es,) for i in CH4_per_use.columns for es in energy_sources],
+                names = CH4_per_use.columns.names + ['energy_source']
+            )
+        )
+    )
+    energy_use_use = multiply_aligned(energy_use_use, CH4_per_use).T.groupby(energy_use_prod.columns.names).sum().T
+
+    energy_use = energy_use_prod + energy_use_use
+
+    # Update energy_use data attribute
+    waste.data_attr.get('energy_use').loc[:, energy_use.columns] = energy_use
+
+    # Calculate VS remaining in digestate assuming that C/VS
+    # remains constant [kg]
+    digestate_C = (
+        feedstock_C -
+        CH4_prod * (12/(12+4*1)) -
+        CO2_prod * (12/(12+2*16))
+    )
+    digestate_VS = digestate_C * (feedstock_VS/feedstock_C).fillna(0)
+
+    # Calculate storage losses of CH4 and CO2 assuming same CH4 frac as
+    # in produced biogas [Nm3]
+    digestate_B0 = digestate_VS * gf('digestate_B0', digestate_VS)
+    CH4_loss_store_vol = digestate_B0 * gf('digestate_MCF', digestate_B0)/100
+    CO2_loss_sore_vol = CH4_loss_store_vol * (1/(gf('biogas_CH4_frac', CH4_loss_store_vol)/100) - 1)
+
+    # Calculate mass [kg] of storage losses
+    CH4_loss_store = CH4_loss_store_vol * CH4d
+    CO2_loss_store = CO2_loss_sore_vol * CO2d
+
+    # Calculate carbon (C) in digestate after storage [kg]
+    digestate_C_to_spread = (
+        digestate_C -
+        CH4_loss_store * (12/(12+4*1)) -
+        CO2_loss_store * (12/(12+2*16))
+    )
+
+    # Aggregate VS losses and update data attribute
+    VS_loss = pd.concat([
+        pd.concat({'CH4bio': (CH4_loss_prod + CH4_loss_use_agg + CH4_loss_store)}, names=['compound'], axis=1).reorder_levels([1,2,3,4,0], axis=1),
+        pd.concat({'CO2bio': (CO2_loss_prod + CO2_loss_store)}, names=['compound'], axis=1).reorder_levels([1,2,3,4,0], axis=1)
+    ], axis=1)
+    # self.data_attr.get('losses_VS').update(VS_loss)
+    waste.data_attr.get('losses_VS').loc[:, VS_loss.columns] = VS_loss
+
+    # Update data attribute
+    waste.data_attr.get('organic_fertiliser_C').loc[:, digestate_C_to_spread.columns] = digestate_C_to_spread
+
+    # Calculate losses of NPK during digestate storage and store data attributes
+    for element in ['N','P','K']:
+
+        waste.par.clear()
+        waste.par.set(element = element)
+
+        # Get ammount of N, P or K in digestate assuming
+        # no losses of NPK during biogas production
+        digestate = waste.data_attr.get('feedstock_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
         
+        # Get compounds emitted
+        cmps = waste.par.get_unique('compound', qry=f'f_element == "{element}"')
+
+        # Get losses dataframe slice
+        df = waste.data_attr.get('losses_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
+
+        if (waste.par.data.xs((element,'digestate_loss_storage'),level=('f_element','parameter'))>0).any():
+
+            loss_factors_storage = waste.par.get_from_frame('digestate_loss_storage', df)/100
+            loss_storage = multiply_aligned(loss_factors_storage, digestate)
+        
+            if element == 'N':
+                # NOx-N and N2 storage losses are calculated from plant available nitrogen
+                loss_storage.update(
+                    (
+                        multiply_aligned(loss_factors_storage, digestate) *
+                        (waste.par.get_from_frame('digestate_TAN_share', df)/100)
+                    )
+                    .loc[:,(slice(None), slice(None), slice(None), slice(None), ['NOx-N', 'N2'])]
+                )
+        else:
+            loss_storage = df * 0.0
+
+        digestate_to_spread = \
+            digestate - loss_storage.T.groupby(['feedstock','feedstock_group','feedstock_type','treatment']).sum().T
+
+        waste.data_attr.get('organic_fertiliser_'+element).loc[:, digestate_to_spread.columns] = digestate_to_spread
+        waste.data_attr.get('losses_'+element).loc[:, loss_storage.columns] = loss_storage
+        
+
+def composting(waste:WasteAndCircularity):
+    print('NOT IMPLEMENTED!', end=' ')
+
+def incineration(waste:WasteAndCircularity):
+    print('NOT IMPLEMENTED!', end=' ')
+
+def landfill(waste:WasteAndCircularity):
+    print('NOT IMPLEMENTED!', end=' ')
