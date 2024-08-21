@@ -60,9 +60,6 @@ class WasteAndCircularity(object):
 
             self.calculate_treatment(treatment)
 
-        vprint('Calculating regional distribution of bio-fertilisers ...')
-        self.distribute_biofert()
-
         vprint(type='end')
 
     def create_data_attribute_tables(self):
@@ -310,10 +307,6 @@ class WasteAndCircularity(object):
             warnings.warn(f"WasteAndCircularity: No function to handle waste treatment '{treatment}' found in .treatment_funs")
         else:
             treatment_fun(self)
-    
-
-    def distribute_biofert(self):
-        print('NOT IMPLEMENTED!', end=' ')
 
 
 # BELOW TREATMENT-SPECIFIC FUNCTIONS ADDED TO .treatment_funs ARE DEFINED
@@ -474,9 +467,6 @@ def anaerobic_digestion(waste:WasteAndCircularity):
         # Get ammount of N, P or K in digestate assuming
         # no losses of NPK during biogas production
         digestate = waste.data_attr.get('feedstock_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
-        
-        # Get compounds emitted
-        cmps = waste.par.get_unique('compound', qry=f'f_element == "{element}"')
 
         # Get losses dataframe slice
         df = waste.data_attr.get('losses_'+element).xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
