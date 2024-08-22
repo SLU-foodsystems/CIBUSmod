@@ -180,10 +180,7 @@ animals              {self.animals}
 
         # Get 'old_x'
         if x_is in ['milk','meat']:
-            if x_is == 'milk':
-                old_x = self.data_attr.get('production').loc[:,(slice(None),'milk')].sum(axis=1)
-            elif x_is == 'meat':
-                old_x = self.data_attr.get('production').loc[:,(slice(None),'meat')].sum(axis=1)
+            old_x = self.data_attr.get('production').loc[:,(slice(None),x_is)].sum(axis=1)
         elif x_is == 'total horses':
             old_x = self.data_attr.get('heads').sum(axis=1)
         elif x_is == 'ewes+rams':
