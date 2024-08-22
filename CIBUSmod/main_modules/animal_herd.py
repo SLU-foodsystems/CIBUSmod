@@ -141,14 +141,15 @@ animals              {self.animals}
 
     def scale(self,new_x,x_is):
         '''Scales all data attributes based on new_x
-        
+
         Parameters
         ----------
         new_x : numpy.array or pandas.Series
 
         x_is : str
-            Strimng defining what x is. Must be in 
-        
+            String defining what x is. Must be one of valid herd types:
+            'cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','meat','milk'
+
         '''
 
         # Clear and set filters for ParameterRetriever
