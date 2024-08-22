@@ -259,13 +259,13 @@ class GeoDistributor:
             )
 
             if apply_solution:
-                vprint(f'Applying solution ...')
+                vprint('Applying solution ...')
                 self.apply_solution()
 
         else:
             if hasattr(self, 'x'):
                 delattr(self, 'x')
-            raise RuntimeError(f'No solution found!')
+            raise RuntimeError('No solution found!')
 
         vprint(type='end')
 
@@ -1262,7 +1262,7 @@ class GeoDistributor:
         row_idx = pd.MultiIndex.from_tuples([
             (h.species,h.breed,h.prod_system,h.sub_system) for h in self.herds if
             'max_share_sub_system' in h.par.data.index.get_level_values('parameter') and
-            h.sub_system in h.par.get_unique('sub_system', qry=f'parameter == "max_share_sub_system"')
+            h.sub_system in h.par.get_unique('sub_system', qry='parameter == "max_share_sub_system"')
         ], names=['species', 'breed', 'prod_system', 'sub_system'])
 
         # Get col index from animal herds (sp,br,ps,ss,re)
@@ -1420,7 +1420,7 @@ class GeoDistributor:
         self.crops.par.clear()
 
         # Get crop groups with max/min inclusion in rotation constraint
-        cgs = self.crops.par.get_unique('crop_group', qry=f'parameter == "max_in_rot"')
+        cgs = self.crops.par.get_unique('crop_group', qry='parameter == "max_in_rot"')
         pss = self.x_idx['crp'].get_level_values('prod_system').unique()
         res = self.x_idx['crp'].get_level_values('region').unique()
 

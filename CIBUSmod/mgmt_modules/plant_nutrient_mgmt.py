@@ -607,10 +607,10 @@ class PlantNutrientMgmt():
         if element == 'N':
             self.par.clear()
             manure_long = (
-                self.crops.data_attr.get(f'fertiliser.manure_N') -
-                self.crops.data_attr.get(f'fertiliser.manure_TAN')
+                self.crops.data_attr.get('fertiliser.manure_N') -
+                self.crops.data_attr.get('fertiliser.manure_TAN')
             ).mul(
-                self.par.get('N_resid_manure', **self.crops.data_attr.get(f'fertiliser.manure_N').columns.to_frame().to_dict('list'))/100,
+                self.par.get('N_resid_manure', **self.crops.data_attr.get('fertiliser.manure_N').columns.to_frame().to_dict('list'))/100,
                 axis = 1
             ).sum(axis=1)
 
@@ -839,7 +839,7 @@ class PlantNutrientMgmt():
         compounds = \
         self.par.get_unique(
             'compound',
-            qry=f'parameter == "soil_losses_organic_soils"'
+            qry='parameter == "soil_losses_organic_soils"'
         )
 
         # Construct dataframe

@@ -690,7 +690,7 @@ def _path_from_str(str):
 
 def _get_problem_data(data, index_cols, parameter):
     if not isinstance(data, pd.Series):
-        raise ValueError(f"data should be a pandas.Series")
+        raise ValueError("data should be a pandas.Series")
     if unknown_columns := set(index_cols) - set(data.index.names):
         raise ValueError(f"did not find index columns {unknown_columns} in data index")
     

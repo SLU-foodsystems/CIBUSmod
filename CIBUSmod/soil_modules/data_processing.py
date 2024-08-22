@@ -589,7 +589,7 @@ def make_spinup_df(input_df=False,
     
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
-        print(f"   'spinup_multi_df': Multiindex dataframe for spinup modelling.")
+        print("   'spinup_multi_df': Multiindex dataframe for spinup modelling.")
         print('---Leaving _make_spinup_df()---')
     
     return spinup_multi_df, year0
@@ -807,8 +807,8 @@ def calculate_scn_soc(scn_ha_df=False,
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print(f"   'scenario_ha_soc_df': SOC dataframe expressed per ha for scenario {scenario_name}.")
         print(f"   'scenario_sko_soc_df': SOC dataframe expressed per sko for scenario {scenario_name}.")
-        print(f"   'scenario_ha_soc_ds': xarray dataset of 'scenario_ha_soc_df'.")
-        print(f"   'scenario_sko_soc_ds': xarray dataset of 'scenario_sko_soc_df'.")
+        print("   'scenario_ha_soc_ds': xarray dataset of 'scenario_ha_soc_df'.")
+        print("   'scenario_sko_soc_ds': xarray dataset of 'scenario_sko_soc_df'.")
         print('---Leaving _calculate_soc()---')
     
     return scn_ha_soc_df, scn_sko_soc_df, scn_ha_soc_ds, scn_sko_soc_ds
@@ -918,10 +918,10 @@ def calculate_historic_soc(spinup_ha_df=False,
     
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
-        print(f"   'historic_ha_soc_df': dataframe expressed per ha for historic SOC.")
-        print(f"   'historic_sko_soc_df': dataframe expressed per sko for historic SOC.")
-        print(f"   'historic_ha_soc_ds': xarray dataset of 'historic_ha_soc_df'.")
-        print(f"   'historic_sko_soc_ds': xarray dataset of 'historic_sko_soc_df'.")
+        print("   'historic_ha_soc_df': dataframe expressed per ha for historic SOC.")
+        print("   'historic_sko_soc_df': dataframe expressed per sko for historic SOC.")
+        print("   'historic_ha_soc_ds': xarray dataset of 'historic_ha_soc_df'.")
+        print("   'historic_sko_soc_ds': xarray dataset of 'historic_sko_soc_df'.")
 
         print('---Leaving _calculate_historic_soc()---')
     

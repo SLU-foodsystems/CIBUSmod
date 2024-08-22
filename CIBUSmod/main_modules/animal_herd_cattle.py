@@ -351,7 +351,7 @@ class CattleHerd(AnimalHerd):
         else:
             E_growth = (growth_rate * (6.28 + 0.0188 * live_weight)) / ((1 - 0.3 * growth_rate) * 0.435) # (Tabell 4a)
             if np.array(live_weight > 825).any() or np.array(growth_rate > 2).any():
-                warnings.warn(f'Growth energy equation defined up to 825 kg LW and 2.0 kg LWG/day.')
+                warnings.warn('Growth energy equation defined up to 825 kg LW and 2.0 kg LWG/day.')
 
         
 

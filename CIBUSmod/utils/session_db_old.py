@@ -793,7 +793,7 @@ def _db_read_scn(db_path):
     # Connect and read
     con = sqlite3.connect(db_path)
     scn_dict_flat = (
-        pd.read_sql_query(f"SELECT * from scenarios", con)
+        pd.read_sql_query("SELECT * from scenarios", con)
         .set_index('index')
         .to_dict()
     )
