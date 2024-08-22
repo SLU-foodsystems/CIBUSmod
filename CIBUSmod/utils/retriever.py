@@ -393,7 +393,7 @@ Parameters
                 continue
 
             wb = load_workbook(scn_path, read_only=True)
-            if not self.name in wb.sheetnames:
+            if self.name not in wb.sheetnames:
                 # If sheet does not exist don't update anything
                 wb._archive.close()
                 continue
