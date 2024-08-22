@@ -54,7 +54,7 @@ class GeoDistributor:
     def make(
             self,
             use_cons:list|str,
-            scale_power:int = 0.4,
+            scale_power:float = 0.4,
             scale_cutoff_percentile:float = 99,
             verbose:bool = False,
             **kwargs
@@ -66,7 +66,7 @@ class GeoDistributor:
         use_cons : (list of) str
             List of numbers corresponding to the constraints to be used. For descriptions
             of each constraint see ?GeoDistributor.make_C<nr>
-        scale_power : int, default 0.4
+        scale_power : float, default 0.4
             Power used to calculate scaling factors for the optimisation.
             scale_power=0 -> minimise absolute difference in crop areas/animal numbers
             scale_poqer=1 -> minimise relative difference in crop areas/animal numbers
@@ -353,7 +353,8 @@ class GeoDistributor:
             'crp' : self.D['crp'].index
         }
 
-    def calculate_scaling_factors(self, scale_power=0, cutoff_percentile=99):
+    def calculate_scaling_factors(self, scale_power: float = 0.0,
+                                  cutoff_percentile: float = 99.0):
         '''Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf where rn is a factor
         normalising all features (i.e. distinct land uses and animal species) to the same range and fs is a
         scaling factor calculated as fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
