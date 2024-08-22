@@ -27,7 +27,7 @@
 Intro here
 
 # Data structure
-All data used to run the model and outputs produced are stored in a data folder with the folder structure shown below. The `default` and `scenarios` folders stores all default input data and data used to define diferent scenarios in the form of Excel workbooks. The `output` folder stores model outputs in SQLite database files and the `ecoinvent` folder stores ecoinvent activity data use by the `InputsMgmt` module.
+All data used to run the model and outputs produced are stored in a data folder with the folder structure shown below. The `default` and `scenarios` folders stores all default input data and data used to define different scenarios in the form of Excel workbooks. The `output` folder stores model outputs in SQLite database files and the `ecoinvent` folder stores ecoinvent activity data use by the `InputsMgmt` module.
 
 ```bash
  data
@@ -58,10 +58,10 @@ my_session = cm.Session(
 `my_session` then connects to the SQLite database file in `data/output/name_of_session.sqlite` or creates it if it does not already exist. This database file stores all scenario definitions and model outputs. If the database already contains model outputs these will become directly available through the `my_session` object (see [Retrieving model outputs](#retrieving-model-outputs)).
 
 > [!TIP]
-> When instatiating a `Session` object, it's also possible to independently set the paths to the *default*, *scenarios* and *output* data folders via the arguments `data_path_default`, `data_path_scenarios` and `data_path_output`.
+> When instantiating a `Session` object, it's also possible to independently set the paths to the *default*, *scenarios* and *output* data folders via the arguments `data_path_default`, `data_path_scenarios` and `data_path_output`.
 
 ## Default data workbooks
-All data used to run the model (refered to as parameters) are stored in Excel wokrbooks in `data/default/`. This folder contains one Excel workbook for each CIBUSmod module. When a module is initialised it is done so with a `ParameterRetriever` object that is responsible for accessing parameters. The name defined for the `ParameterRetriever` object correspons to the name of the Excel workbook where it will access paramters.
+All data used to run the model (referred to as parameters) are stored in Excel workbooks in `data/default/`. This folder contains one Excel workbook for each CIBUSmod module. When a module is initialised it is done so with a `ParameterRetriever` object that is responsible for accessing parameters. The name defined for the `ParameterRetriever` object correspond to the name of the Excel workbook where it will access parameters.
 
 Below the `Regions` module is initialised and uses parameters in `data/default/Regions.xlsx`
 
@@ -73,13 +73,13 @@ regions = cm.Regions(
 
 The Excel workbooks should contain one sheet named `default` where all data is stored. All other sheets in the workbook are ignored and may be used freely to e.g. document data collection.
 
-The first row in the `default` sheet contains column headings. When the `ParamterRetriever` reads the Excel file only columns with the headings `parameter`, `value` and all starting with `f_` are retained. Other columns can again be used for documentation. All rows that do not have anything in the `parameter` column are also skipped, allowing for e.g. headings separating diferent groups of parameters in the Excel sheet (see example below).
+The first row in the `default` sheet contains column headings. When the `ParameterRetriever` reads the Excel file only columns with the headings `parameter`, `value` and all starting with `f_` are retained. Other columns can again be used for documentation. All rows that do not have anything in the `parameter` column are also skipped, allowing for e.g. headings separating different groups of parameters in the Excel sheet (see example below).
 
 The `parameter` columns is used for the parameter names and the `value` columns for the corresponding value. A parameter value can only be a number (equations and references are OK) or the name of an external .csv file containing additional parameter values (more on that later).
 
-All columns starting with `f_` are interpreted as "filter levels". When the model tries to access a parameter value it does so by providing a set of filters. The `ParamterRetriever` then tries to find the single paramter value that most closely matches the supplied filter. If a single value can't be returned, `NaN` is returned and a warning with some additional information is printed.
+All columns starting with `f_` are interpreted as "filter levels". When the model tries to access a parameter value it does so by providing a set of filters. The `ParameterRetriever` then tries to find the single parameter value that most closely matches the supplied filter. If a single value can't be returned, `NaN` is returned and a warning with some additional information is printed.
 
-For example, when the `CropProduction` module accesses the paramter `seed` (defining the seeding density in kg/ha) it does so with the filter levels `crop`, `prod_system`, `region` and `crop_prod` (e.g. `crop='Wheat, winter'`, `prod_system='conventional'`, `region='111'` and `crop_prod='wheat'`). Assuming that the parameter sheet looks like below the value `210` would be returned as `crop='Wheat, winter'`, `prod_system='conventional'` and `crop_prod='wheat'` represents a unique match as no other value is equally well defined (i.e. with the same number of matching filters).  As the `f_region` column was left blank for the rows representing 'Wheat, winter' the `region` filter level could be ignored.
+For example, when the `CropProduction` module accesses the parameter `seed` (defining the seeding density in kg/ha) it does so with the filter levels `crop`, `prod_system`, `region` and `crop_prod` (e.g. `crop='Wheat, winter'`, `prod_system='conventional'`, `region='111'` and `crop_prod='wheat'`). Assuming that the parameter sheet looks like below the value `210` would be returned as `crop='Wheat, winter'`, `prod_system='conventional'` and `crop_prod='wheat'` represents a unique match as no other value is equally well defined (i.e. with the same number of matching filters).  As the `f_region` column was left blank for the rows representing 'Wheat, winter' the `region` filter level could be ignored.
 
 <img src="figs/manual/default_data_example1.png"> \
 *Example of default Excel data sheet*
@@ -95,28 +95,28 @@ The Excel workbooks for default parameters can be extended with .csv-files. This
 <img src="figs/manual/default_data_ref_csv.png"> \
 *Example of how to read data from external .csv-file via default workbooks*
 
-The .csv-files can be structured in two ways, either with *parameters as columns* or with *filter values as columns*. In the the first case (i.e. *parameters as columns*) the first row in the .csv-file is interpreted as column headings and any column heading preceded by `f_` is interpreted as a filter level in a similar way as in the default data workbooks. Other column headings are interpreted as parameter names (see example below). Only columns corresponding to the parameter names specified in the default workbook are retrieved (see example above where the same .csv-file is defined for multiple parameters).
+The .csv-files can be structured in two ways, either with *parameters as columns* or with *filter values as columns*. In the first case (i.e. *parameters as columns*) the first row in the .csv-file is interpreted as column headings and any column heading preceded by `f_` is interpreted as a filter level in a similar way as in the default data workbooks. Other column headings are interpreted as parameter names (see example below). Only columns corresponding to the parameter names specified in the default workbook are retrieved (see example above where the same .csv-file is defined for multiple parameters).
 
 <img src="figs/manual/default_data_csv_par.png"> \
 *Example of .csv-file with **parameters as columns** structure*
 
-The second structure (i.e. *filter values as columns*) is invoked by writing `cols_as_filter: <filter level>` in the first cell of the .csv-file, where `<filter level>` is a filter level name preceded by `f_`. The second row is then interpreted as column names and any column name preceded by `f_` are assumed to represent filter levels and all other columns are assumed to represent filter values on the level specified in the first cell of the .csv-file (see example below). The paramter name is infered from the parameter name stated in the default data workbook on the row refereing to the .csv-file.
+The second structure (i.e. *filter values as columns*) is invoked by writing `cols_as_filter: <filter level>` in the first cell of the .csv-file, where `<filter level>` is a filter level name preceded by `f_`. The second row is then interpreted as column names and any column name preceded by `f_` are assumed to represent filter levels and all other columns are assumed to represent filter values on the level specified in the first cell of the .csv-file (see example below). The parameter name is inferred from the parameter name stated in the default data workbook on the row referring to the .csv-file.
 
 <img src="figs/manual/default_data_csv_filter.png"> \
 *Example of .csv-file with **filter values as columns** structure*
 
 ## Scenario data workbooks
-Scenarios are defined in Excel wrokbooks located in `data/scenarios/`. When defining scenarios only parameters that are to be changed compared to the default values need to be specified. Any parameters not defined in a scenario data workbook are retained with their default values. The scenario data workbooks should contain one sheet per module with where parameters are to be changed in the scenario (see example below). Sheet names need to match the filenames of corresponding default data workbooks (without the .xlsx file extention). Each sheet needs to include the column headings `parameter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`).
+Scenarios are defined in Excel workbooks located in `data/scenarios/`. When defining scenarios only parameters that are to be changed compared to the default values need to be specified. Any parameters not defined in a scenario data workbook are retained with their default values. The scenario data workbooks should contain one sheet per module with where parameters are to be changed in the scenario (see example below). Sheet names need to match the filenames of corresponding default data workbooks (without the .xlsx file extension). Each sheet needs to include the column headings `parameter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`).
 
 <img src="figs/manual/scenario_data_example1.png"> \
 *Example of scenario Excel data sheet*
 
-Changes in parameter values can be specified in absolute or relative terms by writing `abs` or `rel` in the `val_is` column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value is specified. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if `crop` equlats `'Ley for fodder'` in which case the yield is increased by 30% (factor 1.3). When specifying scenario parameter values in absolute terms these will directly replace the corresponding default paramter values.
+Changes in parameter values can be specified in absolute or relative terms by writing `abs` or `rel` in the `val_is` column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value is specified. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if `crop` equals `'Ley for fodder'` in which case the yield is increased by 30% (factor 1.3). When specifying scenario parameter values in absolute terms these will directly replace the corresponding default parameter values.
 
 When the model updates parameter values it goes through all default parameter values and tries to find the one scenario parameter value with the largest number of matching filter levels analogously with how parameter values are located when running the model (as described above). This means that parameter values to change in a scenario can only be defined in more general terms than default parameter values (i.e. applying to several default parameter values, such as in the case of yield above) but never more precise. So, if the default value for the parameter `seed` from the earlier example is defined for the filter levels `crop`, `crop_prod` and `prod_system` a scenario can't change this parameter independently on the `region` level without first explicitly specifying this filter level in the default data workbook.
 
 > [!CAUTION]
-> When using the `abs` keyword in the `val_is` columns it is important to make sure that the scenario parameter value corresponds to only the desired default paramter value (i.e. by using the exact same filter levels and values in the scenario data workbook as in the default data workbook) to avoid replacing unintended paramter values.
+> When using the `abs` keyword in the `val_is` columns it is important to make sure that the scenario parameter value corresponds to only the desired default parameter value (i.e. by using the exact same filter levels and values in the scenario data workbook as in the default data workbook) to avoid replacing unintended parameter values.
 
 Scenario parameter values can be specified for any chosen years by adding columns with `y_` prefix. When the model updates parameter values for a given scenario and year it will use values specified under the corresponding year if available. If that year is not specified but an earlier **and** a later year is available, it will linearly interpolate between those years. If only an earlier year is available it will use that value and if only a later year is available it will not update parameter values.
 
