@@ -1,10 +1,18 @@
 import warnings
 import pandas as pd
 import numpy as np
+from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict
 from ..main_modules.animal_herd import concat_herds
+
+if TYPE_CHECKING:
+    from ..main_modules.demand_and_conversions import DemandAndConversions
+    from ..main_modules.regions import Regions
+    from ..main_modules.crop_prod import CropProduction
+    from ..main_modules.waste_and_circularity import WasteAndCircularity
+    from ..utils.retriever import ParameterRetriever
 
 class PlantNutrientMgmt():
     '''Class that that calculates ammount of plant nutrients needed for crop production
@@ -18,12 +26,21 @@ class PlantNutrientMgmt():
     par : ParameterRetriever object
     '''
 
-    def __init__(self,demand,regions,crops,herds,par):
+    def __init__(
+            self,
+            demand: "DemandAndConversions",
+            regions: "Regions",
+            crops: "CropProduction",
+            waste: "WasteAndCircularity",
+            herds: pd.Series,
+            par: "ParameterRetriever"
+        ):
 
         self.par = par
         self.demand = demand
         self.regions = regions
         self.crops = crops
+        self.waste = waste
 
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -49,7 +66,8 @@ class PlantNutrientMgmt():
         vprint('Distributing manure ...')
         self.distribute_manure()
 
-        # TO BE ADDED: Sewedge sludge application (and other recirculated?)
+        vprint('Distributing non-manure organic fertilisers ...')
+        self.distribute_organic_fertilisers()
 
         vprint('Calculating mineral NPK application ...')
         self.calculate_mineral_NPK_application(element='N')
@@ -62,19 +80,19 @@ class PlantNutrientMgmt():
         vprint('Calculating N application losses ...') # Only NH3 YES?
         self.calculate_N_application_losses(of='mineral_N')
         self.calculate_N_application_losses(of='manure_TAN')
+        self.calculate_N_application_losses(of='organic_TAN')
 
         vprint('Calculating N soil losses ...')
         self.calculate_N_soil_losses(of='mineral_N')
         self.calculate_N_soil_losses(of='manure_N')
+        self.calculate_N_soil_losses(of='organic_N')
         self.calculate_N_soil_losses(of='crop_residues_N')
         self.calculate_organic_soil_N_losses()
 
         vprint('Calculating N leaching ...')
         self.calculate_leaching_N()
 
-        # TO BE ADDED: Soil N2O emissions
-        # TO BE ADDED: Other gasous emissions
-        # TO BE ADDED: Leaching
+        # TO BE ADDED: Leaching of P and K
 
         vprint(type='end')
              
@@ -412,7 +430,7 @@ class PlantNutrientMgmt():
             desc = 'Plant available nitrogen (TAN) in applied manure'
         )
 
-        for element in ['N', 'P', 'K', 'C']: # ['VS'(?), 'P', 'K'] to be added ...
+        for element in ['N', 'P', 'K', 'C']:
             res = (
                 herds.data_attr.get(f'manure.{element}_to_spread')
                 .multiply(share_manure_per_crop)
@@ -424,6 +442,135 @@ class PlantNutrientMgmt():
                 unit = f'kg {element}/year',
                 orig = 'PlantNutrientMgmt',
                 desc = f'{_elem_to_name[element].capitalize()} in applied manure'
+            )
+
+    def distribute_organic_fertilisers(self):
+        # Non-manure organic fertilisers originating from the WasteAndCircularity module
+        # are destributed according to the following procedure:
+        #
+        # 1.    Organic fertiliser generated in a given region is distributed to organic crops
+        #       in that region based on TAN requirements minus TAN in applied manure.
+        #
+        # 2.    Any remaining organic fertiliser in a region is distributed to conventional crops
+        #       in that region based on TAN requirements minus TAN in applied manure.
+        #
+        # 3.    Organic fertiliser remaining after 1 and 2 is distributed based on remaining TAN
+        #       requirements in organic crops nationally.
+        # 
+        # 4.    Organic fertiliser remaining after 3 is distributed based on remaining TAN requirements
+        #       in conventional crops nationally.
+
+        # Get TAN requirements remaining after manure application
+        # Set to zero if manure covers more than requirements
+        TAN_req = (
+            self.crops.data_attr.get('fertiliser.TAN_req') -
+            self.crops.data_attr.get('fertiliser.manure_TAN').sum(axis=1)
+        ).clip(lower=0)
+
+        # Get TAN available in organic fertilisers
+        # Note: These are aggregated by treatment to save computation time.
+        # The groupby could potentially be removed to preserve the origin
+        # of feedstocks
+        org_TAN = (
+            self.waste.data_attr.get('organic_fertiliser_TAN')
+            .T.groupby('treatment').sum().T
+        )
+        # org_TAN.iloc[:,1] = org_TAN.iloc[:,0]
+
+        # Create dataframe for results
+        org_TAN_application = pd.DataFrame(
+            0.0,
+            columns = org_TAN.columns,
+            index = TAN_req.index
+        )
+
+        # Create dataframes to track remaining TAN requirements and organic fertiliser
+        TAN_req_remaining = TAN_req.copy()
+        org_TAN_remaining = org_TAN.copy()
+
+        # 1. ORGANIC FERTILISERS TO ORGANIC AREAS IN REGION -------------------------->
+        TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
+
+        org_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, org_TAN_remaining)
+
+        org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
+        _update_manure_TAN_frames(
+            org_TAN_to_spread,
+            org_TAN_remaining,
+            TAN_req_remaining, org_TAN_application
+        )
+
+        # 2. ORGANIC FERTILISERS TO CONVENTIONAL AREAS IN REGION --------------------->
+        TAN_to_cover = TAN_req_remaining
+
+        org_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, org_TAN_remaining)
+
+        org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
+        _update_manure_TAN_frames(
+            org_TAN_to_spread,
+            org_TAN_remaining,
+            TAN_req_remaining, org_TAN_application
+        )
+
+        # 3. ORGANIC FERTILISERS TO ORGANIC AREAS ACROSS REGIONS --------------------->
+        # AND
+        # 4. ORGANIC FERTILISERS TO CONVENTIONAL AREAS ACROSS REGIONS ---------------->
+        for do_step in [3,4]:
+            
+            if do_step == 3:
+                TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
+            else:
+                TAN_to_cover = TAN_req_remaining
+
+            share_to_use = 1 if TAN_to_cover.sum() > org_TAN_remaining.sum().sum() else TAN_to_cover.sum()/org_TAN_remaining.sum().sum()
+            
+            dist_key = (
+                TAN_to_cover /
+                TAN_to_cover.sum()
+            )
+            
+            org_TAN_to_spread = pd.DataFrame(
+                np.atleast_2d(dist_key.values).T @ np.atleast_2d(org_TAN_remaining.sum().values * share_to_use),
+                index = dist_key.index,
+                columns = org_TAN_remaining.columns
+            )
+            
+            org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
+            _update_manure_TAN_frames(
+                org_TAN_to_spread,
+                org_TAN_remaining,
+                TAN_req_remaining, org_TAN_application
+            )
+
+        # FINALIZE -------------------------------------------------------------------->
+
+        # Calculate share of organic fertiliser applied per crop
+        share_per_crop = (
+            org_TAN_application
+            .div(org_TAN_application.groupby('region').sum().replace({0:np.nan}), axis=0)  # 0 -> NaN to avoid div by 0 error
+            .fillna(0)
+        )
+
+        self.crops.data_attr.add(
+            org_TAN_application,
+            name = 'fertiliser.organic_TAN',
+            unit = 'kg TAN/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Plant available nitrogen (TAN) in applied non-manure organic fertilisers'
+        )
+
+        for element in ['N', 'P', 'K', 'C']:
+            res = (
+                self.waste.data_attr.get(f'organic_fertiliser_{element}')
+                .T.groupby('treatment').sum().T
+                .multiply(share_per_crop)
+            )
+            self.crops.data_attr.add(
+                res,
+                name = f'fertiliser.organic_{element}',
+                unit = f'kg {element}/year',
+                orig = 'PlantNutrientMgmt',
+                desc = f'{_elem_to_name[element].capitalize()} in applied non-manure organic fertilisers'
             )
                 
     def calculate_mineral_NPK_application(self, element):
@@ -455,7 +602,10 @@ class PlantNutrientMgmt():
         # Get manure TAN/P/K input
         manure = self.crops.data_attr.get(f'fertiliser.manure_{element_}').drop('grazing', level='MMS', axis=1).sum(axis=1)
 
-        # Get long term N from manure
+        # Get non-manure organic fertiliser TAN/P/K input
+        org_fert = self.crops.data_attr.get(f'fertiliser.organic_{element_}').sum(axis=1)
+
+        # Get long term N from manure and other organic fertilisers
         if element == 'N':
             self.par.clear()
             manure_long = (
@@ -465,13 +615,23 @@ class PlantNutrientMgmt():
                 self.par.get('N_resid_manure', **self.crops.data_attr.get(f'fertiliser.manure_N').columns.to_frame().to_dict('list'))/100,
                 axis = 1
             ).sum(axis=1)
+
+            self.par.clear()
+            org_fert_long = (
+                self.crops.data_attr.get(f'fertiliser.organic_N') -
+                self.crops.data_attr.get(f'fertiliser.organic_TAN')
+            ).mul(
+                self.par.get('N_resid_organic', **self.crops.data_attr.get(f'fertiliser.organic_N').columns.to_frame().to_dict('list'))/100,
+                axis = 1
+            ).sum(axis=1)
         else:
             manure_long = 0
+            org_fert_long = 0
 
         # Calculate TAN, P or K to apply
         mineral_fertiliser_to_apply = (
-            req - manure - manure_long
-        ).clip(lower=0) # set to zero if manure supplies more than requirement
+            req - manure - manure_long - org_fert - org_fert_long
+        ).clip(lower=0) # set to zero if manure/organic fertilisers supplies more than requirement
 
         # Calculate mineral fertiliser application per fertiliser type
         mineral_fertiliser_application = \
@@ -715,6 +875,8 @@ class PlantNutrientMgmt():
             .sum(axis=1).rename('fertiliser'),
             self.crops.data_attr.get('fertiliser.manure_N')
             .sum(axis=1).rename('manure'),
+            self.crops.data_attr.get('fertiliser.organic_N')
+            .sum(axis=1).rename('organic'),
             self.crops.data_attr.get('fertiliser.crop_residues_N')
             .sum(axis=1).rename('crop residues')
         ], axis=1).rename_axis(columns = 'source')
