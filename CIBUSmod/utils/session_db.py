@@ -1137,8 +1137,7 @@ class Session(object):
                     module = exact[0][1]
                     attr = exact[0][2]
                 else:
-                    for row in all_res:
-                        msg = f"Multiple matches for module='{module}' and attr='{attr}':" + '\n' + '\n'.join([str(row) for row in all_res])
+                    msg = f"Multiple matches for module='{module}' and attr='{attr}':\n" + '\n'.join([str(row) for row in all_res])
                     raise ValueError(msg)
             else:
                 attr_id = all_res[0][0]
