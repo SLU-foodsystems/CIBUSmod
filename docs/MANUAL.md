@@ -2,7 +2,7 @@
 
 # Users guide
 
-1. [Introduction](#introduction) 
+1. [Introduction](#introduction)
 1. [Data structure](#data-structure)
     - [Setting data folder path](#setting-data-folder-path)
     - [Default data workbooks](#default-data-workbooks)
@@ -31,7 +31,7 @@ All data used to run the model and outputs produced are stored in a data folder 
 
 ```bash
  data
- | 
+ |
  ├── default
  │   ├── *.xlsx
  │   └── *.csv
@@ -71,13 +71,13 @@ regions = cm.Regions(
 )
 ```
 
-The Excel workbooks should contain one sheet named `default` where all data is stored. All other sheets in the workbook are ignored and may be used freely to e.g. document data collection. 
+The Excel workbooks should contain one sheet named `default` where all data is stored. All other sheets in the workbook are ignored and may be used freely to e.g. document data collection.
 
 The first row in the `default` sheet contains column headings. When the `ParamterRetriever` reads the Excel file only columns with the headings `parameter`, `value` and all starting with `f_` are retained. Other columns can again be used for documentation. All rows that do not have anything in the `parameter` column are also skipped, allowing for e.g. headings separating diferent groups of parameters in the Excel sheet (see example below).
 
 The `parameter` columns is used for the parameter names and the `value` columns for the corresponding value. A parameter value can only be a number (equations and references are OK) or the name of an external .csv file containing additional parameter values (more on that later).
 
-All columns starting with `f_` are interpreted as "filter levels". When the model tries to access a parameter value it does so by providing a set of filters. The `ParamterRetriever` then tries to find the single paramter value that most closely matches the supplied filter. If a single value can't be returned, `NaN` is returned and a warning with some additional information is printed. 
+All columns starting with `f_` are interpreted as "filter levels". When the model tries to access a parameter value it does so by providing a set of filters. The `ParamterRetriever` then tries to find the single paramter value that most closely matches the supplied filter. If a single value can't be returned, `NaN` is returned and a warning with some additional information is printed.
 
 For example, when the `CropProduction` module accesses the paramter `seed` (defining the seeding density in kg/ha) it does so with the filter levels `crop`, `prod_system`, `region` and `crop_prod` (e.g. `crop='Wheat, winter'`, `prod_system='conventional'`, `region='111'` and `crop_prod='wheat'`). Assuming that the parameter sheet looks like below the value `210` would be returned as `crop='Wheat, winter'`, `prod_system='conventional'` and `crop_prod='wheat'` represents a unique match as no other value is equally well defined (i.e. with the same number of matching filters).  As the `f_region` column was left blank for the rows representing 'Wheat, winter' the `region` filter level could be ignored.
 
@@ -90,7 +90,7 @@ However, trying to access the `seed` parameter for `crop='Rye'`,`prod_system='or
 > The filter levels used in the model when accessing different parameters are stored in the `.qry_log` attribute of each `PrameterRetriever` object.
 
 ### Using external .csv-files
-The Excel workbooks for default parameters can be extended with .csv-files. This is done by writing the file name of a .csv-file in the default data workbook under the `value` column instead of a parameter value. The csv files needs to be located in `data/default` (see example below). Filter values specified for that row are ignored, instead these need to be specified in the .csv-file. 
+The Excel workbooks for default parameters can be extended with .csv-files. This is done by writing the file name of a .csv-file in the default data workbook under the `value` column instead of a parameter value. The csv files needs to be located in `data/default` (see example below). Filter values specified for that row are ignored, instead these need to be specified in the .csv-file.
 
 <img src="figs/manual/default_data_ref_csv.png"> \
 *Example of how to read data from external .csv-file via default workbooks*
@@ -136,7 +136,7 @@ my_session.add_scenario(
 )
 ```
 
-The `name` argument gives the scenario a name which is what will be printed in output tables etc. and the `years` argument specifies the years to be run. The `scenario_workbooks` argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks change the same parameter only the last one in the list will have an effect. The arguments `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. `pars` can also take a `dict` with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword `'all'` means that all modules and/or parameters included in the scenario data workbooks will be updated. 
+The `name` argument gives the scenario a name which is what will be printed in output tables etc. and the `years` argument specifies the years to be run. The `scenario_workbooks` argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks change the same parameter only the last one in the list will have an effect. The arguments `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. `pars` can also take a `dict` with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword `'all'` means that all modules and/or parameters included in the scenario data workbooks will be updated.
 
 > [!TIP]
 > Additional `Session` methods for working with scenario definitions are `.remove_scenario()`, `.update_scenario()` and `.reorder_scenarios()`.

@@ -18,16 +18,16 @@ Next, create and activate a new virtual environment to keep Python packages need
 python -m venv .venv --clear --upgrade-deps --prompt 'CIBUSmod-venv'
 .venv\Scripts\activate
 ```
-After activating the virtual environment, make sure that you see `('CIBUSmod-venv')` at the beginning of the command line, which indicates that the virtual environment is active. Now it´s time to install all python packages needed to run CIBUSmod and start jupyter lab. 
+After activating the virtual environment, make sure that you see `('CIBUSmod-venv')` at the beginning of the command line, which indicates that the virtual environment is active. Now it´s time to install all python packages needed to run CIBUSmod and start jupyter lab.
 ```
 pip install --upgrade pip
-pip install --require-virtualenv -r requirements.txt 
+pip install --require-virtualenv -r requirements.txt
 ipython kernel install --user --name="CIBUSmod-venv"
 jupyter lab
 ```
 Once jupyter lab is started, navigate to the `notebooks` folder and open one of the notebooks. Make sure that the `CIBUSmod-venv` kernel is selected via `Kernel > Change kernel > CIBUSmod-venv`. Run the notebook. That's it!
 
-After quitting jupyter lab and returning to the `Command Prompt`, type `deactivate`, or simply close the `Command Prompt`, to exit the virtual environment, 
+After quitting jupyter lab and returning to the `Command Prompt`, type `deactivate`, or simply close the `Command Prompt`, to exit the virtual environment,
 
 Next time, you open a new `Command Prompt`, `cd` to the `CIBUSmod` directory and activate the virtual invironment before starting `jupyter lab`.
 ```
