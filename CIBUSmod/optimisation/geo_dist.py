@@ -1732,7 +1732,6 @@ class GeoDistributor:
                 .fillna(0)
             ).reorder_levels(['prod_system','region'])
             cp_demand_per_herd.columns = cp_demand_per_herd.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
-            cp_demand_per_herd
 
             # Get constrained crop groups
             cgs = (
