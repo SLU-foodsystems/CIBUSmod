@@ -1,7 +1,15 @@
 import pandas as pd
 import numpy as np
+from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
+
+if TYPE_CHECKING:
+    from ..main_modules.demand_and_conversions import DemandAndConversions
+    from ..main_modules.regions import Regions
+    from ..main_modules.crop_prod import CropProduction
+    from ..main_modules.waste_and_circularity import WasteAndCircularity
+    from ..utils.retriever import ParameterRetriever
 
 class MachineryAndEnergyMgmt(object):
     '''Class that handles calculation of energy requirements
@@ -15,11 +23,19 @@ class MachineryAndEnergyMgmt(object):
     par : ParameterRetriever object
     '''
 
-    def __init__(self, regions, crops, herds, par):
+    def __init__(
+            self,
+            regions: "Regions",
+            crops: "CropProduction",
+            waste: "WasteAndCircularity",
+            herds: pd.Series,
+            par: "ParameterRetriever"
+        ):
 
         self.par = par
         self.regions = regions
         self.crops = crops
+        self.waste = waste
         
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -360,7 +376,7 @@ class MachineryAndEnergyMgmt(object):
 
     def calculate_combustion_emissions(self):
         
-        for module in [self.crops] + list(self.herds):
+        for module in [self.crops, self.waste] + list(self.herds):
             self.par.clear()
 
             # Get energy use. kWh --> TJ
