@@ -80,12 +80,9 @@ class AnimalHerd(object):
         self.par = par
         self.index = index
 
-        for att in ['breed','prod_system','sub_system']:
-            if not hasattr(self,att):
-                if att in kwargs:
-                    setattr(self,att,kwargs[att])
-                else:
-                    setattr(self,att,'none')
+        self.breed = kwargs['breed'] or 'none'
+        self.prod_system = kwargs['prod_system'] or 'none'
+        self.sub_system = kwargs['sub_system'] or 'none'
 
     def __repr__(self):
         return f'''
