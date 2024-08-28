@@ -1,11 +1,13 @@
 import pandas as pd
 import numpy as np
 
+from abc import ABC, abstractmethod
+
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 from ..utils.retriever import ParameterRetriever
 
-class AnimalHerd(object):
+class AnimalHerd(ABC):
     '''Class that handels animal herd structure, feed requirements, production etc.
 
     Parameters
@@ -72,6 +74,10 @@ class AnimalHerd(object):
     id_attr = set(['species','breed','prod_system','sub_system','animals'])
     module_name = 'AnimalHerd'
 
+    # Defined in subclasses
+    species: str
+    animals: list[str]
+
     def __init__(self,par,index,**kwargs):
 
         # Set to keep track of data attributes that have been assigned
@@ -94,6 +100,21 @@ production system    {self.prod_system}
 sub-system           {self.sub_system}
 animals              {self.animals}
 '''
+
+    @abstractmethod
+    def calculate_herd(self):
+        """Calculate the herd and store values in data_attr."""
+        pass
+
+    # @abstractmethod
+    # def calculate_feed_E_req(self, ps, ani):
+    #     """Calculate the feed energy [MJ] requirements"""
+    #     pass
+    #
+    # @abstractmethod
+    # def calculate_feed_DM_req(self, ps, ani):
+    #     """Calculate the dry matter [kg DM] requirements"""
+    #     pass
 
     def calculate(self,verbose=False):
         '''Calculates herd structure and production based on a vector ('x') of animal numbers or production as defined
