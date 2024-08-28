@@ -372,6 +372,8 @@ class StaticAnimalHerd():
     '''Class used to create static copys of animal herd objects. These stores all attributes except 'par'
     but does not inherit any methods'''
 
+    id_attr: set[str]
+    data_attr: DataAttr
     module_name = 'AnimalHerd'
 
     def __repr__(self):
