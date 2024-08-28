@@ -35,10 +35,6 @@ class HorseHerd(AnimalHerd):
             sub_system = self.sub_system,
             **self.index.to_frame().to_dict('list')
         )
-        # Provide shorthand 'p()' to get parameters
-        p = self.par.get
-
-        idx_len = len(self.index)
 
         # Get total number of horses
         total_horses = self.x
