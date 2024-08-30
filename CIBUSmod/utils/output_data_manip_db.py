@@ -208,14 +208,16 @@ def to_ICBM(session):
     -------
     pandas.DataFrame'''
 
-    ats = ['area','harvest_dm','crop_residues_harvest','fertiliser.manure_C']
+    ats = ['area','harvest_dm','crop_residues_harvest','fertiliser.manure_C', 'fertiliser.organic_C']
     d = []
     for at in ats:
         df = (
             session.get_attr(
                 module = 'CropProduction',
                 attr = at,
-                groupby = ['crop','prod_system','region'] + (['species'] if 'manure' in at else []),
+                groupby = ['crop','prod_system','region']
+                + (['species'] if 'manure' in at else [])
+                + (['treatment'] if 'organic' in at else []),
                 interpolate=True
             )
             .stack(['crop','prod_system','region'])
@@ -230,6 +232,8 @@ def to_ICBM(session):
             df = df.rename('crop_residues_harvest_kgdm')
         if at == 'fertiliser.manure_C':
             df = df.rename({sp:'manure_'+sp+'_kgC' for sp in df.columns}, axis=1)
+        if at == 'fertiliser.organic_C':
+            df = df.rename({tr:'organic_'+tr+'_kgC' for tr in df.columns}, axis=1)
             
         d += [df]
     
