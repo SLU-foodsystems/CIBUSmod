@@ -354,8 +354,8 @@ class GeoDistributor:
         }
 
     def calculate_scaling_factors(self, scale_power=0, cutoff_percentile=99):
-        '''Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf where rn is a factor 
-        normalising all features (i.e. disstinct land uses and animal species) to the same range and fs is a 
+        '''Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf where rn is a factor
+        normalising all features (i.e. distinct land uses and animal species) to the same range and fs is a
         scaling factor calculated as fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
         maximum scaling factor to a certain percentile is implemented to avoid that crops/animals with x0 close
         to or equal to zero are effectively removed from the solution space.
@@ -608,7 +608,7 @@ class GeoDistributor:
         '''
 
         # Note to future:
-        # - Would it be usefull with a constraint for minimum share?
+        # - Would it be useful with a constraint for minimum share?
         # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
         
         A6 = self.make_A6()
@@ -624,17 +624,17 @@ class GeoDistributor:
     def make_C7(self) -> None:
         '''Creates C7: Drops variables
 
-        Constrain crops to certain regions based on minimum growing degree days (GDD5). The minimim 
+        Constrain crops to certain regions based on minimum growing degree days (GDD5). The minimum
         GDD5 for different crops is set with the parameter 'min_GDD5' in the 'CropProduction' module.
         The number of GDD5 in each region is defined by the parameter 'GDD' in the 'Regions' module.
         
         This constraint also indirectly constrains animals with regional demand for crops that can't
         be grown in a region.'''
 
-        # This constraint is not implemented as a constraint in the solver but instead dropps
-        # variables representing crops or animals that can't be present in a region. 
-        # IMPORTANT: This must be run after all other contraints have been defined!
-        
+        # This constraint is not implemented as a constraint in the solver but instead drops
+        # variables representing crops or animals that can't be present in a region.
+        # IMPORTANT: This must be run after all other constraints have been defined!
+
         # Index of crops
         cr_idx = self.x_idx['crp']
         
@@ -675,7 +675,7 @@ class GeoDistributor:
         sel_an = []
 
         for h in self.herds:
-            if  h.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
+            if h.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
                 # Get crop products with a regional feed demand
                 nsel_cp2 = (
                     h.data_attr.get('feed.regional_crop_product_demand')
@@ -835,7 +835,7 @@ class GeoDistributor:
 
         Flexible constraint that constrains the sum of crop areas and/or animal numbers
         corresponding to the index of passed Series in relation to the sum of given Series.
-        Constraints can be eihter equality or max/min. Equality constraints (C9_rel = '==')
+        Constraints can be either equality or max/min. Equality constraints (C9_rel = '==')
         are implemented as min and max constraints with a relative tolerance of +/- C9_tol.
 
         Multiple constraints can be created by supplying lists as parameters.
@@ -1133,7 +1133,7 @@ class GeoDistributor:
             ss = herd.sub_system
 
             # Check if herd has any regional demand for feeds
-            if  herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
+            if herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
 
                 # Get crop products and production systems with regional demand for feed
                 opss_cps = (
