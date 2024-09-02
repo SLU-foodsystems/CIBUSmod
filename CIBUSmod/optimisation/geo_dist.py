@@ -19,7 +19,7 @@ class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given
     demand and a number of constraints by minimising deviation from an initial distribution
     of crop areas and animal heads (x0).
-    
+
     Parameters
     ----------
     par : ParameterRetriever object
@@ -41,7 +41,7 @@ class GeoDistributor:
             herds:pd.Series,
             feed_mgmt:FeedMgmt,
             par:ParameterRetriever):
-        
+
         self.par = par
         self.data_attr = DataAttr(self)
 
@@ -60,7 +60,7 @@ class GeoDistributor:
             **kwargs
             ):
         '''Creates constraints and defines optimisation problem
-        
+
         Parameters
         ----------
         use_cons : (list of) str
@@ -115,7 +115,7 @@ class GeoDistributor:
             scale_power=scale_power,
             cutoff_percentile=scale_cutoff_percentile
         )
-       
+
         # Make objective function(s)
         vprint('Making objective O1 ...')
         self.make_O1()
@@ -165,7 +165,7 @@ class GeoDistributor:
             verbose:bool = False
             ) -> None:
         '''Solve optimisation problem
-        
+
         Parameters
         ----------
         solver_settings : dict, list of dicts
@@ -185,7 +185,7 @@ class GeoDistributor:
         '''
 
         vprint = verbose_init(verbose, id_str='GeoDistributor.solve')
-        
+
         # If a list of alternative solver/settings is not supplied
         # make a one element list
         if not isinstance(solver_settings, list):
@@ -194,7 +194,7 @@ class GeoDistributor:
         if not hasattr(self, 'problem'):
             vprint('Defining problem ...')
             self.define_cvx_problem()
-        
+
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
         for kwargs in solver_settings:
@@ -222,7 +222,7 @@ class GeoDistributor:
                     num_iters = 'n/a'
                 vprint(f"No solution found! Status: '{status}', Itterations: {num_iters}", type='msg')
 
-        # Check solution and print results    
+        # Check solution and print results
         if self.success:
 
             # DO SOME MORE FEASIBILITY CHECKS ON THE SOLUTION HERE??!!
@@ -231,7 +231,7 @@ class GeoDistributor:
 
             # Get and store optimal value for variable
             x = self.problem.variables()[0].value
-            # Put xs on short index (!= index if C7 is used) and reindex 
+            # Put xs on short index (!= index if C7 is used) and reindex
             self.x = {
                 'ani' : pd.Series(
                     x[:len(self.x_idx_short['ani'])],
@@ -270,7 +270,7 @@ class GeoDistributor:
         vprint(type='end')
 
         return None
-    
+
     def matrices(self):
         mats = {'OBJ.P1' : self.P1}
         mats.update(
@@ -300,7 +300,7 @@ class GeoDistributor:
                     x['ani'].loc[(h.species,h.breed,h.prod_system,h.sub_system)],
                     x_is = h.x_is
                 )
-        
+
         # Allocate crop production to uses
         self.allocate_crop_production_per_use()
         if 'A5' in self.matrices():
@@ -324,7 +324,7 @@ class GeoDistributor:
 
         # Sort x0['ani'] to match x['ani']
         self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system').unique()]
-       
+
         # Store x0 indexes
         self.x0_idx = {
             'ani' : self.x0['ani'].index,
@@ -338,7 +338,7 @@ class GeoDistributor:
             'ani' : self.demand.data_attr.get('animal_prod_demand').sum(axis=1),
             'crp' : self.demand.data_attr.get('crop_prod_demand').sum(axis=1)
             }
-        
+
         # Add rows for any domestically produced crop products used for feed or seed not already in crop product demand vector (D['crp'])
         self.feed_mgmt.par.clear()
         for cp in set(self.feed_mgmt.par.get_unique('crop_prod')) | set(self.crops.par.get_unique('crop_prod', qry='parameter == "seed"')):
@@ -381,7 +381,7 @@ class GeoDistributor:
 
         x0 = pd.concat((self.x0['ani'],self.x0['crp'])) * rn.values
         sf = x0.mean()/x0
-        cutoff_value = np.percentile(sf.loc[sf!=np.inf], cutoff_percentile) 
+        cutoff_value = np.percentile(sf.loc[sf!=np.inf], cutoff_percentile)
         sf.loc[sf>cutoff_value] = cutoff_value
         sf = sf ** scale_power
 
@@ -393,7 +393,7 @@ class GeoDistributor:
         self.scale_f = scale_f
 
     def define_cvx_problem(self):
-        
+
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
             np.concatenate([
@@ -402,7 +402,7 @@ class GeoDistributor:
                 for k in ['ani','crp']
             ])
         )
-        
+
         # Get scaling factors for x
         sf = cvxpy.Constant(
             np.concatenate([
@@ -431,7 +431,7 @@ class GeoDistributor:
             '<=' : lambda left, right: left <= right,
         }
         for cons in self.constraints.values():
-            
+
             left = cons['left']
             right = cons['right']
             rel = cons['rel']
@@ -492,7 +492,6 @@ class GeoDistributor:
         Constraint the share of feed demand for different crop products that must be met regionally.
         The minimum share is set via the parameter 'share_regional' in the 'FeedMgmt' module and can differ
         for different animals.
-        
         '''
 
         # Regional feed demand for crop products
@@ -529,7 +528,7 @@ class GeoDistributor:
         '''
 
         A3 = self.make_A3()
-        
+
         b3 = np.array([
             self.regions.data_attr.get('max_land_use').loc[x[1],x[0]]
             for x in A3.rows
@@ -545,10 +544,10 @@ class GeoDistributor:
 
     def make_C4(self):
         '''Creates C4: A4 @ x <= 0
-        
+
         Constrain the maximum share of defining animal heads per species, breed and prod_system belonging
         to a given sub_system on national level
-        
+
         The maximum share is set via the parameter 'max_share_sub_system' in the respective 'AnimalHerd'
         modules and can differ by breed.
         '''
@@ -565,11 +564,11 @@ class GeoDistributor:
 
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0
-        
+
         Constrain the maxuimum share of a crop product demand for feed that can be supplied by a
         particular crop group. This constraint is used to e.g. constrain the share of 'grazing' that can be
         supplied by 'semi-natural grasslands', but can also be used to constrain e.g. share of wheat for
-        feed from winter/spring variaties. 
+        feed from winter/spring variaties.
 
         The maximum share is set via the parameter 'max_crop_in_crop_prod' in the 'FeedMgmt'
         module and can differ for different animals.
@@ -596,21 +595,21 @@ class GeoDistributor:
             'rel' : '<=',
             'pars' : {'A5':A5}
         }})
-    
+
     def make_C6(self):
         '''Creates C6: A6 @ x <= 0
-        
+
         Constrain the maximum share of cropland devoted to a given crop group in a given region in a
         given production system. The maximum share is set on 'crop_group' level via the parameter
         'max_in_rot' in the 'CropProduction' module.
-        
+
         Note: This constraint only applies to crops with 'cropland' as 'land_use' in the relation tables.
         '''
 
         # Note to future:
         # - Would it be useful with a constraint for minimum share?
         # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
-        
+
         A6 = self.make_A6()
 
         # Append constraint
@@ -627,7 +626,7 @@ class GeoDistributor:
         Constrain crops to certain regions based on minimum growing degree days (GDD5). The minimum
         GDD5 for different crops is set with the parameter 'min_GDD5' in the 'CropProduction' module.
         The number of GDD5 in each region is defined by the parameter 'GDD' in the 'Regions' module.
-        
+
         This constraint also indirectly constrains animals with regional demand for crops that can't
         be grown in a region.'''
 
@@ -637,7 +636,7 @@ class GeoDistributor:
 
         # Index of crops
         cr_idx = self.x_idx['crp']
-        
+
         # Get allowed crop-region combinations (i.e. region GDD5 >= min_GDD5 for crop)
         self.crops.par.clear()
         self.regions.par.clear()
@@ -646,10 +645,10 @@ class GeoDistributor:
             >=
             self.crops.par.get('min_GDD5',**cr_idx.to_frame().to_dict('list'))
         ]
-        
+
         # Index of animal herds
         an_idx = self.x_idx['ani']
-        
+
         # Get crop products that CAN be produced in region
         sel_cp = (
             self.crops.data_attr.get('production').loc[sel_cr]
@@ -658,7 +657,7 @@ class GeoDistributor:
             .replace({0:np.nan}).dropna()
             .index
         )
-        
+
         # Index of crop products
         cp_idx = (
             self.crops.data_attr.get('production')
@@ -668,10 +667,10 @@ class GeoDistributor:
         )
         # Get crop products that CAN'T be produced in region
         nsel_cp = cp_idx.difference(sel_cp)
-        
+
         # List to populate with herds that can be in region
-        # (i.e. with no regional demand for feeds that can't be 
-        # produced in the region) 
+        # (i.e. with no regional demand for feeds that can't be
+        # produced in the region)
         sel_an = []
 
         for h in self.herds:
@@ -683,11 +682,11 @@ class GeoDistributor:
                     .reorder_levels(['crop_prod','prod_system','region'])
                     .index
                 )
-                
+
                 # Get regions where herd has a regional demand
-                # for a feed that can't be grown. 
+                # for a feed that can't be grown.
                 nsel_re = nsel_cp.intersection(nsel_cp2).get_level_values('region').unique()
-                
+
                 # Get regions where herd CAN be present
                 sel_re = h.index.difference(nsel_re)
             else:
@@ -701,15 +700,15 @@ class GeoDistributor:
             sel_an += [(sp,br,ps,ss,re) for re in sel_re]
         # To pandas MultiIndex
         sel_an = pd.MultiIndex.from_tuples(sel_an,names=['species','breed','prod_system','sub_system','region'])
-        
+
         # Get variable positions not to drop
         isel_an = [an_idx.get_loc(s) for s in sel_an]
         isel_cr = [cr_idx.get_loc(s) + len(an_idx) for s in sel_cr]
         isel = isel_an + isel_cr
-        
+
         # Store short index (i.e. index of variables after dropping)
         self.x_idx_short = {'ani':sel_an, 'crp':sel_cr}
-        
+
         # Drop variables from objective and constraint matrices
         for mat in self.matrices().values():
             if mat.M.shape[1] > len(isel):
@@ -761,7 +760,7 @@ class GeoDistributor:
 
         if any([x>1 and x<pars_len_max for x in pars_len.values()]):
             raise ValueError('Supplied lists must have the same length')
-        
+
         # Align lists
         for p in pars:
             if pars_len[p]<pars_len_max:
@@ -823,7 +822,7 @@ class GeoDistributor:
                 }})
 
         return None
-    
+
     def make_C9(
             self,
             C9_crp: pd.Series | None = None ,
@@ -866,7 +865,7 @@ class GeoDistributor:
 
         if any([x>1 and x<pars_len_max for x in pars_len.values()]):
             raise ValueError('Supplied lists must have the same length')
-        
+
         # Align lists
         for p in pars:
             if pars_len[p]<pars_len_max:
@@ -879,7 +878,7 @@ class GeoDistributor:
             raise ValueError("At least one of 'C9_crp' or 'C9_ani' must be given to use constraint C9")
         if any([v not in ['==','>=','<='] for v in pars['C9_rel']]):
             raise ValueError("All 'C9_rel' must be one of '==', '>=' or '<='")
-        
+
         # Get number of previously defined C9 constraints
         try:
             n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C9' in s]) + 1
@@ -931,7 +930,7 @@ class GeoDistributor:
         return None
 
     def make_O1(self):
-        
+
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
         # x['crp'] --> x0['crp']
@@ -953,7 +952,7 @@ class GeoDistributor:
             row_idx={'ani':P1_1.rows, 'crp':P1_2.rows},
             col_idx={'ani':P1_1.cols, 'crp':P1_2.cols}
         )
-        
+
     def make_A1_1(self):
 
         # Get row index from animal product demand vector (ps,sp,ap)
@@ -1026,7 +1025,7 @@ class GeoDistributor:
                 herd.data_attr.get('feed.crop_product_demand')
                 .xs('domestic', level='origin', axis=1)
                 # drop feeds with no (< 5e-6 kg) domestic demand
-                .round(5).replace({0:np.nan}).dropna(axis=1, how='all') 
+                .round(5).replace({0:np.nan}).dropna(axis=1, how='all')
                 .droplevel('animal', axis=1)
                 .columns
                 .unique()
@@ -1048,7 +1047,7 @@ class GeoDistributor:
                 col_nr.extend(
                     [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
                 )
-        
+
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
@@ -1214,7 +1213,7 @@ class GeoDistributor:
                     col_nr.extend(
                         [col_idx.get_loc((cr,ps,re)) for re in res.index.get_level_values('region')]
                     )
-                    
+
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
@@ -1255,7 +1254,7 @@ class GeoDistributor:
         )
 
         return M
-    
+
     def make_A4(self):
 
         # Get row index from animal herds with max in sub_system constraint (sp,br,ps,ss)
@@ -1291,7 +1290,7 @@ class GeoDistributor:
                 pass
             finally:
                 f = float(f[0])
-            
+
             vls = [0 if (sp != sp_) | (br != br_) | (ps != ps_)  else ((1-f) if ss == ss_ else -f) for sp_,br_,ps_,ss_,_ in col_idx]
             cns = list(range(len(col_idx)))
             rns = [row_idx.get_loc((sp,br,ps,ss)) for _ in col_idx]
@@ -1311,7 +1310,7 @@ class GeoDistributor:
         )
 
         return M
-    
+
     def make_A5_1(self):
 
         # Get crop product and crop combindations where there is a constraint for maximum inclusion
@@ -1332,7 +1331,7 @@ class GeoDistributor:
         row_nr = []
         col_nr = []
 
-        # Go through animal herds 
+        # Go through animal herds
         for herd in self.herds:
 
             sp = herd.species
@@ -1368,7 +1367,7 @@ class GeoDistributor:
         return M
 
     def make_A5_2(self):
-        
+
         # Get crop product and crop_group combindations where there is a constraint for maximum inclusion
         cps_cgs = self.feed_mgmt.par.get_unique(['crop_prod','crop_group'], qry='parameter == "max_crop_in_crop_prod"')
 
@@ -1394,7 +1393,7 @@ class GeoDistributor:
 
             # Get crop(s)
             cr = map_cg_cr[cg]
-            
+
             res = self.crops.data_attr.get('production').loc[(cr,ps,slice(None)),(cp)].fillna(0)
 
             # Store values and row/col nr
@@ -1405,7 +1404,7 @@ class GeoDistributor:
             col_nr.extend(
                 [col_idx.get_loc((cr,ps,re)) for cr,ps,re in res.index]
             )
-                    
+
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
@@ -1414,7 +1413,7 @@ class GeoDistributor:
         )
 
         return M
-    
+
     def make_A6(self):
 
         self.crops.par.clear()
@@ -1464,7 +1463,7 @@ class GeoDistributor:
         )
 
         return M
-    
+
     def make_A8(self, C8_crp, C8_ani):
 
         # Get row index (cr,ps,re), (sp,br,ps,ss,re)
@@ -1498,7 +1497,7 @@ class GeoDistributor:
         )
 
         return M
-    
+
     def make_A9(self, C9_crp, C9_ani):
 
         # No row index, only one row
@@ -1540,7 +1539,7 @@ class GeoDistributor:
         val = [1]*len(col_idx)
         col_nr = list(range(len(col_idx)))
         row_nr = [row_idx.get_loc((sp,br,ps,re)) for sp,br,ps,_,re in col_idx]
-        
+
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
@@ -1561,7 +1560,7 @@ class GeoDistributor:
         val = [1]*len(col_idx)
         col_nr = list(range(len(col_idx)))
         row_nr = [row_idx.get_loc((cr,ps,re)) for cr,ps,re in col_idx]
-        
+
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
             scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
@@ -1570,7 +1569,7 @@ class GeoDistributor:
         )
 
         return M
-    
+
     def allocate_crop_production_per_use(self):
         '''Allocate crop areas to different uses.
         Creates attriute 'production_per_use' in CropProduction'''
@@ -1710,7 +1709,7 @@ class GeoDistributor:
         ).reorder_levels(['crop_prod','crop_group','prod_system','region'])
         max_feed_from_crop.columns = max_feed_from_crop.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
 
-        # Get crop products with a max 
+        # Get crop products with a max
         # feed from crop_groups constraints
         cps = (
             max_feed_from_crop
@@ -1733,7 +1732,7 @@ class GeoDistributor:
             ).reorder_levels(['prod_system','region'])
             cp_demand_per_herd.columns = cp_demand_per_herd.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
             cp_demand_per_herd
-            
+
             # Get constrained crop groups
             cgs = (
                 max_feed_from_crop
@@ -1742,7 +1741,7 @@ class GeoDistributor:
                 .get_level_values('crop_group')
                 .unique()
             )
-            
+
             # Get constrained and unconstrained crops
             crs_cons = [cr for cg in cgs for cr in map_cg_cr[cg]]
             crs_uncons = (
@@ -1750,16 +1749,16 @@ class GeoDistributor:
                 [self.crops.data_attr.get('production').loc[:,cp]>0].unique()
             )
             crs_uncons = [cr for cr in crs_uncons if cr not in crs_cons]
-            
+
             # Go through constrained crop_groups and crops and update
             for cg in cgs:
-                
+
                 # Calculate allocation factors for constrained crop_group
                 cg_allocation_factors = max_feed_from_crop.loc[cp,cg].transform(lambda x: x/x.sum(), axis=1)
-                
+
                 # Get crops in constrained crop_group
                 crs = map_cg_cr[cg]
-                
+
                 for cr in crs:
                     # Get total use of crop
                     total_use_of_cr = crop_production_per_use.loc[cr, crop_production_per_use.columns.str.contains('feed')].sum(axis=1)
@@ -1767,7 +1766,7 @@ class GeoDistributor:
                     cr_allocated = cg_allocation_factors.mul(total_use_of_cr, axis=0)
                     # Update dataframe
                     crop_production_per_use_adjusted.update(pd.concat({cr: cr_allocated}, names=['crop']).fillna(0))
-            
+
             # Get total use of unconstrained crops
             total_use_uncons_crs = crop_production_per_use.loc[crs_uncons, crop_production_per_use.columns.str.contains('feed')].sum(axis=1).groupby(['prod_system', 'region']).sum()
             # Get adjusted use of constrained crops per herd
@@ -1797,8 +1796,8 @@ class GeoDistributor:
             warnings.warn(f'Adjusted crop allocation differed from unadjusted by up to {dif} kg')
 
         # Set small negatives to zero
-        crop_production_per_use_adjusted = crop_production_per_use_adjusted.where(crop_production_per_use_adjusted >= 0, 0) 
-        
+        crop_production_per_use_adjusted = crop_production_per_use_adjusted.where(crop_production_per_use_adjusted >= 0, 0)
+
         # Update data attribute
         self.crops.data_attr.add(
             crop_production_per_use_adjusted,
@@ -1822,7 +1821,7 @@ class IndexedMatrix():
                 add = [l for l in idx.names if l not in levels]
                 levels.extend(add)
             print(levels)
-            
+
         self.rows = row_idx
         self.cols = col_idx
 
