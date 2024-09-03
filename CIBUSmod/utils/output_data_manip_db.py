@@ -31,11 +31,14 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
         'manure management' : {
             'module' : ['AnimalHerd'],
             'attr' : ['manure.N_loss',
+                      'manure.P_loss',
+                      'manure.K_loss',
                       'manure.VS_loss']
         },
         'energy use' : {
             'module' : ['AnimalHerd',
-                        'CropProduction'],
+                        'CropProduction',
+                        'WasteAndCircularity'],
             'attr' : ['energy_use_emissions',
                       'energy_use_supply_chain_emissions']
         },
@@ -49,11 +52,20 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
             'module' : ['CropProduction'],
             'attr' : ['fertiliser.manure_N_application_loss',
                       'fertiliser.manure_N_soil_loss',
+                      'fertiliser.organic_N_application_loss',
+                      'fertiliser.organic_N_soil_loss',
                       'fertiliser.mineral_N_application_loss',
                       'fertiliser.mineral_N_soil_loss',
                       'fertiliser.crop_residues_N_soil_loss',
                       'fertiliser.organic_soil_N_loss',
                       'fertiliser.leaching_N']
+        },
+        'waste and circularity' : {
+            'module' : ['WasteAndCircularity'],
+            'attr' : ['losses_N',
+                      'losses_P',
+                      'losses_K',
+                      'losses_VS']
         }
     }
 
@@ -75,6 +87,19 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
                         interpolate = interpolate
                     )
                     df = df.rename_axis(columns = {'crop_group2' : 'item'})
+                elif md == 'WasteAndCircularity':
+                    df = session.get_attr(
+                        module = 'WasteAndCircularity',
+                        attr = at,
+                        groupby = {'treatment':None,
+                                   'region':None, 'compound':None},
+                        scn = scn,
+                        years = years,
+                        interpolate = interpolate
+                    )
+                    df = df.rename_axis(columns = {'treatment' : 'item'})
+                    # Add 'prod_system' to column level as not applicable (n/a)
+                    df = pd.concat({'n/a': df}, names=['prod_system'], axis=1)
                 elif md == 'AnimalHerd':
                     df = session.get_attr(
                         module = 'AnimalHerd',
@@ -183,14 +208,16 @@ def to_ICBM(session):
     -------
     pandas.DataFrame'''
 
-    ats = ['area','harvest_dm','crop_residues_harvest','fertiliser.manure_C']
+    ats = ['area','harvest_dm','crop_residues_harvest','fertiliser.manure_C', 'fertiliser.organic_C']
     d = []
     for at in ats:
         df = (
             session.get_attr(
                 module = 'CropProduction',
                 attr = at,
-                groupby = ['crop','prod_system','region'] + (['species'] if 'manure' in at else []),
+                groupby = ['crop','prod_system','region']
+                + (['species'] if 'manure' in at else [])
+                + (['treatment'] if 'organic' in at else []),
                 interpolate=True
             )
             .stack(['crop','prod_system','region'])
@@ -205,6 +232,8 @@ def to_ICBM(session):
             df = df.rename('crop_residues_harvest_kgdm')
         if at == 'fertiliser.manure_C':
             df = df.rename({sp:'manure_'+sp+'_kgC' for sp in df.columns}, axis=1)
+        if at == 'fertiliser.organic_C':
+            df = df.rename({tr:'organic_'+tr+'_kgC' for tr in df.columns}, axis=1)
             
         d += [df]
     

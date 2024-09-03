@@ -285,6 +285,14 @@ Parameters
                     for sel in nan_sel[0:n]
                 ]) + ("\n ..." if n<len(nan_sel) else "")
                 warnings.warn(str1+str2)
+
+        # Make sure that length of result match length of selection
+        # in cases where only filters not in data are used
+        if self.selection is not None:
+            sel_len = len(self.selection)
+            if len(result) != sel_len:
+                assert len(result) == 1
+                result = np.repeat(result, sel_len)
         
         self.qry_log[parameter]['time'] += time.process_time() - t0
         return result

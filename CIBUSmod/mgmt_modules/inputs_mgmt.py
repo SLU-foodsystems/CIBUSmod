@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import index_to_multi
@@ -7,6 +8,12 @@ from ..utils.misc import index_to_multi
 from ecoinvent_interface import Settings, EcoinventProcess, ProcessFileType
 import xml.dom.minidom as minidom
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from ..main_modules.demand_and_conversions import DemandAndConversions
+    from ..main_modules.crop_prod import CropProduction
+    from ..main_modules.waste_and_circularity import WasteAndCircularity
+    from ..utils.retriever import ParameterRetriever
 
 class InputsMgmt(object):
     '''
@@ -23,19 +30,21 @@ class InputsMgmt(object):
 
     def __init__(
         self,
-        demand,
-        crops,
-        herds,
-        par,
+        demand: "DemandAndConversions",
+        crops: "CropProduction",
+        waste: "WasteAndCircularity",
+        herds: pd.Series,
+        par: "ParameterRetriever",
         ecoinvent_settings = {
             'version' : '3.7.1',
             'system_model' : 'cutoff'
         }
-        ):
+    ):
         
         self.par = par
         self.demand = demand
         self.crops = crops
+        self.waste = waste
         
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -153,6 +162,13 @@ class InputsMgmt(object):
                 attr = f'fertiliser.mineral_{element}',
                 inputs_in_col = 'fertiliser_type'
             )
+
+        vprint('Calculating supply chain emissions for waste management and circularity inputs ...')
+        self.calculate_emissions(
+            module = self.waste,
+            attr = 'energy_use',
+            inputs_in_col = 'energy_source'
+        )
         
         vprint('Calculating supply chain emissions for animal herd inputs ...')
         for h in self.herds:

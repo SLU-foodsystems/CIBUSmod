@@ -382,19 +382,27 @@ class ManureMgmt():
                 sub_system = herd.sub_system
             )
 
-            # Get manure management systems
-            mmss = herd.data_attr.get('manure.mms_shares').columns.get_level_values('MMS').unique()
+            # Get excreted VS
+            manure_VS = herd.data_attr.get('manure.VS_excr')
 
-            # Get production systems, animals in herd
-            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
-            anis = herd.animals
+            # Separate manure destined for off-farm treatment
+            # Assumes no VS loss on the farm for manure sent 
+            # for treatment
+            manure_VS_to_treatment = \
+                manure_VS * (self.par.get_from_frame('off-farm_treatment', manure_VS)/100)
+            manure_VS = manure_VS - manure_VS_to_treatment
+
+            # Calculate B0 for manure to treatment
+            manure_B0_to_treatment = manure_VS_to_treatment * self.par.get_from_frame('methane_B0', manure_VS_to_treatment)
+
+            # Compounds emitted
             css = ['CH4bio','CO2bio']
 
             # Create dataframe
-            df = pd.DataFrame(
+            VS_loss = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,ani,mms,cs) for ps in pss for ani in anis for mms in mmss for cs in css],
+                    [(ps,ani,mms,cs) for ps, ani, mms in manure_VS.columns for cs in css],
                     names=['prod_system','animal','MMS','compound']
                 ),
                 dtype = float
@@ -403,28 +411,16 @@ class ManureMgmt():
             # Calculate CH4 emissions using the IPCC Tier 2 method
             # from maximum methane production (B0) and MCF
             CH4_loss = (
-                herd.data_attr.get('manure.VS_excr') *
-                (self.par.get_from_frame('methane_B0', herd.data_attr.get('manure.VS_excr'))*0.67) *
-                (self.par.get_from_frame('methane_MCF', herd.data_attr.get('manure.VS_excr'))/100)
+                manure_VS *
+                (self.par.get_from_frame('methane_B0', manure_VS)*0.67) *
+                (self.par.get_from_frame('methane_MCF', manure_VS)/100)
             )
 
-            if False:
-                # Calculate CH4 emissins using the IPCC Tier 1 method
-                # from manure emissions per head and year
-                CH4_Tier1 = multiply_aligned(
-                    self.par.get_from_frame('methane_per_head',df),
-                    herd.data_attr.get('heads')
-                ).replace({0:np.nan})
-
-                # Take Tier 2 if possible otherwise Tier 1
-                VS_loss = CH4_Tier2.copy()
-                VS_loss.update(CH4_Tier1, overwrite=False)
-                VS_loss = VS_loss.fillna(0)
-
             # Calculate C and CO2 losses
-            C_excr = herd.data_attr.get('manure.VS_excr') * (self.par.get_from_frame('manure_VS_C', herd.data_attr.get('manure.VS_excr'))/100)
-            C_loss_tot = C_excr * (self.par.get_from_frame('C_loss',C_excr)/100)
-            C_to_spread = C_excr - C_loss_tot
+            manure_C = manure_VS * (self.par.get_from_frame('manure_VS_C', manure_VS)/100)
+            manure_C_to_treatment = manure_VS_to_treatment * (self.par.get_from_frame('manure_VS_C', manure_VS_to_treatment)/100)
+            C_loss_tot = manure_C * (self.par.get_from_frame('C_loss', manure_C)/100)
+            C_to_spread = manure_C - C_loss_tot
 
             C_loss_CH4 = CH4_loss * (12/(12+1*4))
             C_loss_CO2 = C_loss_tot - C_loss_CH4
@@ -434,12 +430,10 @@ class ManureMgmt():
             CO2_loss = C_loss_CO2 * ((12+16*2)/12)
 
             # Put results in dataframe
-            df.loc[:,idx[:,:,:,'CH4bio']] = \
-            CH4_loss.reindex(df.xs('CH4bio', level='compound', axis=1, drop_level=False).columns, axis=1)
-            df.loc[:,idx[:,:,:,'CO2bio']] = \
-            CO2_loss.reindex(df.xs('CO2bio', level='compound', axis=1, drop_level=False).columns, axis=1)
-
-            VS_loss = df
+            VS_loss.loc[:,idx[:,:,:,'CH4bio']] = \
+            CH4_loss.reindex(VS_loss.xs('CH4bio', level='compound', axis=1, drop_level=False).columns, axis=1)
+            VS_loss.loc[:,idx[:,:,:,'CO2bio']] = \
+            CO2_loss.reindex(VS_loss.xs('CO2bio', level='compound', axis=1, drop_level=False).columns, axis=1)
 
             # Add data attributes
             herd.data_attr.add(
@@ -455,6 +449,27 @@ class ManureMgmt():
                 unit = 'kg C/year',
                 orig = 'ManureMgmt',
                 desc = 'Carbon (C) in manure available to spread'
+            )
+            herd.data_attr.add(
+                manure_VS_to_treatment,
+                name = 'manure.VS_to_treatment',
+                unit = 'kg C/year',
+                orig = 'ManureMgmt',
+                desc = 'Volatile solids (VS) in manure to off-farm treatment'
+            )
+            herd.data_attr.add(
+                manure_B0_to_treatment,
+                name = 'manure.B0_to_treatment',
+                unit = 'Nm3 CH4/year',
+                orig = 'ManureMgmt',
+                desc = 'Methane production potential (B0) in manure to off-farm treatment'
+            )
+            herd.data_attr.add(
+                manure_C_to_treatment,
+                name = 'manure.C_to_treatment',
+                unit = 'kg C/year',
+                orig = 'ManureMgmt',
+                desc = 'Carbon (C) in manure to off-farm treatment'
             )
         
     def calculate_NPK_excretion(self, element):
@@ -534,7 +549,7 @@ class ManureMgmt():
     
     def calculate_NPK_losses(self, element):
 
-        # Get compounds
+        # Get compounds emitted
         cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
         
         for herd in self.herds:
@@ -558,31 +573,45 @@ class ManureMgmt():
             )
             
             # Get excretion and propagate values to all compound columns
-            excr = herd.data_attr.get(f'manure.{element}_excr').align(df)[0].reindex(index=df.index, columns=df.columns)
+            excr = herd.data_attr.get(f'manure.{element}_excr')
 
+            # Calculate losses in stables
             if (self.par.data.xs((element,'loss_stable'),level=('f_element','parameter'))>0).any():
                 loss_factors_stable = self.par.get_from_frame('loss_stable', df)/100
+                loss_stable = multiply_aligned(loss_factors_stable, excr)
             else:
-                loss_factors_stable = 0.0
-            loss_stable = loss_factors_stable * excr
+                loss_stable = df * 0.0
             
+            
+            # Calculate remaining after stable losses
+            to_storage = \
+                excr - loss_stable.T.groupby(['prod_system','animal','MMS']).sum().T
+            
+            # Separate manure destined for off-farm treatment
+            to_treatment = \
+                to_storage * (self.par.get_from_frame('off-farm_treatment', to_storage)/100)
+            to_storage = to_storage - to_treatment
+
+            # Calculate losses in storage
             if (self.par.data.xs((element,'loss_storage'),level=('f_element','parameter'))>0).any():
                 loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
+                loss_storage = multiply_aligned(loss_factors_storage, to_storage)
+                
+                if element == 'N':
+                    # NOx-N and N2 storage losses are calculated from plant available nitrogen
+                    loss_storage.update(
+                        (
+                            multiply_aligned(loss_factors_storage, to_storage) *
+                            (self.par.get_from_frame('TAN_share', df)/100)
+                        )
+                        .loc[:,(slice(None), slice(None), slice(None), ['NOx-N', 'N2'])]
+                    )
             else:
-                loss_factors_storage = 0.0
-            loss_storage = loss_factors_storage * (excr - loss_stable)
+                loss_storage = df * 0.0
         
-            if element == 'N':
-                # NOx-N and N2 storage losses are calculated from plant available nitrogen
-                loss_storage.update(
-                    (loss_factors_storage * (excr - loss_stable) * (self.par.get_from_frame('TAN_share',df)/100))
-                    .loc[:,(slice(None), slice(None), slice(None), ['NOx-N', 'N2'])]
-                )
-        
-            available_to_spread = (
-                herd.data_attr.get(f'manure.{element}_excr') - 
-                (loss_stable + loss_storage).T.groupby(['prod_system','animal','MMS']).sum().T
-            )
+            available_to_spread = \
+                to_storage - loss_storage.T.groupby(['prod_system','animal','MMS']).sum().T
+            
         
             # Add data attribute
             herd.data_attr.add(
@@ -599,12 +628,24 @@ class ManureMgmt():
                     orig = 'ManureMgmt',
                     desc = f'Total {_elem_to_name[element]} in manure available to spread after stable and storage losses'
             )
+            herd.data_attr.add(
+                    to_treatment,
+                    name = f'manure.{element}_to_treatment',
+                    unit = f'kg {element}/year',
+                    orig = 'ManureMgmt',
+                    desc = f'Total {_elem_to_name[element]} in manure to off-farm treatment'
+            )
             
             if element=='N':
                 # For nitrogen, also calculate and store plant available nitrogen available to spread
+                # and going to off-farm treatment
                 TAN_to_spread = (
                     available_to_spread * 
                     (self.par.get_from_frame('TAN_share', available_to_spread)/100)
+                ).T.groupby(['prod_system','animal','MMS']).sum().T
+                TAN_to_treatment = (
+                    to_treatment * 
+                    (self.par.get_from_frame('TAN_share', to_treatment)/100)
                 ).T.groupby(['prod_system','animal','MMS']).sum().T
                 
                 herd.data_attr.add(
@@ -613,6 +654,13 @@ class ManureMgmt():
                     unit = 'kg TAN/year',
                     orig = 'ManureMgmt',
                     desc = 'Total plant available nitrogen (TAN) in manure available to spread after stable and storage losses'
+                )
+                herd.data_attr.add(
+                    TAN_to_treatment,
+                    name = 'manure.TAN_to_treatment',
+                    unit = 'kg TAN/year',
+                    orig = 'ManureMgmt',
+                    desc = 'Total plant available nitrogen (TAN) in manure to off-farm treatment'
                 )
     
         return None

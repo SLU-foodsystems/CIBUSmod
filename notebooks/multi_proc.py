@@ -31,6 +31,14 @@ crops = cm.CropProduction(
 # Each AnimalHerd object is stored in an indexed pandas.Series
 herds = cm.make_herds(regions)
 
+# Instantiate WasteAndCircularity
+waste = cm.WasteAndCircularity(
+    demand = demand,
+    crops = crops,
+    herds = herds,
+    par = cm.ParameterRetriever('WasteAndCircularity')
+)
+
 # Instantiate feed management
 feed_mgmt = cm.FeedMgmt(
     herds = herds,
@@ -60,6 +68,7 @@ plant_nutrient_mgmt = cm.PlantNutrientMgmt(
     demand = demand,
     regions = regions,
     crops = crops,
+    waste = waste,
     herds = herds,
     par = cm.ParameterRetriever('PlantNutrientMgmt')
 )
@@ -68,6 +77,7 @@ plant_nutrient_mgmt = cm.PlantNutrientMgmt(
 machinery_and_energy_mgmt  = cm.MachineryAndEnergyMgmt(
     regions = regions,
     crops = crops,
+    waste = waste,
     herds = herds,
     par = cm.ParameterRetriever('MachineryAndEnergyMgmt')
 )
@@ -76,6 +86,7 @@ machinery_and_energy_mgmt  = cm.MachineryAndEnergyMgmt(
 inputs = cm.InputsMgmt(
     demand = demand,
     crops = crops,
+    waste = waste,
     herds = herds,
     par = cm.ParameterRetriever('InputsMgmt')
 )
@@ -130,6 +141,9 @@ def do_run(scn_year):
     
     # Calculate harvest of crop residues
     crop_residue_mgmt.calculate()
+
+    # Calculate treatment of wastes and other feedstocks
+    waste.calculate(verbose=True)
     
     # Calculate plant nutrient management
     plant_nutrient_mgmt.calculate()
@@ -144,12 +158,12 @@ def do_run(scn_year):
     try:
         session.store(
             scn, year,
-            demand, regions, crops, herds
+            demand, regions, crops, waste, herds
         )
     except:
         session.store(
             scn, year,
-            demand, regions, crops, herds
+            demand, regions, crops, waste, herds
         )
 
     return time.time() - tic

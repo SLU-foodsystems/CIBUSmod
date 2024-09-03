@@ -13,6 +13,7 @@ from .main_modules.crop_prod import CropProduction
 from .main_modules.animal_herd import \
     CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd, SheepHerd, \
     make_herds, concat_herds
+from .main_modules.waste_and_circularity import WasteAndCircularity
 
 # Import mgmt modules
 from .mgmt_modules.manure_mgmt import ManureMgmt

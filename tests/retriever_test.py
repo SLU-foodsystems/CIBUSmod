@@ -79,6 +79,12 @@ assert np.isnan(test.get('three', A='a2',B='b2',C='c2',D='d2'))
 test.clear()
 assert np.isnan(test.get('five'))
 
+# %% Return array with correct length when using filters not in data
+
+test.clear()
+sel_len = 10
+assert len(test.get('one', X=['x']*sel_len)) == sel_len
+
 # %% Get multiple parameres 
 test.clear()
 tic = time()
@@ -135,7 +141,7 @@ res = np.all(
     test.get(
         'one',
         H=['h1','h2','h3']*n
-    ) == np.array([1.1]*n)
+    ) == np.array([1.1]*3*n)
 )
 print(f'Unused filters: {round(time()-tic,3)} sec')
 assert res
