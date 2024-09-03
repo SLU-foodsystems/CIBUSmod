@@ -13,7 +13,14 @@ if TYPE_CHECKING:
     from ..utils.retriever import ParameterRetriever
 
 class WasteAndCircularity(object):
-    '''
+    '''Main module that handles waste management and other circularity strategies.
+
+    Parameters
+    ----------
+    demand : DemandAndConversions object
+    crops : CropProduction object
+    herds : pandas.Series of AnimalHerd objects
+    par : ParameterRetriever object
     '''
 
     module_name = 'WasteAndCircularity'
@@ -63,8 +70,9 @@ class WasteAndCircularity(object):
         vprint(type='end')
 
     def create_data_attribute_tables(self):
-        # Create empty dataframes and store data attributes to write to in the
-        # treatment-specific methods
+        '''Creates empty dataframes and stores data attributes to write to in the
+        treatment-specific methods
+        '''
 
         dfs = {
             'losses_VS' : ('kg', 'Losses of volatile solids (VS) during waste treatment'),
@@ -84,6 +92,7 @@ class WasteAndCircularity(object):
             columns=self.data_attr.get('feedstock_VS').columns
         )
 
+        # Create columns for the diferent data attributes
         for n in dfs:
             if 'losses' in n:
                 element = n.split('_')[1]
@@ -152,7 +161,7 @@ class WasteAndCircularity(object):
             .mul(pop_dist, axis=0)
             .mul(food_waste, axis=1)
         )
-        
+
         # COLLECT CARCASSES -----------------------------------------------------------|
         # TO BE DONE...
 
@@ -161,7 +170,7 @@ class WasteAndCircularity(object):
 
         # COLLECT SURPLUSS BY-PRODUCTS ------------------------------------------|
         # TO BE DONE... ???
-        
+
         # COLLECT CROP FEEDSTOCKS ----------------------------------------------------|
         feedstock_type = 'crop feedstock'
         sel = self.par.get_unique('feedstock', qry=f'f_feedstock_type == "{feedstock_type}"')
