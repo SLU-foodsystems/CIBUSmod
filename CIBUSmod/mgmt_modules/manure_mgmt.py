@@ -487,11 +487,13 @@ class ManureMgmt():
             if self.settings['NPK_excretion_from_balance'] and 'lwg' in herd.data_attr:
                 # Calculate N excretion based on mass balance
 
-                # Nutrient in feed input (excl. storage and feeding losses)
-                # SOME LOSSES SHOULD BE INCLUDED!!
-                # !!! NEED TO THINK ABOUT SILAGE LOSSES !!!
+                # Nutrient in feed input (excl. storage losses)
+                # Motivation for not including storage losses:
+                # Storage losses for roughages are to a large extent mass
+                # losses during the ensilation process and for other feeds
+                # storage losses are generally small.
                 feed = (
-                    herd.data_attr.get('feed.consumption')
+                    (herd.data_attr.get('feed.consumption') + herd.data_attr.get('feed.feeding_losses'))
                     .T.groupby(['prod_system','animal']).sum().T *
                     (herd.data_attr.get('feed.ration_' + element) / 100)
                 )
