@@ -204,7 +204,7 @@ class CattleHerd(AnimalHerd):
         ) * bulls * 365.25 # -> kg/year
 
         lw_calves_1yr = (
-            ((lwg_heifers + lwg_steers + lwg_bulls) / (heifers + steers + bulls) / 365.25) # -> kg/head/day
+            ((lwg_heifers + lwg_steers + lwg_bulls) / np.where((heifers + steers + bulls)==0, np.nan, (heifers + steers + bulls)) / 365.25) # -> kg/head/day, replace zeros by NaN in (heifers + steers + bulls) to avoid zero div warning
             * (365.25 - p('weaning_age', animal='calves')) # -> kg/head
             + lw_calves_weaning # -> kg/head
         )
