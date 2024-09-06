@@ -55,3 +55,10 @@ Energy grass,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.25,Green fodder (ce
 Short rotation coppice,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.26,Green fodder (cereals),,,,0.3,0,??
 Green manure,1,0.25,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.27,Grass-clover mixtures,,,,0.835,0,??
 Ley not harvested,1,0.25,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.27,Grass-clover mixtures,,,,0.3,0,??
+Grey pea,0.85,0.91,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Peas,,,,0.85,0.014,assumed to be the same as peas dry
+"Lentils, dry",0.85,0.91,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Brown bean,,,,0.85,0.022,"assumed to be the same as benas, dry"
+Sweet lupin,0.85,0.91,0.19,,,,0.0118,,,0.008,1,NIR 2022. Table 5.24,Brown bean,,,,0.85,0.022,"assumed to be the same as beans, dry"
+Sunflower seeds,0.91,1.38,0.22,,,,0.0107,,,0.009,1,NIR 2022. Table 5.24,Spring rape,,,,0.91,0.055,assumed to be the same as Rapeseed spring
+Quinoa,0.86,0.825,0.22,,,,0.0077,,,0.014,1,NIR 2022. Table 5.24,Spring barley,,,,0.86,0.1,assumed to be the same as spring barley
+Hazelnuts,,,,,,,,,,,,,,,,,,,
+Walnuts,,,,,,,,,,,,,,,,,,,
