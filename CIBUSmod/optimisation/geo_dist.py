@@ -153,13 +153,13 @@ class GeoDistributor:
                     'solver' : 'GUROBI',
                     'verbose' : False
                 },
-                {
-                    'solver' : 'OSQP',
-                    'max_iter' : 200000,
-                    'eps_abs' : 5e-6,
-                    'eps_rel' : 5e-6,
-                    'verbose' : False
-                }
+                # {
+                #     'solver' : 'OSQP',
+                #     'max_iter' : 200000,
+                #     'eps_abs' : 5e-6,
+                #     'eps_rel' : 5e-6,
+                #     'verbose' : False
+                # }
             ],
             apply_solution:bool = True,
             verbose:bool = False
