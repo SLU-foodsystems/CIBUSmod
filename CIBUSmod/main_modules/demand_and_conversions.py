@@ -505,7 +505,7 @@ def _empty_demand(demand, of):
     )
     return (prod_demand, by_prod)
 
-def _fix_cream_balance(self, animal_prod_demand, animal_by_products):
+def _fix_cream_balance(self, animal_prod_demand, animal_by_products, induce_export_of = 'Milk and products 1-2% fat'):
     # Handle dairy "cream balance". As consumption of high fat dairy products and associated demand for cream exceeds
     # the ammount of cream generated from consumption of low fat dairy products this induces an export of low fat
     # dairy products.
@@ -513,10 +513,13 @@ def _fix_cream_balance(self, animal_prod_demand, animal_by_products):
     # Note: The method currently implemented will fail to handle a situation where the opposite is true, i.e. where
     # consumption of low fat products generates more cream than needed to cover consumption of high fat products.
     self.par.clear()
-    indeuce_export_of = 'Milk and products 1-2% fat'
+
+    # Get food group name of skim milk
+    food_group = self.par.get_unique('food_group', 'f_food=="Milk and products 1-2% fat"')[0]
+
     cream_to_raw_milk = 1/(self.par.get(
         'conv_factor_by',
-        food=indeuce_export_of,
+        food=induce_export_of,
         species='cattle',
         animal_prod='milk',
         by_prod='cream'
@@ -525,7 +528,7 @@ def _fix_cream_balance(self, animal_prod_demand, animal_by_products):
     self.par.clear()
     raw_milk_to_skim_milk = self.par.get(
         'conv_factor_main',
-        food=indeuce_export_of,
+        food=induce_export_of,
         species='cattle',
         animal_prod='milk'
     )[0]/100
@@ -557,8 +560,8 @@ data need to be adjusted manually to avoid this situation.')
                 induced_skim_milk_exports.to_frame()
                 .rename(columns={0:'domestic'})
                 .rename_axis('origin', axis=1)
-        ], keys=['export'], names=['food_group'])
-    ], keys=[indeuce_export_of], names=['food'])
+        ], keys=[food_group], names=['food_group'])
+    ], keys=[induce_export_of], names=['food'])
     df_to_add['imported'] = 0
 
     # Add induced skim milk exports to export demand
