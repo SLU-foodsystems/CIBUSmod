@@ -175,13 +175,13 @@ class WasteAndCircularity(object):
         feedstock_type = 'crop feedstock'
         sel = self.par.get_unique('feedstock', qry=f'f_feedstock_type == "{feedstock_type}"')
         crops = (
-            self.demand.data_attr.get('non_food_demand').loc[sel]
+            self.demand.data_attr.get('non_food_demand').loc[sel,'domestic']
             .groupby(['food', 'food_group'])
             .sum()
             .rename_axis(index={'food':'feedstock', 'food_group':'feedstock_group'})
             .to_frame()
             .rename_axis(columns='feedstock_type')
-            .rename(columns={0:feedstock_type})
+            .rename(columns={'domestic':feedstock_type})
             .stack()
         )
         # Distribute over regions based on production for non-food use
