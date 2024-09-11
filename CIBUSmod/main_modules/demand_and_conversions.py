@@ -542,8 +542,12 @@ def _fix_cream_balance(self, animal_prod_demand, animal_by_products, induce_expo
     add_raw_milk_prod = cream_shortage * cream_to_raw_milk
     induced_skim_milk_exports = (add_raw_milk_prod * raw_milk_to_skim_milk)
 
-    if (induced_skim_milk_exports<0).any():
-        warnings.warn('DemandAndConversions: Adjusting the "cream balance" resulted in a negative export of skim milk, which \
+    if (induced_skim_milk_exports < 0).any():
+        # Give it some slack to avoid rounding problems
+        if (induced_skim_milk_exports > -1e-4).all():
+            induced_skim_milk_exports[induced_skim_milk_exports < 0] = 0
+        else:
+            warnings.warn('DemandAndConversions: Adjusting the "cream balance" resulted in a negative export of skim milk, which \
 will result in the GeoDistributor failing. This is because demand for low-fat dairy products generates \
 more cream than demanded by high-fat dairy products. This situation can`t be handled currently and demand \
 data need to be adjusted manually to avoid this situation.')
