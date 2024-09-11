@@ -181,15 +181,14 @@ class PlantNutrientMgmt():
             .fillna(0)
         )
 
-        if element == 'P':
-            # Join in P-class and set as index
-            yields = (
-                yields
-                .to_frame()
-                .join(self.regions.data_attr.get('soil_P_class'))
-                .set_index('P_class', append=True)
-                .iloc[:,0]
-            )
+        # Join in P- or K-class and set as index
+        yields = (
+            yields
+            .to_frame()
+            .join(self.regions.data_attr.get(f'soil_{element}_class'))
+            .set_index(f'{element}_class', append=True)
+            .iloc[:,0]
+        )
 
         self.par.clear()
         self.par.set(**yields.index.to_frame().to_dict('list'))
@@ -209,9 +208,8 @@ class PlantNutrientMgmt():
         # Multiply by area
         req = req * self.crops.data_attr.get('area')
 
-        if element == 'P':
-            # Drop P-class from index
-            req = req.droplevel('P_class')
+        # Drop P/K-class from index
+        req = req.droplevel(f'{element}_class')
 
         # Add data attribute
         self.crops.data_attr.add(
