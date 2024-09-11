@@ -6,7 +6,7 @@ import CIBUSmod as cm
 
 # Create session (Make sure that name and data_path match the notebook!)
 session = cm.Session(
-    name = 'fai_multi_proc',
+    name = 'MFF_multi',
     data_path = '../data',
     timeout = 60 # Increase timeout to avoid failing to write if multiple processes try to write at the same time
 )
@@ -123,6 +123,14 @@ def do_run(scn_year):
     # Calculate herds
     for h in herds:
         h.calculate()
+
+    # Induce beef exports in DemandAndConversions if beef production from dairy
+    # systems under given demand for milk products exceeds total beef demand.
+    # This is to avoid not finding any solution when running the GeoDistributor.
+    cm.helpers.induce_beef_exports(
+        demand = demand,
+        herds = herds
+    )
     
     # Calculate feed
     feed_mgmt.calculate()    

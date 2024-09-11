@@ -87,6 +87,9 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     None
     '''  
 
+    # Get food group name
+    food_group =  demand.par.get_unique('food_group', f'f_food=="{beef_food_name}"')[0]
+
     # Get cattle milk and meat demand
     milk_demand = demand.data_attr.get('animal_prod_demand').xs(('cattle', 'milk'), level=('species', 'animal_prod')).sum(axis=1)
     meat_demand = demand.data_attr.get('animal_prod_demand').xs(('cattle', 'meat'), level=('species', 'animal_prod')).sum(axis=1)
@@ -132,7 +135,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
 
     if (induced_beef_exports > 0).any():
         # Add food and food_group index levels
-        induced_beef_exports = pd.concat([induced_beef_exports], keys=['export'], names=['food_group'])
+        induced_beef_exports = pd.concat([induced_beef_exports], keys=[food_group], names=['food_group'])
         induced_beef_exports = pd.concat([induced_beef_exports], keys=[beef_food_name], names=['food'])
 
         # Apply conversion factor CW --> meat as consumed
@@ -146,12 +149,16 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
                 **induced_beef_exports.index.to_frame().to_dict('list')
             )/100
         )
+
+        # Fix df to add to export_demand
+        df_add = induced_beef_exports.to_frame().rename_axis('origin', axis=1).rename(columns={0:'domestic'})
+        df_add['imported'] = 0
         
         # Add induced beef exports to export demand
         demand.data_attr.update(
             name = 'export_demand',
             data = demand.data_attr.get('export_demand').add(
-                induced_beef_exports,
+                df_add,
                 fill_value = 0
             )
         )
