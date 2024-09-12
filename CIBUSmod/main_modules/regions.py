@@ -78,7 +78,8 @@ class Regions(object):
 
         self.get_soil()
         self.classify_soil_texture()
-        self.classify_soil_P()
+        self.classify_soil_PK('P')
+        self.classify_soil_PK('K')
 
         # Calculate max land use
         vprint('Calculating maximum land use ...')
@@ -238,33 +239,47 @@ class Regions(object):
             scalable = False
         )
 
-    def classify_soil_P(self):
+    def classify_soil_PK(self, element):
         
-        # Soil P classes (up to x mg/kg)
-        P_classes = {
-            'I' : 20,
-            'II' : 40,
-            'III' : 80,
-            'IVA' : 120,
-            'IVB' : 160,
-            'V' : np.inf,
+        classes_def = {
+            # Soil P classes (up to x mg/kg)
+            'P' : {
+                'I' : 20,
+                'II' : 40,
+                'III' : 80,
+                'IVA' : 120,
+                'IVB' : 160,
+                'V' : np.inf,
+            },
+            # Soil K classes (up to x mg/kg)
+            'K' : {
+                'I' : 40,
+                'II' : 80,
+                'III' : 160,
+                'IV' : 320,
+                'V' : np.inf,
+            }
         }
 
+        element_to_name = {'P' : 'phosphorous', 'K' : 'potassium'}
+
+        classes = classes_def[element]
+
         soil = self.data_attr.get('soil').copy()
-        soil['P_class'] = np.nan
+        soil[f'{element}_class'] = np.nan
 
-        for k,v in P_classes.items():
-            soil['P_class'] = soil['P_class'].where((soil['P_AL']>v) | ~soil['P_class'].isna(), k)
+        for k,v in classes.items():
+            soil[f'{element}_class'] = soil[f'{element}_class'].where((soil[f'{element}_AL']>v) | ~soil[f'{element}_class'].isna(), k)
 
-        soil_P_class = soil['P_class']
+        soil_class = soil[f'{element}_class']
         
         # Add data attribute
         self.data_attr.add(
-            soil_P_class,
-            name = 'soil_P_class',
+            soil_class,
+            name = f'soil_{element}_class',
             unit = '-',
             orig = 'Regions',
-            desc = 'Soil phosphorous (P-AL) class',
+            desc = f'Soil {element_to_name[element]} ({element}-AL) class',
             scalable = False
         )
 
