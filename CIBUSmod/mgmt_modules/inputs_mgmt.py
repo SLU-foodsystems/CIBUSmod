@@ -131,8 +131,8 @@ class InputsMgmt(object):
 
     def get_data(self):
 
-        # Simplified data to use in calculations
-        self.data = (
+        # Simplify ecoinvent data to use in calculations
+        data = (
             self.ecoinvent_data
             # Select only compounds used and rename. HANDLE ALL COMPOUNDS IN FUTURE!
             .loc[:,self.ecoinvent_data.columns.get_level_values('compound').isin(self.ei_compounds)]
@@ -145,6 +145,22 @@ class InputsMgmt(object):
             .T.groupby('compound').sum().T
             .stack()
         )
+
+        # Get user-defined emissions
+        self.par.clear()
+        user_data = pd.Series(index=self.par.get_unique(['input', 'compound'], 'parameter == "emission"').set_index(['input', 'compound']).index)
+        user_data.loc[:] = self.par.get('emission', **user_data.index.to_frame().to_dict('list'))
+
+        # Reindex data to union of data and user_data
+        data = data.reindex(data.index.union(user_data.index))
+
+        # Update data based on user-defined emissions
+        # Note: any user defined emissions of a compound for an input will replace
+        # emissions of that compound according to ecoinvent
+        data.update(user_data)
+        
+        self.data = data
+
         
     def calculate(self, verbose=False):
         
