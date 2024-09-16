@@ -38,6 +38,15 @@ class InputsMgmt(object):
         ecoinvent_settings = {
             'version' : '3.7.1',
             'system_model' : 'cutoff'
+        },
+        # This dict is used to translate ecoinvent elementary flow names to
+        # compound names used in CIBUSmod. Only elementary flows in this
+        # dict will be used.
+        ecoinvent_compounds_dict = {
+            'Carbon dioxide, fossil' : 'CO2',
+            'Methane, non-fossil' : 'CH4bio',
+            'Methane, fossil' : 'CH4fos',
+            'Dinitrogen monoxide' : 'N2O',
         }
     ):
         
@@ -45,6 +54,8 @@ class InputsMgmt(object):
         self.demand = demand
         self.crops = crops
         self.waste = waste
+
+        self.ei_compounds = ecoinvent_compounds_dict
         
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -119,22 +130,13 @@ class InputsMgmt(object):
         self.ecoinvent_data = df
 
     def get_data(self):
-        # Translation from ecoinvent elementary flow names to names
-        # used in CIBUSmod.
-        # CHANGE TO USE ECOINVENT NAMES IN FUTURE!
-        translate_compounds = {
-            'Carbon dioxide, fossil' : 'CO2',
-            'Methane, non-fossil' : 'CH4bio',
-            'Methane, fossil' : 'CH4fos',
-            'Dinitrogen monoxide' : 'N2O',
-        }
 
-        # Simplified data to use in calculations
-        self.data = (
+        # Simplify ecoinvent data to use in calculations
+        data = (
             self.ecoinvent_data
             # Select only compounds used and rename. HANDLE ALL COMPOUNDS IN FUTURE!
-            .loc[:,self.ecoinvent_data.columns.get_level_values('compound').isin(translate_compounds)]
-            .rename(translate_compounds, axis=1)
+            .loc[:,self.ecoinvent_data.columns.get_level_values('compound').isin(self.ei_compounds)]
+            .rename(self.ei_compounds, axis=1)
             # Drop all index levels except 'input'
             .droplevel(self.ecoinvent_data.index.names[1:])
             # Group and sum by compund. For compounds used now all emissions
@@ -143,6 +145,22 @@ class InputsMgmt(object):
             .T.groupby('compound').sum().T
             .stack()
         )
+
+        # Get user-defined emissions
+        self.par.clear()
+        user_data = pd.Series(index=self.par.get_unique(['input', 'compound'], 'parameter == "emission"').set_index(['input', 'compound']).index)
+        user_data.loc[:] = self.par.get('emission', **user_data.index.to_frame().to_dict('list'))
+
+        # Reindex data to union of data and user_data
+        data = data.reindex(data.index.union(user_data.index))
+
+        # Update data based on user-defined emissions
+        # Note: any user defined emissions of a compound for an input will replace
+        # emissions of that compound according to ecoinvent
+        data.update(user_data)
+        
+        self.data = data
+
         
     def calculate(self, verbose=False):
         
