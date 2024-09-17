@@ -1,3 +1,4 @@
+import warnings
 import pandas as pd
 import numpy as np
 from typing import TYPE_CHECKING
@@ -36,17 +37,21 @@ class ByProductMgmt():
 
     def calculate(self, verbose=False):
 
-        # IMPORTANT! This method must only be run
-        # once after each run of DemandAndConversions.calculate()
+        if 'ByProductMgmt' in self.demand.data_attr.metadata['by_prod_demand']['orig']:
+
+            # Abort calculations and warn if method has already been run.
+            # Running it more than once will produce faulty results.
+            warnings.warn("ByProductMgmt: Aborting calculations as ByProductMgmt.calculate() has already been run. Run DemandAndConversions.calculate() before running it again.")
+            return None
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='ByProductMgmt')
 
         vprint('Inducing imports of by-products to cover demand ...') # ------------------------------>
-        
+
         # Get produced by-products
         prod = self.demand.data_attr.get('by_products')
-        
+
         if isinstance(prod, pd.Series):
             # Make dataframe with 'origin' column
             prod = (
@@ -55,29 +60,29 @@ class ByProductMgmt():
                 .to_frame()
                 .rename_axis('origin', axis=1)
             )
-        
+
         # Get demand for food, non-food and exports
         food_demand = self.demand.data_attr.get('by_prod_demand').copy()
-        
+
         # Get demand for feed
         feed_demand = (
             pd.concat([h.data_attr.get('feed.by_product_demand').sum() for h in self.herds])
             .groupby(['prod_system', 'by_prod']).sum().rename('feed')
         )
-        
+
         # Combine demand
         total_demand = pd.concat([food_demand, feed_demand], axis=1).fillna(0).sort_index()
-        
+
         # Get index union
         idx_uni = prod.index.union(total_demand.index)
-        
+
         # Reindex frames
         prod = prod.reindex(idx_uni).fillna(0)
         total_demand = total_demand.reindex(idx_uni).fillna(0)
-        
+
         # Calculate induced imports
         induced_imports = (-prod.sum(axis=1).sub(total_demand.sum(axis=1), axis=0)).clip(0)
-        
+
         # Add induced imports to prod data frame
         prod['imported'] = 0
         prod.loc[:,'imported'] = prod.loc[:,'imported'].add(induced_imports, fill_value=0)
@@ -96,10 +101,10 @@ class ByProductMgmt():
         surplus_to_waste = (
             surplus.sub(surplus_to_export, fill_value=0)
         ).replace({0:np.nan}).dropna()
-        
+
         # Add induced exports to demand
         food_demand = food_demand.add(surplus_to_export.rename('export').to_frame(), fill_value=0).fillna(0).reindex(food_demand.columns, axis=1)
-        
+
         # Update data attributes
         self.demand.data_attr.add(
             food_demand,
