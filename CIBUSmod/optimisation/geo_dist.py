@@ -280,7 +280,7 @@ class GeoDistributor:
         return mats
 
     def apply_solution(self, x=None):
-        '''Update CropProduction and AnumalHerds according to found solution'''
+        '''Update CropProduction and AnimalHerds according to found solution'''
 
         if x is None:
             x = self.x
@@ -288,7 +288,7 @@ class GeoDistributor:
         # Update CropProduction
         self.crops.scale(x['crp'])
 
-        # Update AnumalHerds
+        # Update AnimalHerds
         with warnings.catch_warnings():
             # Ignore pandas peformance warning. Performance not a problem
             # here but the issue could probably be solved by sorting x['ani']
