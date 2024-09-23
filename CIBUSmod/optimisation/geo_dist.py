@@ -5,7 +5,6 @@ import numpy as np
 import cvxpy
 import scipy
 
-import time
 import re as regex
 
 from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever

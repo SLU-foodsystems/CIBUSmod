@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import os
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr

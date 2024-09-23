@@ -6,9 +6,6 @@ import os
 
 from .retriever import ParameterRetriever
 from .data_attr import DataAttr
-from ..main_modules.demand_and_conversions import DemandAndConversions
-from ..main_modules.regions import Regions
-from ..main_modules.crop_prod import CropProduction
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
 class Session(object):

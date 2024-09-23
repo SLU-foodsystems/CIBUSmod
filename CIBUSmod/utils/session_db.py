@@ -9,7 +9,6 @@ import warnings
 from contextlib import closing
 
 from .retriever import ParameterRetriever
-from .data_attr import DataAttr
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
 class Session(object):
