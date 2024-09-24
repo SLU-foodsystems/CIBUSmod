@@ -20,7 +20,6 @@ import numpy as np
 import os.path
 import pandas as pd
 import pickle
-from scipy import stats
 # import seaborn as sns
 from typing import Dict, TypeVar, Type, List, Any, Tuple, Optional, Union
 import xarray as xr
@@ -388,7 +387,7 @@ class SoilData:
             self._make_scn_area_dfs(grouping, verbose=verbose)
             if verbose:
                 print(
-                    f"'_c_input_ha_df' and '_c_input_sko_df' generated")
+                    "'_c_input_ha_df' and '_c_input_sko_df' generated")
         if not self._h_value_dict:
             if verbose:
                 print("-> 'h_value_dict' not set.")
@@ -589,7 +588,7 @@ class SoilData:
         # Assuming _make_scn_area_dfs and h_map_helper are already optimized for vectorized operations
         self._make_scn_area_dfs_new(grouping, verbose=verbose)
         if verbose:
-            print(f"'_c_input_ha_df' and '_c_input_sko_df' generated")
+            print("'_c_input_ha_df' and '_c_input_sko_df' generated")
         if not self._h_value_dict:
             if verbose:
                 print("-> 'h_value_dict' not set.")
@@ -1653,7 +1652,7 @@ class SoilDataExplore:
                 print('Or, if you want to test your luck directly:')
                 print(' re-run the plot-method with the "mask_outlier" parameter set to True,')
                 print('        (mask_outlier=True)')
-                print(f'and add the number of the subplot to the "mask_subplots" parameter list')
+                print('and add the number of the subplot to the "mask_subplots" parameter list')
                 print(f'        (mask_subplots=[{subplt},])')
             else:
                 print(f'No outliers detected in {name}.')

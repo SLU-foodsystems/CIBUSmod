@@ -5,7 +5,6 @@
 #                          #
 ############################
 
-import warnings
 import pandas as pd
 
 from ..utils.retriever import ParameterRetriever
@@ -14,7 +13,7 @@ from ..main_modules.animal_herd import AnimalHerd, StaticAnimalHerd
 from ..mgmt_modules.feed_mgmt import Feed
 from ..mgmt_modules.manure_mgmt import Manure
 
-from ..utils.misc import rgetattr, rsetattr, inv_dict
+from ..utils.misc import rgetattr, inv_dict
 
 def get_attr(
     output,

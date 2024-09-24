@@ -9,7 +9,6 @@ import warnings
 from contextlib import closing
 
 from .retriever import ParameterRetriever
-from .data_attr import DataAttr
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
 class Session(object):
@@ -682,7 +681,7 @@ class Session(object):
 
             con.execute("PRAGMA foreign_keys = 1;")
 
-            res = cur.execute(f"""
+            res = cur.execute("""
                 SELECT calculated
                     FROM runs
                 INNER JOIN scenarios
@@ -696,7 +695,7 @@ class Session(object):
                 if ui.capitalize() != 'Y':
                     return None
         
-            cur.execute(f"""
+            cur.execute("""
                 DELETE FROM scenarios WHERE name = ?
             """, (name,))
 
@@ -779,7 +778,7 @@ class Session(object):
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
             
-            res = cur.execute(f"""
+            res = cur.execute("""
                 SELECT run_id
                     FROM runs
                 INNER JOIN scenarios
@@ -920,7 +919,7 @@ class Session(object):
 
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            cur.execute(f"""
+            cur.execute("""
                 UPDATE runs
                     SET calculated = ?
                 WHERE run_id = ?
@@ -1054,7 +1053,7 @@ class Session(object):
                         cur.execute(f"""
                             DROP TABLE IF EXISTS attr_{attr_id}
                         """)
-                        cur.execute(f"""
+                        cur.execute("""
                             DELETE FROM data_attributes
                             WHERE attr_id = ?
                         """, (attr_id,))
@@ -1137,8 +1136,7 @@ class Session(object):
                     module = exact[0][1]
                     attr = exact[0][2]
                 else:
-                    for row in all_res:
-                        msg = f"Multiple matches for module='{module}' and attr='{attr}':" + '\n' + '\n'.join([str(row) for row in all_res])
+                    msg = f"Multiple matches for module='{module}' and attr='{attr}':\n" + '\n'.join([str(row) for row in all_res])
                     raise ValueError(msg)
             else:
                 attr_id = all_res[0][0]
@@ -1451,7 +1449,7 @@ def _level_names_to_integer_key(data, db_path, timeout):
         lvl_keys = []
         for lvl, ax in lvls_axs:
 
-            cur.execute(f"""
+            cur.execute("""
                 INSERT OR IGNORE
                     INTO levels(name)
                     VALUES(?)

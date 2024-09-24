@@ -10,7 +10,7 @@ def verbose_init(verbose, id_str=''):
         def verbose_print(*args, type='prog'):
             
             if type != 'msg':
-                if not sub_tic[0] is None:
+                if sub_tic[0] is not None:
                     sub_timing = f'{(time.time()-sub_tic[0]):.1f}s\n'
                     sub_tic[0] = time.time()
                 else:

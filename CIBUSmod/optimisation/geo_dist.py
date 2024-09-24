@@ -5,7 +5,6 @@ import numpy as np
 import cvxpy
 import scipy
 
-import time
 import re as regex
 
 from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
@@ -54,7 +53,7 @@ class GeoDistributor:
     def make(
             self,
             use_cons:list|str,
-            scale_power:int = 0.4,
+            scale_power:float = 0.4,
             scale_cutoff_percentile:float = 99,
             verbose:bool = False,
             **kwargs
@@ -66,7 +65,7 @@ class GeoDistributor:
         use_cons : (list of) str
             List of numbers corresponding to the constraints to be used. For descriptions
             of each constraint see ?GeoDistributor.make_C<nr>
-        scale_power : int, default 0.4
+        scale_power : float, default 0.4
             Power used to calculate scaling factors for the optimisation.
             scale_power=0 -> minimise absolute difference in crop areas/animal numbers
             scale_poqer=1 -> minimise relative difference in crop areas/animal numbers
@@ -259,13 +258,13 @@ class GeoDistributor:
             )
 
             if apply_solution:
-                vprint(f'Applying solution ...')
+                vprint('Applying solution ...')
                 self.apply_solution()
 
         else:
             if hasattr(self, 'x'):
                 delattr(self, 'x')
-            raise RuntimeError(f'No solution found!')
+            raise RuntimeError('No solution found!')
 
         vprint(type='end')
 
@@ -281,7 +280,7 @@ class GeoDistributor:
         return mats
 
     def apply_solution(self, x=None):
-        '''Update CropProduction and AnumalHerds according to found solution'''
+        '''Update CropProduction and AnimalHerds according to found solution'''
 
         if x is None:
             x = self.x
@@ -289,7 +288,7 @@ class GeoDistributor:
         # Update CropProduction
         self.crops.scale(x['crp'])
 
-        # Update AnumalHerds
+        # Update AnimalHerds
         with warnings.catch_warnings():
             # Ignore pandas peformance warning. Performance not a problem
             # here but the issue could probably be solved by sorting x['ani']
@@ -353,7 +352,8 @@ class GeoDistributor:
             'crp' : self.D['crp'].index
         }
 
-    def calculate_scaling_factors(self, scale_power=0, cutoff_percentile=99):
+    def calculate_scaling_factors(self, scale_power: float = 0.0,
+                                  cutoff_percentile: float = 99.0):
         '''Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf where rn is a factor
         normalising all features (i.e. distinct land uses and animal species) to the same range and fs is a
         scaling factor calculated as fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
@@ -1261,7 +1261,7 @@ class GeoDistributor:
         row_idx = pd.MultiIndex.from_tuples([
             (h.species,h.breed,h.prod_system,h.sub_system) for h in self.herds if
             'max_share_sub_system' in h.par.data.index.get_level_values('parameter') and
-            h.sub_system in h.par.get_unique('sub_system', qry=f'parameter == "max_share_sub_system"')
+            h.sub_system in h.par.get_unique('sub_system', qry='parameter == "max_share_sub_system"')
         ], names=['species', 'breed', 'prod_system', 'sub_system'])
 
         # Get col index from animal herds (sp,br,ps,ss,re)
@@ -1419,7 +1419,7 @@ class GeoDistributor:
         self.crops.par.clear()
 
         # Get crop groups with max/min inclusion in rotation constraint
-        cgs = self.crops.par.get_unique('crop_group', qry=f'parameter == "max_in_rot"')
+        cgs = self.crops.par.get_unique('crop_group', qry='parameter == "max_in_rot"')
         pss = self.x_idx['crp'].get_level_values('prod_system').unique()
         res = self.x_idx['crp'].get_level_values('region').unique()
 
@@ -1731,7 +1731,6 @@ class GeoDistributor:
                 .fillna(0)
             ).reorder_levels(['prod_system','region'])
             cp_demand_per_herd.columns = cp_demand_per_herd.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
-            cp_demand_per_herd
 
             # Get constrained crop groups
             cgs = (

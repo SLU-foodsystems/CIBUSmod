@@ -6,9 +6,6 @@ import os
 
 from .retriever import ParameterRetriever
 from .data_attr import DataAttr
-from ..main_modules.demand_and_conversions import DemandAndConversions
-from ..main_modules.regions import Regions
-from ..main_modules.crop_prod import CropProduction
 from ..main_modules.animal_herd import AnimalHerd, concat_herds
 
 class Session(object):
@@ -793,7 +790,7 @@ def _db_read_scn(db_path):
     # Connect and read
     con = sqlite3.connect(db_path)
     scn_dict_flat = (
-        pd.read_sql_query(f"SELECT * from scenarios", con)
+        pd.read_sql_query("SELECT * from scenarios", con)
         .set_index('index')
         .to_dict()
     )
