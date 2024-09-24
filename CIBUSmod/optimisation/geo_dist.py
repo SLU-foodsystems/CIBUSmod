@@ -565,7 +565,7 @@ class GeoDistributor:
     def make_C5(self):
         '''Creates C5: A5 @ x <= 0
 
-        Constrain the maxuimum share of a crop product demand for feed that can be supplied by a
+        Constrain the maximum share of a crop product demand for feed that can be supplied by a
         particular crop group. This constraint is used to e.g. constrain the share of 'grazing' that can be
         supplied by 'semi-natural grasslands', but can also be used to constrain e.g. share of wheat for
         feed from winter/spring variaties.
