@@ -146,10 +146,10 @@ class WasteAndCircularity(object):
             .rename_axis(index={'food':'feedstock', 'food_group':'feedstock_group', 'waste_level':'feedstock_type'})
             .rename(index = lambda x: 'food waste, ' + x, level='feedstock_type')
         )
-        
+
         # Get human population distribution
         pop_dist = self.demand.data_attr.get('population_per_region').transform(lambda x: x/x.sum())
-        
+
         # Distribute over regions based on population
         food_waste_reg = pd.DataFrame(
             1.0,
@@ -162,14 +162,40 @@ class WasteAndCircularity(object):
             .mul(food_waste, axis=1)
         )
 
-        # COLLECT CARCASSES -----------------------------------------------------------|
-        # TO BE DONE...
-
-        # COLLECT WASTE FROM SLAUGHTERHOUSES ------------------------------------------|
+        # COLLECT ANIMAL CARCASSES -----------------------------------------------------------|
         # TO BE DONE...
 
         # COLLECT SURPLUSS BY-PRODUCTS ------------------------------------------|
-        # TO BE DONE... ???
+        # Get surpluss by-product to waste treatment and add 'feedstock_group' and 'feedstock_type' to index
+        byprod = self.demand.data_attr.get('by_prod_to_waste').groupby('by_prod').sum()
+        byprod = byprod.to_frame()
+        byprod['feedstock_group'] = byprod.index.map(self.par.get_rel('by_prod', 'by_prod_group'))
+        byprod['feedstock_type'] = 'by-product waste'
+        byprod = byprod.set_index(['feedstock_group', 'feedstock_type'], append = True).rename_axis(index={'by_prod':'feedstock'})
+        byprod = byprod[0]
+
+        # Create distribution key
+        # Surpluss by-products are distributed based on cropland area
+        # assuming (roughly) that locations of processing facilities
+        # follows cropland area distribution.
+        dist_key = (
+            self.crops.data_attr.get('area')
+            # Select cropland
+            .rename(self.par.get_rel('crop', 'land_use')).xs('cropland')
+            # Sum area per region
+            .groupby('region').sum()
+            # Calculate share of total cropland per region
+            .transform(lambda x: x/x.sum())
+        )
+
+        # Create dataframe with by-products as columns and regions as index
+        # and calculate regional distribution of surpluss by-products
+        byprod_reg = pd.DataFrame(
+            1.0,
+            index = dist_key.index,
+            columns = byprod.index
+        )
+        byprod_reg = byprod_reg.mul(dist_key, axis=0).mul(byprod, axis=1)
 
         # COLLECT CROP FEEDSTOCKS ----------------------------------------------------|
         feedstock_type = 'crop feedstock'
@@ -213,19 +239,19 @@ class WasteAndCircularity(object):
                 .transform(lambda x: x/x.sum())
             )
             crops_reg.loc[:,item] *= reg_dist
-        
+
         # COMBINE --------------------------------------------------------------------------|
-        
-        feedstock = pd.concat([food_waste_reg, crops_reg], axis=1).fillna(0)
+
+        feedstock = pd.concat([food_waste_reg, byprod_reg, crops_reg], axis=1).fillna(0)
 
         # CALCULATE FEEDSTOCK COMPOSITION AND GET MANURE FOR CENTRALISED TREATMENT ---------|
-        
+
         # Set ParameterRetriver filters to get feedstock composition
         self.par.set(**feedstock.columns.to_frame().to_dict('list'))
-        
+
         # Calculate dry matter
         feedstock_DM = feedstock.mul(self.par.get('feedstock_DM'), axis=1)
-        
+
         # Calculate volatile solids (VS), methane production potential (B0), nitrogen (N), phosphorous (P) and potassium (K)
         items = {
             'VS' : 'volatile solids (VS)',
@@ -235,32 +261,32 @@ class WasteAndCircularity(object):
             'P' : 'phosphorous (P)',
             'K' : 'potassium (K)'
         }
-        
+
         feedstock_dfs = dict()
         manure_dfs = dict()
-        
+
         for i in items:
             if i in ['B0','C']:
                 df = feedstock_dfs['VS']
             else:
                 df = feedstock_DM
-        
+
             # Calculate item for waste
             feedstock_dfs.update({i : df.mul(self.par.get(f'feedstock_{i}'), axis=1)})
-        
+
             # Get item from manure
             m_list = []
             for herd in self.herds:
                 m = herd.data_attr.get(f'manure.{i}_to_treatment').T.groupby('MMS').sum().T
-            
+
                 # Create column index
                 m.columns = pd.MultiIndex.from_tuples(
                     [(f'Manure, {herd.species}, {herd.breed}', mms, 'manure') for mms in m.columns],
                     names = ['feedstock', 'feedstock_group', 'feedstock_type']
                 )
-            
+
                 m_list += [m]
-                    
+
             manure_dfs.update({
                 i : 
                 pd.concat(m_list, axis=1)
@@ -271,11 +297,11 @@ class WasteAndCircularity(object):
                 .dropna(axis=1, how='all')
                 .fillna(0)
             })
-        
+
         dfs = {i : pd.concat([feedstock_dfs[i], manure_dfs[i]], axis=1) for i in items}
 
         # DISTRIBUTE ACROSS WASTE TREATMENTS ----------------------------------------------------|
-        
+
         # Create df to retrieve treatment shares
         retrieve_df = pd.DataFrame(
             index = list(dfs.values())[0].index,
@@ -285,10 +311,10 @@ class WasteAndCircularity(object):
                 names = ['feedstock', 'feedstock_group', 'feedstock_type', 'treatment']
             )
         )
-        
+
         # Get treatment shares
         treatment_shares = self.par.get_from_frame('treatment_share', retrieve_df)
-        
+
         # Check that treatment shares all add up to 100%
         shares_sum = treatment_shares.T.groupby(['feedstock','feedstock_group','feedstock_type']).sum().T
         check_shares = shares_sum != 100
@@ -296,7 +322,7 @@ class WasteAndCircularity(object):
             warnings.warn(f''''treatment_share' did not add up to 100% for:
             {shares_sum.loc[check_shares.any(axis=1),check_shares.any()]}
             ''')
-        
+
         # Distribute across treatments and store data attributes
         for i in items:
             self.data_attr.add(
@@ -308,7 +334,7 @@ class WasteAndCircularity(object):
             )
 
         return None
-        
+
     def calculate_treatment(self, treatment):
         try:
             treatment_fun = self.tratment_funs[treatment]

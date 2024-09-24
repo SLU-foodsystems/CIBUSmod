@@ -235,6 +235,9 @@ class FeedMgmt():
         # Get Series of crop/by- products or crod residues with feed as index
         prs = self.par.get_unique(['feed',of]).set_index('feed')[of]
 
+        if (of != 'crop_prod') and (len(self.par.get_unique(of, 'parameter == "share_imported"')) > 0):
+            warnings.warn(f"FeedMgmt: Spicified import shares for '{of}' will have no effect! For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed.")
+
         for herd in self.herds:
 
             # Set species and breed filters for ParameterRetriever
@@ -262,37 +265,52 @@ class FeedMgmt():
             )
 
             if retrieve_df.shape[1] > 0:
-
+                
+                # Get factors feed --> product
                 feed_to_prod = self.par.get_from_frame('feed_to_prod', retrieve_df)
-                feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported', retrieve_df)/100
-                feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
-
-                result_df = pd.concat([
-                    pd.concat(
-                        {'domestic': (
-                            multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
-                            .T.groupby(['prod_system','animal',of], sort=False).sum().T
-                        )},
-                        names=['origin'],
-                        axis=1
-                    ),
-
-                    pd.concat(
-                        {'imported': (
-                            multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
-                            .T.groupby(['prod_system','animal',of],sort=False).sum().T
-                        )},
-                        names=['origin'],
-                        axis=1
-                    )
-                ], axis=1)
 
                 if of == 'crop_prod':
+                    
+                    # Get import shares
+                    feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported', retrieve_df)/100
+                    feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
+
+                    # Calculate domestic and imported crop product demand
+                    dom_prod = (
+                        multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
+                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
+                    )
+                    imp_prod = (
+                        multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
+                        .T.groupby(['prod_system','animal',of],sort=False).sum().T
+                    )
+                    
+                    # Combine
+                    result_df = pd.concat([
+                        pd.concat(
+                            {'domestic': (dom_prod)},
+                            names=['origin'],
+                            axis=1
+                        ),
+
+                        pd.concat(
+                            {'imported': (imp_prod)},
+                            names=['origin'],
+                            axis=1
+                        )
+                    ], axis=1)
+                        
                     # Calculate regional demand for crop products
                     feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional', retrieve_df)/100
                     result_df_reg = (
                         multiply_aligned(feed_to_reg_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of], sort=False).sum().T
+                    )
+                else:
+                    # Calculate demand
+                    result_df = (
+                        multiply_aligned(feed_to_prod,herd.data_attr.get('feed.demand'))
+                        .T.groupby(['prod_system','animal',of],sort=False).sum().T
                     )
             else:
                 # Empty result dataframes
@@ -300,7 +318,8 @@ class FeedMgmt():
                     index = herd.index,
                     columns = pd.MultiIndex.from_tuples(
                         [],
-                        names = ['origin', 'prod_system', 'animal', of]
+                        names = ['origin', 'prod_system', 'animal', of] if of == 'crop_prod'
+                        else ['prod_system', 'animal', of]
                     ),
                     dtype = float
                 )

@@ -45,6 +45,13 @@ feed_mgmt = cm.FeedMgmt(
     par = cm.ParameterRetriever('FeedMgmt')
 )
 
+# Instantiate by-product management
+byprod_mgmt = cm.ByProductMgmt(
+    demand = demand,
+    herds = herds,
+    par = cm.ParameterRetriever('ByProductMgmt')
+)
+
 # Instantiate manure management
 manure_mgmt = cm.ManureMgmt(
     herds = herds,
@@ -143,6 +150,9 @@ def do_run(scn_year):
     
     # Redistribute feeds (not yet implemented) and calculate enteric CH4 emissions
     feed_mgmt.calculate2()
+
+    # Balance by-product demand and suply
+    byprod_mgmt.calculate()
     
     # Calculate manure
     manure_mgmt.calculate()
@@ -151,7 +161,7 @@ def do_run(scn_year):
     crop_residue_mgmt.calculate()
 
     # Calculate treatment of wastes and other feedstocks
-    waste.calculate(verbose=True)
+    waste.calculate()
     
     # Calculate plant nutrient management
     plant_nutrient_mgmt.calculate()

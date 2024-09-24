@@ -19,8 +19,9 @@ vegetable oils,horses,,36.6,36.6,1000
 straw,horses,,7.6,6.6,20
 soybeans,horses,,18.4,16.4,180
 soybean meal,horses,,17.8,14.6,10
-soybean protein concentrate,horses,,,,
+soybean protein concentrate,horses,,18.19669298,13.4,17
 rapeseed meal,horses,,14.6,12.2,46
+rapeseed cake,horses,,17.3,15.6,174
 sunflower seed meal,horses,,14.1,11.4,10
 palm kernel expeller,horses,,15,13.4,97
 luzern meal,horses,,10.7,8.5,27
@@ -36,7 +37,8 @@ maize gluten meal,horses,,19.6,16,24
 sugar beet molasses,horses,,14.1,12.4,0
 sugar beet pulp,horses,,14.7,12.3,32
 whey,horses,,15.1,13.6,10
-whey powder,horses,,,,
+whey powder,horses,,15.40488174,12.3,13
 potatoe protein,horses,,19.7,15.5,33
-fish meal,horses,,,,
+potatoe offals,horses,,14.9,13.1,10
+fish meal,horses,,21.75054492,14.8,110
 minerals,horses,,0,0,0

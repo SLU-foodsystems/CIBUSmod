@@ -21,6 +21,7 @@ soybeans,poultry,,16
 soybean meal,poultry,,10.45977011
 soybean protein concentrate,poultry,,
 rapeseed meal,poultry,,8.444444444
+rapeseed cake,poultry,,
 sunflower seed meal,poultry,,8.6
 palm kernel expeller,poultry,,
 luzern meal,poultry,,
@@ -28,6 +29,7 @@ wheat bran,poultry,,7.816091954
 "wheat bran, fine",poultry,,14.02298851
 oat hulls,poultry,,
 oat bran,poultry,,
+rye bran,poultry,,
 "wheat distillers grain, dry",poultry,,
 "wheat distillers grain, wet",poultry,,
 barley brewers grain,poultry,,
@@ -37,5 +39,6 @@ sugar beet pulp,poultry,,
 whey,poultry,,
 whey powder,poultry,,
 potatoe protein,poultry,,16
+potatoe offals,poultry,,
 fish meal,poultry,,13.69565217
-minerals,poultry,,0
+minerals,poultry,,

@@ -36,7 +36,9 @@ def bar(
     
     grouptitle = '',
     grouptitle_fontsize = 11,
-    grouplabels_fontsize = 10
+
+    grouplabels_fontsize = 10,
+    grouplabels_vertical = False
 ):
     '''Plots a grouped and stacked bar chart from a pandas.DataFrame. Columns are taken
     as categories (i.e. color), inner most index level as groups and remaining index levels
@@ -214,14 +216,20 @@ def bar(
 
             group_label = ', '.join(group) if isinstance(group, tuple) else group
 
-            axg.tick_params(axis='x', which='major', labelsize = grouplabels_fontsize, bottom=False, top=False, labelbottom=False, labeltop=True)
+            axg.tick_params(axis='x', which='major', labelsize = grouplabels_fontsize, labelrotation = 90 if grouplabels_vertical else 0, bottom=False, top=False, labelbottom=False, labeltop=True)
             axg.tick_params(axis='x', which='minor', direction='in', width=0.8, bottom=False, top=True)
-            wrapXTicks(
-                axg.set_xticks(
-                    ticks = [xg.mean()],
-                    labels = [group_label]
+            if not grouplabels_vertical:
+                wrapXTicks(
+                    axg.set_xticks(
+                        ticks = [xg.mean()],
+                        labels = [group_label]
+                    )
                 )
-            )
+            else:
+                axg.set_xticks(
+                        ticks = [xg.mean()],
+                        labels = [group_label]
+                    )
             axg.set_xticks(
                 minor = True,
                 ticks = [xg.min() - 0.5, xg.max() + 0.5],

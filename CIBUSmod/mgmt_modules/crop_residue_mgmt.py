@@ -87,7 +87,6 @@ class CropResidueMgmt():
         # Get crop residues used for feed
         demand_for_feed = (
             pd.concat([h.data_attr.get('feed.crop_residue_demand') for h in self.herds], axis=1)
-            .xs('domestic', level='origin', axis=1)
             .T.groupby(['crop_resid']).sum().T
             # WIP
         )
