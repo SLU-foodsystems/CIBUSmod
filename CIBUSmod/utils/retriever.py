@@ -31,17 +31,17 @@ class ParameterRetriever:
     @classmethod
     def set_data_folder(cls, path, default_path=None, scenarios_path=None):
         # Set data path
-        cls.data_path = _path_from_str(path)
+        cls.data_path = os.path.abspath(path)
 
         # Set default data path
         if default_path is not None:
-            cls.data_path_default = _path_from_str(default_path)
+            cls.data_path_default = os.path.abspath(default_path)
         else:
             cls.data_path_default = os.path.join(cls.data_path, 'default')
 
         # Set scenario data path
         if scenarios_path is not None:
-            cls.data_path_scenarios = _path_from_str(scenarios_path)
+            cls.data_path_scenarios = os.path.abspath(scenarios_path)
         else:
             cls.data_path_scenarios = os.path.join(cls.data_path, 'scenarios')
 
@@ -678,15 +678,9 @@ def _read_xl(path,sheet):
             str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
             str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")
             raise ValueError(str1+str2)
-                
+
 
         return df
-
-def _path_from_str(str):
-    path = ''
-    for word in str.split('/'):
-        path = os.path.join(path, word)
-    return path
 
 def _get_problem_data(data, index_cols, parameter):
     if not isinstance(data, pd.Series):
