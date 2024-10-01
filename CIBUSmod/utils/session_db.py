@@ -69,20 +69,20 @@ class Session(object):
         
         self.name = name
 
-        self.data_path = os.path.abspath(_path_from_str(data_path))
+        self.data_path = os.path.abspath(data_path)
 
         if data_path_default is not None:
-            self.data_path_default = os.path.abspath(_path_from_str(data_path_default))
+            self.data_path_default = os.path.abspath(data_path_default)
         else:
             self.data_path_default = os.path.join(self.data_path, 'default')
 
         if data_path_scenarios is not None:
-            self.data_path_scenarios = os.path.abspath(_path_from_str(data_path_scenarios))
+            self.data_path_scenarios = os.path.abspath(data_path_scenarios)
         else:
             self.data_path_scenarios = os.path.join(self.data_path, 'scenarios')
 
         if data_path_output is not None:
-            self.data_path_output = os.path.abspath(_path_from_str(data_path_output))
+            self.data_path_output = os.path.abspath(data_path_output)
         else:
             self.data_path_output = os.path.join(self.data_path, 'output')
 
@@ -94,7 +94,7 @@ class Session(object):
             os.mkdir(self.data_path_output)
 
         # Dict that stores tables retrieved from database for faster access
-        self.cache = CacheDict(max_size=max_cache) 
+        self.cache = CacheDict(max_size=max_cache)
 
         # Create main tables if they do not exist
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
@@ -1420,12 +1420,6 @@ class CacheDict(dict):
             diff = len(self) - max_size 
             for k in list(self)[:diff]:
                 del self[k]
-
-def _path_from_str(str):
-    path = ''
-    for word in str.split('/'):
-        path = os.path.join(path, word)
-    return path
 
 def _isiterable(obj):
     try:
