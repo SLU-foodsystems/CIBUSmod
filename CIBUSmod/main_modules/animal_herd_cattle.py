@@ -17,7 +17,7 @@ class CattleHerd(AnimalHerd):
         super().__init__(par,index,**kwargs)
         
     def calculate_herd(self):
-        '''Calculates cattle herd structure and slaughters as a fraction of the number of cows. 
+        '''Calculates cattle herd structure, slaughtered and lost animals and live weight gains as a fraction of the number of cows. 
         '''
 
         # Clear and set filters for ParameterRetriever
@@ -137,7 +137,7 @@ class CattleHerd(AnimalHerd):
         tmp_calves2bull = tmp_male2end - tmp_male_calves2slaughter - tmp_calves2steer
 
         # CALCULATE AVERAGE ANNUAL NUMBER OF ANIMALS
-        breeding_bulls = np.zeros(len(cows))
+        breeding_bulls = cows * p('breeding_bulls_per_cow')
         
         self.par.set(animal='calves')
         calves = (
@@ -158,14 +158,14 @@ class CattleHerd(AnimalHerd):
         bulls = tmp_calves2bull * ((p('slaughter_age',animal='bulls')-12)/12)
 
         cows2lost = cows * p('mortality',animal='cows')/100
-        breeding_bulls2lost = np.zeros(len(cows))
+        breeding_bulls2lost = np.zeros(len(cows)) # No losses assumed for breeding bulls for now...
         calves2lost = tmp_male_calves2dead + tmp_female_calves2dead
         heifers2lost = np.zeros(len(cows))
         steers2lost = np.zeros(len(cows))
         bulls2lost = np.zeros(len(cows))
         
         cows2slaughter = cows * p('recruitment_rate')/100 - cows2lost
-        breeding_bulls2slaughter = np.zeros(len(cows))
+        breeding_bulls2slaughter = np.zeros(len(cows)) # No slaughter assumed for breeding bulls for now...
         calves2slaughter = tmp_calves2slaughter
         heifers2slaughter = tmp_calves2heifer
         steers2slaughter = tmp_calves2steer
@@ -346,8 +346,8 @@ class CattleHerd(AnimalHerd):
         E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
 
         # Daily ME req. for changes in body weight [MJ/day]
-        if ani=='cows':
-            E_growth = 35 * growth_rate # (Tabell 1)
+        if ani in ['cows', 'breeding bulls']:
+            E_growth = 35 * growth_rate # (Tabell 1) - This factor is for older dairy cows. Here the same is assumed for beef cows and breeding bulls
         else:
             E_growth = (growth_rate * (6.28 + 0.0188 * live_weight)) / ((1 - 0.3 * growth_rate) * 0.435) # (Tabell 4a)
             if np.array(live_weight > 825).any() or np.array(growth_rate > 2).any():
