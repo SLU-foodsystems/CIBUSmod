@@ -1,63 +1,125 @@
-cols_as_filter: f_operation,,,,,,,,,,,,,,,,,,,,,,
-f_crop,f_prod_system,harrowing,rolling,cultivation,ploughing,trimming,ridging,topping,minreal fert,liquid manure,semi-solid manure,spraying,seeding,"seeding, combi","seeding, beets","seeding, spec",harvest,mowing,ensiling,"transport, grain","transport, straw","transport, general"
-"Wheat, winter",,2,0.5,0.5,1,0,0,0,1.5,0,0,1.75,1,0,0,0,1,0,0,1,1,0
-"Wheat, spring",,2,0.5,0.5,1,0,0,0,1.5,0,0,1.75,0,1,0,0,1,0,0,1,1,0
-Rye,,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,1,1,0
-"Barley, winter",,2,0.5,0.5,1,0,0,0,2,0,0,1.75,1,0,0,0,1,0,0,1,1,0
-"Barley, spring",,2,0.5,0.5,1,0,0,0,1,0,0,1.75,0,1,0,0,1,0,0,1,1,0
-Oats,,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,1,1,0
-"Triticale, winter",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,1,1,0
-"Triticale, spring",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,1,1,0
-Maize (corn),,2,0.5,0.5,1,0,0,0,1,0,0,2,0,0,1,0,1,0,0,0,0,1
-Mixed cereals,,1,0.5,0.5,1,0,1,0,1,0,0,1.25,0,1,0,0,1,0,0,1,1,0
-"Peas, dry",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-"Peas, green",,1,1,1,1,0,0,0,1,0,0,2,0,1,0,0,1,0,0,0,0,1
-"Broad beans and horse beans, dry",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-"Beans, dry",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-"Rapeseed, winter",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-"Rapeseed, spring",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-"Potatoes, table",,1,0,2,1,2,1,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-"Potatoes, starch",,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Sugar beet,,2,0.5,0.5,1,0,1,1,0,0,0,0,0,0,1,0,1,0,0,0,0,1
-Ley for seed,,1,0,0,0,0,0,0,1,0,0,2,1,0,0,0,1,0,0,0,0,1
-Ley for fodder,,0,0,0,0,0,0,0,2,0,0,1,0.3,0,0,0,0,2,2,0,0,0
-Ley for grazing,,0,0,0,0,2,0,0,2,0,0,0,0.1,0,0,0,0,0,0,0,0,0
-Maize for forage and silage,,1,0.5,0.5,1,0,0,0,1,0,0,1.25,0,0,1,0,0,1,1,0,0,0
-Cereals for fodder,,1,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,0,1,1,0,0,0
-Other crops for fodder,,1,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,0,1,1,0,0,0
-Semi-natural pastures,,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-Semi-natural meadows,,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0
-Onions,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Carrots,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Other root vegetables,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Lettuce and spinach,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-"Cabbages, cauliflowers and broccoli",,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Cucumbers,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Pumpkins and squash,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Herbs,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Other vegetables,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Strawberries,,2,0,2,1,2,0,0,2,0,0,2,0,0,0,1,1,0,0,0,0,1
-Currants,,,,,,,,,,,,,,,,,,,,,,
-Other berries,,,,,,,,,,,,,,,,,,,,,,
-Apples,,,,,,,,,,,,,,,,,,,,,,
-Pears,,,,,,,,,,,,,,,,,,,,,,
-Other fruit,,,,,,,,,,,,,,,,,,,,,,
-"Tomatoes, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-"Cucumbers, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-"Lettuce, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-"Other vegetables, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-"Herbs, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-"Strawberries, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-"Other berries, greenhouse",,,,,,,,,,,,,,,,,,,,,,
-Fallow,,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-Energy grass,,,,,,,,,,,,,,,,,,,,,,
-Short rotation coppice,,,,,,,,,,,,,,,,,,,,,,
-Green manure,,,,,,,,,,,,,,,,,,,,,,
-Ley not harvested,,0,0,0,0,1,0,0,0,0,0,0,0.1,0,0,0,0,,,,,
-Sweet lupin,,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-Grey pea,,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-Quinoa,,2,0.5,0.5,1,0,0,0,1,0,0,1.75,0,1,0,0,1,0,0,1,1,0
-Sunflower seeds,,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-"Lentils, dry",,2,0.5,0.5,1,0,0,0,1,0,0,1.25,0,1,0,0,1,0,0,0,0,1
-Walnuts,,,,,,,,,,,,,,,,,,,,,,
-Hazelnuts,,,,,,,,,,,,,,,,,,,,,,
+cols_as_filter: f_operation,,,,,,,,,,,,,,,,,,,,,
+f_crop,f_prod_system,harrowing,rolling,cultivation,ploughing,trimming,ridging,topping,minreal fert,manure appl,spraying,seeding,"seeding, combi","seeding, beets","seeding, spec",harvest,mowing,ensiling,"transport, grain","transport, straw","transport, general"
+"Wheat, winter",conventional,2,0.5,0.5,1,0,0,0,1.5,1,1.75,1,0,0,0,1,0,0,1,1,0
+"Wheat, spring",conventional,2,0.5,0.5,1,0,0,0,1.5,1,1.75,0,1,0,0,1,0,0,1,1,0
+Rye,conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,1,1,0
+"Barley, winter",conventional,2,0.5,0.5,1,0,0,0,2,1,1.75,1,0,0,0,1,0,0,1,1,0
+"Barley, spring",conventional,2,0.5,0.5,1,0,0,0,1,1,1.75,0,1,0,0,1,0,0,1,1,0
+Oats,conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,1,1,0
+"Triticale, winter",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,1,1,0
+"Triticale, spring",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,1,1,0
+Maize (corn),conventional,2,0.5,0.5,1,0,0,0,1,1,2,0,0,1,0,1,0,0,0,0,1
+Mixed cereals,conventional,1,0.5,0.5,1,0,1,0,1,1,1.25,0,1,0,0,1,0,0,1,1,0
+"Peas, dry",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+"Peas, green",conventional,1,1,1,1,0,0,0,1,1,2,0,1,0,0,1,0,0,0,0,1
+"Broad beans and horse beans, dry",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+"Beans, dry",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+"Rapeseed, winter",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+"Rapeseed, spring",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+"Potatoes, table",conventional,1,0,2,1,2,1,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+"Potatoes, starch",conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Sugar beet,conventional,2,0.5,0.5,1,0,1,1,0,1,0,0,0,1,0,1,0,0,0,0,1
+Ley for seed,conventional,1,0,0,0,0,0,0,1,1,2,1,0,0,0,1,0,0,0,0,1
+Ley for fodder,conventional,0,0,0,0,0,0,0,2,1,1,0.3,0,0,0,0,2,2,0,0,0
+Ley for grazing,conventional,0,0,0,0,2,0,0,2,1,0,0.1,0,0,0,0,0,0,0,0,0
+Maize for forage and silage,conventional,1,0.5,0.5,1,0,0,0,1,1,1.25,0,0,1,0,0,1,1,0,0,0
+Cereals for fodder,conventional,1,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,0,1,1,0,0,0
+Other crops for fodder,conventional,1,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,0,1,1,0,0,0
+Semi-natural pastures,conventional,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+Semi-natural meadows,conventional,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0
+Onions,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Carrots,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Other root vegetables,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Lettuce and spinach,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+"Cabbages, cauliflowers and broccoli",conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Cucumbers,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Pumpkins and squash,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Herbs,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Other vegetables,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Strawberries,conventional,2,0,2,1,2,0,0,2,1,2,0,0,0,1,1,0,0,0,0,1
+Currants,conventional,,,,,,,,,,,,,,,,,,,,
+Other berries,conventional,,,,,,,,,,,,,,,,,,,,
+Apples,conventional,,,,,,,,,,,,,,,,,,,,
+Pears,conventional,,,,,,,,,,,,,,,,,,,,
+Other fruit,conventional,,,,,,,,,,,,,,,,,,,,
+"Tomatoes, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+"Cucumbers, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+"Lettuce, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+"Other vegetables, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+"Herbs, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+"Strawberries, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+"Other berries, greenhouse",conventional,,,,,,,,,,,,,,,,,,,,
+Fallow,conventional,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0
+Energy grass,conventional,,,,,,,,,,,,,,,,,,,,
+Short rotation coppice,conventional,,,,,,,,,,,,,,,,,,,,
+Green manure,conventional,,,,,,,,,,,,,,,,,,,,
+Ley not harvested,conventional,0,0,0,0,1,0,0,0,1,0,0.1,0,0,0,0,,,,,
+Sweet lupin,conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+Grey pea,conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+Quinoa,conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+Sunflower seeds,conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+"Lentils, dry",conventional,2,0.5,0.5,1,0,0,0,1,1,1.25,0,1,0,0,1,0,0,0,0,1
+Walnuts,conventional,,,,,,,,,,,,,,,,,,,,
+Hazelnuts,conventional,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+"Wheat, winter",organic,5,0.5,0.5,1,0,0,0,1.5,1,0,1,0,0,0,1,0,0,1,1,0
+"Wheat, spring",organic,5,0.5,0.5,1,0,0,0,1.5,1,0,0,1,0,0,1,0,0,1,1,0
+Rye,organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+"Barley, winter",organic,5,0.5,0.5,1,0,0,0,2,1,0,1,0,0,0,1,0,0,1,1,0
+"Barley, spring",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+Oats,organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+"Triticale, winter",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+"Triticale, spring",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+Maize (corn),organic,5,0.5,0.5,1,0,0,0,1,1,0,0,0,1,0,1,0,0,0,0,1
+Mixed cereals,organic,4,0.5,0.5,1,0,1,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+"Peas, dry",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Peas, green",organic,4,1,1,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Broad beans and horse beans, dry",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Beans, dry",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Rapeseed, winter",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Rapeseed, spring",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Potatoes, table",organic,4,0,2,1,2,1,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+"Potatoes, starch",organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Sugar beet,organic,5,0.5,0.5,1,0,1,1,0,1,0,0,0,1,0,1,0,0,0,0,1
+Ley for seed,organic,4,0,0,0,0,0,0,1,1,0,1,0,0,0,1,0,0,0,0,1
+Ley for fodder,organic,0,0,0,0,0,0,0,2,1,0,0.3,0,0,0,0,2,2,0,0,0
+Ley for grazing,organic,0,0,0,0,2,0,0,2,1,0,0.1,0,0,0,0,0,0,0,0,0
+Maize for forage and silage,organic,1,0.5,0.5,1,0,0,0,1,1,0,0,0,1,0,0,1,1,0,0,0
+Cereals for fodder,organic,1,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,0
+Other crops for fodder,organic,1,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,0
+Semi-natural pastures,organic,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+Semi-natural meadows,organic,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0
+Onions,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Carrots,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Other root vegetables,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Lettuce and spinach,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+"Cabbages, cauliflowers and broccoli",organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Cucumbers,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Pumpkins and squash,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Herbs,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Other vegetables,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Strawberries,organic,5,0,2,1,2,0,0,2,1,0,0,0,0,1,1,0,0,0,0,1
+Currants,organic,,,,,,,,,,,,,,,,,,,,
+Other berries,organic,,,,,,,,,,,,,,,,,,,,
+Apples,organic,,,,,,,,,,,,,,,,,,,,
+Pears,organic,,,,,,,,,,,,,,,,,,,,
+Other fruit,organic,,,,,,,,,,,,,,,,,,,,
+"Tomatoes, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+"Cucumbers, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+"Lettuce, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+"Other vegetables, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+"Herbs, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+"Strawberries, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+"Other berries, greenhouse",organic,,,,,,,,,,,,,,,,,,,,
+Fallow,organic,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0
+Energy grass,organic,,,,,,,,,,,,,,,,,,,,
+Short rotation coppice,organic,,,,,,,,,,,,,,,,,,,,
+Green manure,organic,,,,,,,,,,,,,,,,,,,,
+Ley not harvested,organic,0,0,0,0,1,0,0,0,1,0,0.1,0,0,0,0,,,,,
+Sweet lupin,organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+Grey pea,organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+Quinoa,organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,1,1,0
+Sunflower seeds,organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+"Lentils, dry",organic,5,0.5,0.5,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1
+Walnuts,organic,,,,,,,,,,,,,,,,,,,,
+Hazelnuts,organic,,,,,,,,,,,,,,,,,,,,

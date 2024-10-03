@@ -73,6 +73,8 @@ class PlantNutrientMgmt():
         self.calculate_mineral_NPK_application(element='P')
         self.calculate_mineral_NPK_application(element='K')
 
+        self.calculate_manure_application_area()
+
         vprint('Calculating N in crop residues ...')
         self.calculate_N_in_crop_residues()
 
@@ -645,6 +647,41 @@ class PlantNutrientMgmt():
             orig = 'PlantNutrientMgmt',
             desc = f'{_elem_to_name[element].capitalize()} in applied fertilisers'
         )
+
+    def calculate_manure_application_area(self):
+
+        self.par.clear()
+        
+        manure_N = self.crops.data_attr.get('fertiliser.manure_N').drop('grazing', level='MMS', axis=1).sum(axis=1)
+        organic_N = self.crops.data_attr.get('fertiliser.organic_N').sum(axis=1)
+        mineral_N = self.crops.data_attr.get('fertiliser.mineral_N').sum(axis=1)
+        total_N = (manure_N + organic_N + mineral_N).replace({0:np.nan})
+
+        # Get minimum share of total N from manure on area where manure is applied
+        min_share_manure_N_where_applied = pd.Series(
+            self.par.get('min_share_manure_N_where_applied', **total_N.index.to_frame().to_dict('list'))/100,
+            index = total_N.index
+        )
+
+        # Calculate the share of area where manure is applied to reach at
+        # least the minimum share of manure N in total N applications.
+        # Note: Looks like this may overestimate the area with manure applications
+        # as no completely unfertilised areas are accounted for in the model
+        share_area_with_manure_application = (manure_N/(total_N*min_share_manure_N_where_applied)).clip(upper=1).fillna(0)
+
+        # Calculate the total area with manure application
+        area_with_manure_application = share_area_with_manure_application * self.crops.data_attr.get('area')
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            area_with_manure_application,
+            name = 'fertiliser.manure_application_area',
+            unit = 'ha/m2',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Area where manure is applied. Used in calculating energy requirements for manure spreading'
+        )
+
+        return None
 
     def calculate_N_in_crop_residues(self):
         # Calculate N in crop residues
