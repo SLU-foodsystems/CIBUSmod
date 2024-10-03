@@ -208,6 +208,8 @@ class MachineryAndEnergyMgmt(object):
         )
         # ... per ton harvested straw
         E_per_mass_straw = pf('E_per_mass_straw',M) / 1000 # [kWh/kg]
+        # ... per area with manure application
+        E_per_area_manure = pf('E_per_area_manure',M) # [kWh/ha]
 
         # Calculate final energy
         E_final = A.copy()
@@ -218,7 +220,8 @@ class MachineryAndEnergyMgmt(object):
             E_final.loc[idx[:,:,sc[soil_class]],:] = (
                 (A * E_per_area.loc[soil_class,:]).mul(self.crops.data_attr.get('area'), axis=0) +
                 (A * E_per_mass.loc[soil_class,:]).mul(self.crops.data_attr.get('harvest'), axis=0) +
-                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
+                (A * E_per_mass_straw.loc[soil_class,:]).mul(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0) +
+                (A * E_per_area_manure.loc[soil_class,:]).mul(self.crops.data_attr.get('fertiliser.manure_application_area'), axis=0)
             ).astype(float)
 
         # Calculate energy requirements per energy source and store
