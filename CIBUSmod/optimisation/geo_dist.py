@@ -210,7 +210,7 @@ class GeoDistributor:
 
             if self.problem.status and 'optimal' in self.problem.status:
                 self.success = True
-                vprint(f"Optimal solution found! Status: '{self.problem.status}', Itterations: {self.problem.solver_stats.num_iters}, Solver: '{self.problem.solver_stats.solver_name}'", type='msg')
+                vprint(f"Optimal solution found! Status: '{self.problem.status}', Iterations: {self.problem.solver_stats.num_iters}, Solver: '{self.problem.solver_stats.solver_name}'", type='msg')
                 break
             else:
                 self.success = False
