@@ -1125,40 +1125,40 @@ class GeoDistributor:
 
         # Go through animal herds
         for herd in self.herds:
+            # Skip herds where there are no regional demands for feeds
+            if herd.data_attr.get('feed.regional_crop_product_demand').shape[1] <= 0:
+                continue
 
             sp = herd.species
             br = herd.breed
             ps = herd.prod_system
             ss = herd.sub_system
 
-            # Check if herd has any regional demand for feeds
-            if herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
+            # Get crop products and production systems with regional demand for feed
+            opss_cps = (
+                herd.data_attr.get('feed.regional_crop_product_demand')
+                .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
+                .droplevel('animal', axis=1)
+                .columns
+                .unique()
+                .values
+            )
 
-                # Get crop products and production systems with regional demand for feed
-                opss_cps = (
-                    herd.data_attr.get('feed.regional_crop_product_demand')
-                    .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
-                    .droplevel('animal', axis=1)
-                    .columns
-                    .unique()
-                    .values
+            # Go through crop products and production systems with regional demand for feed
+            for ops,cp in opss_cps:
+                # Get regional feed demand for crop product (cp) from output production system (ops) per head
+                # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
+                # and region (re)
+                res = - herd.data_attr.get('feed.regional_crop_product_demand').loc[:,(ops,slice(None),cp)].sum(axis=1)
+
+                # Store values and row/col nr
+                val.extend(res.values)
+                row_nr.extend(
+                    [row_idx.get_loc((cp,ops,re)) for re in res.index]
                 )
-
-                # Go through crop products and production systems with regional demand for feed
-                for ops,cp in opss_cps:
-                    # Get regional feed demand for crop product (cp) from output production system (ops) per head
-                    # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
-                    # and region (re)
-                    res = - herd.data_attr.get('feed.regional_crop_product_demand').loc[:,(ops,slice(None),cp)].sum(axis=1)
-
-                    # Store values and row/col nr
-                    val.extend(res.values)
-                    row_nr.extend(
-                        [row_idx.get_loc((cp,ops,re)) for re in res.index]
-                    )
-                    col_nr.extend(
-                        [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
-                    )
+                col_nr.extend(
+                    [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
+                )
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
