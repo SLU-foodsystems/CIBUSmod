@@ -1146,10 +1146,16 @@ class GeoDistributor:
 
             # Go through crop products and production systems with regional demand for feed
             for ops,cp in opss_cps:
-                # Get regional feed demand for crop product (cp) from output production system (ops) per head
-                # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
+                # Get regional feed demand for crop product (cp) from output
+                # production system (ops) per head of defining animal of species
+                # (sp) and breed (br) in production system (ps), sub system (ss)
                 # and region (re)
-                res = - herd.data_attr.get('feed.regional_crop_product_demand').loc[:,(ops,slice(None),cp)].sum(axis=1)
+                res = -(
+                    herd.data_attr
+                    .get('feed.regional_crop_product_demand')
+                    .loc[:,(ops,slice(None),cp)]
+                    .sum(axis=1)
+                )
 
                 # Store values and row/col nr
                 val.extend(res.values)
