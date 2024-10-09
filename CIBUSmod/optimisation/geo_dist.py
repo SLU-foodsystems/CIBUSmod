@@ -217,7 +217,7 @@ class GeoDistributor:
                 status = self.problem.status if self.problem.status else 'None'
                 try:
                     num_iters = self.problem.solver_stats.num_iters
-                except:
+                except Exception:
                     num_iters = 'n/a'
                 vprint(f"No solution found! Status: '{status}', Itterations: {num_iters}", type='msg')
 
@@ -777,7 +777,7 @@ class GeoDistributor:
         # Get number of previously defined C8 constraints
         try:
             n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C8' in s]) + 1
-        except:
+        except Exception:
             n_def = 0
 
         for i in range(pars_len_max):
@@ -882,7 +882,7 @@ class GeoDistributor:
         # Get number of previously defined C9 constraints
         try:
             n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C9' in s]) + 1
-        except:
+        except Exception:
             n_def = 0
 
         for i in range(pars_len_max):
