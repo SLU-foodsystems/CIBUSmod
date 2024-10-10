@@ -1,0 +1,22 @@
+f_crop,f_prod_system,f_region,x0_crops
+Ley for fodder,conventional,A,30
+Ley for fodder,conventional,B,10
+Ley for fodder,conventional,C,20
+Ley for grazing,conventional,A,10
+Ley for grazing,conventional,B,5
+Ley for grazing,conventional,C,5
+"Rapeseed, spring",conventional,A,1
+"Rapeseed, spring",conventional,B,1
+"Rapeseed, spring",conventional,C,2
+"Rapeseed, winter",conventional,A,2
+"Rapeseed, winter",conventional,B,5
+"Rapeseed, winter",conventional,C,20
+"Wheat, spring",conventional,A,5
+"Wheat, spring",conventional,B,5
+"Wheat, spring",conventional,C,10
+"Wheat, winter",conventional,A,10
+"Wheat, winter",conventional,B,20
+"Wheat, winter",conventional,C,35
+Semi-natural pastures,conventional,A,15
+Semi-natural pastures,conventional,B,7
+Semi-natural pastures,conventional,C,7

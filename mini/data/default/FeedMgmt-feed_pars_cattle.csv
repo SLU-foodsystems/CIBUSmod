@@ -1,0 +1,44 @@
+f_feed,f_species,f_animal,feed_par_DE,feed_par_E,feed_par_fat
+"ley silage, 1st cut",cattle,,13.35,11.3,20
+"ley silage, regrowth",cattle,,11.9,10.1,20
+other silage,cattle,,10.75,8.5,22.5
+hay,cattle,,11.8,9.1,20
+maize silage,cattle,,12.3,11,30
+grazing,cattle,,12.4,9.941666667,20
+wheat,cattle,,16,14.1,25
+barley,cattle,,15,13.2,27
+oats,cattle,,13.3,11.7,61
+triticale,cattle,,15.8,14,26
+rye,cattle,,15.8,13.9,20
+maize,cattle,,14.5,12.8,40
+peas,cattle,,16,13.8,17
+broad beans,cattle,,12.6,13.3,14
+rapeseed,cattle,,22.1,22.1,460
+linseed,cattle,,20.8,20.1,380
+vegetable oils,cattle,,36.6,36.6,1000
+straw,cattle,,7.6,6.6,20
+soybeans,cattle,,18.4,16.4,180
+soybean meal,cattle,,17.8,14.6,10
+soybean protein concentrate,cattle,,18.19669298,13.4,17
+rapeseed meal,cattle,,14.6,12.2,46
+rapeseed cake,cattle,,17.3,15.6,174
+sunflower seed meal,cattle,,14.1,11.4,10
+palm kernel expeller,cattle,,15,13.4,97
+luzern meal,cattle,,10.7,8.5,27
+wheat bran,cattle,,12.7,11,45
+"wheat bran, fine",cattle,,15.62761656,13.3,27
+oat hulls,cattle,,6.2,5.2,20
+oat bran,cattle,,8.4,7.2,32
+rye bran,cattle,,13.2,11.6,40
+"wheat distillers grain, dry",cattle,,15.7,13.3,45
+"wheat distillers grain, wet",cattle,,,,
+barley brewers grain,cattle,,13.6,11.6,80
+maize gluten meal,cattle,,19.6,16,24
+sugar beet molasses,cattle,,14.1,12.4,0
+sugar beet pulp,cattle,,14.7,12.3,32
+whey,cattle,,15.1,13.6,10
+whey powder,cattle,,15.40488174,12.3,13
+potatoe protein,cattle,,19.7,15.5,33
+potatoe offals,cattle,,14.9,13.1,10
+fish meal,cattle,,21.75054492,14.8,110
+minerals,cattle,,0,0,0
