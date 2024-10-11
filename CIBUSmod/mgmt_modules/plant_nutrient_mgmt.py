@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class PlantNutrientMgmt():
     '''Class that that calculates ammount of plant nutrients needed for crop production
     and balances this with manure generation, etc.
-    
+
     Parameters
     ----------
     crops : CropProduction object
@@ -51,12 +51,12 @@ class PlantNutrientMgmt():
                     names=['species','breed','prod_system','sub_system']
                 )
             )
-            
+
     def calculate(self, verbose=False):
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='PlantNutrientMgmt')
-    
+
         vprint('Calculating crop NPK requirements ...')
         self.calculate_TAN_req()
         self.calculate_PK_req(element='P')
@@ -96,7 +96,7 @@ class PlantNutrientMgmt():
         # TO BE ADDED: Leaching of P and K
 
         vprint(type='end')
-             
+
     def calculate_TAN_req(self):
         self.par.clear()
         idx=pd.IndexSlice
@@ -132,7 +132,7 @@ class PlantNutrientMgmt():
         )
 
         yields = pdf.mul(yields, axis=0)
-        
+
         # Recommendation [kg TAN/ha]
         TAN_rec = (
             self.par.get_from_frame('N_rec_a',yields) * ((yields/1000) ** 2) +
@@ -245,12 +245,12 @@ class PlantNutrientMgmt():
         #       after (2) to organic areas in the region based on TAN requirements
         #       up to X% of crop TAN requirements, where X is defined by parameter
         #       'manure_TAN_max'.
-        # 
+        #
         # 4.    Distribute any manure remaining after (3) per animal herd to crop
         #       areas used for feed in the region for that herd based on TAN requirements.
         #
         # 5.    Distribute any remaining manure after (3) to conventional areas
-        #       in the region based on TAN requirements. 
+        #       in the region based on TAN requirements.
 
         herds = concat_herds(self.herds)
 
@@ -283,9 +283,9 @@ class PlantNutrientMgmt():
                     .replace('(','')
                     .replace(')','')
                     .split(', ')
-                ) for s in 
+                ) for s in
                 share_grazed_per_grazing_crop.columns
-            ], 
+            ],
             names=['species','breed','sub_system']
         )
 
@@ -384,7 +384,7 @@ class PlantNutrientMgmt():
             manure_TAN_to_use = manure_TAN_remaining.loc[:,([sp],[br],[ss],[ps])]
 
             manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
-            
+
             manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
             _update_manure_TAN_frames(
                 manure_TAN_to_spread,
@@ -455,7 +455,7 @@ class PlantNutrientMgmt():
         #
         # 3.    Organic fertiliser remaining after 1 and 2 is distributed based on remaining TAN
         #       requirements in organic crops nationally.
-        # 
+        #
         # 4.    Organic fertiliser remaining after 3 is distributed based on remaining TAN requirements
         #       in conventional crops nationally.
 
@@ -515,25 +515,25 @@ class PlantNutrientMgmt():
         # AND
         # 4. ORGANIC FERTILISERS TO CONVENTIONAL AREAS ACROSS REGIONS ---------------->
         for do_step in [3,4]:
-            
+
             if do_step == 3:
                 TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
             else:
                 TAN_to_cover = TAN_req_remaining
 
             share_to_use = 1 if TAN_to_cover.sum() > org_TAN_remaining.sum().sum() else TAN_to_cover.sum()/org_TAN_remaining.sum().sum()
-            
+
             dist_key = (
                 TAN_to_cover /
                 TAN_to_cover.sum()
             )
-            
+
             org_TAN_to_spread = pd.DataFrame(
                 np.atleast_2d(dist_key.values).T @ np.atleast_2d(org_TAN_remaining.sum().values * share_to_use),
                 index = dist_key.index,
                 columns = org_TAN_remaining.columns
             )
-            
+
             org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
             _update_manure_TAN_frames(
                 org_TAN_to_spread,
@@ -571,11 +571,11 @@ class PlantNutrientMgmt():
                 orig = 'PlantNutrientMgmt',
                 desc = f'{_elem_to_name[element].capitalize()} in applied non-manure organic fertilisers'
             )
-                
+
     def calculate_mineral_NPK_application(self, element):
         # Mineral N, P or K application is assumed to cover additional
         # TAN, P or K requirements after manure and other organic
-        # fertilisers have been applied. 
+        # fertilisers have been applied.
 
         self.par.clear()
         element_ = 'TAN' if element == 'N' else element
@@ -651,7 +651,7 @@ class PlantNutrientMgmt():
     def calculate_manure_application_area(self):
 
         self.par.clear()
-        
+
         manure_N = self.crops.data_attr.get('fertiliser.manure_N').drop('grazing', level='MMS', axis=1).sum(axis=1)
         organic_N = self.crops.data_attr.get('fertiliser.organic_N').sum(axis=1)
         mineral_N = self.crops.data_attr.get('fertiliser.mineral_N').sum(axis=1)
@@ -736,7 +736,7 @@ class PlantNutrientMgmt():
         TAN_appl = self.crops.data_attr.get(f'fertiliser.{of}')
 
         if of=='manure_TAN':
-            # Aggregate manure 
+            # Aggregate manure
             TAN_appl = (
                 TAN_appl
                 .T.groupby(['species','breed','animal','MMS']).sum().T
@@ -781,7 +781,7 @@ class PlantNutrientMgmt():
             axis=1
         )
 
-        # Store resulting N application losses [kg N]      
+        # Store resulting N application losses [kg N]
         attr_name = 'fertiliser.' + of.replace('TA','') + '_application_loss'
         self.crops.data_attr.add(
             N_loss,
@@ -792,7 +792,7 @@ class PlantNutrientMgmt():
         )
 
     def calculate_N_soil_losses(self, of):
-        
+
         self.par.clear()
 
         # Get soil loss parameter name
@@ -802,7 +802,7 @@ class PlantNutrientMgmt():
         N_appl = self.crops.data_attr.get(f'fertiliser.{of}')
 
         if of=='manure_N':
-            # Aggregate manure 
+            # Aggregate manure
             N_appl = (
                 N_appl
                 .T.groupby(['species','breed','animal','MMS']).sum().T
@@ -861,7 +861,7 @@ class PlantNutrientMgmt():
         )
 
     def calculate_organic_soil_N_losses(self):
-        
+
         self.par.clear()
         self.regions.par.clear()
 
@@ -934,7 +934,7 @@ class PlantNutrientMgmt():
             self.par.get_from_frame('N_leaching_frac', df),
             N_add
         )
-        
+
         # Drop 'land_use' from index
         leaching_N = leaching_N.droplevel('land_use')
 
@@ -987,7 +987,7 @@ def _update_manure_TAN_frames(
         manure_TAN_remaining,
         TAN_req_remaining,
         manure_TAN_application):
-    
+
     return (
         # Update manure TAN remaining
         manure_TAN_remaining.subtract(
