@@ -20,7 +20,6 @@ from ..soil_modules import soil_temp_path
 
 
 
-
 # The formulas below are used to calculate the h_map_df to se when calculating carbon inputs for ICBM:
 
 
@@ -56,19 +55,19 @@ def crop_map_helper(input_df=False,
     crop_re_dict = dict(zip(
         list(input_df.index.str.lower()),
         list(input_df[re_col_name])
-    ))    
+    ))
     # extract index from input_df, without duplicates
     index = input_df.index.drop_duplicates(keep=False)
     # copy cinput_df based on c_index
     crop_in_df = input_df.loc[index]
 
     scenario_dict.update({'crop_re_df': crop_in_df, 'crop_re_dict': crop_re_dict})
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print("   'crop_in_dict'")
         print("   'crop_re_dict'")
-                
+
         print('---Leaving crop_map_helper()---')
 
     return crop_in_df, crop_re_dict
@@ -150,40 +149,40 @@ def h_map_helper(h_in_df=False,
                                                          amnd_map_df,
                                                          h_map_df,
                                                          output_col_name)
-    
+
     h_value_df = pd.concat([h_value_df_crops, h_value_df_amendments])
-    
+
     # Create a dict from h_value_df
     h_value_dict = h_value_df.to_dict('dict')[h_value_df.columns[0]]
-    
+
     # create separate dicts for different fractions
     h_ag_dict = h_value_df.loc[(slice(None),'ag'),].droplevel(1, axis=0).to_dict()[h_value_df.columns[0]]
     h_bg_dict = h_value_df.loc[(slice(None),'bg'),].droplevel(1, axis=0).to_dict()[h_value_df.columns[0]]
     h_amnd_dict = h_value_df.loc[(slice(None),'amnd'),].droplevel(1, axis=0).to_dict()[h_value_df.columns[0]]
     if verbose:
         print("'h_value_df' and 'h_value_dict' created")
-        
+
     scenario_dict.update({'h_value_df': h_value_df,
                           'h_value_dict': h_value_dict,
                           'h_ag_dict': h_ag_dict,
                           'h_bg_dict': h_bg_dict,
                           'h_amnd_dict': h_amnd_dict})
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print("   'h_value_df'")
         print("   'h_value_dict'")
         print("   'h_ag_dict'")
         print("   'h_bg_dict'")
-        print("   'h_amnd_dict'")        
+        print("   'h_amnd_dict'")
         print("---Leaving h_map_helper()---")
 
     return h_value_df, h_value_dict
 
-    
+
 # The functions below are used to calculate carbon allocation to ag and bg for different CIBUS crops
 
-def alloc_helper(name_df=False, 
+def alloc_helper(name_df=False,
                  allo1_df=False,
                  allo2_df=False,
                  allo3_df=False,
@@ -201,7 +200,7 @@ def alloc_helper(name_df=False,
     - allo1_df (pd.DataFrame or False, optional): DataFrame containing allometric function
       parameters from Andren (2004). Defaults to reading 'data_input/c_allom_andren2004.csv'
       if not provided.
-    - allo2_df (pd.DataFrame or False, optional): DataFrame containing allocation factors 
+    - allo2_df (pd.DataFrame or False, optional): DataFrame containing allocation factors
       from Jacobs et al. (2020). Defaults to reading 'data_input/c_alloc_jacobs2020.csv' if
       not provided.
     - allo3_df (pd.DataFrame or False, optional): DataFrame containing allocation factors
@@ -222,51 +221,51 @@ def alloc_helper(name_df=False,
 
     if verbose:
         print('---Executing alloc_helper()---')
-    
+
     if not isinstance(name_df, pd.DataFrame):
         name_map_all_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/name_map_all.csv')).dropna(subset='crop')
     else:
         name_map_all_df = utils.make_df_lower(name_df).dropna(subset='crop')
-        
+
     # Create dictionaries between cibus names (crop) and the different sources
     crop_andren2004_map = dict(zip(name_map_all_df.crop, name_map_all_df.andren2004))
     crop_jacobs_map = dict(zip(name_map_all_df.crop, name_map_all_df.jacobs))
     crop_hanna_map = dict(zip(name_map_all_df.crop, name_map_all_df.hanna))
     crop_cpc_map = dict(zip(name_map_all_df.crop, name_map_all_df.cpc))
     crop_crop_group_map = dict(zip(name_map_all_df.crop, name_map_all_df.crop_group))
-    
+
     # Create dfs with the allometric function parameters or allocation factors
     if not isinstance(allo1_df, pd.DataFrame):
         c_allo1_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_allom_andren2004.csv', index_col=0, decimal=','))
-    else: 
+    else:
         c_allo1__df = utils.make_df_lower(allo1_df)
-    
+
     if not isinstance(allo2_df, pd.DataFrame):
         c_allo2_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_alloc_jacobs2020.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg'], decimal=','))
     else:
         c_allo2_df = utils.make_df_lower(allo2_df)
-    
+
     if not isinstance(allo3_df, pd.DataFrame):
         c_allo3_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_alloc_hanna.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg', 'source'], decimal=','))
     else:
         c_allo3_df = utils.make_df_lower(allo3_df)
-    
+
     out_dict = dict(zip(('c_allom_andren_df', 'c_alloc_jacobs_df', 'c_alloc_hanna_df', 'crop_andren2004_map', 'crop_jacobs_map', 'crop_hanna_map', 'crop_cpc_map', 'crop_crop_group_map'), (c_allo1_df, c_allo2_df, c_allo3_df, crop_andren2004_map, crop_jacobs_map, crop_hanna_map, crop_cpc_map, crop_crop_group_map)))
 
     scenario_dict.update({'alloc_dict': out_dict})
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict' ***")
         print("   'alloc_dict': a dictionary with all the dataframes and mapping dictionaries used to allocate carbon inputs for individual crops.")
         print('---Leaving alloc_helper()---')
-    
+
     return out_dict
 
 
 # The functions below are used to generate the dataframes with inputs and calculate the C inputs
 
 def make_scn_input_df(scenario_name='FAI',
-                      scenario_file=False, 
+                      scenario_file=False,
                       scenario_df=False,
                       C_content_crops=0.5,
                       name_df=False,
@@ -308,7 +307,7 @@ def make_scn_input_df(scenario_name='FAI',
     if verbose:
         print('---Executing make_scn_input_df()---')
         print(f'scenario name and scenario file is: {scenario_name, scenario_file} in make_scn_input_df')
-    
+
     if not scenario_file:
         if verbose:
             print('> Scenario file not set')
@@ -329,26 +328,26 @@ def make_scn_input_df(scenario_name='FAI',
         inputs_yields_df = utils.make_df_lower(pd.read_csv(scenario_file))
         if verbose:
             print(f'Scenario_input dataframe created from {scenario_file}')
-    
+
     if 'year' in inputs_yields_df.columns:
         # add a datetime64 year value based on the year column, drop year column
         inputs_yields_df["input_year"] = pd.to_datetime(inputs_yields_df["year"], format="%Y")
         inputs_yields_df = inputs_yields_df.drop(columns='year')
-    
+
     # Calculate yield per unit area
     inputs_yields_df["areayield"] = inputs_yields_df["harvest_kgdm"]/inputs_yields_df["area_ha"] * C_content_crops
 
     ## Insert new columns containing the manure input per ha, based on the total input per sko
-    
+
     # create a list of the columns to convert
     tot_manure_cols = utils.get_filtered_namelist(['kgc'], ['manure', 'crop'], inputs_yields_df)
-    
+
     newframe = inputs_yields_df.copy()
     # insert a new column with the input per ha
     for i in tot_manure_cols:
         col_name = f'{i[:-4]}_ha'
         newframe[col_name] = newframe[i] / newframe['area_ha']
-    
+
     inputs_yields_df = newframe.copy(deep=True)
 
     # make the indexes continuous to avoid errors in iterative loops based on row number
@@ -370,12 +369,12 @@ def make_scn_input_df(scenario_name='FAI',
                                              mapper,
                                              sources,
                                              allo_dfs)
-    
+
     scenario_dict.update({'alloc_dfs': allo_dfs,
                           'alloc_dicts': mapper,
                           'input_df': scn_inputs_df
                          })
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print("   'alloc_dfs': All dataframes dataframes containing the carbon allometric functions and factors for individual crops.")
@@ -388,7 +387,7 @@ def make_scn_input_df(scenario_name='FAI',
 
 def make_scn_multi_df(scn_inputs_df=False,
                       scenario_name='FAI',
-                      scenario_file=False, 
+                      scenario_file=False,
                       scenario_df=False,
                       C_content_crops=0.5,
                       name_df=False,
@@ -397,7 +396,7 @@ def make_scn_multi_df(scn_inputs_df=False,
                       allo3_df=False,
                       called=False,
                       scenario_dict=False,
-                      verbose=False    
+                      verbose=False
                      ):
     """
     Generate a multi-index DataFrame for CIBUSmod scenarios.
@@ -422,7 +421,7 @@ def make_scn_multi_df(scn_inputs_df=False,
             if verbose:
                 print(f'scenario_name and scenario_file set to {scenario_name, scenario_file}')
 
-    if not isinstance(scn_inputs_df, pd.DataFrame):      
+    if not isinstance(scn_inputs_df, pd.DataFrame):
         if verbose:
             print('> scn_inputs_df not set')
         if 'input_df' in scenario_dict.keys():
@@ -431,9 +430,9 @@ def make_scn_multi_df(scn_inputs_df=False,
         else:
             if verbose:
                 print('Calling make_scn_inputs_df()')
-            
+
             scn_inputs_df, scenario_name = make_scn_input_df(scenario_name,
-                                                             scenario_file, 
+                                                             scenario_file,
                                                              scenario_df,
                                                              C_content_crops,
                                                              name_df,
@@ -452,21 +451,21 @@ def make_scn_multi_df(scn_inputs_df=False,
         # Insert new columns containing the crop total input per sko, based on the input per ha
         # create a list of the columns to convert
         ha_crop_cols = utils.get_filtered_namelist(['ha'], ['crop'], scn_inputs_df)
-        
+
         newframe = scn_inputs_df.copy()
-        
+
         # insert a new column with the input per ha
         for i in ha_crop_cols:
             col_name = f'{i[0:4]}_kgc_{i[8:]}'
             newframe[col_name] = newframe[i] * newframe['area_ha']
-    
+
         #Overwrite the input file variable with the newframe
         scn_inputs_df = newframe.copy(deep=True)
-        
+
         # Add prefixes to all the manure fractions so that all c input fractions follow the same naming convention
         scn_inputs_prefixed_df = utils.add_prefix('manure', 'i_ag', scn_inputs_df)
 
-        # create a selection of columns used to create multiindex for scenarios and spinup 
+        # create a selection of columns used to create multiindex for scenarios and spinup
         scn_input_idx = ['scn', 'crop', 'prod_system', 'region', 'input_year']
         # Create a multiindex df
         scn_multi_df = scn_inputs_prefixed_df.set_index(scn_input_idx)
@@ -479,7 +478,7 @@ def make_scn_multi_df(scn_inputs_df=False,
     scn_input_ds_name = f'{scenario_name}_input_ds'
 
     scn_input_ds = scn_multi_df.to_xarray()
-    
+
     scenario_dict.update({'scenario_multi_df': scn_multi_df,
                           'scenario_input_ds': scn_input_ds
                          })
@@ -496,7 +495,7 @@ def make_scn_multi_df(scn_inputs_df=False,
     else:
         if verbose:
             print('_make_spinup_df called recursively. No scenario files saved')
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print(f"   'scenario_multi_df': Multiindex dataframe for scenario {scenario_name}.")
@@ -505,7 +504,7 @@ def make_scn_multi_df(scn_inputs_df=False,
 
     warnings.filterwarnings("ignore", message="Warning, first index label is None, conversion of index label not possible")
     warnings.filterwarnings("ignore", message="Warning, index label is None. No conversion of index values (should be auto-generated ints)")
-    
+
     return scn_multi_df, scn_input_ds, startyear
 
 
@@ -513,7 +512,7 @@ def make_spinup_df(input_df=False,
                    year0=False,
                    scn_inputs_df=False,
                    scenario_name='FAI',
-                   scenario_file=False, 
+                   scenario_file=False,
                    scenario_df=False,
                    C_content_crops=0.5,
                    name_df=False,
@@ -521,7 +520,7 @@ def make_spinup_df(input_df=False,
                    allo2_df=False,
                    allo3_df=False,
                    scenario_dict=False,
-                   verbose=False  
+                   verbose=False
                   ):
     """
     Generate a DataFrame with input values for spinup modeling.
@@ -542,20 +541,20 @@ def make_spinup_df(input_df=False,
 
     if verbose:
         print('---Executing _make_spinup_df()---')
-    
+
     if not isinstance(input_df, pd.DataFrame):
         if verbose:
             print('> Input df not set')
         if 'scn_multi_df' in scenario_dict.keys():
             print("Setting 'scn_multi_df' using 'scenario_dict'")
             scn_multi_df = scenario_dict['scn_multi_df']
-            
+
         else:
             if verbose:
                 print('> Calling make_scn_multi_df()')
             scn_multi_df, scn_input_ds, year0 = make_scn_multi_df(scn_inputs_df,
                                                                   scenario_name,
-                                                                  scenario_file, 
+                                                                  scenario_file,
                                                                   scenario_df,
                                                                   C_content_crops,
                                                                   name_df,
@@ -567,13 +566,13 @@ def make_spinup_df(input_df=False,
                                                                   verbose=verbose)
             if verbose:
                 print('>make_scn_multi_df completed<')
-        
+
     else:
         if verbose:
             print('> Input df set')
         scn_multi_df = input_df
         year0 = scn_multi_df.index.get_level_values('input_year').year[0]
-    
+
     # create spinup_ha_df and spinup_ha_multiidx_df based on scenario df
     spinup_multi_df = scn_multi_df.query(f'input_year == {year0}')
     spinup_multi_df = spinup_multi_df.droplevel(['input_year'])
@@ -584,14 +583,14 @@ def make_spinup_df(input_df=False,
                            save_type='temp')
     if verbose:
         print(f"Spinup dataframe saved to 'spinup_indput_df.csv' in {soil_temp_path}")
-    
+
     scenario_dict.update({'spinup_multi_df': spinup_multi_df})
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print("   'spinup_multi_df': Multiindex dataframe for spinup modelling.")
         print('---Leaving _make_spinup_df()---')
-    
+
     return spinup_multi_df, year0
 
 
@@ -607,7 +606,7 @@ def make_scn_area_dfs(input_df=False,
         scenario_name = input('Please input the scenario name:')
     else:
         scenario_name = scenario_dict['scenario_name']
-    
+
     if verbose:
         print('---Executing _make_scn_area_dfs()---')
 
@@ -615,25 +614,25 @@ def make_scn_area_dfs(input_df=False,
         if 'scenario_multi_df' in  scenario_dict.keys():
             input_df = scenario_dict['scenario_multi_df']
         else:
-            print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")     
-    
+            print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")
+
     # Group the scn df by scn, prod system, region and year and calculate total input and areas of all crops
     scn_multi_groupby_idx = ['scn', 'prod_system', 'region', 'input_year']
     scn_sko_prodsys_sum_df = input_df.groupby(scn_multi_groupby_idx).sum()
-    
+
     # Select the columns that should hold the weighted average
     wt_at_cols = utils.get_filtered_namelist(['_ha'], ['manure', 'crop'], scn_sko_prodsys_sum_df)
     tot_cols = utils.get_filtered_namelist(['_kgc'], ['manure', 'crop'], scn_sko_prodsys_sum_df)
-    
+
     # Create a temporary df and calculate the weighted average per ha from total input per sko / total area per sko
     tempframe = scn_sko_prodsys_sum_df.copy()
-    
+
     for n, i in enumerate(wt_at_cols):
         tempframe[i] = tempframe[tot_cols[n]] / tempframe['area_ha']
-    
+
     # Rename the temporary df
     scn_all_c_inputs_df = tempframe.copy(deep=True)
-    
+
     # Make separate df's for ha and total input, include total input and area info
     scn_ha_c_inputs_df = scn_all_c_inputs_df.loc[:,wt_at_cols]
     scn_ha_c_inputs_df['area_ha'] = scn_all_c_inputs_df['area_ha']
@@ -642,20 +641,20 @@ def make_scn_area_dfs(input_df=False,
     scn_sko_c_inputs_df['area_ha'] = scn_all_c_inputs_df['area_ha']
     scn_sko_c_inputs_df['harvest_kgdm'] = scn_all_c_inputs_df['harvest_kgdm']
 
-    
-    scenario_dict.update({'scenario_ha_input_df': scn_ha_c_inputs_df, 
+
+    scenario_dict.update({'scenario_ha_input_df': scn_ha_c_inputs_df,
                           'scenario_sko_input_df': scn_sko_c_inputs_df
                          })
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print(f"   'scenario_ha_input_df': Scenario {scenario_name} input dataframe expressed per ha.")
         print(f"   'scenario_sko_input_df': Scenario {scenario_name} input dataframe expressed per sko.")
         print('---Leaving _make_scn_area_dfs()---')
-    
+
     return scn_ha_c_inputs_df, scn_sko_c_inputs_df
 
-        
+
 def _make_spinup_area_dfs(input_df=False,
                          scenario_dict=False,
                          verbose=False
@@ -671,25 +670,25 @@ def _make_spinup_area_dfs(input_df=False,
         if 'spinup_multi_df' in  scenario_dict.keys():
             input_df = scenario_dict['spinup_multi_df']
         else:
-            print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")        
+            print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")
 
     # Group the spinup df by prod system and region to calculate total input and areas of all crops
     spinup_multi_groupby_idx = ['prod_system', 'region']
     spinup_sko_prodsys_sum_df = input_df.groupby(spinup_multi_groupby_idx).sum()
-    
+
     # Select the columns that should hold the weighted average
     wt_at_cols = utils.get_filtered_namelist(['_ha'], ['manure', 'crop'], spinup_sko_prodsys_sum_df)
     tot_cols = utils.get_filtered_namelist(['_kgc'], ['manure', 'crop'], spinup_sko_prodsys_sum_df)
-    
+
     # Create a temporary df and calculatr the weighted average per ha from total input per sko / total area per sko
     tempframe = spinup_sko_prodsys_sum_df.copy()
-    
+
     for n, i in enumerate(wt_at_cols):
         tempframe[i] = tempframe[tot_cols[n]] / tempframe['area_ha']
-    
+
     # Rename the temporary df
     spinup_all_c_inputs_df = tempframe.copy(deep=True)
-    
+
     # Make separate df's for ha and total input, include total input and area info
     spinup_ha_c_inputs_df = spinup_all_c_inputs_df.loc[:,wt_at_cols]
     spinup_ha_c_inputs_df['area_ha'] = spinup_all_c_inputs_df['area_ha']
@@ -698,18 +697,18 @@ def _make_spinup_area_dfs(input_df=False,
     spinup_sko_c_inputs_df['area_ha'] = spinup_all_c_inputs_df['area_ha']
     spinup_sko_c_inputs_df['harvest_kgdm'] = spinup_all_c_inputs_df['harvest_kgdm']
 
-    scenario_dict.update({'spinup_ha_input_df': spinup_ha_c_inputs_df, 
+    scenario_dict.update({'spinup_ha_input_df': spinup_ha_c_inputs_df,
                           'spinup_sko_input_df': spinup_sko_c_inputs_df
                          })
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print("   'spinup_ha_input_df': Spinup input dataframe expressed per ha.")
         print("   'spinup_sko_input_df': Spinup input dataframe expressed per sko.")
         print('---Leaving _make_spinup_area_dfs()---')
-    
+
     return spinup_ha_c_inputs_df, spinup_sko_c_inputs_df
-    
+
 
 def calculate_scn_soc(scn_ha_df=False,
                       scn_sko_df=False,
@@ -729,10 +728,10 @@ def calculate_scn_soc(scn_ha_df=False,
         scenario_name = input('Please input the scenario name:')
     else:
         scenario_name = scenario_dict['scenario_name']
-    
+
     if not isinstance(scn_ha_df, pd.DataFrame) or not isinstance(scn_sko_df,pd.DataFrame):
         if verbose:
-            print("> One or both of 'scn_ha_df' and 'scn_sko_df' are not set") 
+            print("> One or both of 'scn_ha_df' and 'scn_sko_df' are not set")
         try:
             if verbose:
                 print(">_make_scn_area_dfs() called<")
@@ -740,14 +739,14 @@ def calculate_scn_soc(scn_ha_df=False,
                                                       scenario_dict=scenario_dict,
                                                       verbose=verbose)
             if verbose:
-                print(f"'scn_ha_df' and 'scn_sko_df' set using input_df for {scenario_name}\n>make_sc_area_dfs() completed") 
+                print(f"'scn_ha_df' and 'scn_sko_df' set using input_df for {scenario_name}\n>make_sc_area_dfs() completed")
         except:
             if not isinstance(input_df, pd.DataFrame):
                 if 'scenario_multi_df' in  scenario_dict.keys():
                     input_df = scenario_dict['spinup_multi_df']
                 else:
-                    print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")     
-            
+                    print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")
+
     if not h_value_dict:
         if verbose:
             print("> 'h_value_dict' not set.")
@@ -755,14 +754,14 @@ def calculate_scn_soc(scn_ha_df=False,
             if verbose:
                 print("'h_value_dict' assigned using 'scenario_dict'.")
             h_value_dict = scenario_dict['h_value_dict']
-        else:   
+        else:
             if verbose:
                 print("> Calling 'h_map_helper()'")
             temp, h_value_dict = h_map_helper(scenario_dict=scenario_dict,
                                               verbose=verbose)
             if verbose:
                 print(" 'h_map_helper()' finished. Continuing")
-    
+
     # extract a list of the scenario columns by which icbm is to be run
     if verbose:
         print("Extracting filtered_namelist per ha")
@@ -784,7 +783,7 @@ def calculate_scn_soc(scn_ha_df=False,
     if verbose:
         print("Creating xarray datasets and saving as netcdf-files")
     scn_ha_soc_ds_name = f'{scenario_name}_ha_soc_ds'
-    
+
     scn_ha_soc_ds = scn_ha_soc_df.to_xarray()
     scn_ha_soc_ds.to_netcdf(f'{soil_temp_path}/{scn_ha_soc_ds_name}.nc')
     if verbose:
@@ -799,10 +798,10 @@ def calculate_scn_soc(scn_ha_df=False,
 
     scenario_dict.update({'scenario_ha_soc_df': scn_ha_soc_df,
                           'scenario_sko_soc_df':  scn_sko_soc_df,
-                          'scenario_ha_soc_ds': scn_ha_soc_ds, 
-                          'scenario_sko_soc_ds':  scn_sko_soc_ds 
+                          'scenario_ha_soc_ds': scn_ha_soc_ds,
+                          'scenario_sko_soc_ds':  scn_sko_soc_ds
                          })
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print(f"   'scenario_ha_soc_df': SOC dataframe expressed per ha for scenario {scenario_name}.")
@@ -810,7 +809,7 @@ def calculate_scn_soc(scn_ha_df=False,
         print("   'scenario_ha_soc_ds': xarray dataset of 'scenario_ha_soc_df'.")
         print("   'scenario_sko_soc_ds': xarray dataset of 'scenario_sko_soc_df'.")
         print('---Leaving _calculate_soc()---')
-    
+
     return scn_ha_soc_df, scn_sko_soc_df, scn_ha_soc_ds, scn_sko_soc_ds
 
 
@@ -830,14 +829,14 @@ def calculate_historic_soc(spinup_ha_df=False,
 
     # Assign a name to the spinup scenario_name variable
     scenario_name = 'spinup_soc'
-    
+
     if not isinstance(spinup_ha_df, pd.DataFrame) or not isinstance(spinup_sko_df,pd.DataFrame):
         if verbose:
-            print("> One or both of 'spinup_ha_df' and 'spinup_sko_df' are not set") 
+            print("> One or both of 'spinup_ha_df' and 'spinup_sko_df' are not set")
 
         if 'spinup_multi_df' in  scenario_dict.keys():
             input_df = scenario_dict['spinup_multi_df']
-                 
+
         if isinstance(input_df, pd.DataFrame):
             if verbose:
                 print("Generating 'spinup_ha_df' and 'spinup_sko_df' from 'input_df'")
@@ -848,8 +847,8 @@ def calculate_historic_soc(spinup_ha_df=False,
             if verbose:
                 print(f"'spinup_ha_df' and 'spinup_sko_df' set using input_df for {scenario_name}\n>_make_spinup_area_dfs() completed")
         else:
-            print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")    
-    
+            print("No usable input dataframe exist in 'scenario_dict'. Please provide an input dataframe using 'input_df='")
+
     if not h_value_dict:
         if verbose:
             print("> 'h_value_dict' not set.")
@@ -866,11 +865,11 @@ def calculate_historic_soc(spinup_ha_df=False,
                                               verbose=verbose)
             if verbose:
                 print(" 'h_map_helper()' finished. Continuing")
-        
+
     # extract a list of the spinup columns by which icbm is to be run
     spinup_ha_sel = list(set(utils.get_filtered_namelist(['i_a', 'i_b'], ['manure', 'crop', 'ha'], spinup_ha_df)))
     spinup_sko_sel = list(set(utils.get_filtered_namelist(['i_a', 'i_b'], ['manure', 'crop', 'ha'], spinup_sko_df)))
-    
+
     # Calculate the soc timeseries dataframe using input df, icbm_selection and h_value_dict as input for spinup
     if verbose:
         print(">spinup_df_to_soc_df called to calculate SS SOC per ha")
@@ -882,7 +881,7 @@ def calculate_historic_soc(spinup_ha_df=False,
     if verbose:
         print(">spinup_df_to_soc_df finished<")
 
-    
+
     if verbose:
         print(">input_df_to_soc_df called to calculate SOC timeseries per ha")
     spinup_ha_soc_df = icbm_funcs.input_df_to_soc_df(spinup_ss_ha_df,
@@ -904,7 +903,7 @@ def calculate_historic_soc(spinup_ha_df=False,
     spinup_ha_soc_ds.to_netcdf(f'{soil_temp_path}/spinup_ha_soc_ds.nc')
     if verbose:
         print(f"Spinup SOC dataset saved as spinup_ha_soc_ds.nc \n in {soil_temp_path}")
-    
+
     spinup_sko_soc_ds = spinup_sko_soc_df.to_xarray()
     spinup_sko_soc_ds.to_netcdf(f'{soil_temp_path}/spinup_sko_soc_ds.nc')
     if verbose:
@@ -912,10 +911,10 @@ def calculate_historic_soc(spinup_ha_df=False,
 
     scenario_dict.update({'spinup_ha_soc_df': spinup_ha_soc_df,
                           'spinup_sko_soc_df':  spinup_sko_soc_df,
-                          'spinup_ha_soc_ds': spinup_ha_soc_ds, 
-                          'spinup_sko_soc_ds':  spinup_sko_soc_ds 
+                          'spinup_ha_soc_ds': spinup_ha_soc_ds,
+                          'spinup_sko_soc_ds':  spinup_sko_soc_ds
                          })
-    
+
     if verbose:
         print("*** The following dict keys and their values have been added to 'scenario_dict ***")
         print("   'historic_ha_soc_df': dataframe expressed per ha for historic SOC.")
@@ -924,7 +923,7 @@ def calculate_historic_soc(spinup_ha_df=False,
         print("   'historic_sko_soc_ds': xarray dataset of 'historic_sko_soc_df'.")
 
         print('---Leaving _calculate_historic_soc()---')
-    
+
     return spinup_ha_soc_df, spinup_sko_soc_df, spinup_ha_soc_ds, spinup_sko_soc_ds
 
 
@@ -952,13 +951,13 @@ def calculate_historic_soc(spinup_ha_df=False,
     Returns:
     - pd.DataFrame: DataFrame containing calculated h-values for crops and amendments.
     ###
-    
+
     print('---Executing makae_h_map_df()---')
     crop_in_df, crop_re_dict = crop_map_helper(input_df=crop_map_df, re_col_name=re_col_name)
     h_value_df, h_value_dict = h_map_helper(h_in_df=h_map_df, crop_in_df=crop_in_df, amnd_in_df=amnd_map_df, map_col=map_col, output_col_name=output_col_name)
 
     print('---Leaving make_h_map_df()---')
-    
+
     return h_value_df
 """
 
@@ -1004,10 +1003,10 @@ def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, List[Union[xr.D
     da_list = [da1, da2, da3]
     da_list = assign_tot_soc(da_list)
     """
-    
+
     if isinstance(xarray_input, list):
         for i in xarray_input:
-            assign_tot_soc(i)        
+            assign_tot_soc(i)
     else:
         tot_soc = xarray_input.y_pool + xarray_input.o_pool
         if isinstance(xarray_input, xr.DataArray):
@@ -1069,10 +1068,10 @@ def assign_co2_flux(xarray_input,
     da_list = [da1, da2, da3]
     da_list = assign_co2_flux(da_list)
     """
-    
+
     if isinstance(xarray_input, list):
         for i in xarray_input:
-            assign_co2_flux(i)        
+            assign_co2_flux(i)
     else:
         co2_flux = xarray_input[totsoc_label].diff(dim=year_coord)*-3.6
         co2_flux = co2_flux.rename(co2flux_label)

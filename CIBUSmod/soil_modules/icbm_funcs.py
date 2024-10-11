@@ -91,7 +91,7 @@ def spinup_icbm(C_in = False,
         tuple with dict of floats: (Y, O) - Y and O pools populated with
         C-values between the given start year and year0 + n.
     """
-    
+
     young = dict()
     old = dict()
 
@@ -110,13 +110,13 @@ def spinup_icbm(C_in = False,
         young[i] = (young[i-1]+C_in) * math.exp(-ky * re_d[i])
         old[i] = (old[i-1] + h * (young[i-1] * (1 - math.exp(-ky * re_d[i]))))\
             * (math.exp(-ko * re_d[i]))
-    
+
     if series:
         return (young, old)
     else:
         return (young[endyear-1], old[endyear-1])
 
-    
+
 def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
                            column_names: List[str],
                            h_value_dict: Dict[tuple, float],
@@ -144,7 +144,7 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
         soc_result = spinup_df_to_ss_soc_df(input_df, column_names, h_value_dict)
 
         # 'soc_result' will contain the calculated SOC steady-state time series in a structured DataFrame.
-    """  
+    """
 
     if verbose:
         print('---Executing spinup_df_to_ss_soc_df()---')
@@ -154,10 +154,10 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
     area_col = list()
     idx_vector = list()
     fraction_vector = list()
-    
+
     # Extract the multiindex of input_df
     idx = input_df.index
-    
+
     for x in column_names:
     # Iterate over the columns in the input_df
         # h_val = 1 # help-variable to enable correct creation of h-value dict
@@ -180,7 +180,7 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
 
         # Look up the h-value for each column using the info about crop and fraction.
         h = h_value_dict[crop, frac]
-        
+
         # Append the current index level to the idx_vector
         idx_vector.append(pd.Index(idx))
 
@@ -195,7 +195,7 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
             area_col.append(input_df[area_label][idx[n]])
             # Append the current input fraction to the fraction_vector
             fraction_vector.append([x])
-    
+
     # Turn the output timeseries into a vector to be able to represent as column data
     fraction = np.concatenate(fraction_vector)
     idx_names = input_df.index.names
@@ -204,28 +204,28 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
     if len(idx_vector) > 1:
         for i in range(1,len(idx_vector)):
             output_idx =  output_idx.append(idx_vector[i])
-        
+
     new_idx = pd.MultiIndex.rename(pd.MultiIndex.from_tuples(output_idx), idx_names)
-   
-    # Store the data and names of the output dataframe in variables 
-    cols = [fraction, y_ss_col, o_ss_col, area_col]   
+
+    # Store the data and names of the output dataframe in variables
+    cols = [fraction, y_ss_col, o_ss_col, area_col]
     cols_names = ['fraction', 'y_pool', 'o_pool', 'area_ha']
-    
+
     # Build a dict with the dtypes of the input columns to set the correct dtypes in the output_df
     cols_dtypes = dict()
     for n, i in enumerate(cols):
         cols_dtypes[cols_names[n]] = type(i[0])
-        
+
     # Create an output df
     output_df = pd.DataFrame(data=np.transpose(cols),
                              index=new_idx,
                              columns=cols_names
                             )
-    
+
 
     # Set the correct dtypes on the output_df
     output_df = output_df.astype(cols_dtypes)
-    
+
     # Create a new multiindex with and fraction included
     output_idx = list(idx_names)
     output_idx.append('fraction')
@@ -233,7 +233,7 @@ def spinup_df_to_ss_soc_df(input_df: pd.DataFrame,
     output_df.set_index(output_idx, inplace=True)
     if verbose:
         print('---spinup_df_to_ss_soc_df() executed succesfully---')
-            
+
     return output_df
 
 
@@ -319,7 +319,7 @@ def run_icbm(C_in = False,
         # for diagnostics
         if diag:
             print(f'Y[{i}] is {young[i]} and O[{i}] is {old[i]}')
-            
+
     return (young, old)
 
 
@@ -444,33 +444,33 @@ def co2ify(df_in: pd.DataFrame,
            diag: bool = False,
            save_csv: bool = False
           ) -> pd.DataFrame:
-    ''' 
+    '''
     Convert a dataframe with carbon pool changes to CO2 fluxes.
-    
+
     Subtracts the values of two consecutive years to calculate the C flows between the soil and the atmosphere.
     Converts the C flows to CO2 fluxes by multiplying by 44/12
-    
+
      Mandatory arguments:
         df_in  -- a dataframe with carbon pool time series in rows.
 
     Optional arguments:
         save_csv  -- Boolean flag to save csv-files of intermediate matrix outputs. (default = False)
-        
+
     Returns:
         (df_out, np_out)   -- a tuple with a dataframe and an np.array, each holding the same CO2 flux values
     '''
-  
+
     columns = df_in.columns                # Save column index for later use
     # Replace NaN with zeros to get subtraction between dfs right and convert dataframe to np.array to simplify matrix ops.
-    np_mtr = df_in.fillna(0).to_numpy()    
+    np_mtr = df_in.fillna(0).to_numpy()
 
     # Create np.array with values shifted one step to the right. This respresent the values at t-1.
-    np_init = np_mtr  
+    np_init = np_mtr
     np_pre = np.insert(np_init, 0, 0, axis=1)
 
     # Delete last column to give np.arrays same dimensions
-    np_post = np.delete(np_pre, -1, axis=1)  
-        
+    np_post = np.delete(np_pre, -1, axis=1)
+
     np_out = np.subtract(np_post, np_mtr)*44/12
     df_out = pd.DataFrame(np_out, columns)
 
@@ -501,34 +501,34 @@ def plot_results(selection,
             dfs[labels[x]] =  i.loc[selection] # if only one year is given, make a slice of a single year
         else:
             dfs[labels[x]] =  i.loc[selection[0]:selection[1]] # slice the df between (and including) start ad end years
-        x += 1     
-    
+        x += 1
+
     plt.figure()
     plt.subplot(1,1,1)
-    
+
     n = 0
     for i in dfs:
         plt.plot(years, dfs[i].sum(axis=0), label=(f'{labels[n]}'))
         n += 1
-        
+
     plt.legend()
     #plt.xticks(list(range(years[0],years[-1],10)))
 
     plt.ylabel('C pools (kg C m-3)')
     plt.title('Initial C')
 
-    
+
 def classify_soil(ler,
                   sand,
                   silt
                  ):
     """Classify soil texture using HYPRES triangeln.
-    
+
     Mandatory arguments
     ler (int):  The percentage of clay in the soil
     sand (int): The percentage of sand in the soil
     silt (int): The percentage of silt in the soil
-    
+
     Returns
     FST (int, str): The soil class according to the FST classes
     mod_FST (str): The soil class according to the mod-FST classes,
@@ -559,18 +559,18 @@ def classify_soil(ler,
         FST = (2, "medium")
         mod_FST = "k2a"
         CIBUS = "sand"
-        
+
     print(f'the FST class is {FST} and the mod-FST class is {mod_FST}')
-    
+
     return FST, mod_FST, CIBUS
 
 
 def classify_organimatter(om):
     """Classify organic matter class according to FST.
-     
+
     Mandatory arguments
     om (int):  The percentage of organic matter in the soil
-       
+
     Returns
     om_class (str): The soil organic matter class according to FST
     om_content (str) : The organic matter content description
@@ -586,10 +586,10 @@ def classify_organimatter(om):
         om_class = "h"
         om_content = "High"
     org_c = 0.58*om
-    
+
     print(f'The organic matter content is {om_content} and the \
     FST class is {om_class}.\n The amount of organic C is {0.58*om}%')
-    
+
     return om_class, om_content, org_c
 
 
@@ -650,7 +650,7 @@ def run_icbm2(C_in = False,
         n (int): Number of timesteps in the simulation,
                  used if endyear is False. [years]
             (default = 100)
-        
+
     Returns:
         A tuple with:
             A 2-dimensional np-array with young soc and old soc as the dimensions.
@@ -665,14 +665,14 @@ def run_icbm2(C_in = False,
     else:
         years = list(range(startyear, startyear+n))
         re_d = num_to_dict(re, startyear, n, re_default)
-    
+
     for year in list(range(startyear, inputyear+1)):
         young[year] = 0
         old[year] = 0
-    
+
     young[inputyear+1] = C_in*math.exp(-ky*re_d[inputyear])
     old[inputyear+1] = 0
-    
+
     if historic:
         young[startyear] = Y0
         old[startyear] = O0
@@ -680,16 +680,16 @@ def run_icbm2(C_in = False,
             young[i] = young[i-1] * math.exp(-ky * re_d[i])
             old[i] = (old[i-1] + h * (young[i-1] * (1 - math.exp(-ky * re_d[i]))))\
             * (math.exp(-ko * re_d[i]))
-            
+
     else:
         for i in years[(inputyear+1)-startyear+1::]:
             young[i] = young[i-1] * math.exp(-ky * re_d[i])
             old[i] = (old[i-1] + h * (young[i-1] * (1 - math.exp(-ky * re_d[i]))))\
             * (math.exp(-ko * re_d[i]))
-       
-    # create an np-array with young and old C levels 
+
+    # create an np-array with young and old C levels
     c_pools_np = np.array([list(young.values()), list(old.values())])
-            
+
     return (c_pools_np, years)
 
 
@@ -741,7 +741,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
         soc_result = input_df_to_soc_df(input_df, column_names, h_value_dict, idx_names)
 
         # 'soc_result' will contain the calculated SOC time series in a structured DataFrame.
-    """ 
+    """
     if verbose:
         print('---Executing input_df_to_soc_df()---')
 
@@ -753,7 +753,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
     idx_vector = list()
     fraction_vector = list()
     idx = input_df.index
-    
+
     if historic:
         if verbose:
             print('info: calculating historic SOC')
@@ -771,7 +771,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
                 #If the column does not contain crop or amendment, display error message and break
                 print('Error, crop was not found in h-value dict')
                 break
-            
+
             # Look up the h-value for each column using the info about crop and fraction.
             h = h_value_dict[crop, frac]
             # Set Y0 and O0 varaiable values
@@ -787,7 +787,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
             idx_vector.append(pd.Index(idx[n]))
             # Append the current Y-pool and O-pool outputs to the Y_vector and O_vector
             Y_vector.append(c_output[0][0])
-            O_vector.append(c_output[0][1]) 
+            O_vector.append(c_output[0][1])
     else:
         if verbose:
             print('info: calculating scenario SOC')
@@ -823,7 +823,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
                 idx_vector.append(pd.Index(idx[n]))
                 # Append the current Y-pool and O-pool outputs to the Y_vector and O_vector
                 Y_vector.append(c_output[0][0])
-                O_vector.append(c_output[0][1]) 
+                O_vector.append(c_output[0][1])
                 # Append the current input fraction to the fraction_vector
                 fraction_vector.append([x] * len(c_output[1]))
     if verbose:
@@ -848,11 +848,11 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
         fraction = np.concatenate(fraction_vector)
     if verbose:
         print('turned the timeseries output into a vector')
-    
+
     # store the data and names of the output dataframe in variables
     if historic:
         cols = [input_area, output_year, y_pool, o_pool]
-        cols_names = ['input_area', 'output_year', 'y_pool', 'o_pool']   
+        cols_names = ['input_area', 'output_year', 'y_pool', 'o_pool']
     else:
         cols = [input_area, output_year, fraction, y_pool, o_pool]
         cols_names = ['input_area', 'output_year', 'fraction', 'y_pool', 'o_pool']
@@ -866,7 +866,7 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
     if verbose:
         print('built a dict of input column dtypes')
 
-    
+
     # create a dataframe with the soc time series
     soc_df = pd.DataFrame(np.transpose(cols),
                           index=new_idx,
@@ -879,12 +879,12 @@ def input_df_to_soc_df(input_df: pd.DataFrame,
     soc_df = soc_df.astype(cols_dtypes)
     if verbose:
         print('adjusted output_df dtypes')
-    
+
     # turn the years in the output_year column into datetime64 format
     soc_df.output_year = pd.to_datetime(soc_df.output_year, format='%Y')
     if verbose:
         print('set output_year to datetime64')
-    
+
     # create a new multiindex with output_year and fraction included
     soc_idx = list(idx_names)
     soc_idx.append('output_year')
