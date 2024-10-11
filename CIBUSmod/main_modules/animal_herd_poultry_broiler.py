@@ -7,19 +7,19 @@ class BroilerHerd(AnimalHerd):
     AnimalHerd.__doc__.replace('animal','broiler poultry')
 
     def __init__(self,par,index,**kwargs):
-        
+
         self.species = 'poultry'
         self.breed = 'broiler'
         self.animals = ['broilers','breeding hens','breeding roosters']
 
         self.x_is = 'broilers'
-        
+
         super().__init__(par,index,**kwargs)
 
     def calculate_herd(self):
         '''Calculates broiler herd structure and slaughters based on x (i.e. number of
         broilers in terms of animal places).
-        
+
         Parameters
         ----------
         None
@@ -51,14 +51,14 @@ class BroilerHerd(AnimalHerd):
         # Calculate number of inserted animals
         inserted_broilers = broilers * p('rounds_per_year')
         inserted_parent_hens = (
-            inserted_broilers / 
-            p('eggs_per_breeding_hen') / 
+            inserted_broilers /
+            p('eggs_per_breeding_hen') /
             (1 - p('mortality', animal='breeding hens')/100)
         )
         inserted_parent_roosters = inserted_parent_hens / p('hens_per_rooster')
         inserted_grandparent_hens = (
             (inserted_parent_hens * 2) / # Assumes 50/50 sex ratio
-            p('eggs_per_breeding_hen') / 
+            p('eggs_per_breeding_hen') /
             (1 - p('mortality', animal='breeding hens')/100)
         )
         inserted_grandparent_roosters = inserted_grandparent_hens / p('hens_per_rooster')
@@ -73,27 +73,27 @@ class BroilerHerd(AnimalHerd):
         # Calculate lost animals
         self.par.set(animal='broilers')
         lost_broilers = (
-            inserted_broilers * 
+            inserted_broilers *
             (
-                (p('mortality')/100) + 
+                (p('mortality')/100) +
                 (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
             )
         )
 
         self.par.set(animal='breeding hens')
         lost_breeding_hens = (
-            inserted_breeding_hens * 
+            inserted_breeding_hens *
             (
-                (p('mortality')/100) + 
+                (p('mortality')/100) +
                 (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
             )
         )
 
         self.par.set(animal='breeding roosters')
         lost_breeding_roosters = (
-            inserted_breeding_roosters * 
+            inserted_breeding_roosters *
             (
-                (p('mortality')/100) + 
+                (p('mortality')/100) +
                 (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
             )
         )
@@ -113,7 +113,7 @@ class BroilerHerd(AnimalHerd):
             )
         heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
 
-        # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
+        # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
         for ps in pss:
             sel = range(n*idx_len, (n+1)*idx_len)
@@ -124,21 +124,21 @@ class BroilerHerd(AnimalHerd):
                     breeding_hens[sel],
                     breeding_roosters[sel]
                 ]).T
-            
+
             inserted_n.loc[:,(ps,slice(None))] =\
                 np.array([
                     inserted_broilers[sel],
                     inserted_breeding_hens[sel],
                     inserted_breeding_roosters[sel]
                 ]).T
-            
+
             slaughtered_n.loc[:,(ps,slice(None))] = \
                 np.array([
                     slaughtered_broilers[sel],
                     slaughtered_breeding_hens[sel],
                     slaughtered_breeding_roosters[sel]
                 ]).T
-            
+
             lost_n.loc[:,(ps,slice(None))] = \
                 np.array([
                     lost_broilers[sel],
@@ -179,14 +179,14 @@ class BroilerHerd(AnimalHerd):
         )
 
     def calculate_feed_DM_req(self,ps,ani):
-        
+
         p = self.par.get
 
         if ani=='broilers':
             feed_req = (
                 p('rounds_per_year') *
-                p('feed_conversion_ratio') * 
-                p('slaughter_weight') * 
+                p('feed_conversion_ratio') *
+                p('slaughter_weight') *
                 p('live_weight_per_CW')
             )
         else:

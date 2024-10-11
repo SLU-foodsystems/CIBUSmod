@@ -6,17 +6,17 @@ class HorseHerd(AnimalHerd):
     AnimalHerd.__doc__.replace('animal','horse')
 
     def __init__(self,par,index,**kwargs):
-            
+
         self.species = 'horses'
         self.animals = ['low-performing horses','medium-performing horses','broodmares','young horses']
 
         self.x_is = 'total horses'
-        
+
         super().__init__(par,index,**kwargs)
 
     def calculate_herd(self):
         '''Calculates horse herd structure x (i.e. total number of horses).
-        
+
         Parameters
         ----------
         None
