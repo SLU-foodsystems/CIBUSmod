@@ -38,7 +38,7 @@ def colored_rule(color: str,
     -------
     None
     '''
-    
+
     rule_html = f'<hr style="border: 0; height: {height}px; background-color: {color};">'
     display.display(display.HTML(rule_html))
 
@@ -103,7 +103,7 @@ def set_scn_name(input, default):
         return default
     else:
         return input
-        
+
 
 
 def make_df_lower(dataframe: pd.DataFrame,
@@ -146,10 +146,10 @@ def make_df_lower(dataframe: pd.DataFrame,
     two   2  y
     three 3  z
     '''
-    
+
     df = dataframe.copy()
     df.sort_index(inplace=True)
-    
+
     if 1 in mode: # turn index labels lower case
         if df.index.names[0] is None:
             print('Warning, first index label is None, conversion of index label not possible')
@@ -170,19 +170,18 @@ def make_df_lower(dataframe: pd.DataFrame,
                 for n, i in enumerate(old_names):
                     if isinstance(labels[n], str):
                         new_names.append(labels[n].lower())
-                        names_dict = dict(zip(old_names, new_names)) 
                     else:
                         new_names.append(labels[n])
-                        names_dict = dict(zip(old_names, new_names))
+                names_dict = dict(zip(old_names, new_names))
             df.rename(columns=names_dict, inplace = True)
             df.set_index(new_names, inplace=True)
 
     if 2 in mode: # turn column labels lower case
         old_names = list(df.columns)
         new_names = list(df.columns.str.lower())
-        names_dict = dict(zip(old_names, new_names)) 
+        names_dict = dict(zip(old_names, new_names))
         df.rename(columns=names_dict, inplace = True)
-                
+
     if  3 in mode: # turn index values lower
         if df.index.names[0] is None:
             print('Warning, index label is None. No conversion of index values (should be auto-generated ints)')
@@ -194,7 +193,7 @@ def make_df_lower(dataframe: pd.DataFrame,
                 for l, j in enumerate(idx):
                     if isinstance(df.iloc[l, n], str):
                         df.iloc[l, n] =(df.iloc[l, n]).lower()
-            df.set_index(labels, inplace=True)             
+            df.set_index(labels, inplace=True)
 
     if 4 in mode:  # make data strings lower case
         if isinstance(df.index, pd.core.indexes.range.RangeIndex):
@@ -220,7 +219,7 @@ def map_cin_h_to_dataframe(match_col: str,
                            index_sorted: bool = True) -> pd.DataFrame:
     """
     Calculates a multiindex dataframe containing a mapping from crop to individual carbon input fractions used in icbm
-    
+
     Parameters:
     -----------
     match_col : str
@@ -233,13 +232,13 @@ def map_cin_h_to_dataframe(match_col: str,
         Column name for the h-values (Default='h_value')
     index_sorted : bool
         Sort_index applied to make operation on generated dataframe more efficient (default: True)
-    
+
     Returns:
     --------
     pd.DataFrame:
         A multiindex dataframe with index:(input, fraction) and column value: h-value
     """
-    
+
     input_idx = input_df.index
     output_idx = pd.MultiIndex(levels=[[], []],
                                codes=[[], []],
@@ -250,7 +249,7 @@ def map_cin_h_to_dataframe(match_col: str,
         for y in mapping_df.loc[x].index:
             value = mapping_df.loc[(x, y),:].item()
             output_df.loc[(crop, y), :] = value
-            
+
     if index_sorted:
         return output_df.sort_index()
     else:
@@ -284,7 +283,7 @@ def filter_namelist(name: Union[str, List[str]],
     If 'name' is 'manure_' and 'iterable' is a list of variable names, the function will return a list of variable names
     that contain 'manure_' in their names from the provided iterable.
     """
-    
+
     x = []
     if isinstance(name, str):
         for i in iterable:
@@ -324,10 +323,10 @@ def get_filtered_namelist(filterlist: str,
     function will return a list of column names in 'measurement_data_df' that contain 'temperature' and match either 'air_'
     or 'soil_' from 'namelist'.
     """
-    
+
     new_iter = filter_namelist(namelist, iterable)
     output = filter_namelist(filterlist, new_iter)
-    
+
     return output
 
 
@@ -356,10 +355,10 @@ def make_idx_continuous(input_df: pd.DataFrame) -> pd.DataFrame:
     >>> new_df = make_idx_continuous(original_df)
     # 'new_df' will have a continuous integer index starting from 0.
     """
-    
+
     new_idx = pd.Index(range(len(input_df.index.values)))
     output_df = input_df.set_index(new_idx)
-    
+
     return output_df
 
 
@@ -374,7 +373,7 @@ def calculate_c_inputs(input_df: pd.DataFrame,
     """
     Calculate carbon allocation factors 'i_ag' and 'i_bg' for crops based on input data and update the input DataFrame.
 
-    This function iterates through the crops in the input DataFrame and, for each crop, checks if carbon allocation data is available for it in the sources provided. 
+    This function iterates through the crops in the input DataFrame and, for each crop, checks if carbon allocation data is available for it in the sources provided.
     If data is found, it calculates 'i_ag' and 'i_bg' values and stores them in the input DataFrame.
     If no data is found, 'i_ag' and 'i_bg' are set to NaN. The 'alloc_source_crop' column is also updated with the data source.
 
@@ -434,7 +433,7 @@ def calculate_c_inputs(input_df: pd.DataFrame,
         output_df[ag_ha_colname] = np.nan
         output_df[bg_ha_colname] = np.nan
         output_df[alloc_source_colname] = 'none'
-          
+
     for n, i in enumerate(output_df[crop_colname]):
         for m in range(len(mappings)):
             if mappings[m].get(i, 'missing') == 'missing':
@@ -536,11 +535,11 @@ def allom_asH(H: float,
     Tuple[float, float]
         a tuple with above and below ground carbon input
     """
-    
+
     if straw_removed:
         i_ag = param_df.iloc[:,2][crop] + param_df.iloc[:,3][crop] * H
     else:
-        i_ag_1 = (param_df.iloc[:,0][crop] + param_df.iloc[:,1][crop] * H) 
+        i_ag_1 = (param_df.iloc[:,0][crop] + param_df.iloc[:,1][crop] * H)
         i_ag_2 = + (param_df.iloc[:,2][crop] + param_df.iloc[:,3][crop] * H)
         i_ag = i_ag_1 + i_ag_2
     i_bg = + (param_df.iloc[:,4][crop] + param_df.iloc[:,5][crop] * H)
@@ -581,7 +580,7 @@ def alloc_input(H: float,
 
     i_ag = input_df.iloc[:,0][crop] * H
     i_bg = input_df.iloc[:,1][crop] * H
-    
+
     return i_ag, i_bg
 
 
@@ -737,7 +736,7 @@ def to_csv_preserved(dataframe: pd.DataFrame,
     save_path: str | bool
         Optional variable to enable manually setting save_path to other than presets.
     save_type : str
-        determines where to save file. 
+        determines where to save file.
         Can be either 'none'(default), 'temp' or 'result'
         if 'none', save_path is set to current working dir
         if 'temp',  save_path is set to 'soil_temp_path'
@@ -749,7 +748,7 @@ def to_csv_preserved(dataframe: pd.DataFrame,
     --------
     None
     '''
-  
+
     # Set the directory according to save_type
     if save_path:
         save_path = save_path
@@ -773,7 +772,7 @@ def to_csv_preserved(dataframe: pd.DataFrame,
         datetime_levels = []
     else:
         datetime_levels = [name for name, dtype in zip(idx_names_list, idx.dtypes) if np.issubdtype(dtype, np.datetime64)]
-    
+
 
     # Create a list of all the column names that should be datetime formatted when reloaded
     datetime_cols = [col for col in dataframe.columns if np.issubdtype(dataframe[col].dtypes, np.datetime64)]
@@ -799,7 +798,7 @@ def to_csv_preserved(dataframe: pd.DataFrame,
 
     # Save the dictionary to a CSV file, with the same name as the DataFrame
     file_name = f'{save_as}_help'
-        
+
     with open(f'{save_path}/{set_savedir}/{file_name}.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(data.keys())
@@ -871,7 +870,7 @@ def add_prefix(name: str,
                input_df: pd.DataFrame) -> pd.DataFrame:
     '''
     Add a prefix to variable names in the column headers of a DataFrame.
-    
+
     This function takes a DataFrame and modifies the names of columns in the DataFrame by adding a specified 'prefix' to
     the variable names that contain the 'name' substring. It is useful for renaming and grouping variables in the
     DataFrame based on a common naming convention.
@@ -896,7 +895,7 @@ def add_prefix(name: str,
     If 'name' is 'manure_' and 'prefix' is 'new', the function will add the 'new_' prefix to all variable names in the
     DataFrame 'input_df' that contain 'manure_' in their names, and return the modified DataFrame.
     '''
-    
+
     # Generate a list of names containing 'name' in the column headers of 'input_df'
     namelist = filter_namelist(name, input_df.columns)
     # Prepend a prefix and '_'to each name in 'namelist'
@@ -905,7 +904,7 @@ def add_prefix(name: str,
     mapping_dict = dict(zip(namelist, prefixed_namelist))
     # Change the names of the 'input_df' columns using mapping_dict
     output_df = input_df.rename(mapper=mapping_dict, axis=1)
-    
+
     return output_df
 
 
@@ -1125,11 +1124,11 @@ def alloc_helper(name_df=False,
 
 #### Functions below are used with xarray ####
 
-  
+
 def xr_calculate_GWP(xr_array: xr.DataArray,
                      reference_year: str = '2020',
                      end_year: str = '2050',
-                     year_coord: str = 'output_year', 
+                     year_coord: str = 'output_year',
                      char_fact: str = 'gwp100',
                      ghg: str = 'co2',
                      ass_rep: str = 'ipcc2013') -> int:
@@ -1175,7 +1174,7 @@ def xr_calculate_GWP(xr_array: xr.DataArray,
     # Calculate GWP for a specific xarray array
     >>> gwp_value = xr_calculate_GWP(xr_data, reference_year='2015', end_year='2030')
     '''
-    
+
     # Retrieve characterization factor factor
     char_factor: float = soil_params.GWP[char_fact][ass_rep][ghg]
 
@@ -1188,7 +1187,7 @@ def xr_calculate_GWP(xr_array: xr.DataArray,
     # Display information about GWP calculation
     print(f'SOC in year {reference_year}: {round(xr_array.sel(**{year_coord:reference_year}).item())}')
     print(f'SOC in year {end_year}: {round(xr_array.sel(**{year_coord:end_year}).item())}')
-    
+
     return round(GWP)
 
 
@@ -1204,7 +1203,7 @@ def ghg_to_temp(ghg: str ='co2',
     -----------
     ghg : str, optional
         The abbreviation of the greenhouse gas ('co2', 'ch4', or 'n2o'). Default is 'co2'.
-        
+
     time_horizon : int, optional
         The time horizon for the evaluation. Default is 100.
 
@@ -1218,7 +1217,7 @@ def ghg_to_temp(ghg: str ='co2',
     ValueError
         If the provided greenhouse gas abbreviation is not 'co2', 'ch4', or 'n2o'.
     """
-    
+
     n: int = time_horizon
     t: np.ndarray = np.linspace(0, n, n)
 
@@ -1291,12 +1290,12 @@ def ghg_to_temp(ghg: str ='co2',
                            t1 * c2 / (t2 - d2) * (np.exp(-t / t2) - np.exp(-t / d2)))
     else:
         raise ValueError("Invalid greenhouse gas. Options are 'co2', 'ch4', and 'n2o'.")
-        
+
     return dt_ghg
 
 
 def calc_temps(ghg: str,
-               ghg_flux: float,              
+               ghg_flux: float,
                input_year: int,
                base_year: int = 2020,
                time_horizon: int = 100
@@ -1334,10 +1333,10 @@ def calc_temps(ghg: str,
     >>> temp_response, time_index = calc_temps('co2', 1000, 2025, base_year=2020, time_horizon=50)
     """
 
-   
+
     # Calculate the end year based on the time horizon and input year
     end_year = base_year + time_horizon
-    
+
     # Generate a time index starting from the input year to the end year with annual frequency
     time_index = pd.date_range(start=f'{input_year}-01-01',
                                end=f'{end_year - 1}-01-01',
@@ -1388,7 +1387,7 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     # Add temperature response to an existing xarray Dataset
     >>> result_dataset = add_temp_response(existing_dataset, ghg='ch4', output_label='temperature_change')
     """
-    
+
     print('Starting temp calc')
     # Check the type of the input (Dataset or DataArray)
     if isinstance(input_data, xr.Dataset):
@@ -1401,19 +1400,19 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     else:
         # Raise an error if the input is neither a Dataset nor a DataArray
         raise ValueError("Input must be an xarray Dataset or DataArray.")
-    
+
     # Create a dictionary of the input dataset coordinates
     coord_dict = dataset.coords
     coord_dict = {coord:dataset[coord].data for coord in coord_dict}
-    
+
     # Get the name of the time dimension for the ghg fluxes
     year_dim = None
     dimensions = dataset.dims
     for dim in dimensions:
         if dataset[dim].dtype == 'datetime64[ns]':
             year_dim = dim
-  
-    # Save the dimension names to recreate the index of the pandas_df        
+
+    # Save the dimension names to recreate the index of the pandas_df
     coords = list(dataset.dims)
 
     print('Starting stacking operation')
@@ -1427,10 +1426,10 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     temp_list = []
     rows_list = []
 
-    print('Starting temp_calc inner loop')   
+    print('Starting temp_calc inner loop')
     for n, i in enumerate(stacked_ds['co2'].data):
         # Calculate temperature response iteratively for each emission and collect lists for multiindex and temperature
-        temp_series, times = calc_temps(ghg, i,  idx_in.get_level_values(year_dim)[n].year)      
+        temp_series, times = calc_temps(ghg, i,  idx_in.get_level_values(year_dim)[n].year)
 
         for m in range(len(temp_series)):
             idx1 = idx_in[n] + (times[m],)
@@ -1439,7 +1438,7 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     print('Done with temp_calc inner loop')
     # Build the new multiindex
     index_names = list(idx_in.names)
-    index_names.append(times.name)  
+    index_names.append(times.name)
     index = pd.MultiIndex.from_tuples(rows_list, names=index_names)
 
     # create a pd.dataseries and use to create a dataarray of the generated output
@@ -1447,11 +1446,11 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
     ds = xr.DataArray.from_series(data)
 
     # Merge the output dataarray with original dataset
-    dataset = dataset.merge(ds) 
+    dataset = dataset.merge(ds)
     print(f'Dataset created. {dataset}')
 
     print('dataset returned by function')
-    
+
     return dataset
 
 
