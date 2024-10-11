@@ -7,7 +7,7 @@ from ..utils.retriever import ParameterRetriever
 
 class AnimalHerd(object):
     '''Class that handels animal herd structure, feed requirements, production etc.
-    
+
     Parameters
     ----------
     par : ParameterRetriever object
@@ -17,7 +17,7 @@ class AnimalHerd(object):
         Keyword arguments to be passed on as filters to the ParameterRetriever, along with
         the index, self.species. Special cases are 'breed', 'prod_system' and 'sub_system'
         which if supplied are also stored as attributes in the AnimalHerd object.
-        
+
     Attributes set on init
     ----------------------
     index : pandas.Index or padnas.MultiIndex
@@ -45,7 +45,7 @@ class AnimalHerd(object):
         Number of lost animals per year [heads]
     production : pandas.DataFrame
         Production per year for each animal and product  [kg]
-    
+
     Attributes set by FeedMgmt.calculate()
     --------------------------------------
     feed.energy_req : pandas.DataFrame
@@ -66,7 +66,7 @@ class AnimalHerd(object):
 
     <element> is 'VS' (volatile solids), 'N' (nitrogen), 'P' (phosphorous) and 'K' (potassium).
     (ONLY 'N' IMPLEMENTED AT THE MOMENT)
-    
+
     '''
     # Set of ID attributes in class
     id_attr = set(['species','breed','prod_system','sub_system','animals'])
@@ -76,7 +76,7 @@ class AnimalHerd(object):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
-        
+
         self.par = par
         self.index = index
 
@@ -86,7 +86,7 @@ class AnimalHerd(object):
                     setattr(self,att,kwargs[att])
                 else:
                     setattr(self,att,'none')
-            
+
     def __repr__(self):
         return f'''
 AnimalHerd
@@ -97,7 +97,7 @@ production system    {self.prod_system}
 sub-system           {self.sub_system}
 animals              {self.animals}
 '''
-    
+
     def calculate(self,verbose=False):
         '''Calculates herd structure and production based on a vector ('x') of animal numbers or production as defined
         by 'x_is'. Index of 'x' is retained in the output and can be used as filters for the ParameterRetriever.
@@ -127,7 +127,7 @@ animals              {self.animals}
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str=f'AnimalHerd ({self.species}, {self.breed}, {self.prod_system}, {self.sub_system})')
-        
+
         vprint('Calculating herd structure ...')
         self.calculate_herd()
 
@@ -189,7 +189,7 @@ animals              {self.animals}
             old_x = self.data_attr.get('heads').drop('laying chicks', level='animal', axis=1).sum(axis=1)
         else:
             old_x = self.data_attr.get('heads').loc[:,(self.prod_system,x_is)]
-        
+
         # Update data attributes
         for attr in self.data_attr:
             if self.data_attr[attr]['scalable']:
@@ -199,7 +199,7 @@ animals              {self.animals}
                         name = attr,
                         **self.data_attr[attr]
                     )
-    
+
     def make_static(self):
         '''Returns a StaticAnimalHerd object that retains all ID and data attributes but
         has no methods or ParameterRetriever'''
@@ -213,7 +213,7 @@ animals              {self.animals}
         # Set ID attributes
         for attr in obj.id_attr:
             setattr(obj,attr,getattr(self,attr))
-        
+
         # Set data attributes
         for attr in self.data_attr:
             if self.data_attr.get(attr) is not None:
@@ -222,7 +222,7 @@ animals              {self.animals}
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
-    
+
     def calculate_feed_req(self):
 
         # Clear and set filters for ParameterRetriever
@@ -241,7 +241,7 @@ animals              {self.animals}
 
         # If herd has a method to calculate energy requirements of animals
         # energy requirements are calculated from live weights, growth rates,
-        # gestation, lactation, etc. 
+        # gestation, lactation, etc.
         # Otherwise dry matter feed requirements are calculated from feed
         # conversion ratios or a fixed feed intake per animal.
         E_req = hasattr(self,'calculate_feed_E_req')
@@ -271,7 +271,7 @@ animals              {self.animals}
                 req = self.calculate_feed_DM_req(ps, ani)
 
             df_req.loc[:,(ps,ani)] = req
-        
+
         # Add data attribute
         if E_req:
             self.data_attr.add(
@@ -280,7 +280,7 @@ animals              {self.animals}
                 unit = 'MJ/year',
                 orig = 'AnimalHerd',
                 desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
-            )   
+            )
         else:
             self.data_attr.add(
                 (df_req * self.data_attr.get('heads')),
@@ -301,7 +301,7 @@ animals              {self.animals}
             sub_system = self.sub_system,
             **self.index.to_frame().to_dict('list')
         )
-        
+
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
@@ -327,7 +327,7 @@ animals              {self.animals}
             columns = pd.MultiIndex.from_tuples([(ps,ani,pr) for ps in pss for ani in anis for pr in prs], names=['prod_system','animal','animal_prod']),
             dtype = float
             )
-        
+
         # Calculate meat production [kg CW]
         production.loc[:,(slice(None),slice(None),'meat')] = \
             pd.concat({'meat': self.data_attr.get('slaughtered_n')}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
@@ -351,14 +351,14 @@ animals              {self.animals}
             production.loc[:,(slice(None),slice(None),'eggs')] = \
                 pd.concat({'eggs': self.data_attr.get('heads')}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
                 np.array([p('egg_production', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
-        
+
         # Calculate total number of heads
         if 'heads' in prs:
             production.loc[:,(slice(None),slice(None),'heads')] = (
                 pd.concat({'heads': self.data_attr.get('heads')}, names=['animal_prod'], axis=1)
                 .reorder_levels(['prod_system','animal','animal_prod'], axis=1)
             )
-        
+
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)
 
@@ -409,7 +409,7 @@ def make_herds(
         }
         ):
     '''Helper function to instantiate AnimalHerd objects and put them in a pandas.Series.
-    
+
     Parameters
     ----------
     regions : Regions object
@@ -473,14 +473,14 @@ def make_herds(
 
     return herds
 
-    
+
 def concat_herds(herds):
     '''Combines multiple AnimalHerd objects
-    
+
     Parameters
     ----------
     herds : itterable of AnimalHerd objects
-    
+
     Returns
     -------
     StaticAnimalHerd object'''
@@ -493,7 +493,7 @@ def concat_herds(herds):
     res_herd.data_attr = DataAttr(res_herd)
 
     # Check presence of data attributes in AnimalHerd objects
-    # Only attributes present in all AnimalHerd objects are 
+    # Only attributes present in all AnimalHerd objects are
     # retained in the combined StaticAnimalHerd object
     data_attr_union = set.union(*[set(h.data_attr) for h in herds])
     data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
@@ -513,13 +513,13 @@ def concat_herds(herds):
 
             df = pd.concat(
                 [
-                    pd.concat({herd.species : 
-                        pd.concat({herd.breed :
-                            pd.concat({herd.sub_system : herd.data_attr.get(attr)},
+                    pd.concat({herd.species:
+                        pd.concat({herd.breed:
+                            pd.concat({herd.sub_system: herd.data_attr.get(attr)},
                                 names=['sub_system'],axis=1)},
                             names=['breed'],axis=1)},
                         names=['species'],axis=1)
-                    if herd.data_attr.get(attr) is not None else None for herd in herds
+                    if herd.data_attr.get(attr) is not None else pd.DataFrame() for herd in herds
                 ],
                 axis=1
             )
