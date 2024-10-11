@@ -7,6 +7,8 @@ from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 from ..utils.retriever import ParameterRetriever
 
+from typing import Literal, Any
+
 class AnimalHerd(ABC):
     '''Class that handels animal herd structure, feed requirements, production etc.
 
@@ -101,20 +103,20 @@ sub-system           {self.sub_system}
 animals              {self.animals}
 '''
 
+
     @abstractmethod
     def calculate_herd(self):
         """Calculate the herd and store values in data_attr."""
         pass
 
-    # @abstractmethod
-    # def calculate_feed_E_req(self, ps, ani):
-    #     """Calculate the feed energy [MJ] requirements"""
-    #     pass
-    #
-    # @abstractmethod
-    # def calculate_feed_DM_req(self, ps, ani):
-    #     """Calculate the dry matter [kg DM] requirements"""
-    #     pass
+    @abstractmethod
+    def _calculate_feed_req(self, ps, ani) -> tuple[Literal['E', 'DM'], Any]:
+        """
+        Calculate the feed energy [MJ] or dry matter [kg DM] requirements.
+        The first item in the tuple describes which type of feed requirement the
+        animal herd specifies, and the second is the value thereof.
+        """
+        pass
 
     def calculate(self,verbose=False):
         '''Calculates herd structure and production based on a vector ('x') of animal numbers or production as defined
@@ -257,12 +259,6 @@ animals              {self.animals}
         if 'milk_to_calves' in self.data_attr:
             self.data_attr.remove('milk_to_calves')
 
-        # If herd has a method to calculate energy requirements of animals
-        # energy requirements are calculated from live weights, growth rates,
-        # gestation, lactation, etc.
-        # Otherwise dry matter feed requirements are calculated from feed
-        # conversion ratios or a fixed feed intake per animal.
-        E_req = hasattr(self,'calculate_feed_E_req')
 
         df_req = pd.DataFrame(
             index = self.index,
@@ -276,22 +272,29 @@ animals              {self.animals}
             # to calves
             anis.insert(0, anis.pop(anis.index('calves')))
 
+        feed_req_type = None
         for ani, ps in zip(anis, pss):
             self.par.set(
                 prod_system = ps,
                 animal = ani
             )
 
-            # Calculate feed energy [MJ] or dry matter [kg DM] requirements
-            if E_req:
-                req = self.calculate_feed_E_req(ps, ani)
-            else:
-                req = self.calculate_feed_DM_req(ps, ani)
+            # Calculate feed requirements (energy [MJ] or dry matter [kg DM])
+            (feed_req_type, req) = self._calculate_feed_req(ps, ani)
 
             df_req.loc[:,(ps,ani)] = req
 
-        # Add data attribute
-        if E_req:
+        # No animals found in animal-herd, we can exit.
+        # We should maybe raise an Exception here.
+        if feed_req_type is None:
+            return
+
+        # If herd has a method to calculate energy requirements of animals
+        # energy requirements are calculated from live weights, growth rates,
+        # gestation, lactation, etc.
+        # Otherwise dry matter feed requirements are calculated from feed
+        # conversion ratios or a fixed feed intake per animal.
+        if feed_req_type == "E":
             self.data_attr.add(
                 (df_req * self.data_attr.get('heads')),
                 name = 'feed_E_req',

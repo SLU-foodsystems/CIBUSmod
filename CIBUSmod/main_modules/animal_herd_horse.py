@@ -79,7 +79,7 @@ class HorseHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def calculate_feed_E_req(self,ps,ani):
+    def _calculate_feed_req(self,ps,ani):
 
         p = self.par.get
 
@@ -100,4 +100,4 @@ class HorseHerd(AnimalHerd):
 
         E_req = E_maint * (1 + (f_acti + f_gest + f_lact))
 
-        return E_req
+        return ("E", E_req)

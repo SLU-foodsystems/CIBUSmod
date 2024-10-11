@@ -210,7 +210,7 @@ class PigHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def calculate_feed_E_req(self,ps,ani):
+    def _calculate_feed_req(self,ps,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
         [1] Simonsson, A. (2006). Fodermedel och näringsrekommendationer för gris. HUV Rapport 266. SLU
         [2] Göransson, L., Lindberg, J.E. (2011). Näringsrekommendationer ver. 2011.1 - Energi'''
@@ -261,4 +261,4 @@ class PigHerd(AnimalHerd):
 
         E_req = np.nan_to_num(E_req)
 
-        return E_req
+        return ("E", E_req)

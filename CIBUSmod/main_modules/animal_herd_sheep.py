@@ -135,7 +135,7 @@ class SheepHerd(AnimalHerd):
 
         return None
 
-    def calculate_feed_DM_req(self,ps,ani):
+    def _calculate_feed_req(self,ps,ani):
         '''Calculates feed DM requirements from fixed intake per head or lifetime'''
 
         p = self.par.get
@@ -148,4 +148,4 @@ class SheepHerd(AnimalHerd):
         else:
             feed_req = p('feed_per_head')
 
-        return feed_req
+        return ("DM", feed_req)

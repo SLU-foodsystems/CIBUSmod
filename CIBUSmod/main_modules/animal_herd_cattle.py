@@ -318,7 +318,7 @@ class CattleHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def calculate_feed_E_req(self,ps,ani):
+    def _calculate_feed_req(self,ps,ani):
         '''Calculates Metabolizable Energy (ME) and water requrements for cattle based on
         Spörndly, R. (ed.). (2003). Fodertabeller för idisslare 2003. HUV Rapport 257. SLU'''
 
@@ -407,4 +407,4 @@ class CattleHerd(AnimalHerd):
 
         E_req_final = np.nan_to_num(E_req_final)
 
-        return E_req_final
+        return ("E", E_req_final)
