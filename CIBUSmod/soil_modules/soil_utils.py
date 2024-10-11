@@ -14,7 +14,7 @@ import pickle
 from IPython import display
 import numpy as np
 import pandas as pd
-from typing import Union, Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional
 import xarray as xr
 
 import CIBUSmod.soil_modules.soil_params as soil_params
@@ -256,7 +256,7 @@ def map_cin_h_to_dataframe(match_col: str,
         return output_df
 
 
-def filter_namelist(name: Union[str, list[str]],
+def filter_namelist(name: str | list[str],
                     iterable: list[str]) -> list[str]:
     """
     Get a list of variable names containing the specified substring from an iterable.
@@ -267,7 +267,7 @@ def filter_namelist(name: Union[str, list[str]],
 
     Parameters:
     -----------
-    name : Union[str, list[str]]
+    name : str | list[str]
         The substring or list of substrings to search for in variable names.
     iterable : list[str]
         The iterable to search within, typically containing variable names.
@@ -298,7 +298,7 @@ def filter_namelist(name: Union[str, list[str]],
 
 
 def get_filtered_namelist(filterlist: str,
-                          namelist: Union[str, list[str]],
+                          namelist: str | list[str],
                           iterable: pd.DataFrame) -> list[str]:
     """
     Apply a filter to a list of column names in a DataFrame and return the filtered result.
@@ -307,7 +307,7 @@ def get_filtered_namelist(filterlist: str,
     -----------
     filterlist : str
         The substring to filter the column names by.
-    namelist : Union[str, list[str]]
+    namelist : str | list[str]
         The column names or list of substrings to search within.
     iterable : pd.DataFrame
         The DataFrame to search within.
@@ -1353,7 +1353,7 @@ def calc_temps(ghg: str,
 
     return temp_series, time_index
 
-def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
+def add_temp_response(input_data: xr.Dataset | xr.DataArray,
                       ghg: str = 'co2',
                       output_label: str = 'temp_response'
                      ) -> xr.Dataset:
@@ -1365,7 +1365,7 @@ def add_temp_response(input_data: Union[xr.Dataset, xr.DataArray],
 
     Parameters:
     -----------
-    input_data : Union[xr.Dataset, xr.DataArray]
+    input_data : xr.Dataset | xr.DataArray
         The input data containing greenhouse gas fluxes.
     ghg : str, optional
         The greenhouse gas variable name. Default is 'co2'.
@@ -1504,9 +1504,9 @@ def load_data(file_name: str, load_path: str=soil_temp_path, format: str= 'json'
         with open(f'{load_path}/{file_name}.{format}', 'rb') as f:
             return pickle.load(f)
 
-def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, list[Union[xr.Dataset, xr.DataArray]]],
+def assign_tot_soc(xarray_input: xr.Dataset | xr.DataArray | list[xr.Dataset | xr.DataArray],
                    totsoc_label: str = 'tot_soc'
-                   ) -> Union[xr.Dataset, xr.DataArray, list[Union[xr.Dataset, xr.DataArray]]]:
+                   ) -> xr.Dataset | xr.DataArray | list[xr.Dataset | xr.DataArray]:
     """
     Calculate and assign total soil_modules organic carbon (tot_soc) based on young (y_pool) and old (o_pool) pools directly
     within the provided xarray Dataset or DataArray. If a list of Datasets or DataArrays is provided, the operation
@@ -1517,7 +1517,7 @@ def assign_tot_soc(xarray_input: Union[xr.Dataset, xr.DataArray, list[Union[xr.D
 
     Parameters:
     -----------
-    xarray_input : Union[xr.Dataset, xr.DataArray, list[Union[xr.Dataset, xr.DataArray]]]
+    xarray_input : xr.Dataset | xr.DataArray | list[xr.Dataset | xr.DataArray]
         The input xarray Dataset or DataArray, or a list of xarray Datasets or DataArrays. Each element must contain
         'y_pool' and 'o_pool' variables from which 'tot_soc' is calculated.
 
@@ -1623,7 +1623,7 @@ def assign_co2_flux(xarray_input,
 # New improved version of working functions
 
 def get_filtered_namelist_new(filterlist: str,
-                              namelist: Union[str, list[str]],
+                              namelist: str | list[str],
                               df: pd.DataFrame) -> list[str]:
     """Simplified and vectorized filtering of column names."""
     # Combine the filters and namelist into a comprehensive filter
