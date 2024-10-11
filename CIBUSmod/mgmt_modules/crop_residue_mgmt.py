@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class CropResidueMgmt():
     '''Management module that handles the allocation of crop residues to different uses
-    
+
     Parameters
     ----------
     herds : (pandas.Series of) AnimalHerd object(s)
@@ -29,7 +29,7 @@ class CropResidueMgmt():
             herds : "pd.Series | AnimalHerd",
             par : "ParameterRetriever"
         ):
-        
+
         self.par = par
 
         self.demand = demand
@@ -51,7 +51,7 @@ class CropResidueMgmt():
         return None
 
     def calculate_harvestable_crop_residues(self) -> None:
-        
+
         # Get harvestable crop residue products ('feed')
         res = self.par.get_unique('crop_resid', qry='parameter == "crop_resid_harvestable"')
 
@@ -70,7 +70,7 @@ class CropResidueMgmt():
             self.par.get_from_frame('crop_resid_harvestable', df)
             .mul(crop_residues, axis=0)
         )
-        
+
         # Add data attribute
         self.crops.data_attr.add(
             crop_residues_harvestable,
@@ -123,7 +123,7 @@ class CropResidueMgmt():
             self.crops.data_attr.get('crop_residues_harvestable')
         )
 
-        # Calculate remaining feed and bedding demand that needs to be met nationally and 
+        # Calculate remaining feed and bedding demand that needs to be met nationally and
         # add in total demand for other purposes
         remaining_demand = (regional_demand.sum() - crop_residues_harvest.sum()).add(demand_other, fill_value=0)
         # Calculate remaining harvestable crop residues

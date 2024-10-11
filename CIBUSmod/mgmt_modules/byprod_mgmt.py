@@ -14,7 +14,7 @@ class ByProductMgmt():
 
     '''Management module that handles by-products by allocating residual by-products with no demand to waste management or exports
     and by inducing imports of by-products if necessary to meet demand.
-    
+
     Parameters
     ----------
     demand : DemandAndConversions object
@@ -29,7 +29,7 @@ class ByProductMgmt():
             herds : pd.Series,
             par : "ParameterRetriever"
     ):
-        
+
         self.par = par
 
         self.demand = demand

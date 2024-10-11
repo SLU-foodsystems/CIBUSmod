@@ -36,7 +36,7 @@ class MachineryAndEnergyMgmt(object):
         self.regions = regions
         self.crops = crops
         self.waste = waste
-        
+
         if isinstance(herds, pd.Series):
             self.herds = herds
         else:
@@ -87,7 +87,7 @@ class MachineryAndEnergyMgmt(object):
         self.calculate_combustion_emissions()
 
         vprint(type='end')
-    
+
     def calculate_field_machinery(self):
         p = self.par.get
         pf = self.par.get_from_frame
@@ -144,9 +144,9 @@ class MachineryAndEnergyMgmt(object):
             (
                 1 / p('tractor_ground_resistance') +
                 0.04 +
-                0.05 * 
+                0.05 *
                 (
-                    p('slippage') / 
+                    p('slippage') /
                     np.sqrt(p('tractor_ground_resistance'))
                 )
             ) /
@@ -169,13 +169,13 @@ class MachineryAndEnergyMgmt(object):
         # Calculate application energy requirements per hectare ...
         # ... for soil texture dependent applications
         E_soil_dep = ( # [kWh/ha]
-            pf('application_soil_cor',M) * 
+            pf('application_soil_cor',M) *
             (
-                pf('application_par_A',M) + 
+                pf('application_par_A',M) +
                 pf('application_par_B',M) * pf('field_speed',M) +
                 pf('application_par_C',M) * pf('field_speed',M)**2
-            ) * 
-            pf('working_depth',M) * 
+            ) *
+            pf('working_depth',M) *
             (pf('field_speed',M) / 3.6) / 1000 /
             (pf('field_efficiency',M) * pf('field_speed',M) / 10)
         )
@@ -233,7 +233,7 @@ class MachineryAndEnergyMgmt(object):
             .mul(E_final.sum(axis=1), axis=0) /
             pf('drivetrain_efficiency',M)
         )
-        
+
     def calculate_drying(self):
         self.par.clear()
         self.crops.par.clear()
@@ -247,7 +247,7 @@ class MachineryAndEnergyMgmt(object):
         orig_index = harvest.index.copy()
         # Calculate as DM
         harvest_DM = harvest * self.crops.par.get('crop_dm', **harvest.index.to_frame().to_dict('list'))
-        # Get water content at havest and 
+        # Get water content at havest and
         field_WC = pd.Series(
             self.par.get('water_content_at_harvest', **harvest_DM.index.to_frame().to_dict('list')),
             index = harvest.index
@@ -329,7 +329,7 @@ class MachineryAndEnergyMgmt(object):
                 )
             )
             energy_use_per_head = (
-                heads * 
+                heads *
                 pf('stable_energy_use_per_head',heads)
             )
 
@@ -341,7 +341,7 @@ class MachineryAndEnergyMgmt(object):
                     )
                 )
                 energy_use_per_inserted_head = (
-                    inserted_heads * 
+                    inserted_heads *
                     pf('stable_energy_use_per_inserted_head',inserted_heads)
                 )
             else:
@@ -364,10 +364,10 @@ class MachineryAndEnergyMgmt(object):
                 energy_use_per_inserted_head +
                 energy_use_per_prod
             )
-            
+
             # Apply energy source share factors
             energy_use = energy_use * (pf('energy_source_share', energy_use)/100)
-            
+
             # Add data attribute
             herd.data_attr.add(
                 energy_use,
@@ -378,7 +378,7 @@ class MachineryAndEnergyMgmt(object):
             )
 
     def calculate_combustion_emissions(self):
-        
+
         for module in [self.crops, self.waste] + list(self.herds):
             self.par.clear()
 

@@ -49,14 +49,14 @@ class InputsMgmt(object):
             'Dinitrogen monoxide' : 'N2O',
         }
     ):
-        
+
         self.par = par
         self.demand = demand
         self.crops = crops
         self.waste = waste
 
         self.ei_compounds = ecoinvent_compounds_dict
-        
+
         if isinstance(herds, pd.Series):
             self.herds = herds
         else:
@@ -67,31 +67,31 @@ class InputsMgmt(object):
                     names=['species','breed','prod_system','sub_system']
                 )
             )
-        
+
         path = os.path.join(self.par.data_path,'ecoinvent')
         self.get_ecoinvent_data(ecoinvent_settings, path)
 
         self.get_data()
 
     def get_ecoinvent_data(self, ecoinvent_settings, path):
-        
+
         ei_version = ecoinvent_settings['version']
         ei_model = ecoinvent_settings['system_model']
-        
+
         # Create ecoinvent folder if it does not already exist
         if not os.path.isdir(path):
             os.mkdir(path)
 
         # Get available ecoinvent xml files
         files_available = os.listdir(path)
-        
+
         # Get inputs and ecoinvent activity ids
         inputs_and_ei_ids = self.par.get_unique(['input','ecoinvent_id'])
-        
+
         # Get ecoinvent data files needed
         files_needed = ['-'.join(['ecoinvent',ei_version,ei_model,'lci',ei_id])+'.xml'
                         for ei_id in inputs_and_ei_ids.ecoinvent_id]
-        
+
         # Get activity ids that need to be downloaded
         # and download ecoinvent xml files
         ei_activity_ids_to_download = list({ei_id for ei_id,f in
@@ -100,13 +100,13 @@ class InputsMgmt(object):
         if len(ei_activity_ids_to_download)>0:
             ep = _ei_connect(ei_version,ei_model)
             _ei_get_files(ep, Path(path), ids=ei_activity_ids_to_download)
-            
+
         d=[]
         for inpt, ei_activity_id, file in zip(inputs_and_ei_ids.input,inputs_and_ei_ids.ecoinvent_id,files_needed):
             # Read activity data from ecoinvent xml files
             activity_name, geography_name, reference_unit, ee = \
                 _read_xml(os.path.join(path,file))
-            
+
             # Create dataframe and sum flows of the same compund and compartment
             df = (
                 pd.DataFrame(ee)
@@ -118,14 +118,14 @@ class InputsMgmt(object):
                     names = ['input','ecoinvent_id','ecoinvent_geography','ecoinvent_activity','ecoinvent_reference_unit']
                 ))
             )
-            
+
             d.append(df)
-        
+
         # concatenate dataframe
         df = pd.concat(d)
         # Scale from ecoinvent unit to 'input' unit (according to parameter Excel sheet)
         df = df * self.par.get_from_frame('input_to_ecoinvent',df)
-        
+
         # Store full ecoinvent LCI data with metadata
         self.ecoinvent_data = df
 
@@ -158,16 +158,16 @@ class InputsMgmt(object):
         # Note: any user defined emissions of a compound for an input will replace
         # emissions of that compound according to ecoinvent
         data.update(user_data)
-        
+
         self.data = data
 
-        
+
     def calculate(self, verbose=False):
-        
+
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='InputsMgmt')
         vprint('Calculating supply chain emissions for food processing inputs (NOT IMPLEMENTED) ...')
-        
+
         vprint('Calculating supply chain emissions for crop production inputs  ...')
         self.calculate_emissions(
             module = self.crops,
@@ -187,7 +187,7 @@ class InputsMgmt(object):
             attr = 'energy_use',
             inputs_in_col = 'energy_source'
         )
-        
+
         vprint('Calculating supply chain emissions for animal herd inputs ...')
         for h in self.herds:
             self.calculate_emissions(
@@ -195,15 +195,15 @@ class InputsMgmt(object):
                 attr = 'energy_use',
                 inputs_in_col = 'energy_source'
             )
-            
+
         vprint(type='end')
 
     def calculate_emissions(self, module, attr:str, inputs_in_col:str):
-    
+
         data = module.data_attr.get(attr)
         if type(data.columns) is pd.Index:
             data.columns = index_to_multi(data.columns)
-        
+
         # Add compunds to input use dataframe
         res = data.reindex(
             pd.MultiIndex.from_tuples(
@@ -220,10 +220,10 @@ class InputsMgmt(object):
             .reindex(res.columns.droplevel([c for c in res.columns.names if c not in [inputs_in_col,'compound'] ]))
         )
         lci.index = res.columns
-        
+
         # Multiply input use by emissins
         res = res.mul(lci, axis=1)
-        
+
         # Add data attribute
         module.data_attr.add(
             res,
@@ -244,26 +244,26 @@ def _ei_connect(ei_version,ei_model):
 
     ep.set_release(version=ei_version, system_model=ei_model)
     ep.set_release(version="3.7.1", system_model="cutoff")
-    
+
     return ep
-    
+
 def _ei_get_files(ep, path, ids=[]):
     for i in ids:
         ep.select_process(dataset_id=i)
         print('Downloading LCI data for "', ep.get_basic_info()['activity_name'], '"...')
         ep.get_file(file_type=ProcessFileType.lci, directory=path)
-        
+
 def _read_xml(file_path):
     # Read xml file
     xml = minidom.parse(file_path)
-    
+
     # Get activity name
     activity_name = xml.getElementsByTagName('activityName')[0].firstChild.nodeValue
 
     # Get geography
     geography_name = xml.getElementsByTagName('geography')[0] \
     .getElementsByTagName('shortname')[0].firstChild.nodeValue
-    
+
     # Get reference unit
     intermediate_exchange = xml.getElementsByTagName('intermediateExchange')[0]
     reference_unit = ' '.join([
@@ -271,12 +271,12 @@ def _read_xml(file_path):
         intermediate_exchange.getElementsByTagName('unitName')[0].firstChild.nodeValue,
         intermediate_exchange.getElementsByTagName('name')[0].firstChild.nodeValue,
     ])
-    
+
     elementary_exchange = xml.getElementsByTagName('elementaryExchange')
     ee = [] # List to store elemantary exchanges
     for element in elementary_exchange:
         # Get 'outputGroup' element
-        output_group = element.getElementsByTagName('outputGroup')   
+        output_group = element.getElementsByTagName('outputGroup')
         if len(output_group) == 1:
             # Make sure 'outputGroup' is 4 = flow to environment (??)
             if (int(output_group[0].firstChild.nodeValue)) == 4:
@@ -289,14 +289,14 @@ def _read_xml(file_path):
                 unit = element.getElementsByTagName('unitName')[0].firstChild.nodeValue
                 # Get value
                 value = element.getAttribute('amount')
-        
+
         ee.append({
             'ecoinvent_compartment':compartment,
             'compound':name,
             'ecoinvent_unit':unit,
             'value':float(value)
         })
-        
-    
-        
+
+
+
     return (activity_name, geography_name, reference_unit, ee)

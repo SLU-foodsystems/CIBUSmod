@@ -8,7 +8,7 @@ from ..utils.misc import multiply_aligned, fix_herds
 class FeedMgmt():
     '''Class that that calculates ammount of 'crop products' or 'by-products' needed for a certain demand of 'feed'
     accounting far all losses between harvest/prouction and final cosnumption by the animals.
-    
+
     Parameters
     ----------
     herds : (pandas.Series of) AnimalHerd object(s)
@@ -16,7 +16,7 @@ class FeedMgmt():
     '''
 
     def __init__(self,herds,par):
-        
+
         self.par = par
 
         self.herds = fix_herds(herds)
@@ -33,7 +33,7 @@ class FeedMgmt():
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='FeedMgmt')
-       
+
         vprint('Calculating feed consumption ...')
         self.calculate_feed_consumption()
 
@@ -73,7 +73,7 @@ class FeedMgmt():
         '''Calculates energy requirements per animal and from this + defined feed rations the total demand for feeds per animal.'''
 
         for herd in self.herds:
-            
+
             # Set species and breed filters for ParameterRetriever
             self.par.set(
                 species = herd.species,
@@ -104,7 +104,7 @@ class FeedMgmt():
             if not np.isclose(shares_per_feed.T.groupby(['prod_system','animal']).sum(),1).all():
                 warnings.warn(f'\n\nAll feed ration shares did not add up to 100% for species: {herd.species}, breed: {herd.breed}. Feed rations were corrected.\n')
                 shares_per_feed = (
-                    shares_per_feed / 
+                    shares_per_feed /
                     shares_per_feed.T.groupby(['prod_system','animal']).sum().T.align(shares_per_feed)[0]
                 )
 
@@ -143,13 +143,13 @@ class FeedMgmt():
     def calculate_ration_characteristics(self):
         '''Calculates ration characteristics'''
         for herd in self.herds:
-            
+
             # Set species and breed filters for ParameterRetriever
             self.par.set(
                 species = herd.species,
                 breed = herd.breed
                 )
-            
+
             feed_DM = herd.data_attr.get('feed.consumption')
             # Get dry matter intake [kg DM]
             ration_DM = (
@@ -193,13 +193,13 @@ class FeedMgmt():
         '''Calculate feeds lost during storage and feeding and demand for feed products entering on-farm storage.
         '''
         for herd in self.herds:
-            
+
             # Set species and breed filters for ParameterRetriever
             self.par.set(
                 species = herd.species,
                 breed = herd.breed
                 )
-            
+
             feed_to_feeding = herd.data_attr.get('feed.consumption') * ( 1 / ( 1 - self.par.get_from_frame('feeding_losses', herd.data_attr.get('feed.consumption'))/100 ) )
             feeding_losses = feed_to_feeding - herd.data_attr.get('feed.consumption')
 
@@ -229,7 +229,7 @@ class FeedMgmt():
                 desc = 'Losses of feed during feeding'
             )
 
-          
+
     def calculate_product_demand(self, of='crop_prod'):
 
         # Get Series of crop/by- products or crod residues with feed as index
@@ -265,12 +265,12 @@ class FeedMgmt():
             )
 
             if retrieve_df.shape[1] > 0:
-                
+
                 # Get factors feed --> product
                 feed_to_prod = self.par.get_from_frame('feed_to_prod', retrieve_df)
 
                 if of == 'crop_prod':
-                    
+
                     # Get import shares
                     feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported', retrieve_df)/100
                     feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
@@ -284,7 +284,7 @@ class FeedMgmt():
                         multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
                         .T.groupby(['prod_system','animal',of],sort=False).sum().T
                     )
-                    
+
                     # Combine
                     result_df = pd.concat([
                         pd.concat(
@@ -299,7 +299,7 @@ class FeedMgmt():
                             axis=1
                         )
                     ], axis=1)
-                        
+
                     # Calculate regional demand for crop products
                     feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional', retrieve_df)/100
                     result_df_reg = (
@@ -410,8 +410,8 @@ class FeedMgmt():
         # IMPLEMENT METHOD TO REDISTRIBUTE FEEDS
         # IN ORDER TO ALIGN WITH GENERATED/IMPORTED
         # BY-PRODUCTS
-        pass 
-    
+        pass
+
     def calculate_enteric_methane(self):
 
         idx = pd.IndexSlice
@@ -459,7 +459,7 @@ class FeedMgmt():
                             .T.groupby(['prod_system','animal']).sum().T
                         ) / dry_matter_intake.replace({0:np.nan}) # To avoid div by 0 error
                     ) * 100
-                    
+
 
                     # Calculate Ym (i.e. % of gross energy intake resulting in mtehane emissions)
                     Ym = (-0.046 * concentrate_share + 7.1379)
@@ -480,7 +480,7 @@ class FeedMgmt():
 
             else:
                 # Calculate enteric fermentation based on EFs [kg CH4/animal/year] per animal
-                
+
                 # Calculate enteric methane emissions [kg CH4]
                 enteric_methane = herd.data_attr.get('heads') * self.par.get_from_frame('EF_enteric', herd.data_attr.get('heads'))
 
@@ -503,4 +503,3 @@ class FeedMgmt():
             )
 
             self.par.clear()
-    
