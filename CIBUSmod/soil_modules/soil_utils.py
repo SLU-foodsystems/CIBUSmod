@@ -151,7 +151,7 @@ def make_df_lower(dataframe: pd.DataFrame,
     df.sort_index(inplace=True)
     
     if 1 in mode: # turn index labels lower case
-        if df.index.names[0] == None:
+        if df.index.names[0] is None:
             print('Warning, first index label is None, conversion of index label not possible')
         else:
             idx = df.index
@@ -184,7 +184,7 @@ def make_df_lower(dataframe: pd.DataFrame,
         df.rename(columns=names_dict, inplace = True)
                 
     if  3 in mode: # turn index values lower
-        if df.index.names[0] == None:
+        if df.index.names[0] is None:
             print('Warning, index label is None. No conversion of index values (should be auto-generated ints)')
         else:
             idx = df.index
