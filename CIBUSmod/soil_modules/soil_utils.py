@@ -245,7 +245,7 @@ def map_cin_h_to_dataframe(match_col: str,
                                names=[u'input', 'fraction'])
     output_df = pd.DataFrame(index=output_idx, columns=[output_col_name])
     for i, x in enumerate(input_df[match_col]):
-        crop = input_df.index[i]
+        crop = input_idx[i]
         for y in mapping_df.loc[x].index:
             value = mapping_df.loc[(x, y),:].item()
             output_df.loc[(crop, y), :] = value
