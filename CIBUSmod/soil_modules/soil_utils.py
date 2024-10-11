@@ -196,7 +196,7 @@ def make_df_lower(dataframe: pd.DataFrame,
             df.set_index(labels, inplace=True)
 
     if 4 in mode:  # make data strings lower case
-        if isinstance(df.index, pd.core.indexes.range.RangeIndex):
+        if isinstance(df.index, pd.RangeIndex):
             for i in df.columns:
                 if isinstance(df[i][0], str):
                     df[i] = df[i].str.lower()
