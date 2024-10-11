@@ -14,7 +14,7 @@ import pickle
 from IPython import display
 import numpy as np
 import pandas as pd
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Any, Optional
 import xarray as xr
 
 import CIBUSmod.soil_modules.soil_params as soil_params
@@ -363,11 +363,11 @@ def make_idx_continuous(input_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculate_c_inputs(input_df: pd.DataFrame,
-                       mappings: Tuple[Dict[str, Any], ...],
+                       mappings: Tuple[dict[str, Any], ...],
                        sources: Tuple[str, ...],
                        c_allo_df: Tuple[pd.DataFrame, ...],
                        crop_colname: str = 'crop',
-                       colprefix: Optional[Dict[str, str]] = None,
+                       colprefix: Optional[dict[str, str]] = None,
                        straw_removed: bool = False,
                        verbose=False) -> pd.DataFrame:
     """
@@ -391,7 +391,7 @@ def calculate_c_inputs(input_df: pd.DataFrame,
     -----------
     input_df : pd.DataFrame
         The input DataFrame containing crop and area yield data.
-    mappings : Tuple[Dict[str, Any], ...]
+    mappings : Tuple[dict[str, Any], ...]
         Tuple of dictionaries mapping crops to relevant data.
     sources : Tuple[str, ...]
         Tuple of data sources corresponding to each mapping.
@@ -585,11 +585,11 @@ def alloc_input(H: float,
 
 
 def calculate_c_inputs_vectorized(input_df: pd.DataFrame,
-                                  mapper: Tuple[Dict[str, str], Dict[str, str], ...],
+                                  mapper: Tuple[dict[str, str], dict[str, str], ...],
                                   sources: Tuple[str, ...],
                                   c_allo_df: Tuple[pd.DataFrame, ...],
                                   crop_colname: str = 'crop',
-                                  colprefix: Optional[Dict[str, str]] = None,
+                                  colprefix: Optional[dict[str, str]] = None,
                                   straw_removed: bool = False,
                                   verbose=False) -> pd.DataFrame:
     """
