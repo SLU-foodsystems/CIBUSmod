@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
-from .. utils.misc import multiply_aligned
+from ..utils.misc import multiply_aligned
 
 if TYPE_CHECKING:
     from .demand_and_conversions import DemandAndConversions
@@ -32,7 +32,7 @@ class WasteAndCircularity(object):
             herds: pd.Series,
             par: "ParameterRetriever"
         ):
-        
+
         # Create object for storing data attributes
         self.data_attr = DataAttr(self)
         self.par = par
@@ -288,7 +288,7 @@ class WasteAndCircularity(object):
                 m_list += [m]
 
             manure_dfs.update({
-                i : 
+                i :
                 pd.concat(m_list, axis=1)
                 # Sum duplicates
                 .T.groupby(['feedstock', 'feedstock_group', 'feedstock_type']).sum().T
@@ -364,7 +364,7 @@ def anaerobic_digestion(waste:WasteAndCircularity):
     feedstock_C = waste.data_attr.get('feedstock_C').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
     feedstock_B0 = waste.data_attr.get('feedstock_B0').xs('anaerobic digestion', level='treatment', axis=1, drop_level=False)
 
-    # Calculate volume [Nm3] of generated biogas CH4 and CO2 
+    # Calculate volume [Nm3] of generated biogas CH4 and CO2
     CH4_prod_vol = feedstock_B0 * gf('biogas_CH4_yield', feedstock_B0)/100
     CO2_prod_vol = CH4_prod_vol * (1/(gf('biogas_CH4_frac', CH4_prod_vol)/100) - 1)
 
@@ -510,7 +510,7 @@ def anaerobic_digestion(waste:WasteAndCircularity):
 
             loss_factors_storage = waste.par.get_from_frame('digestate_loss_storage', df)/100
             loss_storage = multiply_aligned(loss_factors_storage, digestate)
-        
+
             if element == 'N':
                 # NOx-N and N2 storage losses are calculated from plant available nitrogen
                 loss_storage.update(
@@ -533,7 +533,7 @@ def anaerobic_digestion(waste:WasteAndCircularity):
             # Calculate and store plant available nitrogen in digestate
             waste.data_attr.get('organic_fertiliser_TAN').loc[:, digestate_to_spread.columns] = \
                 digestate_to_spread * (waste.par.get_from_frame('digestate_TAN_share', digestate_to_spread)/100)
-        
+
 
 def composting(waste:WasteAndCircularity):
     print('NOT IMPLEMENTED!', end=' ')

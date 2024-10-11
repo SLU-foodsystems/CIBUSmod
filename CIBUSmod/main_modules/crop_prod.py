@@ -6,7 +6,7 @@ from ..utils.data_attr import DataAttr
 
 class CropProduction(object):
     '''Main module that handles crop production
-    
+
     Parameters
     ----------
     par : ParameterRetriever object
@@ -20,7 +20,7 @@ class CropProduction(object):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
-        
+
         self.par = par
         self.index = index
 
@@ -90,11 +90,11 @@ class CropProduction(object):
 
     def scale(self,new_x):
         '''Scales all data attributes based on new_x (i.e. areas)
-        
+
         Parameters
         ----------
         new_x : numpy.array or pandas.Series
-        
+
         '''
 
         # Check so that new_x length and index match CropProduction object
@@ -105,7 +105,7 @@ class CropProduction(object):
                 raise TypeError('Index of x does not match index!')
 
         old_x = self.data_attr.get('area')
-        
+
         for attr in self.data_attr:
             if self.data_attr[attr]['scalable']:
                 if self.data_attr.get(attr) is not None:
@@ -114,11 +114,11 @@ class CropProduction(object):
                         name = attr,
                         **self.data_attr[attr]
                     )
-    
+
     def make_static(self):
         '''Returns a StaticCropProduction object that retains all data attributes but
         has no methods or ParameterRetriever'''
-        
+
         obj = StaticCropProduction()
 
         obj.index = self.index.copy()
@@ -138,8 +138,8 @@ class CropProduction(object):
         self.par.clear()
 
         # Get crop products
-        cps = self.par.get_unique('crop_prod') 
-        
+        cps = self.par.get_unique('crop_prod')
+
         # Calculate crop product production
         production = self.par.get_from_frame(
             'crop_to_prod',
@@ -162,9 +162,9 @@ class CropProduction(object):
         self.par.clear()
         p = self.par.get
 
-        # Calculate above and below ground crop residues from 
+        # Calculate above and below ground crop residues from
         # share of harvested DM that are residues multiplied
-        # by DM-fraction and harvest 
+        # by DM-fraction and harvest
         self.par.set(**self.index.to_frame().to_dict('list'))
         crop_residues = (
             pd.DataFrame(
@@ -193,7 +193,7 @@ class CropProduction(object):
         self.par.clear()
 
         # Get crop products
-        cps = self.par.get_unique('crop_prod', qry='parameter == "seed"') 
+        cps = self.par.get_unique('crop_prod', qry='parameter == "seed"')
 
         # Create dataframe and calculate seed demand
         df = pd.DataFrame(index=self.index, columns=pd.Index(cps, name='crop_prod'))
@@ -209,7 +209,7 @@ class CropProduction(object):
         )
 
 class StaticCropProduction():
-    '''Class used to create static copys of animal her objects. These stores all attributes except 'par'
+    '''Class used to create static copys of animal herd objects. These stores all attributes except 'par'
     but does not inherit any methods'''
 
     def __repr__(self):

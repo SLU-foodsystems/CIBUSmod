@@ -27,7 +27,7 @@ class Regions(object):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
-        
+
         self.par = par
 
         # Default settings
@@ -63,7 +63,7 @@ class Regions(object):
         )
 
     def calculate(self, verbose=False):
-        
+
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='Regions')
 
@@ -209,7 +209,7 @@ class Regions(object):
         #     'sandy_clay' : np.array([c22, c25, c23]),
         #     'clay' : np.array([c24, c26, c25, c21, c20])
         # }
-        
+
 
         # Polygons for aggregated soil texture classes
         txt_classes = {
@@ -225,9 +225,9 @@ class Regions(object):
                 txt_classes=txt_classes,
                 axis=1
             )
-        
+
         soil_texture = soil['texture class']
-        
+
         # Add data attribute
         self.data_attr.add(
             soil_texture,
@@ -239,7 +239,7 @@ class Regions(object):
         )
 
     def classify_soil_PK(self, element):
-        
+
         classes_def = {
             # Soil P classes (up to x mg/kg)
             'P' : {
@@ -271,7 +271,7 @@ class Regions(object):
             soil[f'{element}_class'] = soil[f'{element}_class'].where((soil[f'{element}_AL']>v) | ~soil[f'{element}_class'].isna(), k)
 
         soil_class = soil[f'{element}_class']
-        
+
         # Add data attribute
         self.data_attr.add(
             soil_class,
@@ -307,7 +307,7 @@ class Regions(object):
 
         # Calculate maximum land use
         max_land_use = lu * self.par.get_from_frame('max_land_use_factor',lu)
-        
+
         # Add data attribute
         self.data_attr.add(
             max_land_use,
