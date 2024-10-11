@@ -5,16 +5,16 @@ from .animal_herd import AnimalHerd
 
 class SheepHerd(AnimalHerd):
     AnimalHerd.__doc__.replace('animal','sheep')
-    
+
     def __init__(self,par,index,**kwargs):
-        
+
         self.species = 'sheep'
         self.animals = ['ewes','rams','lambs']
 
         self.x_is = 'ewes+rams'
-        
+
         super().__init__(par,index,**kwargs)
-    
+
     def calculate_herd(self):
         '''Calculates sheep herd structure and slaughters as a fraction of the number of ewes.
         '''
@@ -30,7 +30,7 @@ class SheepHerd(AnimalHerd):
         )
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
-        
+
         idx_len = len(self.index)
 
         # Calculate number of ewes and rams
@@ -70,11 +70,11 @@ class SheepHerd(AnimalHerd):
             dtype = 'float64'
             )
         heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
-        # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals) 
+        # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
         for ps in pss:
             sel = range(n*idx_len, (n+1)*idx_len)
-            
+
             heads.loc[:,(ps,slice(None))] = \
                 np.array([
                     ewes[sel],
@@ -95,7 +95,7 @@ class SheepHerd(AnimalHerd):
                         rams_to_slaughter[sel],
                         lambs_to_slaughter[sel]
                     ]).T
-    
+
             lost_n.loc[:,(ps,slice(None))] = \
                     np.array([
                         ewes_lost[sel],
@@ -137,7 +137,7 @@ class SheepHerd(AnimalHerd):
 
     def calculate_feed_DM_req(self,ps,ani):
         '''Calculates feed DM requirements from fixed intake per head or lifetime'''
-        
+
         p = self.par.get
 
         if ani == 'lambs':
