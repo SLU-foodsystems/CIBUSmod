@@ -4,7 +4,6 @@ import numpy as np
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
-from ..utils.misc import multiply_aligned
 from ..utils.retriever import ParameterRetriever
 
 ixsl = pd.IndexSlice
