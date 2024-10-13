@@ -201,7 +201,7 @@ class InputsMgmt(object):
     def calculate_emissions(self, module, attr:str, inputs_in_col:str):
     
         data = module.data_attr.get(attr)
-        if type(data.columns) == pd.Index:
+        if type(data.columns) is pd.Index:
             data.columns = index_to_multi(data.columns)
         
         # Add compunds to input use dataframe
