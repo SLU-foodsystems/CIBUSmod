@@ -617,8 +617,8 @@ class PlantNutrientMgmt():
 
             self.par.clear()
             org_fert_long = (
-                self.crops.data_attr.get(f'fertiliser.organic_N') -
-                self.crops.data_attr.get(f'fertiliser.organic_TAN')
+                self.crops.data_attr.get('fertiliser.organic_N') -
+                self.crops.data_attr.get('fertiliser.organic_TAN')
             ).mul(
                 self.par.get('N_resid_organic', **self.crops.data_attr.get(f'fertiliser.organic_N').columns.to_frame().to_dict('list'))/100,
                 axis = 1
