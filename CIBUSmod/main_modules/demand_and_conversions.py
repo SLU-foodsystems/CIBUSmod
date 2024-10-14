@@ -425,6 +425,8 @@ class StaticDemandAndConversions():
     '''Class used to create static copy of DemandAndConversions object. These stores all attributes except 'par'
     but does not inherit any methods'''
 
+    data_attr: DataAttr
+
     def __repr__(self):
         return DemandAndConversions.__repr__(self)
 
