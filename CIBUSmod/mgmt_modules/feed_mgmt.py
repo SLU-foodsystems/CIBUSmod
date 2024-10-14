@@ -18,8 +18,8 @@ class FeedMgmt():
 
     Parameters
     ----------
-    herds : (pandas.Series of) AnimalHerd object(s)
-    par : ParameterRetriever object
+    herds: (pandas.Series of) AnimalHerd object(s)
+    par: ParameterRetriever object
     '''
 
     def __init__(self, herds: AnimalHerd | list | pd.Series, par: ParameterRetriever):

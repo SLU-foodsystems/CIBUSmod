@@ -26,6 +26,7 @@ from .mgmt_modules.byprod_mgmt import ByProductMgmt
 
 # Import geo distiributor
 from .optimisation.geo_dist import GeoDistributor
+from .optimisation.feed_dist import FeedDistributor
 
 # Import module with impact assessment functions
 from . import impact
