@@ -238,9 +238,9 @@ def alloc_helper(name_df=False,
     # Create dfs with the allometric function parameters or allocation factors
     if not isinstance(allo1_df, pd.DataFrame):
         c_allo1_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_allom_andren2004.csv', index_col=0, decimal=','))
-    else: 
-        c_allo1__df = utils.make_df_lower(allo1_df)
-    
+    else:
+        c_allo1_df = utils.make_df_lower(allo1_df)
+
     if not isinstance(allo2_df, pd.DataFrame):
         c_allo2_df = utils.make_df_lower(pd.read_csv(f'{soil_input_path}/c_alloc_jacobs2020.csv', index_col=0, usecols=['Crop', 'i_ag', 'i_bg'], decimal=','))
     else:
