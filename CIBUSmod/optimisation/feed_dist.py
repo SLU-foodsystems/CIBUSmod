@@ -22,6 +22,22 @@ class Constraint(TypedDict):
     rel: Literal['==', '>=', '<=']
     pars: dict
 
+def make_cvxpy_constraint(cons: Constraint, x: cvxpy.Variable) -> cvxpy.Constraint:
+    """
+    Convert a Constraint-dict to a cvxpy.Constraint instant
+    """
+    operators = {
+        '==' : lambda left, right: left == right,
+        '>=' : lambda left, right: left >= right,
+        '<=' : lambda left, right: left <= right,
+    }
+    left = cons['left']
+    right = cons['right']
+    rel = cons['rel']
+    pars = cons['pars']
+
+    return operators[rel](left(x, **pars), right(**pars))
+
 class FeedDistributor:
     '''Class that handles the distribution of animals, crops and feeds across regions for a given
     demand and a number of constraints by minimising deviation from an initial distribution
@@ -443,19 +459,8 @@ class FeedDistributor:
         ))
 
         # Append constraints
-        constraints = []
-        operators = {
-            '==' : lambda left, right: left == right,
-            '>=' : lambda left, right: left >= right,
-            '<=' : lambda left, right: left <= right,
-        }
-        for cons in self.constraints.values():
-            left = cons['left']
-            right = cons['right']
-            rel = cons['rel']
-            pars = cons['pars']
-
-            constraints.append(operators[rel](left(x, **pars), right(**pars)))
+        constraints = [make_cvxpy_constraint(cons, x)
+                       for cons in self.constraints.values()]
 
         # Define problem
         self.problem = cvxpy.Problem(
