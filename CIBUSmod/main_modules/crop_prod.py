@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+from CIBUSmod.utils.retriever import ParameterRetriever
+
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 
@@ -16,7 +18,7 @@ class CropProduction(object):
 
     module_name = 'CropProduction'
 
-    def __init__(self,par,index):
+    def __init__(self, par: ParameterRetriever, index: pd.Index | pd.MultiIndex):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
@@ -211,6 +213,9 @@ class CropProduction(object):
 class StaticCropProduction():
     '''Class used to create static copys of animal herd objects. These stores all attributes except 'par'
     but does not inherit any methods'''
+
+    index: pd.Index | pd.MultiIndex
+    data_attr: DataAttr
 
     def __repr__(self):
         return CropProduction.__repr__(self)
