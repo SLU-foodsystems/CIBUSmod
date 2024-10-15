@@ -87,7 +87,6 @@ class Regions(object):
         vprint(type='end')
 
     def get_x0(self):
-
         # Get x0_crops
         self.par.clear()
         cps_pss = self.par.get_unique(['crop','prod_system'], qry='parameter == "x0_crops"').values

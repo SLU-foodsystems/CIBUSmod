@@ -81,6 +81,13 @@ class FeedDistributor:
         self.herds = herds
         self.feed_mgmt = feed_mgmt
 
+    def reset(self):
+        self.x = None
+        self.success = False
+        self.constraints = dict()
+        self.objective = dict()
+        self.problem = None
+
     def make(
             self,
             use_cons: list|str,
@@ -119,11 +126,7 @@ class FeedDistributor:
         vprint = verbose_init(verbose, id_str="FeedDistributor.make")
 
         # Reset problem definitions and solution
-        self.success = False
-        self.constraints = dict()
-        self.objective = dict()
-        self.problem = None
-        self.x = None
+        self.reset()
 
         if not isinstance(use_cons, list):
             use_cons = [use_cons]
