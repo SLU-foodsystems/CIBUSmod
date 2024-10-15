@@ -2,6 +2,9 @@ import warnings
 import pandas as pd
 import numpy as np
 
+from CIBUSmod.main_modules.animal_herd import AnimalHerd
+from CIBUSmod.utils.retriever import ParameterRetriever
+
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, fix_herds
 
@@ -17,12 +20,9 @@ class FeedMgmt():
     par : ParameterRetriever object
     '''
 
-    def __init__(self,herds,par):
-
+    def __init__(self, herds: AnimalHerd | list | pd.Series, par: ParameterRetriever):
         self.par = par
-
-        self.herds = fix_herds(herds)
-
+        self.herds: pd.Series = fix_herds(herds)
         self.index = list(self.herds)[0].index
 
     def check_index(self):
