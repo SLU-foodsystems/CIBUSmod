@@ -1,3 +1,4 @@
+from typing import Literal
 import warnings
 import pandas as pd
 import numpy as np
@@ -234,8 +235,9 @@ class FeedMgmt():
             )
 
 
-    def calculate_product_demand(self, of='crop_prod'):
-
+    def calculate_product_demand(
+        self, of: Literal["crop_prod", "crop_resid", "by_prod"]
+    ):
         # Get Series of crop/by- products or crop residues with feed as index
         prs = self.par.get_unique(['feed',of]).set_index('feed')[of]
 
