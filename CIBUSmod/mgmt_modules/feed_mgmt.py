@@ -28,13 +28,13 @@ class FeedMgmt():
         self.index = list(self.herds)[0].index
 
     def check_index(self):
-        if len(self.herds)>0:
-            for n in range(len(self.herds)-1):
-                if (self.herds[n].index != self.herds[n+1].index).any():
-                    raise Exception('Indexes does not match across herds!')
+        if len(self.herds) == 0:
+            return
+        for n in range(len(self.herds)-1):
+            if (self.herds[n].index != self.herds[n+1].index).any():
+                raise Exception('Indexes does not match across herds!')
 
     def calculate(self, verbose=False):
-
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='FeedMgmt')
 
@@ -57,7 +57,6 @@ class FeedMgmt():
         vprint(type='end')
 
     def calculate2(self, verbose=False):
-
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='FeedMgmt')
 
@@ -74,15 +73,15 @@ class FeedMgmt():
 
 
     def calculate_feed_consumption(self):
-        '''Calculates energy requirements per animal and from this + defined feed rations the total demand for feeds per animal.'''
+        '''Calculates energy requirements per animal and from this + defined feed
+        rations the total demand for feeds per animal.'''
 
         for herd in self.herds:
-
             # Set species and breed filters for ParameterRetriever
             self.par.set(
                 species = herd.species,
                 breed = herd.breed
-                )
+            )
 
             # Get ouput production systems
             pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()

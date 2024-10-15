@@ -38,6 +38,9 @@ def make_cvxpy_constraint(cons: Constraint, x: cvxpy.Variable) -> cvxpy.Constrai
 
     return operators[rel](left(x, **pars), right(**pars))
 
+
+
+
 class FeedDistributor:
     '''Class that handles the distribution of animals, crops and feeds across regions for a given
     demand and a number of constraints by minimising deviation from an initial distribution
@@ -90,7 +93,7 @@ class FeedDistributor:
 
     def make(
             self,
-            use_cons: list|str,
+            use_cons: list | str,
             scale_power: float = 0.4,
             scale_cutoff_percentile: float = 99,
             verbose: bool = False,
@@ -140,7 +143,7 @@ class FeedDistributor:
         self.get_x0()
 
         vprint('Creating demand vector ...')
-        self.get_demand()
+        self.make_demand()
 
         vprint('Calculating scaling factors ...')
         # Calculate scaling factors
@@ -155,15 +158,18 @@ class FeedDistributor:
 
         # Make constraints
         for nr in use_cons:
-            fun = getattr(self,'make_C'+nr)
-            vprint(f'Making constraint C{nr} ...')
+            fun = getattr(self, f'make_C{nr}')
+            vprint(f'Making constraint C{nr}...')
             fun(
-                **{k:v for k,v in kwargs.items() if 'C'+nr in k}
+                **{k:v for k,v in kwargs.items() if f'C{nr}' in k}
             )
 
         # If C7 not included no variables are dropped
         if '7' not in use_cons:
-            self.x_idx_short = {'ani':self.x_idx['ani'].copy(), 'crp':self.x_idx['crp'].copy()}
+            self.x_idx_short = {
+                'ani':self.x_idx['ani'].copy(),
+                'crp':self.x_idx['crp'].copy()
+            }
 
         vprint(type='end')
 
@@ -183,19 +189,19 @@ class FeedDistributor:
             # from x0 for crops with small areas, but a low tolerance increases time to find solution.
             solver_settings:dict|list = [
                 {
-                    'solver' : 'GUROBI',
-                    'verbose' : False
+                    'solver': 'GUROBI',
+                    'verbose': False
                 },
                 # {
-                #     'solver' : 'OSQP',
-                #     'max_iter' : 200000,
-                #     'eps_abs' : 5e-6,
-                #     'eps_rel' : 5e-6,
-                #     'verbose' : False
+                #     'solver': 'OSQP',
+                #     'max_iter': 200000,
+                #     'eps_abs': 5e-6,
+                #     'eps_rel': 5e-6,
+                #     'verbose': False
                 # }
             ],
-            apply_solution:bool = True,
-            verbose:bool = False
+            apply_solution: bool = True,
+            verbose: bool = False
             ) -> None:
         '''Solve optimisation problem
 
@@ -267,11 +273,11 @@ class FeedDistributor:
             x = self.problem.variables()[0].value
             # Put xs on short index (!= index if C7 is used) and reindex
             self.x = {
-                'ani' : pd.Series(
+                'ani': pd.Series(
                     x[:len(self.x_idx_short['ani'])],
                     index = self.x_idx_short['ani']
                 ).reindex(self.x_idx['ani'], fill_value=0),
-                'crp' : pd.Series(
+                'crp': pd.Series(
                     x[len(self.x_idx_short['ani']):],
                     index = self.x_idx_short['crp']
                 ).reindex(self.x_idx['crp'], fill_value=0)
@@ -305,7 +311,7 @@ class FeedDistributor:
         return None
 
     def matrices(self):
-        mats = {'OBJ.P1' : self.P1}
+        mats = {'OBJ.P1': self.P1}
         mats.update(
             {f'{cn[:cn.index(":")]}.{mn}':m for cn,c in self.constraints.items()
             for mn,m in c['pars'].items()
@@ -344,8 +350,8 @@ class FeedDistributor:
     def get_x0(self):
         # Get x0
         self.x0 = {
-            'ani' : self.regions.data_attr.get('x0_animals').copy(),
-            'crp' : self.regions.data_attr.get('x0_crops').copy()
+            'ani': self.regions.data_attr.get('x0_animals').copy(),
+            'crp': self.regions.data_attr.get('x0_crops').copy()
         }
 
 
@@ -369,8 +375,9 @@ class FeedDistributor:
             'crp': self.x0['crp'].index
         }
 
-    def get_demand(self):
+    def make_demand(self):
         '''
+        Calculates and sets the demand-matrix (D) and its index (D_idx).
         '''
         self.D = {
           'ani': self.demand.data_attr.get('animal_prod_demand').sum(axis=1),
@@ -436,8 +443,7 @@ class FeedDistributor:
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
             np.concatenate([
-                (self.x0[k] * self.scale_f[k])
-                .reindex(self.x0_idx[k])
+                (self.x0[k] * self.scale_f[k]).reindex(self.x0_idx[k])
                 for k in ['ani','crp']
             ])
         )
@@ -454,7 +460,7 @@ class FeedDistributor:
             ])
         )
 
-        n = len(self.x_idx_short['ani'])+len(self.x_idx_short['crp'])
+        n = len(self.x_idx_short['ani']) + len(self.x_idx_short['crp']) + len(self.x_idx_short['feeds'])
         x = cvxpy.Variable(n, nonneg=True)
 
         objective = cvxpy.Minimize(cvxpy.sum_squares(
@@ -499,17 +505,17 @@ class FeedDistributor:
 
         A1 = IndexedMatrix(
             matrix=A1,
-            row_idx={'ani':A1_1.rows, 'crp':A1_2.rows},
-            col_idx={'ani':A1_1.cols, 'crp':A1_3.cols}
+            row_idx={ 'ani': A1_1.rows, 'crp': A1_2.rows },
+            col_idx={ 'ani': A1_1.cols, 'crp': A1_3.cols }
         )
         b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
 
         # Append constraint
         self.constraints.update({'C1: A1 @ x == b1' : {
-            'left' : lambda x,A1,b1: A1.M @ x,
-            'right' : lambda A1,b1: b1,
-            'rel' : '==',
-            'pars' : {'A1':A1, 'b1':b1}
+            'left': lambda x,A1,b1: A1.M @ x,
+            'right': lambda A1,b1: b1,
+            'rel': '==',
+            'pars': { 'A1':A1, 'b1':b1 }
         }})
 
     def make_C2(self):
@@ -536,10 +542,10 @@ class FeedDistributor:
 
         # Append constraint
         self.constraints.update({'C2: A2 @ x >= 0' : {
-            'left' : lambda x,A2: A2.M @ x,
-            'right' : lambda A2: 0,
-            'rel' : '>=',
-            'pars' : {'A2':A2}
+            'left': lambda x,A2: A2.M @ x,
+            'right': lambda A2: 0,
+            'rel': '>=',
+            'pars': { 'A2':A2 }
         }})
 
     def make_C3(self):
@@ -562,10 +568,10 @@ class FeedDistributor:
 
         # Append constraint
         self.constraints.update({'C3: A3 @ x <= b3' : {
-            'left' : lambda x,A3,b3: A3.M @ x,
-            'right' : lambda A3,b3: b3,
-            'rel' : '<=',
-            'pars' : {'A3':A3, 'b3':b3}
+            'left': lambda x,A3,b3: A3.M @ x,
+            'right': lambda A3,b3: b3,
+            'rel': '<=',
+            'pars': { 'A3':A3, 'b3':b3 }
         }})
 
     def make_C4(self):
@@ -582,10 +588,10 @@ class FeedDistributor:
 
         # Append constraint
         self.constraints.update({'C4: A4 @ x <= 0' : {
-            'left' : lambda x,A4: A4.M @ x,
-            'right' : lambda A4: 0,
-            'rel' : '<=',
-            'pars' : {'A4':A4}
+            'left': lambda x,A4: A4.M @ x,
+            'right': lambda A4: 0,
+            'rel': '<=',
+            'pars': { 'A4':A4 }
         }})
 
     def make_C5(self):
@@ -616,10 +622,10 @@ class FeedDistributor:
 
         # Append constraint
         self.constraints.update({'C5: A5 @ x <= 0' : {
-            'left' : lambda x,A5: A5.M @ x,
-            'right' : lambda A5: 0,
-            'rel' : '<=',
-            'pars' : {'A5':A5}
+            'left': lambda x,A5: A5.M @ x,
+            'right': lambda A5: 0,
+            'rel': '<=',
+            'pars': { 'A5':A5 }
         }})
 
     def make_C6(self):
@@ -643,7 +649,7 @@ class FeedDistributor:
             'left' : lambda x,A6: A6.M @ x,
             'right' : lambda A6: 0,
             'rel' : '<=',
-            'pars' : {'A6':A6}
+            'pars' : { 'A6':A6 }
         }})
 
     def make_C7(self) -> None:
@@ -776,10 +782,10 @@ class FeedDistributor:
         '''
 
         pars = {
-            'C8_crp' : C8_crp,
-            'C8_ani' : C8_ani,
-            'C8_rel' : C8_rel,
-            'C8_tol' : C8_tol
+            'C8_crp': C8_crp,
+            'C8_ani': C8_ani,
+            'C8_rel': C8_rel,
+            'C8_tol': C8_tol
         }
         pars_len = {p : len(pars[p]) if isinstance(pars[p],list) else 0 for p in pars}
         pars_len_max = max(max(pars_len.values()),1)
@@ -826,10 +832,10 @@ class FeedDistributor:
 
                 # Lower bound
                 self.constraints.update({f'C8_{str(i+n_def)}(low): A8 @ x >= b8 * (1-tol)' : {
-                    'left' : lambda x,A8,b8,tol: A8.M @ x,
-                    'right' : lambda A8,b8,tol: b8 * (1-tol),
-                    'rel' : '>=',
-                    'pars' : {'A8':A8, 'b8':b8, 'tol':tol}
+                    'left': lambda x,A8,b8,tol: A8.M @ x,
+                    'right': lambda A8,b8,tol: b8 * (1-tol),
+                    'rel': '>=',
+                    'pars': {'A8':A8, 'b8':b8, 'tol':tol}
                 }})
                 # Upper bound
                 self.constraints.update({f'C8_{str(i+n_def)}(upp): A8 @ x <= b8 * (1+tol)' : {
@@ -937,18 +943,18 @@ class FeedDistributor:
                     }})
                     # Upper bound
                     self.constraints.update({f'C9_{str(i+n_def)}(upp): A9 @ x <= b9 * (1+tol)' : {
-                        'left' : lambda x,A9,b9,tol: A9.M @ x,
-                        'right' : lambda A9,b9,tol: b9 * (1+tol),
-                        'rel' : '<=',
-                        'pars' : {'A9':A9, 'b9':b9, 'tol':tol}
+                        'left': lambda x,A9,b9,tol: A9.M @ x,
+                        'right': lambda A9,b9,tol: b9 * (1+tol),
+                        'rel': '<=',
+                        'pars': {'A9':A9, 'b9':b9, 'tol':tol}
                     }})
 
                 else:
                     self.constraints.update({f'C9_{str(i+n_def)}: A9 @ x {rel} b9' : {
-                        'left' : lambda x,A9,b9: A9.M @ x,
-                        'right' : lambda A9,b9: b9,
-                        'rel' : rel,
-                        'pars' : {'A9':A9, 'b9':b9}
+                        'left': lambda x,A9,b9: A9.M @ x,
+                        'right': lambda A9,b9: b9,
+                        'rel': rel,
+                        'pars': {'A9':A9, 'b9':b9}
                     }})
             else:
                 raise ValueError("Both 'C9_crp' and 'C9_ani' were None")
@@ -974,9 +980,9 @@ class FeedDistributor:
         ], format='csc')
 
         return IndexedMatrix(
-            matrix=P1,
-            row_idx={'ani':P1_1.rows, 'crp':P1_2.rows},
-            col_idx={'ani':P1_1.cols, 'crp':P1_2.cols}
+            matrix = P1,
+            row_idx = { 'ani':P1_1.rows, 'crp':P1_2.rows },
+            col_idx = { 'ani':P1_1.cols, 'crp':P1_2.cols }
         )
 
     def make_A1_1(self):
