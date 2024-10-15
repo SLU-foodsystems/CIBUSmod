@@ -6,8 +6,10 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, fix_herds
 
 class FeedMgmt():
-    '''Class that that calculates ammount of 'crop products' or 'by-products' needed for a certain demand of 'feed'
-    accounting far all losses between harvest/prouction and final cosnumption by the animals.
+    '''
+    Class that that calculates ammount of 'crop products' or 'by-products' needed for a
+    certain demand of 'feed' accounting far all losses between harvest/prouction and
+    final consumption by the animals.
 
     Parameters
     ----------
