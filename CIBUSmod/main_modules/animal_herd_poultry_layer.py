@@ -220,10 +220,8 @@ class LayerHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def calculate_feed_DM_req(self,ps,ani):
-
+    def _calculate_feed_req(self,ps,ani):
         p = self.par.get
-
         feed_req = p('feed_per_head')
 
-        return feed_req
+        return ("DM", feed_req)

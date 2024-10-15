@@ -210,12 +210,15 @@ class PigHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def calculate_feed_E_req(self,ps,ani):
+    def _calculate_feed_req(self,ps,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
         [1] Simonsson, A. (2006). Fodermedel och näringsrekommendationer för gris. HUV Rapport 266. SLU
         [2] Göransson, L., Lindberg, J.E. (2011). Näringsrekommendationer ver. 2011.1 - Energi'''
+        # TODO: live_weight and growth_rate are possible unbound here.
 
         p = self.par.get
+
+        E_req = None
 
         # Get average live weight [kg] and growth rate [kg/day]
         if ani in ['sows','boars']:
@@ -253,6 +256,9 @@ class PigHerd(AnimalHerd):
         if ani in ['growing pigs','finishing pigs']:
             E_req = p('feed_energy_per_growth') * growth_rate * 365.25
 
+        if E_req is None:
+            raise AssertionError("Reached end of function without defining E_req.")
+
         E_req = np.nan_to_num(E_req)
 
-        return E_req
+        return ("E", E_req)

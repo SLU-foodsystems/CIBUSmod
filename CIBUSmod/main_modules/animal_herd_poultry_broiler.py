@@ -178,7 +178,7 @@ class BroilerHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def calculate_feed_DM_req(self,ps,ani):
+    def _calculate_feed_req(self,ps,ani):
 
         p = self.par.get
 
@@ -192,4 +192,5 @@ class BroilerHerd(AnimalHerd):
         else:
             feed_req = p('feed_per_animal') / ( p('slaughter_age') / 365.25 )
 
-        return feed_req
+
+        return ("DM", feed_req)
