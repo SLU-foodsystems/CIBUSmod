@@ -167,6 +167,8 @@ class FeedMgmt():
                 pars = ['N','P','K','ASH','GE','DE']
             elif herd.species == 'poultry':
                 pars = ['N','P','K','ASH','GE','AME']
+            else:
+                raise ValueError(f"Received unexpected species of herd: {herd.species}")
 
             for par in pars:
                 res = (
