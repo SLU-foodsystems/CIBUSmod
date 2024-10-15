@@ -319,10 +319,12 @@ Parameters
         try:
             result['value'] = self.get(parameter,**filters,**kwargs)
         except ValueError:
-            # remove all filters with lengt > 1 and try again
+            # remove all filters with length > 1 and try again
             for key in list(self.filters):
                 if len(self.filters[key])>1:
                     self.filters.pop(key, None)
+            # TODO Does this actually work? I.e. we refer to filters here, instead of
+            # self.filters. Potential bug.
             result['value'] = self.get(parameter,**filters,**kwargs)
 
         result = result.pivot(index=row_names,columns=col_names,values='value')
