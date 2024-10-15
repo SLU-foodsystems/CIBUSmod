@@ -236,7 +236,7 @@ class FeedMgmt():
 
     def calculate_product_demand(self, of='crop_prod'):
 
-        # Get Series of crop/by- products or crod residues with feed as index
+        # Get Series of crop/by- products or crop residues with feed as index
         prs = self.par.get_unique(['feed',of]).set_index('feed')[of]
 
         if (of != 'crop_prod') and (len(self.par.get_unique(of, 'parameter == "share_imported"')) > 0):
