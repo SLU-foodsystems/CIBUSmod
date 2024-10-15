@@ -74,9 +74,8 @@ def index_to_multi(obj: pd.Index | pd.DataFrame | pd.Series) -> pd.MultiIndex | 
 def fix_herds(herds : "AnimalHerd | list | pd.Series") -> pd.Series:
     '''Convert herds to pd.Series if list or AnimalHerd object supplied and check index
     across AnimalHerd objects'''
-    if isinstance(herds, pd.Series):
-        herds = herds
-    else:
+    # Convert to a pd.Series if not done already
+    if not isinstance(herds, pd.Series):
         if not isinstance(herds, list):
             herds = [herds]
         herds = pd.Series(
