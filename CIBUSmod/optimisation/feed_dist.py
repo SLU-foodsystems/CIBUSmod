@@ -461,17 +461,22 @@ class FeedDistributor:
             ]
         )
 
-        x0 = pd.concat((self.x0["ani"], self.x0["crp"])) * rn.values
+        # Compute sf without taking fds into account, as we don't want it to affect the
+        # means.
+        x0 = pd.concat([self.x0["ani"], self.x0["crp"]]) * rn.values
         sf = x0.mean() / x0
         cutoff_value = np.percentile(sf.loc[sf != np.inf], cutoff_percentile)
         sf.loc[sf > cutoff_value] = cutoff_value
         sf = sf**scale_power
 
         f = rn.values * sf.values
-        assert np.isfinite(f).all()
+        assert np.isfinite(f).all(), "Non-finite values encountered in scaling factors"
 
-        scale_f["ani"].iloc[:] = f[: len(scale_f["ani"])]
-        scale_f["crp"].iloc[:] = f[len(scale_f["ani"]) :]
+        (n_ani, n_crp) = (len(scale_f["ani"]), len(scale_f["crp"]))
+        # Write back the values to scale_f
+        scale_f["ani"].iloc[:] = f[:n_ani]
+        scale_f["crp"].iloc[:] = f[n_ani : n_ani + n_crp]
+        scale_f["fds"].iloc[:] = 0
         self.scale_f = scale_f
 
     def get_cvx_problem(self):
@@ -480,7 +485,7 @@ class FeedDistributor:
             np.concatenate(
                 [
                     (self.x0[k] * self.scale_f[k]).reindex(self.x0_idx[k])
-                    for k in ["ani", "crp"]
+                    for k in ["ani", "crp", "fds"]
                 ]
             )
         )
@@ -515,11 +520,16 @@ class FeedDistributor:
                         )
                     ),
                     self.scale_f["crp"].reindex(self.x_idx_short["crp"]),
+                    self.scale_f["fds"].reindex(self.x_idx_short["fds"]),
                 ]
             )
         )
 
-        n = len(self.x_idx_short["ani"]) + len(self.x_idx_short["crp"])
+        n = (
+            len(self.x_idx_short["ani"])
+            + len(self.x_idx_short["crp"])
+            + len(self.x_idx_short["fds"])
+        )
         x = cvxpy.Variable(n, nonneg=True)
 
         objective = cvxpy.Minimize(
@@ -1098,19 +1108,31 @@ class FeedDistributor:
         P1_1 = self.make_P1_1()
         # x['crp'] --> x0['crp']
         P1_2 = self.make_P1_2()
+        # x['fds'] --> 0
+        P1_3 = self.make_P1_3()
 
+        # P1 needs to be a square matrix, with each side the length of x
         P1 = scipy.sparse.vstack(
             [
                 scipy.sparse.hstack(
                     [
                         P1_1.M,
                         scipy.sparse.csc_matrix((P1_1.M.shape[0], P1_2.M.shape[1])),
+                        scipy.sparse.csc_matrix((P1_1.M.shape[0], P1_3.M.shape[1])),
                     ]
                 ),
                 scipy.sparse.hstack(
                     [
                         scipy.sparse.csc_matrix((P1_2.M.shape[0], P1_1.M.shape[1])),
                         P1_2.M,
+                        scipy.sparse.csc_matrix((P1_2.M.shape[0], P1_3.M.shape[1])),
+                    ]
+                ),
+                scipy.sparse.hstack(
+                    [
+                        scipy.sparse.csc_matrix((P1_3.M.shape[0], P1_1.M.shape[1])),
+                        scipy.sparse.csc_matrix((P1_3.M.shape[0], P1_2.M.shape[1])),
+                        P1_3.M,
                     ]
                 ),
             ],
@@ -1808,6 +1830,10 @@ class FeedDistributor:
         return M
 
     def make_P1_1(self):
+        """
+        Creates the P_{1,1} matrix, which is an identity matrix of size len(x0['ani'])
+        as x0['ani'].index == x['ani'].index
+        """
         # Get row index from x0['ani'] (sp,br,ps,re)
         row_idx = self.x0_idx["ani"]
         # Get col index from animal herds (sp,br,ps,ss,re)
@@ -1830,7 +1856,9 @@ class FeedDistributor:
         return M
 
     def make_P1_2(self):
-        """Creates P1,2 matrix. That is an identity matrix of size len(x0['crp']) as x0['crp'].index == x['crp'].index"""
+        """
+        Creates the P_{1,2} matrix, which is an identity matrix of size len(x0['crp']) as x0['crp'].index == x['crp'].index
+        """
         # Get row index from x0['crp'] (cr,ps,re)
         row_idx = self.x0_idx["crp"]
         # Get row index from x['crp'] (cr,ps,re)
@@ -1850,6 +1878,32 @@ class FeedDistributor:
             col_idx,
         )
 
+        return M
+
+    def make_P1_3(self):
+        """
+        Creates the P_{1,3} matrix, which is a zero-value matrix covering x['feed'].
+        This, as we do not want to include the feeds in the optimisation target.
+        """
+
+        # Get row index from x0['crp'] (f,sp,br,ps,ss,re)
+        row_idx = self.x0_idx["fds"]
+        # Get row index from x['crp'] (f,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
+
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = [0] * len(col_idx)
+        col_nr = list(range(len(col_idx)))
+        row_nr = [row_idx.get_loc(row_loc) for row_loc in col_idx]
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.coo_array(
+                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+            ).tocsc(),
+            row_idx,
+            col_idx,
+        )
         return M
 
     def allocate_crop_production_per_use(self):
