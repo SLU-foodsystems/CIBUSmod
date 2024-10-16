@@ -368,8 +368,22 @@ class FeedDistributor:
                 names=["species", "breed", "prod_system", "sub_system", "region"],
             ),
             "crp": self.crops.index.copy(),
-            # TODO
-            # 'feeds': self.feeds.index.copy(),
+            "fds": pd.MultiIndex.from_tuples(
+                [
+                    (f, sp, br, ps, ss, re)
+                    for (sp, br, ps, ss) in self.herds.index
+                    for re in self.herds[(sp, br, ps, ss)].index
+                    for f in self.herds[(sp, br, ps, ss)].par.get_unique("feed")
+                ],
+                names=[
+                    "feed",
+                    "species",
+                    "breed",
+                    "prod_system",
+                    "sub_system",
+                    "region",
+                ],
+            ),
         }
 
         # Sort x0['ani'] to match x['ani']
