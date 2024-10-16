@@ -1,3 +1,4 @@
+from itertools import product
 from typing import Literal
 import warnings
 import pandas as pd
@@ -94,11 +95,11 @@ class FeedMgmt():
             df_feeds = pd.DataFrame(
                 index = herd.index,
                 columns = pd.MultiIndex.from_tuples(
-                    [(ps,ani,fe) for ps in pss for ani in anis for fe in fes],
+                    list(product(pss, anis, fes)),
                     names=['prod_system','animal','feed']
-                    ),
-                    dtype = float
-                )
+                ),
+                dtype = float
+            )
 
             # Get feed rations
             shares_per_feed = herd.par.get_from_frame('share_in_ration',df_feeds)/100
