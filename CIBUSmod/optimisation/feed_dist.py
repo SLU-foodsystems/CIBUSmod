@@ -158,7 +158,7 @@ class FeedDistributor:
 
         # Make objective function(s)
         vprint("Making objective O1 ...")
-        self.P1 = self.make_O1()
+        self.P1 = self.make_P1()
 
         # Make constraints
         for nr in use_cons:
@@ -1090,7 +1090,7 @@ class FeedDistributor:
 
         return None
 
-    def make_O1(self):
+    def make_P1(self):
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
         # x['crp'] --> x0['crp']
