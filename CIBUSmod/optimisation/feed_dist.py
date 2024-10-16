@@ -351,12 +351,6 @@ class FeedDistributor:
             self.adjust_crop_allocation()
 
     def make_x0(self):
-        # Get x0
-        self.x0 = {
-            "ani": self.regions.data_attr.get("x0_animals").copy(),
-            "crp": self.regions.data_attr.get("x0_crops").copy(),
-        }
-
         # Define index for x
         self.x_idx = {
             "ani": pd.MultiIndex.from_tuples(
@@ -386,6 +380,13 @@ class FeedDistributor:
             ),
         }
 
+        # Get x0
+        self.x0 = {
+            "ani": self.regions.data_attr.get("x0_animals").copy(),
+            "crp": self.regions.data_attr.get("x0_crops").copy(),
+            "fds": pd.Series(data=0, index=self.x_idx["fds"]),
+        }
+
         # Sort x0['ani'] to match x['ani']
         self.x0["ani"] = self.x0["ani"].loc[
             self.x_idx["ani"].droplevel("sub_system").unique()
@@ -395,6 +396,7 @@ class FeedDistributor:
         self.x0_idx = {
             "ani": self.x0["ani"].index,
             "crp": self.x0["crp"].index,
+            "fds": self.x_idx["fds"].copy(),
         }
 
     def make_demand(self):
