@@ -171,6 +171,7 @@ class FeedDistributor:
             self.x_idx_short = {
                 "ani": self.x_idx["ani"].copy(),
                 "crp": self.x_idx["crp"].copy(),
+                "fds": self.x_idx["fds"].copy(),
             }
 
         vprint(type="end")
