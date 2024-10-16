@@ -17,7 +17,7 @@ class ParameterRetriever:
     including parameter names and corresponding values. Any filter columns should be named 'f_<name>'.
     Any other columns are not used by the ParameterRetriever. All rows without a value in the 'parameter'
     column are also ignored allowing e.g. headings in the parameter sheets.
-    
+
     Parameters
     ----------
     name : str
@@ -64,7 +64,7 @@ class ParameterRetriever:
 
         if len(set(rel[from_col])) < len(set(rel[to_col])):
             raise ValueError(f'Only one-to-one or many-to-one relations are allowed. Did you mean from_col={to_col}, to_col={from_col}?')
-        
+
         return rel[[from_col,to_col]].set_index(from_col).to_dict()[to_col]
 
     @classmethod
@@ -77,7 +77,7 @@ class ParameterRetriever:
             )
         except FileNotFoundError:
             warnings.warn(f"Could not update relation tables. '{str(path)}' not found.")
-    
+
     @classmethod
     def update_all_parameter_values(cls,scenario_workbooks=None,year=None,modules='all',pars='all'):
 
@@ -117,13 +117,13 @@ class ParameterRetriever:
                     qry_log_all['.'.join([pr.name,att])]['time'] += pr.qry_log[att]['time']
                 else:
                     qry_log_all['.'.join([pr.name,att])] = copy.deepcopy(pr.qry_log[att])
-        
+
         df = pd.DataFrame.from_dict(qry_log_all, orient='index').sort_values('time', ascending=False)
         df['%-of-time'] = df['time'] / df['time'].sum() * 100
         qt = df['time'].sum()
         qm = round(np.floor(qt/60))
         qs = round(qt - qm*60)
-        
+
         sm = round(np.floor(set_time_all/60))
         ss = round(set_time_all - sm*60)
 
@@ -133,7 +133,7 @@ class ParameterRetriever:
         return df
 
     def __init__(self, name, **kwargs):
-        
+
         ParameterRetriever.instances.add(self)
         self.name = name
 
@@ -144,9 +144,9 @@ class ParameterRetriever:
         self.filters = {}
         self.qry_log = {}
         self.set_time = 0
-        
+
         self.set(**kwargs)
-        
+
     def __repr__(self):
 
         str1 = "\n".join([
@@ -170,17 +170,17 @@ Parameters
 
     def __len__(self):
         return self.max_filter_length
-        
+
     def set(self, **kwargs):
         '''Method to set filter values. Filters are supplied as keyword arguments and applies to columns in the Excel sheet
         named 'f_<key>'. If filters not present in the Excel sheet columns are supplied those are ignored and a warning is
         printed.
-        
+
         Parameters
         ----------
         **kwargs : str or list of str
             If lists are supplied these need to have equal lengths (also to previously supplied filters) or length 1
-            
+
         Returns
         -------
         Nothing. Updates the ParameterRetriever filters.'''
@@ -190,7 +190,7 @@ Parameters
             self.filters.update(
                 {'f_'+key : value if not isinstance(value, str) else [value]}
             )
-        
+
         # Get length of filter values
         filter_lens = [len(v) for v in self.filters.values()]
         distinct_filter_lens = set(filter_lens)
@@ -230,23 +230,23 @@ Parameters
                 self.filters.pop('f_'+key, None)
             except:
                 pass
-        
+
         self.set()
 
     def get(self, parameter, **kwargs):
         '''Method to get values of a parameter under the set filters.
-        
+
         Parameters
         ----------
         parameter : str
             Name of the parameter to be retrieved
         **kwargs
             Keyword arguments to be passed on as filters to ParameterRetriever.set()
-            
+
         Returns
         -------
         numpy.ndarray with length equal to the length of filter values. containing the parameter values for the defined filters '''
-        
+
         self.set(**kwargs)
 
         t0 = time.process_time()
@@ -293,7 +293,7 @@ Parameters
             if len(result) != sel_len:
                 assert len(result) == 1
                 result = np.repeat(result, sel_len)
-        
+
         self.qry_log[parameter]['time'] += time.process_time() - t0
         return result
 
@@ -333,18 +333,18 @@ Parameters
 
     def update_parameter_values(self,scenario_workbooks=None,year=None,pars='all'):
         '''Method to update parameter values in ParameterRetriever according to specified scenario workbooks and year.
-        
+
         New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
         same name as default parameter xlsx file. In the scenario sheet new values are defined in year columns with
         column names on the format 'y_<year>'. New parameter values can be defined in the Excel sheet for arbitrary
         years and the method linearly interpolates values between defined years.
-        
+
         Values can be defined in ralative (i.e. a factor to multiply the default value with) or absolute terms by
         writing 'rel' or 'abs' respectively in a separate column named 'val_is'.
-        
+
         Scenario values can be more general than default values (i.e. apply to several default values) but not
         more specific.
-        
+
         Parameters
         ----------
         scenario : str or list of str
@@ -354,7 +354,7 @@ Parameters
             Year to update parameter values to
         pars : str or list of str
             Parameters to update. If pars='all', all available parameters will be updated.
-            
+
         Returns
         -------
         Nothing. Updates ParameterRetriever parameter values.'''
@@ -363,7 +363,7 @@ Parameters
         if pars != 'all':
             if not isinstance(pars,list):
                 pars = [pars]
-                
+
         # Get path to default data
         def_path = os.path.join(self.data_path_default, self.name + '.xlsx')
 
@@ -408,7 +408,7 @@ Parameters
             # Select parameters to update
             if pars != 'all':
                 scn_data = scn_data[scn_data.index.get_level_values('parameter').isin(pars)]
-                
+
             # If xlsx and sheet was found but contained no parameters, move to next scenario
             if len(scn_data) == 0:
                 continue
@@ -465,7 +465,7 @@ Parameters
                     except KeyError:
                         continue
                     scn_selection = selection.droplevel('parameter')
-                    
+
                     # If no filter columns in scenarios sheet (i.e. values to update parameters apply universaly)
                     # then make sure that only one value is found and update accordingly
                     if len(scn_data_.index.names)==1:
@@ -499,7 +499,7 @@ Parameters
 
                     # Update values
                     updated_data.update(values)
-                    
+
             # Check for data in scenario data workbook that was not accessed
             not_accessed_data = scn_data_raw.loc[scn_data_rows.index[~scn_data_rows.isin(np.concatenate(accessed_rows))], :]
             if len(not_accessed_data) > 0:
@@ -516,10 +516,10 @@ Scenario workbook: {scn_path}
 
         self.data = updated_data
 
-                
+
     def get_unique(self,filter,qry=None):
         '''Get unique values for specified filter(s) in parameter Excel sheet
-        
+
         Parameters
         ----------
         filter : str or list of str
@@ -543,9 +543,9 @@ Scenario workbook: {scn_path}
             res.columns = filter
             return res
         else:
-            res = df['f_'+filter].unique() 
+            res = df['f_'+filter].unique()
             return res[~pd.isna(res)]
-    
+
 def _read_csv(path,parameter):
     df = pd.read_csv(path, dtype=str)
 
@@ -573,7 +573,7 @@ def _read_csv(path,parameter):
     df['parameter'] = parameter
 
     return df.loc[:,f_cols+['parameter','value']]
-        
+
 def _read_xl(path,sheet):
         idx = pd.IndexSlice
         # Read xl and set value columns to type float
@@ -625,7 +625,7 @@ def _read_xl(path,sheet):
                     df_['f_'+f_to] = np.nan
                     df_ = df_.set_index('f_'+f_to, append=True)
                     df = df_['value']
-                
+
                 # Get rows
                 df_w_rf = df.loc[~df.index.get_level_values(rf).isna(),:]
                 df = df.loc[df.index.get_level_values(rf).isna(),:]
@@ -689,9 +689,9 @@ def _get_problem_data(data, index_cols, parameter):
         raise ValueError("data should be a pandas.Series")
     if unknown_columns := set(index_cols) - set(data.index.names):
         raise ValueError(f"did not find index columns {unknown_columns} in data index")
-    
+
     problem_data = data.xs(parameter, level="parameter")
-    
+
     # Only chose rows where levels not filtered for are empty
     # If this is not possible return None
     null_cols = set(problem_data.index.names) - set(index_cols)
@@ -700,12 +700,12 @@ def _get_problem_data(data, index_cols, parameter):
             problem_data = problem_data.xs(EMPTY, level=col)
         else:
             return None
-        
+
     # Drop levels that are not filtered for
     for lvl in problem_data.index.names:
         if (problem_data.index.nlevels > 1) & problem_data.index.get_level_values(lvl).isna().all():
             problem_data = problem_data.droplevel(lvl)
-        
+
     if len(problem_data.index.names) > 1:
         problem_data = problem_data.reorder_levels([c for c in index_cols if c in problem_data.index.names]) # NEW!!! [c for c in index_cols if c in problem_data.index.names]
 
@@ -737,7 +737,7 @@ def _select_with_defaults(data, index, columns_to_take_default):
         partial_index = partial_index.get_level_values(0) # pd.MultiIndex --> pd.Index
 
     partial_result = partial_data.reindex(partial_index).set_axis(index)
-    
+
     return partial_result
 
 
@@ -751,12 +751,12 @@ def _select_allowing_any_k_defaults(data, index, k):
         axis=1,
     )
     exactly_one_result = results.notnull().sum(axis=1) == 1
-        
+
     # Get elements with exactly one result
     results = results[exactly_one_result].sum(axis=1)
     # Drop duplicate indexes to be able to merge back (these will have returned the same value anyway)
     results = results[~results.index.duplicated(keep='first')]
-    
+
     return results
 
 def _select_with_least_defaults(selection, problem_data):
@@ -804,7 +804,7 @@ def _get_parameter_values(data, selection, parameter):
     # Drop filters not in data
     for lvl in set(selection.names)-set(problem_data.index.names):
         selection = selection.droplevel(lvl)
-    
+
     assert problem_data.index.names == selection.names
 
     # Get unique selections to imporve performance
