@@ -6,9 +6,6 @@ from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 from ..utils.retriever import ParameterRetriever
 
-ixsl = pd.IndexSlice
-
-
 class DemandAndConversions(object):
     """
     Class that calculates demand for domestic and imported crop and animal products, as
