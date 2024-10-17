@@ -599,15 +599,18 @@ class ManureMgmt():
                 loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
                 loss_storage = multiply_aligned(loss_factors_storage, to_storage)
 
-                if element == 'N':
-                    # NOx-N and N2 storage losses are calculated from plant available nitrogen
-                    loss_storage.update(
-                        (
-                            multiply_aligned(loss_factors_storage, to_storage) *
-                            (self.par.get_from_frame('TAN_share', df)/100)
-                        )
-                        .loc[:,(slice(None), slice(None), slice(None), ['NOx-N', 'N2'])]
+                if element == 'N' and (self.par.data.xs(('N','loss_storage_of_TAN'),level=('f_element','parameter'))>0).any():
+                    # Calculate storage losses expressed as share of TAN
+                    loss_factors_storage_of_TAN = self.par.get_from_frame('loss_storage_of_TAN', df)/100
+                    loss_storage_of_TAN = (
+                        multiply_aligned(loss_factors_storage_of_TAN, to_storage) *
+                        (self.par.get_from_frame('TAN_share', df)/100)
                     )
+
+                    if ((loss_factors_storage>0) & (loss_factors_storage_of_TAN>0)).any().any():
+                        warnings.warn('ManureMgmt: Storage losses for N expressed per total N and TAN for same item. Check data!')
+                    
+                loss_storage += loss_storage_of_TAN
             else:
                 loss_storage = df * 0.0
 
