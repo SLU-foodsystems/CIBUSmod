@@ -616,23 +616,26 @@ class FeedDistributor:
         )
 
     def make_C2(self):
-        """Creates C2: A2 @ x >= 0
+        """
+        Creates C2: A2 @ x >= 0
 
         Constraint the share of feed demand for different crop products that must be met regionally.
         The minimum share is set via the parameter 'share_regional' in the 'FeedMgmt' module and can differ
         for different animals.
         """
 
-        # Regional feed demand for crop products
-        A2_1 = self.make_A2_1()
         # Production of crop products
+        A2_1 = self.make_A2_1()
+        # Regional feed demand for crop products
         A2_2 = self.make_A2_2()
+        # We do not need the x_animal part for this
+        A2_Z = scipy.sparse.csc_matrix((A2_1.M.shape[0], len(self.x_idx["ani"])))
 
         # Stack matrices
-        A2 = scipy.sparse.hstack([A2_1.M, A2_2.M], format="csc")
-
         A2 = IndexedMatrix(
-            matrix=A2, row_idx=A2_1.rows, col_idx={"ani": A2_1.cols, "crp": A2_2.cols}
+            matrix=scipy.sparse.hstack([A2_Z, A2_1.M, A2_2.M], format="csc"),
+            row_idx=A2_2.rows,
+            col_idx={"ani": self.x_idx["ani"], "crp": A2_1.cols, "fds": A2_2.cols},
         )
 
         # Append constraint
@@ -1343,12 +1346,11 @@ class FeedDistributor:
             col_idx,
         )
 
-        # TODO
-        self.feed_to_prod = M
-
         return M
 
-    def make_A2_1(self):
+    def make_A2_2(self):
+        feed_par = self.feed_mgmt.par
+
         # Get row index from feeds with a regional demand (cp,ps,re)
         row_idx = pd.MultiIndex.from_tuples(
             [
@@ -1358,28 +1360,25 @@ class FeedDistributor:
                         [
                             cp
                             for herd in self.herds
-                            if herd.data_attr.get(
-                                "feed.regional_crop_product_demand"
-                            ).shape[1]
+                            if herd.data_attr.get("feed.feed_to_reg_crop_prod").shape[1]
                             > 0
                             for cp in (
-                                herd.data_attr.get("feed.regional_crop_product_demand")
+                                herd.data_attr.get("feed.feed_to_reg_crop_prod")
                                 .replace({0: np.nan})
-                                .dropna(
-                                    axis=1, how="all"
-                                )  # drop feeds with no regional demand
+                                # drop feeds with no regional demand
+                                .dropna(axis=1, how="all")
                                 .columns.get_level_values("crop_prod")
                             )
                         ]
                     )
                 )
-                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
-                for re in self.x_idx["ani"].get_level_values("region").unique()
+                for ps in self.x_idx["fds"].get_level_values("prod_system").unique()
+                for re in self.x_idx["fds"].get_level_values("region").unique()
             ],
             names=["crop_prod", "prod_system", "region"],
         )
-        # Get col index from animal herds (sp,br,ps,ss,re)
-        col_idx = self.x_idx["ani"]
+        # Get col index from feed consumption (f,ani,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
 
         # To store data and corresponding row/col numbers for constructing matrix
         val = []
@@ -1389,7 +1388,7 @@ class FeedDistributor:
         # Go through animal herds
         for herd in self.herds:
             # Skip herds where there are no regional demands for feeds
-            if herd.data_attr.get("feed.regional_crop_product_demand").shape[1] <= 0:
+            if herd.data_attr.get("feed.feed_to_reg_crop_prod").shape[1] <= 0:
                 continue
 
             sp = herd.species
@@ -1399,31 +1398,36 @@ class FeedDistributor:
 
             # Get crop products and production systems with regional demand for feed
             opss_cps = (
-                herd.data_attr.get("feed.regional_crop_product_demand")
+                herd.data_attr.get("feed.feed_to_reg_crop_prod")
                 .replace({0: np.nan})
                 .dropna(axis=1, how="all")  # drop feeds with no regional demand
-                .droplevel("animal", axis=1)
+                # .droplevel("animal", axis=1)
                 .columns.unique()
                 .values
             )
 
             # Go through crop products and production systems with regional demand for feed
-            for ops, cp in opss_cps:
+            for ops, ani, crop_prod, feed in opss_cps:
                 # Get regional feed demand for crop product (cp) from output
                 # production system (ops) per head of defining animal of species
                 # (sp) and breed (br) in production system (ps), sub system (ss)
                 # and region (re)
                 res = -(
-                    herd.data_attr.get("feed.regional_crop_product_demand")
-                    .loc[:, (ops, slice(None), cp)]
+                    herd.data_attr.get("feed.feed_to_reg_crop_prod")
+                    .loc[:, (ops, slice(None), crop_prod)]
                     .sum(axis=1)
                 )
 
                 # Store values and row/col nr
                 val.extend(res.values)
-                row_nr.extend([row_idx.get_loc((cp, ops, re)) for re in res.index])
+                row_nr.extend(
+                    [row_idx.get_loc((crop_prod, ops, re)) for re in res.index]
+                )
                 col_nr.extend(
-                    [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
+                    [
+                        col_idx.get_loc((feed, ani, sp, br, ps, ss, re))
+                        for re in res.index
+                    ]
                 )
 
         # Create Compressed Sparse Column matrix
@@ -1437,7 +1441,7 @@ class FeedDistributor:
 
         return M
 
-    def make_A2_2(self):
+    def make_A2_1(self):
         # Get row index from feeds with a regional demand (cp,ps,re)
         row_idx = pd.MultiIndex.from_tuples(
             [
@@ -1447,16 +1451,13 @@ class FeedDistributor:
                         [
                             cp
                             for herd in self.herds
-                            if herd.data_attr.get(
-                                "feed.regional_crop_product_demand"
-                            ).shape[1]
+                            if herd.data_attr.get("feed.feed_to_reg_crop_prod").shape[1]
                             > 0
                             for cp in (
-                                herd.data_attr.get("feed.regional_crop_product_demand")
+                                herd.data_attr.get("feed.feed_to_reg_crop_prod")
                                 .replace({0: np.nan})
-                                .dropna(
-                                    axis=1, how="all"
-                                )  # drop feeds with no regional demand
+                                # drop feeds with no regional demand
+                                .dropna(axis=1, how="all")
                                 .columns.get_level_values("crop_prod")
                             )
                         ]
@@ -1962,7 +1963,7 @@ class FeedDistributor:
             .xs("domestic", level="origin", axis=1)
             .T.groupby(["species", "breed", "sub_system", "prod_system", "crop_prod"])
             .sum()
-            .T.stack(["prod_system", "crop_prod"])
+            .T.stack(["prod_system", "crop_prod"], future_stack=True)
             .reindex(prod.index)
             .fillna(0)
         )
