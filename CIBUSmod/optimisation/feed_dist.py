@@ -275,13 +275,18 @@ class FeedDistributor:
             # Get and store optimal value for variable
             x = self.problem.variables()[0].value
             # Put xs on short index (!= index if C7 is used) and reindex
+            n_ani_short = len(self.x_idx_short["ani"])
+            n_crp_short = len(self.x_idx_short["crp"])
             self.x = {
                 "ani": pd.Series(
-                    x[: len(self.x_idx_short["ani"])], index=self.x_idx_short["ani"]
+                    x[:n_ani_short], index=self.x_idx_short["ani"]
                 ).reindex(self.x_idx["ani"], fill_value=0),
                 "crp": pd.Series(
-                    x[len(self.x_idx_short["ani"]) :], index=self.x_idx_short["crp"]
+                    x[n_ani_short:n_ani_short+n_crp_short], index=self.x_idx_short["crp"]
                 ).reindex(self.x_idx["crp"], fill_value=0),
+                "fds": pd.Series(
+                    x[n_ani_short+n_crp_short:], index=self.x_idx_short["fds"]
+                ).reindex(self.x_idx["fds"], fill_value=0),
             }
 
             self.data_attr.add(
@@ -297,6 +302,13 @@ class FeedDistributor:
                 unit="heads",
                 orig="FeedDistributor",
                 desc='Number of "defining animal" heads in solution',
+            )
+            self.data_attr.add(
+                self.x["fds"],
+                name="x_feeds",
+                unit="Todo",
+                orig="FeedDistributor",
+                desc="TODO",
             )
 
             if apply_solution:
