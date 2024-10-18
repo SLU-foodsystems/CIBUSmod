@@ -1281,13 +1281,6 @@ class FeedDistributor:
         """
         Matrix that converts feed products to crop products at a national level.
         """
-        feed_par = self.feed_mgmt.par
-
-        # Get Series of crop/by- products or crop residues with feed as index
-        crop_products = feed_par.get_unique(["feed", "crop_prod"]).set_index("feed")[
-            "crop_prod"
-        ]
-
         # Get row index from crop product demand vector (ps,cp)
         row_idx = self.D_idx["crp"]
         # Get col index from feed demands (f,sp,br,ps,ss,re)
@@ -1311,33 +1304,8 @@ class FeedDistributor:
                 sub_system=ss,
             )
 
-            # Construct retrieve dataframe columns
-            df_cols = []
-            for ps, ani, fe in herd.data_attr.get("feed.demand").columns:
-                if fe in crop_products.index:
-                    for crop_pr in (
-                        crop_products[fe]
-                        if not isinstance(crop_products[fe], str)
-                        else [crop_products[fe]]
-                    ):
-                        df_cols += [(ps, ani, crop_pr, fe)]
-
-            retrieve_df = pd.DataFrame(
-                index=herd.index,
-                columns=pd.MultiIndex.from_tuples(
-                    df_cols, names=["prod_system", "animal", "crop_prod", "feed"]
-                ),
-                dtype=float,
-            )
-            assert retrieve_df.shape[1] > 0, "Unhandled case for retrieve_df"
-
-            feed_to_prod = self.feed_mgmt.par.get_from_frame(
-                "feed_to_prod", retrieve_df
-            )
             # Get domestic share
-            feed_to_dom_prod = feed_to_prod * (
-                1 - feed_par.get_from_frame("share_imported", retrieve_df) / 100
-            )
+            feed_to_dom_prod = herd.data_attr.get("feed.feed_to_dom_crop_prod")
 
             opss_cps = (
                 feed_to_dom_prod.round(5)
