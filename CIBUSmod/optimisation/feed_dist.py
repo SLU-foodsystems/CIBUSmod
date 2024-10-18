@@ -1,11 +1,11 @@
 import warnings
+import re as regex
+
 import pandas as pd
 import numpy as np
 
-import cvxpy as cvxpy
+import cvxpy
 import scipy
-
-import re as regex
 
 from .. import (
     Regions,
@@ -423,19 +423,21 @@ class FeedDistributor:
             "crp": self.demand.data_attr.get("crop_prod_demand").sum(axis=1),
         }
 
-        # Add rows for any domestically produced crop products used for feed or seed not already in crop product demand vector (D['crp'])
+        # Add rows for any domestically produced crop products used for feed or seed not
+        # already in crop product demand vector (D['crp'])
         self.feed_mgmt.par.clear()
         for cp in set(self.feed_mgmt.par.get_unique("crop_prod")) | set(
             self.crops.par.get_unique("crop_prod", qry='parameter == "seed"')
         ):
             for ps in self.D["crp"].index.get_level_values("prod_system").unique():
                 idx = (ps, cp)
-                if (
+                imported_crops = (
                     self.feed_mgmt.par.get(
                         "share_imported", crop_prod=cp, prod_system=ps
                     )
                     != 100
-                ).any() & (idx not in self.D["crp"].index):
+                )
+                if imported_crops.any() and (idx not in self.D["crp"].index):
                     self.D["crp"][idx] = 0
 
         # Store indexes
@@ -461,6 +463,7 @@ class FeedDistributor:
             .loc["cropland"]
             .max()
         )
+        # We then compute the range(?) for each group
         rn = pd.concat(
             [
                 self.x0["ani"]
@@ -598,7 +601,7 @@ class FeedDistributor:
             row_idx={"ani": A1_1.rows, "crp": A1_2.rows},
             col_idx={"ani": A1_1.cols, "crp": A1_2.cols, "fds": A1_3.cols},
         )
-        b1 = np.concatenate((self.D["ani"].values, self.D["crp"].values))
+        b1 = np.concatenate([self.D["ani"].values, self.D["crp"].values])
 
         # Append constraint
         self.constraints.update(
@@ -1946,7 +1949,7 @@ class FeedDistributor:
 
     def make_P1_3(self):
         """
-        Creates the P_{1,3} matrix, which is a zero-value matrix covering x['feed'].
+        Create the P_{1,3} matrix, which is a zero-value matrix covering x_feed.
         This, as we do not want to include the feeds in the optimisation target.
         """
 

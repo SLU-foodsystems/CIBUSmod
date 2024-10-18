@@ -101,7 +101,7 @@ class FeedMgmt():
             )
 
             # Get feed rations
-            shares_per_feed = herd.par.get_from_frame('share_in_ration',df_feeds)/100
+            shares_per_feed = herd.par.get_from_frame('share_in_ration',df_feeds) / 100
 
             # Check so that ration shares add up to 100%
             if not np.isclose(shares_per_feed.T.groupby(['prod_system','animal']).sum(),1).all():
