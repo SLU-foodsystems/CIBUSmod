@@ -365,13 +365,15 @@ class FeedDistributor:
             "crp": self.crops.index.copy(),
             "fds": pd.MultiIndex.from_tuples(
                 [
-                    (f, sp, br, ps, ss, re)
+                    (f, ani, sp, br, ps, ss, re)
                     for (sp, br, ps, ss) in self.herds.index
                     for re in self.herds[(sp, br, ps, ss)].index
                     for f in self.herds[(sp, br, ps, ss)].par.get_unique("feed")
+                    for ani in self.herds[(sp, br, ps, ss)].animals
                 ],
                 names=[
                     "feed",
+                    "animal",
                     "species",
                     "breed",
                     "prod_system",
