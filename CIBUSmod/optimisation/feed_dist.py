@@ -567,9 +567,9 @@ class FeedDistributor:
 
         # Animal product demand
         A1_1 = self.make_A1_1()
-        # Feed demand
-        A1_2 = self.make_A1_2()
         # Crop product demand
+        A1_2 = self.make_A1_2()
+        # Feed demand
         A1_3 = self.make_A1_3()
 
         # Stack matrices
@@ -577,11 +577,18 @@ class FeedDistributor:
             [
                 scipy.sparse.hstack(
                     [
-                        A1_1.M,
+                        A1_1.M,  # Animal heads to animal products
+                        scipy.sparse.csc_matrix((A1_1.M.shape[0], A1_2.M.shape[1])),
                         scipy.sparse.csc_matrix((A1_1.M.shape[0], A1_3.M.shape[1])),
                     ]
                 ),
-                scipy.sparse.hstack([A1_2.M, A1_3.M]),
+                scipy.sparse.hstack(
+                    [
+                        scipy.sparse.csc_matrix((A1_2.M.shape[0], A1_1.M.shape[1])),
+                        A1_2.M,  # Crops to crop products
+                        A1_3.M,  # Feeds to (negative) crop products
+                    ]
+                ),
             ],
             format="csc",
         )
@@ -589,7 +596,7 @@ class FeedDistributor:
         A1 = IndexedMatrix(
             matrix=A1,
             row_idx={"ani": A1_1.rows, "crp": A1_2.rows},
-            col_idx={"ani": A1_1.cols, "crp": A1_3.cols},
+            col_idx={"ani": A1_1.cols, "crp": A1_2.cols, "fds": A1_3.cols},
         )
         b1 = np.concatenate((self.D["ani"].values, self.D["crp"].values))
 
@@ -1220,66 +1227,6 @@ class FeedDistributor:
     def make_A1_2(self):
         # Get row index from crop product demand vector (ps,cp)
         row_idx = self.D_idx["crp"]
-        # Get col index from animal herds (sp,br,ps,ss,re)
-        col_idx = self.x_idx["ani"]
-
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
-
-        # Go through animal herds
-        for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-
-            # Get crop products and production systems with domestic demand for feed
-            opss_cps = (
-                herd.data_attr.get("feed.crop_product_demand")
-                .xs("domestic", level="origin", axis=1)
-                # drop feeds with no (< 5e-6 kg) domestic demand
-                .round(5)
-                .replace({0: np.nan})
-                .dropna(axis=1, how="all")
-                .droplevel("animal", axis=1)
-                .columns.unique()
-                .values
-            )
-
-            # Go through crop products and production systems used as feed
-            for ops, cp in opss_cps:
-                # Get feed demand for crop product (cp) from output production system (ops) per head
-                # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
-                # and region (re)
-                res = (
-                    -herd.data_attr.get("feed.crop_product_demand")
-                    .loc[:, ("domestic", ops, slice(None), cp)]
-                    .sum(axis=1)
-                )
-
-                # Store values and row/col nr
-                val.extend(res.values)
-                row_nr.extend([row_idx.get_loc((ops, cp))] * len(res))
-                col_nr.extend(
-                    [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
-                )
-
-        # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
-            row_idx,
-            col_idx,
-        )
-
-        return M
-
-    def make_A1_3(self):
-        # Get row index from crop product demand vector (ps,cp)
-        row_idx = self.D_idx["crp"]
         # Get col index from crop production (cr,ps,re)
         col_idx = self.x_idx["crp"]
 
@@ -1324,6 +1271,109 @@ class FeedDistributor:
             row_idx,
             col_idx,
         )
+
+        return M
+
+    def make_A1_3(self):
+        """
+        Matrix that converts feed products to crop products at a national level.
+        """
+        feed_par = self.feed_mgmt.par
+
+        # Get Series of crop/by- products or crop residues with feed as index
+        crop_products = feed_par.get_unique(["feed", "crop_prod"]).set_index("feed")[
+            "crop_prod"
+        ]
+
+        # Get row index from crop product demand vector (ps,cp)
+        row_idx = self.D_idx["crp"]
+        # Get col index from feed demands (f,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
+
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = []
+        row_nr = []
+        col_nr = []
+
+        for herd in self.herds:
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+            # Set species and breed filters for ParameterRetriever
+            self.par.clear()
+            self.par.set(
+                species=sp,
+                breed=br,
+                sub_system=ss,
+            )
+
+            # Construct retrieve dataframe columns
+            df_cols = []
+            for ps, ani, fe in herd.data_attr.get("feed.demand").columns:
+                if fe in crop_products.index:
+                    for crop_pr in (
+                        crop_products[fe]
+                        if not isinstance(crop_products[fe], str)
+                        else [crop_products[fe]]
+                    ):
+                        df_cols += [(ps, ani, crop_pr, fe)]
+
+            retrieve_df = pd.DataFrame(
+                index=herd.index,
+                columns=pd.MultiIndex.from_tuples(
+                    df_cols, names=["prod_system", "animal", "crop_prod", "feed"]
+                ),
+                dtype=float,
+            )
+            assert retrieve_df.shape[1] > 0, "Unhandled case for retrieve_df"
+
+            feed_to_prod = self.feed_mgmt.par.get_from_frame(
+                "feed_to_prod", retrieve_df
+            )
+            # Get domestic share
+            feed_to_dom_prod = feed_to_prod * (
+                1 - feed_par.get_from_frame("share_imported", retrieve_df) / 100
+            )
+
+            opss_cps = (
+                feed_to_dom_prod.round(5)
+                .replace({0: np.nan})
+                .dropna(axis=1, how="all")
+                # TODO: Unsure if to keep or remove these?
+                # .droplevel('animal', axis=1)
+                # .droplevel('feed', axis=1)
+                .columns.unique()
+                .values
+            )
+
+            for ops, ani, crop_prod, feed in opss_cps:
+                print((ops, ani, crop_prod, feed))
+                res = -feed_to_dom_prod.loc[:, (ops, slice(None), crop_prod)].sum(axis=1)
+                val.extend(res.values)
+                row_nr.extend([row_idx.get_loc((ops, crop_prod))] * len(res))
+                col_nr.extend(
+                    [
+                        col_idx.get_loc((feed, ani, sp, br, ps, ss, re))
+                        for re in res.index
+                    ]
+                )
+
+            print(feed_to_dom_prod)
+            # TODO:
+            self.feed_to_dom_prod = feed_to_dom_prod
+
+        # Create Compressed Sparse Column matrix
+        M = IndexedMatrix(
+            scipy.sparse.coo_array(
+                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+            ).tocsc(),
+            row_idx,
+            col_idx,
+        )
+
+        # TODO
+        self.feed_to_prod = M
 
         return M
 
