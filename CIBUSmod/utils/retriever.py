@@ -379,6 +379,9 @@ Parameters
         data = _read_xl(def_path,'default')
         # Create pd.Series for updated parameter values
         updated_data = data.copy()
+        # Create list to store data with val_is='new'
+        # which is appended last
+        new_data = []
 
         # Go through all scenarios in consucutive orderd.
         # If the same parameter is updated in multiple scenarios
@@ -461,7 +464,7 @@ Parameters
 
                     # Create selection
                     try:
-                        selection = self.data.xs(parameter, level='parameter', drop_level=False).index
+                        selection = data.xs(parameter, level='parameter', drop_level=False).index
                     except KeyError:
                         continue
                     scn_selection = selection.droplevel('parameter')
@@ -500,6 +503,16 @@ Parameters
                     # Update values
                     updated_data.update(values)
 
+            if 'new' in val_iss:
+                # Get data with val_is='new'
+                new_data.append(
+                    scn_data.xs('new', level='val_is')
+                )
+                # Get accessed rows
+                accessed_rows.append(
+                    np.atleast_1d(scn_data_rows.xs('new', level='val_is'))
+                )
+                    
             # Check for data in scenario data workbook that was not accessed
             not_accessed_data = scn_data_raw.loc[scn_data_rows.index[~scn_data_rows.isin(np.concatenate(accessed_rows))], :]
             if len(not_accessed_data) > 0:
@@ -514,6 +527,41 @@ Scenario workbook: {scn_path}
 """
                 )
 
+        if len(new_data) > 0:
+
+            # Join all new data as DataFrames
+            all_new_data = pd.concat([
+                d.reset_index() for d in new_data
+            ])
+
+            # Get filter columns
+            filter_cols = [c for c in all_new_data.columns if 'f_' in c]
+
+            # If duplicated filters found keep last (i.e. from last scenario workbook)
+            all_new_data.drop_duplicates(subset=filter_cols+['parameter'], keep='last', inplace=True)
+
+            # Join with rest of data as DataFrames
+            updated_data = pd.concat([
+                updated_data.reset_index(),
+                all_new_data
+            ])
+
+            # Get filter columns
+            filter_cols = [c for c in updated_data.columns if 'f_' in c]
+
+            # If any duplicated filters raise error
+            if updated_data.duplicated(subset=filter_cols+['parameter']).any():
+                raise ValueError(
+f"""
+Trying to update parameter values with val_is='new' resulted in rows with identical filter columns. Check scenario data workbooks!
+Module: '{self.name}'
+"""
+                )
+
+            # Covert back to Series
+            updated_data = updated_data.set_index(filter_cols+['parameter'])['value']
+
+        # Store final updated data
         self.data = updated_data
 
 
