@@ -282,10 +282,11 @@ class FeedDistributor:
                     x[:n_ani_short], index=self.x_idx_short["ani"]
                 ).reindex(self.x_idx["ani"], fill_value=0),
                 "crp": pd.Series(
-                    x[n_ani_short:n_ani_short+n_crp_short], index=self.x_idx_short["crp"]
+                    x[n_ani_short : n_ani_short + n_crp_short],
+                    index=self.x_idx_short["crp"],
                 ).reindex(self.x_idx["crp"], fill_value=0),
                 "fds": pd.Series(
-                    x[n_ani_short+n_crp_short:], index=self.x_idx_short["fds"]
+                    x[n_ani_short + n_crp_short :], index=self.x_idx_short["fds"]
                 ).reindex(self.x_idx["fds"], fill_value=0),
             }
 
@@ -1322,8 +1323,9 @@ class FeedDistributor:
             )
 
             for ops, ani, crop_prod, feed in opss_cps:
-                print((ops, ani, crop_prod, feed))
-                res = -feed_to_dom_prod.loc[:, (ops, slice(None), crop_prod)].sum(axis=1)
+                res = -feed_to_dom_prod.loc[:, (ops, slice(None), crop_prod)].sum(
+                    axis=1
+                )
                 val.extend(res.values)
                 row_nr.extend([row_idx.get_loc((ops, crop_prod))] * len(res))
                 col_nr.extend(
@@ -1332,10 +1334,6 @@ class FeedDistributor:
                         for re in res.index
                     ]
                 )
-
-            print(feed_to_dom_prod)
-            # TODO:
-            self.feed_to_dom_prod = feed_to_dom_prod
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
@@ -1546,13 +1544,15 @@ class FeedDistributor:
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["ani"])))  # Zero matrix
+        # Zero matrix
+        Z_ani = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["ani"])))
+        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z, M], format="csc"),
+            scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc"),
             row_idx,
-            {"ani": self.x_idx["ani"], "crp": col_idx},
+            {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
         )
 
         return M
@@ -1619,13 +1619,14 @@ class FeedDistributor:
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["crp"])))  # Zero matrix
+        Z_crp = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["crp"])))  # Zero matrix
+        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))  # Zero matrix
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([M, Z], format="csc"),
+            scipy.sparse.hstack([M, Z_crp, Z_fds], format="csc"),
             row_idx,
-            {"ani": self.x_idx["ani"], "crp": col_idx},
+            {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
         )
 
         return M
