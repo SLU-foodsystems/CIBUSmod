@@ -80,6 +80,28 @@ class ParameterRetriever:
 
     @classmethod
     def update_all_parameter_values(cls,scenario_workbooks=None,year=None,modules='all',pars='all'):
+        """Class method to update parameter values for all ParameterRetriever objects based on supplied scenario workbook(s)
+        and year.
+
+        See more details in ParameterRetriever.update_parameter_values()
+        
+        Parameters
+        ----------
+        scenario_workbooks : str or list of str, default None
+            Name(s) of scenario workbooks to update parameter values according to. Workbooks later in the list
+            will override earlier workbooks if the same parameter value is changed in multiple scenario workbooks.
+        year : str or int, default None
+            Year to update parameter values to
+        modules : str or list of str, default 'all'
+            Name(s) of module(s) to update. If modules='all', all available modules are updated
+        pars : str, list of str or dict, default 'all'
+            Parameters to update. If pars='all', all available parameters will be updated. If a dict is supplied it
+            should have the form {module name : pars} where pars is a str or list of str of parameters to update.
+            For modules not in the dict, all parameter values are updated.
+            
+        Returns
+        -------
+        Nothing. Updates all ParameterRetriever parameter values."""
 
         if modules != 'all':
             if not isinstance(modules,list):
@@ -332,27 +354,27 @@ Parameters
         return result.align(df, join='right')[0]
 
     def update_parameter_values(self,scenario_workbooks=None,year=None,pars='all'):
-        '''Method to update parameter values in ParameterRetriever according to specified scenario workbooks and year.
-
+        '''Method to update parameter values in ParameterRetriever according to specified scenario workbook(s) and year.
+        
         New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
-        same name as default parameter xlsx file. In the scenario sheet new values are defined in year columns with
+        same name as default parameter workbook. In the scenario sheet new values are defined in year columns with
         column names on the format 'y_<year>'. New parameter values can be defined in the Excel sheet for arbitrary
         years and the method linearly interpolates values between defined years.
 
         Values can be defined in ralative (i.e. a factor to multiply the default value with) or absolute terms by
         writing 'rel' or 'abs' respectively in a separate column named 'val_is'.
 
-        Scenario values can be more general than default values (i.e. apply to several default values) but not
-        more specific.
-
+        If val_is = 'rel' or 'abs', scenario values can be more general than default values (i.e. apply to several default values) but not
+        more specific. Adding new values is possible by specifying val_is = 'new'. These rows are appended to the default data as they are.
+        
         Parameters
         ----------
-        scenario : str or list of str
-            Name(s) of scenarios to update parameter values according to. Scenarios later in the list
-            will override earlier scenarios if the same parameter value is changed in multiple scnearios.
-        year : str or int
+        scenario_workbooks : str or list of str, default None
+            Name(s) of scenario workbooks to update parameter values according to. Workbooks later in the list
+            will override earlier workbooks if the same parameter value is changed in multiple scenario workbooks.
+        year : str or int, default None
             Year to update parameter values to
-        pars : str or list of str
+        pars : str or list of str, default 'all'
             Parameters to update. If pars='all', all available parameters will be updated.
 
         Returns
@@ -379,6 +401,9 @@ Parameters
         data = _read_xl(def_path,'default')
         # Create pd.Series for updated parameter values
         updated_data = data.copy()
+        # Create list to store data with val_is='new'
+        # which is appended last
+        new_data = []
 
         # Go through all scenarios in consucutive orderd.
         # If the same parameter is updated in multiple scenarios
@@ -461,7 +486,7 @@ Parameters
 
                     # Create selection
                     try:
-                        selection = self.data.xs(parameter, level='parameter', drop_level=False).index
+                        selection = data.xs(parameter, level='parameter', drop_level=False).index
                     except KeyError:
                         continue
                     scn_selection = selection.droplevel('parameter')
@@ -500,6 +525,16 @@ Parameters
                     # Update values
                     updated_data.update(values)
 
+            if 'new' in val_iss:
+                # Get data with val_is='new'
+                new_data.append(
+                    scn_data.xs('new', level='val_is')
+                )
+                # Get accessed rows
+                accessed_rows.append(
+                    np.atleast_1d(scn_data_rows.xs('new', level='val_is'))
+                )
+                    
             # Check for data in scenario data workbook that was not accessed
             not_accessed_data = scn_data_raw.loc[scn_data_rows.index[~scn_data_rows.isin(np.concatenate(accessed_rows))], :]
             if len(not_accessed_data) > 0:
@@ -514,6 +549,43 @@ Scenario workbook: {scn_path}
 """
                 )
 
+        if len(new_data) > 0:
+
+            # Join all new data as DataFrames
+            all_new_data = pd.concat([
+                d.reset_index() for d in new_data
+            ])
+
+            # Get filter columns
+            filter_cols = [c for c in all_new_data.columns if 'f_' in c]
+
+            # If duplicated filters found keep last (i.e. from last scenario workbook)
+            all_new_data.drop_duplicates(subset=filter_cols+['parameter'], keep='last', inplace=True)
+
+            # Join with rest of data as DataFrames
+            updated_data = pd.concat([
+                updated_data.reset_index(),
+                all_new_data
+            ])
+
+            # Get filter columns
+            filter_cols = [c for c in updated_data.columns if 'f_' in c]
+
+            # If any duplicated filters raise error
+            if updated_data.duplicated(subset=filter_cols+['parameter']).any():
+                raise ValueError(
+f"""
+Trying to update parameter values with val_is='new' resulted in
+one or more parameter(s) with identical filter columns.
+Check scenario data workbooks!
+Module: '{self.name}'
+"""
+                )
+
+            # Covert back to Series
+            updated_data = updated_data.set_index(filter_cols+['parameter'])['value']
+
+        # Store final updated data
         self.data = updated_data
 
 

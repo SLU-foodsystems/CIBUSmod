@@ -245,4 +245,32 @@ assert np.isnan(test.get('eight', A='a3', G='g4'))
 assert test.get('nine',A='a1',B='b1',G='g1') == 9.1
 assert test.get('nine',A='a3',B='b1',G='g4') == 9.2
 
-# %%
+# %% Update parameters with val_is='new'
+test.update_parameter_values('retriever_test_scn1',1)
+
+# New filter value existing filter and parameter
+test.clear()
+assert test.get('one', A='n1') == 10
+
+# New filter level and parameter
+test.clear()
+assert test.get('new', NEW='n1') == 1
+
+# %% Update parameters with val_is='new' in multiple scenario workbooks
+test.update_parameter_values(['retriever_test_scn1', 'retriever_test_scn2'],5)
+test.data
+
+test.clear()
+assert test.get('one', A='n1') == 500
+
+test.clear()
+assert test.get('new', NEW='n1') == 5
+
+# %% Raise ValueError if appending new data results in identical filter columns
+try:
+    test.update_parameter_values('retriever_test_scn_error_new',1)
+except ValueError as e:
+    assert "val_is='new'" in e.args[0], 'Wrong ValueError raised'
+else:
+    assert 1==0, 'No error raised'
+# %% END
