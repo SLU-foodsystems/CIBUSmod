@@ -354,13 +354,8 @@ Parameters
         return result.align(df, join='right')[0]
 
     def update_parameter_values(self,scenario_workbooks=None,year=None,pars='all'):
-<<<<<<< HEAD
-        '''Method to update parameter values in ParameterRetriever according to specified scenario workbooks and year.
-
-=======
         '''Method to update parameter values in ParameterRetriever according to specified scenario workbook(s) and year.
         
->>>>>>> 55ca8b0 (Docstrings)
         New parameter values are stored in a separate Excel file named '<scenario name>.xlsx' in a sheet with the
         same name as default parameter workbook. In the scenario sheet new values are defined in year columns with
         column names on the format 'y_<year>'. New parameter values can be defined in the Excel sheet for arbitrary
@@ -369,15 +364,9 @@ Parameters
         Values can be defined in ralative (i.e. a factor to multiply the default value with) or absolute terms by
         writing 'rel' or 'abs' respectively in a separate column named 'val_is'.
 
-<<<<<<< HEAD
-        Scenario values can be more general than default values (i.e. apply to several default values) but not
-        more specific.
-
-=======
         If val_is = 'rel' or 'abs', scenario values can be more general than default values (i.e. apply to several default values) but not
         more specific. Adding new values is possible by specifying val_is = 'new'. These rows are appended to the default data as they are.
         
->>>>>>> 55ca8b0 (Docstrings)
         Parameters
         ----------
         scenario_workbooks : str or list of str, default None
