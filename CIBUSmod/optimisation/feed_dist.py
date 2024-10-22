@@ -1325,124 +1325,50 @@ class FeedDistributor:
         return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A2_2(self):
-        feed_par = self.feed_mgmt.par
+        factors = self.get_feed_to_crop_prod_factors()
+        # Limit to factors with regional share
+        factors_with_reg_share = factors[factors["share_regional"] > 0]
 
-        # Get row index from feeds with a regional demand (cp,ps,re)
-        row_idx = pd.MultiIndex.from_tuples(
+        row_idx = pd.MultiIndex.from_product(
             [
-                (cp, ps, re)
-                for cp in list(
-                    set(
-                        [
-                            cp
-                            for herd in self.herds
-                            if herd.data_attr.get("feed.feed_to_reg_crop_prod").shape[1]
-                            > 0
-                            for cp in (
-                                herd.data_attr.get("feed.feed_to_reg_crop_prod")
-                                .replace({0: np.nan})
-                                # drop feeds with no regional demand
-                                .dropna(axis=1, how="all")
-                                .columns.get_level_values("crop_prod")
-                            )
-                        ]
-                    )
-                )
-                for ps in self.x_idx["fds"].get_level_values("prod_system").unique()
-                for re in self.x_idx["fds"].get_level_values("region").unique()
+                self.x_idx["fds"].get_level_values("prod_system").unique(),
+                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
+                self.x_idx["fds"].get_level_values("region").unique(),
             ],
-            names=["crop_prod", "prod_system", "region"],
+            names=["prod_system", "crop_prod", "region"],
         )
         # Get col index from feed consumption (f,ani,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
+        # DF to store the data in
+        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
 
-        # Go through animal herds
-        for herd in self.herds:
-            # Skip herds where there are no regional demands for feeds
-            if herd.data_attr.get("feed.feed_to_reg_crop_prod").shape[1] <= 0:
-                continue
-
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-
-            # Get crop products and production systems with regional demand for feed
-            opss_cps = (
-                herd.data_attr.get("feed.feed_to_reg_crop_prod")
-                .replace({0: np.nan})
-                .dropna(axis=1, how="all")  # drop feeds with no regional demand
-                # .droplevel("animal", axis=1)
-                .columns.unique()
-                .values
-            )
-
-            # Go through crop products and production systems with regional demand for feed
-            for ops, ani, crop_prod, feed in opss_cps:
-                # Get regional feed demand for crop product (cp) from output
-                # production system (ops) per head of defining animal of species
-                # (sp) and breed (br) in production system (ps), sub system (ss)
-                # and region (re)
-                res = -(
-                    herd.data_attr.get("feed.feed_to_reg_crop_prod")
-                    .loc[:, (ops, slice(None), crop_prod)]
-                    .sum(axis=1)
+        for ps, cp, re_r in row_idx:
+            for f, ani, sp, br, ps, ss, re_c in col_idx:
+                res.loc[(ps, cp, re_r), (f, ani, sp, br, ps, ss, re_c)] = (
+                    (
+                        factors.loc[(f, cp), "feed_to_prod"]
+                        * (1 - factors.loc[(f, cp), "share_imported"])
+                        * (factors.loc[(f, cp), "share_regional"])
+                    )
+                    if (f, cp) in factors_with_reg_share.index
+                    else 0
                 )
 
-                # Store values and row/col nr
-                val.extend(res.values)
-                row_nr.extend(
-                    [row_idx.get_loc((crop_prod, ops, re)) for re in res.index]
-                )
-                col_nr.extend(
-                    [
-                        col_idx.get_loc((feed, ani, sp, br, ps, ss, re))
-                        for re in res.index
-                    ]
-                )
-
-        # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
-            row_idx,
-            col_idx,
-        )
-
-        return M
+        return IndexedMatrix(scipy.sparse.csc_matrix(res), row_idx, col_idx)
 
     def make_A2_1(self):
-        # Get row index from feeds with a regional demand (cp,ps,re)
-        row_idx = pd.MultiIndex.from_tuples(
+        factors = self.get_feed_to_crop_prod_factors()
+        # Limit to factors with regional share
+        factors_with_reg_share = factors[factors["share_regional"] > 0]
+
+        row_idx = pd.MultiIndex.from_product(
             [
-                (cp, ps, re)
-                for cp in list(
-                    set(
-                        [
-                            cp
-                            for herd in self.herds
-                            if herd.data_attr.get("feed.feed_to_reg_crop_prod").shape[1]
-                            > 0
-                            for cp in (
-                                herd.data_attr.get("feed.feed_to_reg_crop_prod")
-                                .replace({0: np.nan})
-                                # drop feeds with no regional demand
-                                .dropna(axis=1, how="all")
-                                .columns.get_level_values("crop_prod")
-                            )
-                        ]
-                    )
-                )
-                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
-                for re in self.x_idx["ani"].get_level_values("region").unique()
+                self.x_idx["fds"].get_level_values("prod_system").unique(),
+                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
+                self.x_idx["fds"].get_level_values("region").unique(),
             ],
-            names=["crop_prod", "prod_system", "region"],
+            names=["prod_system", "crop_prod", "region"],
         )
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx["crp"]
