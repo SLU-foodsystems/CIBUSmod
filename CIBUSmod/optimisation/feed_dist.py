@@ -1324,39 +1324,6 @@ class FeedDistributor:
 
         return IndexedMatrix(M, row_idx, col_idx)
 
-    def make_A2_2(self):
-        factors = self.get_feed_to_crop_prod_factors()
-        # Limit to factors with regional share
-        factors_with_reg_share = factors[factors["share_regional"] > 0]
-
-        row_idx = pd.MultiIndex.from_product(
-            [
-                self.x_idx["fds"].get_level_values("prod_system").unique(),
-                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
-                self.x_idx["fds"].get_level_values("region").unique(),
-            ],
-            names=["prod_system", "crop_prod", "region"],
-        )
-        # Get col index from feed consumption (f,ani,sp,br,ps,ss,re)
-        col_idx = self.x_idx["fds"]
-
-        # DF to store the data in
-        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
-
-        for ps, cp, re_r in row_idx:
-            for f, ani, sp, br, ps, ss, re_c in col_idx:
-                res.loc[(ps, cp, re_r), (f, ani, sp, br, ps, ss, re_c)] = (
-                    (
-                        factors.loc[(f, cp), "feed_to_prod"]
-                        * (1 - factors.loc[(f, cp), "share_imported"])
-                        * (factors.loc[(f, cp), "share_regional"])
-                    )
-                    if (f, cp) in factors_with_reg_share.index
-                    else 0
-                )
-
-        return IndexedMatrix(scipy.sparse.csc_matrix(res), row_idx, col_idx)
-
     def make_A2_1(self):
         factors = self.get_feed_to_crop_prod_factors()
         # Limit to factors with regional share
@@ -1425,6 +1392,40 @@ class FeedDistributor:
         )
 
         return M
+
+
+    def make_A2_2(self):
+        factors = self.get_feed_to_crop_prod_factors()
+        # Limit to factors with regional share
+        factors_with_reg_share = factors[factors["share_regional"] > 0]
+
+        row_idx = pd.MultiIndex.from_product(
+            [
+                self.x_idx["fds"].get_level_values("prod_system").unique(),
+                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
+                self.x_idx["fds"].get_level_values("region").unique(),
+            ],
+            names=["prod_system", "crop_prod", "region"],
+        )
+        # Get col index from feed consumption (f,ani,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
+
+        # DF to store the data in
+        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
+
+        for ps, cp, re_r in row_idx:
+            for f, ani, sp, br, ps, ss, re_c in col_idx:
+                res.loc[(ps, cp, re_r), (f, ani, sp, br, ps, ss, re_c)] = (
+                    (
+                        factors.loc[(f, cp), "feed_to_prod"]
+                        * (1 - factors.loc[(f, cp), "share_imported"])
+                        * (factors.loc[(f, cp), "share_regional"])
+                    )
+                    if (f, cp) in factors_with_reg_share.index
+                    else 0
+                )
+
+        return IndexedMatrix(scipy.sparse.csc_matrix(res), row_idx, col_idx)
 
     def make_A3(self):
         # Get land uses to constrain
