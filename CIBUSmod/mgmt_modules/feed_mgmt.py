@@ -46,7 +46,6 @@ class FeedMgmt():
 
         vprint('Calculating demand for crop products ...')
         self.calculate_product_demand(of='crop_prod')
-        self.calculate_product_demand_factors()
         self.calculate_max_crop_in_crop_prod()
 
         vprint('Calculating demand for by-products ...')
@@ -359,69 +358,6 @@ class FeedMgmt():
                     desc = 'Demand for crop products for feed that must be supplied regionally'
                 )
 
-    def calculate_product_demand_factors(self):
-        # Get Series of crop/by- products or crop residues with feed as index
-        prs = self.par.get_unique(["feed","crop_prod"]).set_index("feed")["crop_prod"]
-
-        for herd in self.herds:
-
-            # Set species and breed filters for ParameterRetriever
-            self.par.clear()
-            self.par.set(
-                species = herd.species,
-                breed = herd.breed,
-                sub_system = herd.sub_system
-            )
-
-            # Construct retrieve dataframe columns
-            df_cols = []
-            for ps, ani, fe in herd.data_attr.get("feed.demand").columns:
-                if fe in prs.index:
-                    for pr in prs[fe] if not isinstance(prs[fe], str) else [prs[fe]]:
-                        df_cols += [(ps, ani, pr, fe)]
-
-            retrieve_df = pd.DataFrame(
-                index = herd.index,
-                columns = pd.MultiIndex.from_tuples(
-                    df_cols,
-                    names=["prod_system", "animal", "crop_prod", "feed"]
-                    ),
-                dtype = float
-            )
-
-            if retrieve_df.shape[1] > 0:
-
-                # Get factors feed --> product
-                feed_to_prod = self.par.get_from_frame("feed_to_prod", retrieve_df)
-
-
-                # Get import shares
-                feed_to_imp_prod = feed_to_prod * self.par.get_from_frame("share_imported", retrieve_df)/100
-                feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
-
-                # Calculate regional demand for crop products
-                feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame("share_regional", retrieve_df) / 100
-            else:
-                raise Exception("Not implemented.")
-
-            # Add data attributes (drop zero cols)
-            # feed_to_dom_prod = feed_to_dom_prod.loc[:, feed_to_dom_prod.sum() > 0]
-            herd.data_attr.add(
-                feed_to_dom_prod,
-                name = "feed.feed_to_dom_crop_prod",
-                unit = "factor",
-                orig = "FeedMgmt",
-                desc = "Demand for crop products per unit of feed"
-            )
-
-            feed_to_reg_prod = feed_to_reg_prod.loc[:, feed_to_reg_prod.sum() > 0]
-            herd.data_attr.add(
-                feed_to_reg_prod,
-                name = "feed.feed_to_reg_crop_prod",
-                unit = "kg/year",
-                orig = "FeedMgmt",
-                desc = "Demand for crop products for feed that must be supplied regionally"
-            )
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
 

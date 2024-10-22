@@ -1284,67 +1284,45 @@ class FeedDistributor:
     def make_A1_3(self):
         """
         Matrix that converts feed products to crop products at a national level.
+
+        Note: potentially memory intensive, as we first allocate everything into a
+        normal df, before we convert it to a sparse matrix.
         """
         # Get row index from crop product demand vector (ps,cp)
         row_idx = self.D_idx["crp"]
         # Get col index from feed demands (f,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
+        # Conversion factors between feed products and crop products
+        factors = self.get_feed_to_crop_prod_factors()
+        # DF to store the data in
+        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
 
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
+        # Ensure factors.index is a MultiIndex, and row_idx is also a MultiIndex
+        # Convert row_idx to a list of tuples
+        row_tuples = list(row_idx)
 
-        for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-            # Set species and breed filters for ParameterRetriever
-            self.par.clear()
-            self.par.set(
-                species=sp,
-                breed=br,
-                sub_system=ss,
-            )
+        # Filter factors that match the row index (ps, cp) tuples without specifying level
+        matching_factors = factors.loc[factors.index.intersection(row_tuples)]
 
-            # Get domestic share
-            feed_to_dom_prod = herd.data_attr.get("feed.feed_to_dom_crop_prod")
-
-            opss_cps = (
-                feed_to_dom_prod.round(5)
-                .replace({0: np.nan})
-                .dropna(axis=1, how="all")
-                # TODO: Unsure if to keep or remove these?
-                # .droplevel('animal', axis=1)
-                # .droplevel('feed', axis=1)
-                .columns.unique()
-                .values
-            )
-
-            for ops, ani, crop_prod, feed in opss_cps:
-                res = -feed_to_dom_prod.loc[:, (ops, slice(None), crop_prod)].sum(
-                    axis=1
-                )
-                val.extend(res.values)
-                row_nr.extend([row_idx.get_loc((ops, crop_prod))] * len(res))
-                col_nr.extend(
-                    [
-                        col_idx.get_loc((feed, ani, sp, br, ps, ss, re))
-                        for re in res.index
-                    ]
-                )
-
-        # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
-            row_idx,
-            col_idx,
+        # Compute the result using vectorized operations
+        res.update(
+            matching_factors["feed_to_prod"] * (1 - matching_factors["share_imported"])
         )
 
-        return M
+        # Alternative implementation of the above three statements: for loop
+        # for ps, cp in row_idx:
+        #     for f, ani, sp, br, ps, ss, re in col_idx:
+        #         res.loc[(ps, cp), (f, ani, sp, br, ps, ss, re)] = (
+        #             factors.loc[(f, cp), "feed_to_prod"]
+        #             * (1 - factors.loc[(f, cp), "share_imported"])
+        #             if (f, cp) in factors.index
+        #             else 0
+        #         )
+
+        # Convert the result to a sparse array
+        M = scipy.sparse.csc_array(res.fillna(0))
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A2_2(self):
         feed_par = self.feed_mgmt.par
@@ -1942,6 +1920,32 @@ class FeedDistributor:
             col_idx,
         )
         return M
+
+    def get_feed_to_crop_prod_factors(
+        self, crop_prod_type: Literal["crop_prod", "by_prod"] = "crop_prod"
+    ):
+        """
+        Get a DataFrame mapping feed products to crop products, with their respective
+        conversion factor as well as respective import- and regional shares.
+        """
+        feed_par = self.feed_mgmt.par
+        feed_par.clear()
+
+        keys = ["feed", crop_prod_type]
+        feed_crop_products: pd.DataFrame = feed_par.get_unique(keys)
+
+        filters = {k: feed_crop_products[k].to_list() for k in keys}
+
+        feed_crop_products["feed_to_prod"] = feed_par.get("feed_to_prod", **filters)
+
+        feed_par.set(**{ crop_prod_type: crop_prod_type })
+        feed_crop_products["share_imported"] = feed_par.get("share_imported") / 100
+        feed_crop_products["share_regional"] = feed_par.get("share_regional") / 100
+
+        # Reset filter
+        feed_par.clear()
+
+        return feed_crop_products.set_index(["feed", crop_prod_type])
 
     def allocate_crop_production_per_use(self):
         """Allocate crop areas to different uses.
