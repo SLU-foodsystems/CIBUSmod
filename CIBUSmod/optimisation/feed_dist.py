@@ -1523,8 +1523,12 @@ class FeedDistributor:
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
-        Z_crp = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["crp"])))  # Zero matrix
-        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))  # Zero matrix
+        Z_crp = scipy.sparse.csc_matrix(
+            (M.shape[0], len(self.x_idx["crp"]))
+        )  # Zero matrix
+        Z_fds = scipy.sparse.csc_matrix(
+            (M.shape[0], len(self.x_idx["fds"]))
+        )  # Zero matrix
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
