@@ -47,6 +47,26 @@ def make_cvxpy_constraint(cons: Constraint, x: cvxpy.Variable) -> cvxpy.Constrai
     return operators[rel](left(x, **pars), right(**pars))
 
 
+class IndexedMatrix:
+    """Class to store pandas.Index/MultiIndex alongside a sparse
+    matrix to keep track of things"""
+
+    def __init__(self, matrix, row_idx, col_idx):
+        self.M = matrix
+
+        if isinstance(row_idx, list):
+            levels = list(row_idx[0].names)
+            for idx in row_idx:
+                levels.extend([lvl for lvl in idx.names if lvl not in levels])
+            print(levels)
+
+        self.rows = row_idx
+        self.cols = col_idx
+
+    def eval(self, x):
+        return pd.Series(self.M @ x, index=self.rows)
+
+
 class FeedDistributor:
     """Class that handles the distribution of animals, crops and feeds across regions for a given
     demand and a number of constraints by minimising deviation from an initial distribution
@@ -2164,23 +2184,3 @@ class FeedDistributor:
             orig="FeedDistributor",
             desc="Total crop production distributed across different uses (unreliable)",
         )
-
-
-class IndexedMatrix:
-    """Class to store pandas.Index/MultiIndex alongside a sparse
-    matrix to keep track of things"""
-
-    def __init__(self, matrix, row_idx, col_idx):
-        self.M = matrix
-
-        if isinstance(row_idx, list):
-            levels = list(row_idx[0].names)
-            for idx in row_idx:
-                levels.extend([lvl for lvl in idx.names if lvl not in levels])
-            print(levels)
-
-        self.rows = row_idx
-        self.cols = col_idx
-
-    def eval(self, x):
-        return pd.Series(self.M @ x, index=self.rows)
