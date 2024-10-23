@@ -1795,6 +1795,64 @@ class FeedDistributor:
 
         return M
 
+    def make_AA_1(self, D_idx: pd.MultiIndex) -> IndexedMatrix:
+        """
+        Create a matrix mapping feeds to by-products.
+        """
+        # Get row index from byproducts demand vector (prod_sys, by_prod)
+        row_idx = D_idx
+        # Get col index from feed demands (f,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
+
+        feed_to_prod = self.get_feed_to_crop_prod_factors("by_prod")
+
+        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
+
+        for row in row_idx:
+            bp = row[1]
+            for col in col_idx:
+                f = col[0]
+                res.loc[row, col] = (
+                    feed_to_prod.loc[(f, bp), "feed_to_prod"]
+                    * (1 - feed_to_prod.loc[(f, bp), "share_imported"])
+                    if (f, bp) in feed_to_prod.index
+                    else 0
+                )
+
+        return IndexedMatrix(scipy.sparse.csc_matrix(feed_to_prod), row_idx, col_idx)
+
+    def make_CA(self):
+        # Fetch the demand of byproducts as calculated in the DemandsAndConversions-module
+        D_byprod = self.demand.data_attr.get("by_products")
+
+        used_byprod = self.demand.data_attr.get("by_prod_demand").sum(axis=1)
+        if used_byprod.shape[0] > 0:
+            D_byprod = used_byprod.astype(float).reindex(D_byprod.index).fillna(0)
+
+        # Construct the mapping of feed-products to by-products
+        AA_fds = self.make_AA_1(D_byprod.index)
+
+        # Zero matrices
+        Z_ani = scipy.sparse.csc_matrix((AA_fds.M.shape[0], len(self.x_idx["ani"])))
+        Z_crp = scipy.sparse.csc_matrix((AA_fds.M.shape[0], len(self.x_idx["crp"])))
+
+        M = IndexedMatrix(
+            scipy.sparse.hstack([Z_ani, Z_crp, AA_fds.M], format="csc"),
+            D_byprod.index,
+            {
+                "ani": self.x_idx["ani"],
+                "crp": self.x_idx["crp"],
+                "fds": self.x_idx["fds"],
+            },
+        )
+
+        return {
+            "left": lambda Aa, x, D: Aa @ x - D,
+            "right": lambda A, D: 0,
+            "rel": ">=",
+            "pars": {"Aa": M, "D": D_byprod},
+        }
+
     def make_P1_1(self):
         """
         Creates the P_{1,1} matrix, which is an identity matrix of size len(x0['ani'])
@@ -1889,7 +1947,7 @@ class FeedDistributor:
 
         feed_crop_products["feed_to_prod"] = feed_par.get("feed_to_prod", **filters)
 
-        feed_par.set(**{ crop_prod_type: crop_prod_type })
+        feed_par.set(**{crop_prod_type: feed_crop_products[crop_prod_type]})
         feed_crop_products["share_imported"] = feed_par.get("share_imported") / 100
         feed_crop_products["share_regional"] = feed_par.get("share_regional") / 100
 
