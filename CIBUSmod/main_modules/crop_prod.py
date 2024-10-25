@@ -171,8 +171,8 @@ class CropProduction(object):
         crop_residues = (
             pd.DataFrame(
                 np.array([
-                    p('ag_resid'),
-                    p('bg_resid'),
+                    p('ag_resid') * p('frac_renew'),
+                    p('bg_resid') * p('frac_renew'),
                 ]).T,
                 index = self.index,
                 columns = pd.Index(['above ground','below ground'], name='residue')

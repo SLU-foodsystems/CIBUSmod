@@ -36,20 +36,20 @@ Lettuce and spinach,0.13,0.18974359,0.51965812,,,,0.0325,,,0.014,1,Jacobs et al 
 Cucumbers,0.13,0.333333333,0.582375479,,,,,,,,1,Jacobs et al 2020,Cucumber,,,,0.2,0,??
 Pumpkins and squash,0.13,0.420408163,0.620408163,,,,,,,,1,Jacobs et al 2020,Pumpkin,,,,0.2,0,??
 Herbs,0.2,0.250517598,0.819875776,,,,,,,,1,Jacobs et al 2020,Herbs,,,,0.2,0,??
-Other vegetables,0.13,,,,,,,,,,,??,,,,,0.2,0,??
+Other vegetables,0.13,,,,,,,,,,1,??,,,,,0.2,0,??
 Strawberries,0.1,1,1.311258278,,,,,,,,1,Jacobs et al 2020,Strawberries,,,,0.2,0,??
-Currants,0.13,,,,,,,,,,,??,,,,,0.2,0,??
-Other berries,0.13,,,,,,,,,,,??,,,,,0.2,0,??
-Apples,0.13,,,,,,,,,,,??,,,,,0.2,0,??
-Pears,0.13,,,,,,,,,,,??,,,,,0.2,0,??
-Other fruit,0.13,,,,,,,,,,,??,,,,,0.2,0,??
-"Tomatoes, greenhouse",0.13,,,,,,,,,,,??,,,,,0.2,0,??
-"Cucumbers, greenhouse",0.13,,,,,,,,,,,??,,,,,0.2,0,??
-"Lettuce, greenhouse",0.13,0.18974359,0.51965812,,,,,,,,,Jacobs et al 2020,salad,,,,0.2,0,??
-"Other vegetables, greenhouse",0.13,,,,,,,,,,,??,,,,,0.2,0,??
-"Herbs, greenhouse",0.2,0.250517598,0.819875776,,,,,,,,,Jacobs et al 2020,Herbs,,,,0.2,0,??
-"Strawberries, greenhouse",0.1,1,1.311258278,,,,,,,,,Jacobs et al 2020,Strawberries,,,,0.2,0,??
-"Other berries, greenhouse",0.13,,,,,,,,,,,??,,,,,0.2,0,??
+Currants,0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+Other berries,0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+Apples,0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+Pears,0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+Other fruit,0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+"Tomatoes, greenhouse",0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+"Cucumbers, greenhouse",0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+"Lettuce, greenhouse",0.13,0.18974359,0.51965812,,,,,,,,1,Jacobs et al 2020,salad,,,,0.2,0,??
+"Other vegetables, greenhouse",0.13,,,,,,,,,,1,??,,,,,0.2,0,??
+"Herbs, greenhouse",0.2,0.250517598,0.819875776,,,,,,,,1,Jacobs et al 2020,Herbs,,,,0.2,0,??
+"Strawberries, greenhouse",0.1,1,1.311258278,,,,,,,,1,Jacobs et al 2020,Strawberries,,,,0.2,0,??
+"Other berries, greenhouse",0.13,,,,,,,,,,1,??,,,,,0.2,0,??
 Fallow,1,0.25,0.54,,,,0.024,,,0.016,0.2,NIR 2022. Table 5.27,Grass-clover mixtures,,,,0.3,0,??
 Energy grass,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.25,Green fodder (cereals),,,,0.3,0,??
 Short rotation coppice,1,0.25,0.54,,,,0.02,,,0.012,1,NIR 2022. Table 5.26,Green fodder (cereals),,,,0.3,0,??
