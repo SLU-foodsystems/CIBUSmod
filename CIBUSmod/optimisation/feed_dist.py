@@ -67,6 +67,23 @@ class IndexedMatrix:
     def eval(self, x):
         return pd.Series(self.M @ x, index=self.rows)
 
+    @classmethod
+    def from_sparse(
+        cls, coo: tuple[list, tuple[list[int], list[int]]], row_idx, col_idx
+    ):
+        """
+        Create an IndexedMatrix from a (values, coordinates)-matrix and row- and
+        column indices.
+        """
+        (val, (row_nr, col_nr)) = coo
+        return IndexedMatrix(
+            scipy.sparse.coo_array(
+                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+            ).tocsc(),
+            row_idx=row_idx,
+            col_idx=col_idx,
+        )
+
 
 class FeedDistributor:
     """Class that handles the distribution of animals, crops and feeds across regions for a given
@@ -1242,15 +1259,7 @@ class FeedDistributor:
                         )
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
-            row_idx,
-            col_idx,
-        )
-
-        return M
+        return IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A1_2(self):
         # Get row index from crop product demand vector (ps,cp)
@@ -1292,15 +1301,11 @@ class FeedDistributor:
                     )
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        return IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
         )
-
-        return M
 
     def make_A1_3(self):
         """
@@ -1403,17 +1408,7 @@ class FeedDistributor:
                         ]
                     )
 
-        # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
-            row_idx,
-            col_idx,
-        )
-
-        return M
-
+        return IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A2_2(self):
         factors = self.get_feed_to_crop_prod_factors()
@@ -1449,10 +1444,8 @@ class FeedDistributor:
                 row_nr.append(row_idx.get_loc((ps, cp, re_r)))
                 col_nr.append(col_idx.get_loc((f, ani, sp, br, ps, ss, re_c)))
 
-        return IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        return IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx=row_idx,
             col_idx=col_idx,
         )
@@ -1624,15 +1617,11 @@ class FeedDistributor:
                     )
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        return IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
         )
-
-        return M
 
     def make_A5_2(self):
         # Get crop product and crop_group combindations where there is a constraint for maximum inclusion
@@ -1682,15 +1671,11 @@ class FeedDistributor:
             col_nr.extend([col_idx.get_loc((cr, ps, re)) for cr, ps, re in res.index])
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        return IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
         )
-
-        return M
 
     def make_A6(self):
         self.crops.par.clear()
@@ -1903,10 +1888,8 @@ class FeedDistributor:
                 col_nr.append(col_idx.get_loc(col))
                 row_nr.append(row_idx.get_loc(row))
 
-        return IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        return IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx=row_idx,
             col_idx=col_idx,
         )
@@ -1974,10 +1957,8 @@ class FeedDistributor:
         row_nr = [row_idx.get_loc((sp, br, ps, re)) for sp, br, ps, _, re in col_idx]
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        M = IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
         )
@@ -1999,10 +1980,8 @@ class FeedDistributor:
         row_nr = [row_idx.get_loc((cr, ps, re)) for cr, ps, re in col_idx]
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        M = IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
         )
@@ -2026,10 +2005,8 @@ class FeedDistributor:
         row_nr = [row_idx.get_loc(row_loc) for row_loc in col_idx]
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
+        M = IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
         )
