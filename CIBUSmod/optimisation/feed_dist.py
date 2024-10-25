@@ -1432,21 +1432,30 @@ class FeedDistributor:
         col_idx = self.x_idx["fds"]
 
         # DF to store the data in
-        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
+        val = []
+        row_nr = []
+        col_nr = []
 
         for ps, cp, re_r in row_idx:
             for f, ani, sp, br, ps, ss, re_c in col_idx:
-                res.loc[(ps, cp, re_r), (f, ani, sp, br, ps, ss, re_c)] = (
-                    (
-                        factors.loc[(f, cp), "feed_to_prod"]
-                        * (1 - factors.loc[(f, cp), "share_imported"])
-                        * (factors.loc[(f, cp), "share_regional"])
-                    )
-                    if (f, cp) in factors_with_reg_share.index
-                    else 0
-                )
+                if (f, cp) not in factors_with_reg_share.index:
+                    continue
 
-        return IndexedMatrix(scipy.sparse.csc_matrix(res), row_idx, col_idx)
+                val.append(
+                    factors.loc[(f, cp), "feed_to_prod"]
+                    * (1 - factors.loc[(f, cp), "share_imported"])
+                    * (factors.loc[(f, cp), "share_regional"])
+                )
+                row_nr.append(row_idx.get_loc((ps, cp, re_r)))
+                col_nr.append(col_idx.get_loc((f, ani, sp, br, ps, ss, re_c)))
+
+        return IndexedMatrix(
+            scipy.sparse.coo_array(
+                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+            ).tocsc(),
+            row_idx=row_idx,
+            col_idx=col_idx,
+        )
 
     def make_A3(self):
         # Get land uses to constrain
@@ -1863,7 +1872,10 @@ class FeedDistributor:
         self.feed_mgmt.par.clear()
         feeds = self.feed_mgmt.par.get_unique(["feed"])["feed"].tolist()
 
-        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
+        val = []
+        row_nr = []
+        col_nr = []
+
         for row in row_idx:
             (feed_param, species, breed, prod_sys, sub_sys) = row
             self.feed_mgmt.par.clear()
@@ -1881,23 +1893,23 @@ class FeedDistributor:
                     or sub_sys is not ss
                 )
                 if ignore:
-                    res.loc[row, col] = 0
                     continue
 
                 f_idx = feeds.index(f)
                 # Pick the species-specific value if not nan, otherwise general (if not
                 # nan), otherwise 0
                 possible_values = [species_values[f_idx], general_values[f_idx], 0]
-                value = next(x for x in possible_values if x is not math.isnan(x))
-
-                res.loc[row, col] = value
+                val.append(next(x for x in possible_values if x is not math.isnan(x)))
+                col_nr.append(col_idx.get_loc(col))
+                row_nr.append(row_idx.get_loc(row))
 
         return IndexedMatrix(
-            scipy.sparse.csc_matrix(res, row_idx=row_idx, col_idx=col_idx),
-            row_idx = row_idx,
-            col_idx = col_idx
+            scipy.sparse.coo_array(
+                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+            ).tocsc(),
+            row_idx=row_idx,
+            col_idx=col_idx,
         )
-
 
     def make_CB(self):
         """
