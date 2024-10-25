@@ -1,4 +1,5 @@
 import warnings
+import math
 import re as regex
 
 import pandas as pd
@@ -1851,6 +1852,98 @@ class FeedDistributor:
             "right": lambda A, D: 0,
             "rel": ">=",
             "pars": {"Aa": M, "D": D_byprod},
+        }
+
+    def make_AB_2(self, row_idx: pd.MultiIndex):
+        """
+        Map feeds to their respective feed parameters (e.g. fat, energy, etc. contents)
+        """
+        col_idx = self.x0_idx["fds"]
+
+        self.feed_mgmt.par.clear()
+        feeds = self.feed_mgmt.par.get_unique(["feed"])["feed"].tolist()
+
+        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
+        for row in row_idx:
+            (feed_param, species, breed, prod_sys, sub_sys) = row
+            self.feed_mgmt.par.clear()
+            general_values = self.feed_mgmt.par.get(feed_param, feed=feeds)
+            species_values = self.feed_mgmt.par.get(
+                feed_param, species=[species], feed=feeds
+            )
+            for col in col_idx:
+                (f, ani, sp, br, ps, ss, re) = col
+                ignore = (
+                    f not in feeds
+                    or species is not sp
+                    or breed is not br
+                    or prod_sys is not ps
+                    or sub_sys is not ss
+                )
+                if ignore:
+                    res.loc[row, col] = 0
+                    continue
+
+                f_idx = feeds.index(f)
+                # Pick the species-specific value if not nan, otherwise general (if not
+                # nan), otherwise 0
+                possible_values = [species_values[f_idx], general_values[f_idx], 0]
+                value = next(x for x in possible_values if x is not math.isnan(x))
+
+                res.loc[row, col] = value
+
+        return IndexedMatrix(
+            scipy.sparse.csc_matrix(res, row_idx=row_idx, col_idx=col_idx),
+            row_idx = row_idx,
+            col_idx = col_idx
+        )
+
+
+    def make_CB(self):
+        """
+        Ensures the nutrient demands are met by the suggested animals- and feed
+        configuration.
+        """
+        FEED_PARS = [
+            "feed_par_ASH",
+            "feed_par_DE",
+            "feed_par_DM",
+            "feed_par_E",
+            "feed_par_fat",
+            "feed_par_GE",
+            "feed_par_K",
+            "feed_par_N",
+            "feed_par_P",
+        ]
+
+        # TODO With region?
+        row_idx = pd.MultiIndex.from_tuples(
+            (
+                (feed_param, sp, br, ps, ss)
+                for (sp, br, ps, ss) in self.herds.index
+                for feed_param in FEED_PARS
+            ),
+            names=[
+                "feed_param",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                # "region",
+            ],
+        )
+
+        AB_1 = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["ani"])))
+        Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["crp"])))
+        AB_2 = self.make_AB_2(row_idx)
+
+        M = scipy.sparse.hstack([AB_1, Z_crp, AB_2.M])
+
+        return {
+            "left": lambda Ab, x: Ab @ x,
+            "right": lambda Ab: 0,
+            "rel": ">=",
+            "pars": {"Ab": M},
         }
 
     def make_P1_1(self):
