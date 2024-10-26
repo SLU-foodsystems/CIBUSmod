@@ -1848,6 +1848,35 @@ class FeedDistributor:
             "pars": {"Aa": M, "D": D_byprod},
         }
 
+    def make_AB_1(self, row_idx: pd.MultiIndex):
+        col_idx = self.x0_idx["ani"]
+
+        feed_params = list(set(row_idx.get_level_values("feed_param")))
+        feed_reqs = list(map(lambda x: x.replace("_par", "") + "_req", feed_params))
+
+        val = []
+        col_nr = []
+        row_nr = []
+
+        for herd in self.herds:
+            sp = herd.species
+            br = herd.breed
+            # TODO: Can herd.prod_system differ from the ps below?
+            ss = herd.sub_system
+            for f_param_name, f_req_name in zip(feed_params, feed_reqs):
+                if f_req_name in herd.data_attr:
+                    data = herd.data_attr.get(f_req_name).unstack()
+                    for ps, ani, re in data.index:
+                        val.append(-1 * data.loc[(ps, ani, re)])
+                        col_nr.append(col_idx.get_loc((sp, br, ps, re)))
+                        row_nr.append(
+                            row_idx.get_loc((f_param_name, sp, br, ps, ss, re))
+                        )
+
+        M = IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
+
+        return M
+
     def make_AB_2(self, row_idx: pd.MultiIndex):
         """
         Map feeds to their respective feed parameters (e.g. fat, energy, etc. contents)
@@ -1862,7 +1891,7 @@ class FeedDistributor:
         col_nr = []
 
         for row in row_idx:
-            (feed_param, species, breed, prod_sys, sub_sys) = row
+            (feed_param, species, breed, prod_sys, sub_sys, region) = row
             self.feed_mgmt.par.clear()
             general_values = self.feed_mgmt.par.get(feed_param, feed=feeds)
             species_values = self.feed_mgmt.par.get(
@@ -1876,6 +1905,7 @@ class FeedDistributor:
                     or breed is not br
                     or prod_sys is not ps
                     or sub_sys is not ss
+                    or region is not re
                 )
                 if ignore:
                     continue
@@ -1911,11 +1941,11 @@ class FeedDistributor:
             "feed_par_P",
         ]
 
-        # TODO With region?
         row_idx = pd.MultiIndex.from_tuples(
             (
-                (feed_param, sp, br, ps, ss)
+                (feed_param, sp, br, ps, ss, region)
                 for (sp, br, ps, ss) in self.herds.index
+                for region in set(self.x0_idx["fds"].get_level_values("region"))
                 for feed_param in FEED_PARS
             ),
             names=[
@@ -1924,15 +1954,15 @@ class FeedDistributor:
                 "breed",
                 "prod_system",
                 "sub_system",
-                # "region",
+                "region",
             ],
         )
 
-        AB_1 = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["ani"])))
+        AB_1 = self.make_AB_1(row_idx)
         Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["crp"])))
         AB_2 = self.make_AB_2(row_idx)
 
-        M = scipy.sparse.hstack([AB_1, Z_crp, AB_2.M])
+        M = scipy.sparse.hstack([AB_1.M, Z_crp, AB_2.M])
 
         return {
             "left": lambda Ab, x: Ab @ x,
