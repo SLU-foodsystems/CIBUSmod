@@ -174,10 +174,10 @@ class InputsMgmt(object):
             attr = 'energy_use',
             inputs_in_col = 'energy_source'
         )
-        for element in ['N','P','K']:
+        for attr in ['mineral_N','mineral_P','mineral_K','liming']:
             self.calculate_emissions(
                 module = self.crops,
-                attr = f'fertiliser.mineral_{element}',
+                attr = f'fertiliser.{attr}',
                 inputs_in_col = 'fertiliser_type'
             )
 

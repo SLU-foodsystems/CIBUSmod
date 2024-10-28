@@ -3,7 +3,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict
+from ..utils.misc import multiply_aligned, inv_dict, index_to_multi
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -97,6 +97,9 @@ class PlantNutrientMgmt():
 
         vprint('Calculating lime application ...')
         self.calculate_lime_application()
+
+        vprint('Calculating liming emissions ...')
+        self.calculate_liming_emissions()
 
         vprint(type='end')
 
@@ -1066,10 +1069,46 @@ class PlantNutrientMgmt():
         # Add data attribute
         self.crops.data_attr.add(
             lime_application,
-            name = 'fertiliser.lime_application',
+            name = 'fertiliser.liming',
             unit = 'kg/year',
             orig = 'PlantNutrientMgmt',
             desc = 'Applied lime'
+        )
+
+    def calculate_liming_emissions(self):
+        self.par.clear()
+
+        # Get lime application
+        lime_application = self.crops.data_attr.get('fertiliser.liming')
+
+        # Get compounds
+        cmps = self.par.get_unique('compound', qry='parameter == "liming_emissions"')
+
+        # Create result DF with 'compound' column level
+        liming_emissions = pd.DataFrame(
+            1.0,
+            index = lime_application.index,
+            columns = pd.MultiIndex.from_tuples(
+                [col+(cmp,) for col in index_to_multi(lime_application.columns) for cmp in cmps],
+                names = lime_application.columns.names + ['compound']
+            )
+        )
+
+        # Calculate emissions from lime
+        liming_emissions = multiply_aligned(liming_emissions, lime_application).mul(
+            self.par.get(
+                'liming_emissions',
+                **liming_emissions.columns.to_frame().to_dict('list')
+            )
+        )
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            liming_emissions,
+            name = 'fertiliser.liming_emissions',
+            unit = 'kg/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'CO2 emissions from lime application'
         )
 
 _elem_to_name = {
