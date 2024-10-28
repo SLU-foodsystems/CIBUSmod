@@ -1564,7 +1564,7 @@ class FeedDistributor:
         return M
 
     def make_A5_1(self):
-        # Get crop product and crop combindations where there is a constraint for maximum inclusion
+        # Get crop product and crop combinations where there is a constraint for maximum inclusion
         cps_cgs = self.feed_mgmt.par.get_unique(
             ["crop_prod", "crop_group"], qry='parameter == "max_crop_in_crop_prod"'
         )
