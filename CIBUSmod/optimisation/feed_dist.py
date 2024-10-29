@@ -1063,6 +1063,7 @@ class FeedDistributor:
         self,
         C9_crp: pd.Series | None = None,
         C9_ani: pd.Series | None = None,
+        C9_fds: pd.Series | None = None,
         C9_rel: str = "==",
         C9_tol: float = 1e-4,
     ):
@@ -1081,6 +1082,8 @@ class FeedDistributor:
             Crop areas to constrain sum of (index must match self.x_idx['crp'])
         C9_ani : (list of) pandas.Series
             Animal numbers to constrain sum of (index must match self.x_idx['ani'])
+        C9_fds : (list of) pandas.Series
+            Animal numbers to constrain sum of (index must match self.x_idx['fds'])
         C9_rel : (list of) string
             Type of constraint. Equality ('=='), minimum ('>=') or maximum ('<=')
         C9_tol : (list of) float
@@ -1090,7 +1093,13 @@ class FeedDistributor:
         None
         """
 
-        pars = {"C9_crp": C9_crp, "C9_ani": C9_ani, "C9_rel": C9_rel, "C9_tol": C9_tol}
+        pars = {
+            "C9_crp": C9_crp,
+            "C9_ani": C9_ani,
+            "C9_fds": C9_fds,
+            "C9_rel": C9_rel,
+            "C9_tol": C9_tol,
+        }
         pars_len = {p: len(pars[p]) if isinstance(pars[p], list) else 0 for p in pars}
         pars_len_max = max(max(pars_len.values()), 1)
 
@@ -1105,9 +1114,7 @@ class FeedDistributor:
                 else:
                     pars[p] = [pars[p]] * pars_len_max
 
-        if all([v is None for v in pars["C9_crp"]]) and all(
-            [v is None for v in pars["C9_ani"]]
-        ):
+        if all([pars[k].isnull().all() for k in ["C9_ani", "C9_crp", "C9_fds"]]):
             raise ValueError(
                 "At least one of 'C9_crp' or 'C9_ani' must be given to use constraint C9"
             )
@@ -1130,15 +1137,19 @@ class FeedDistributor:
             n_def = 0
 
         for i in range(pars_len_max):
-            if not ((pars["C9_crp"][i] is None) & (pars["C9_ani"][i] is None)):
+            if any([pars[k] is not None for k in ["C9_ani", "C9_crp", "C9_fds"]]):
                 # Make matrix (A9)
-                A9 = self.make_A9(pars["C9_crp"][i], pars["C9_ani"][i])
+                A9 = self.make_A9(
+                    pars["C9_ani"][i],
+                    pars["C9_crp"][i],
+                    pars["C9_fds"][i],
+                )
 
                 # Make right hand vector (b9)
                 b9 = sum(
                     [
-                        pars["C9_ani"][i].sum() if pars["C9_ani"][i] is not None else 0,
-                        pars["C9_crp"][i].sum() if pars["C9_crp"][i] is not None else 0,
+                        pars[k][i].sum() if pars[k][i] is not None else 0
+                        for k in ["C9_ani", "C9_crp", "C9_fds"]
                     ]
                 )
 
@@ -1183,7 +1194,9 @@ class FeedDistributor:
                         }
                     )
             else:
-                raise ValueError("Both 'C9_crp' and 'C9_ani' were None")
+                raise ValueError(
+                    "The constraints 'C9_ani', C9_crp', and 'C9_fds' were all None"
+                )
 
         return None
 
@@ -1827,25 +1840,24 @@ class FeedDistributor:
 
         return M
 
-    def make_A9(self, C9_crp, C9_ani):
+    def make_A9(self, C9_ani, C9_crp, C9_fds):
         # No row index, only one row
         row_idx = None
-        # Get col index (cr,ps,re), (sp,br,ps,ss,re)
+        # Get col index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,br,ps,ss,re)
         col_idx = self.x_idx.copy()
 
         MS = []
-        for ac in ["ani", "crp"]:
-            if eval("C9_" + ac) is not None:
-                idx = eval("C9_" + ac).index
-                # Create a 1-by-len(col_idx) matrix
-                # and set cols corresponding to index to 1
-                M = scipy.sparse.lil_matrix((1, len(col_idx[ac])))
-                sel_cols = [col_idx[ac].get_loc(i) for i in idx]
+        for label, A in [("ani", C9_ani), ("crp", C9_crp), ("fds", C9_fds)]:
+            if A is not None:
+                # Create a 1-by-len(col_idx) matrix and set cols corresponding to
+                # index to 1
+                M = scipy.sparse.lil_matrix((1, len(col_idx[label])))
+                sel_cols = [col_idx[label].get_loc(i) for i in A.index]
                 M[:, sel_cols] = 1
                 MS.append(M)
             else:
                 # Append zero matrix
-                Z = scipy.sparse.csc_matrix((1, len(col_idx[ac])))
+                Z = scipy.sparse.csc_matrix((1, len(col_idx[label])))
                 MS.append(Z)
 
         # Create Compressed Sparse Column matrix
