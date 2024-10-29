@@ -1,3 +1,4 @@
+from itertools import product
 import warnings
 import math
 import re as regex
@@ -757,16 +758,19 @@ class FeedDistributor:
         module and can differ for different animals.
         """
 
-        # Maximum supply of crop product(s) from crop(s)
-        A5_1 = self.make_A5_1()
         # Production of crop products
+        A5_1 = self.make_A5_1()
+        # Maximum supply of crop product(s) for a given feed
         A5_2 = self.make_A5_2()
+        Z_ani = scipy.sparse.csc_matrix((A5_1.M.shape[0], len(self.x_idx["ani"])))
 
         # Stack matrices
-        A5 = scipy.sparse.hstack([A5_1.M, A5_2.M], format="csc")
+        A5 = scipy.sparse.hstack([Z_ani, A5_1.M, A5_2.M], format="csc")
 
         A5 = IndexedMatrix(
-            matrix=A5, row_idx=A5_1.rows, col_idx={"ani": A5_1.cols, "crp": A5_2.cols}
+            matrix=A5,
+            row_idx=A5_2.rows,
+            col_idx={"ani": self.x_idx["ani"], "crp": A5_1.cols, "fds": A5_2.cols},
         )
 
         # Append constraint
@@ -1564,66 +1568,11 @@ class FeedDistributor:
         return M
 
     def make_A5_1(self):
-        # Get crop product and crop combinations where there is a constraint for maximum inclusion
-        cps_cgs = self.feed_mgmt.par.get_unique(
-            ["crop_prod", "crop_group"], qry='parameter == "max_crop_in_crop_prod"'
-        )
-
-        # Get row index (cp,cg,ps,re)
-        row_idx = pd.MultiIndex.from_tuples(
-            [
-                (cp, cg, ps, re)
-                for cp, cg in cps_cgs.values
-                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
-                for re in self.x_idx["ani"].get_level_values("region").unique()
-            ],
-            names=["crop_prod", "crop_group", "prod_system", "region"],
-        )
-        # Get col index from animal herds (sp,br,ps,ss,re)
-        col_idx = self.x_idx["ani"]
-
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
-
-        # Go through animal herds
-        for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-
-            # Check if herd has 'feed.max_supply_from_crop'
-            if herd.data_attr.get("feed.max_supply_from_crop_group") is not None:
-                # Go through production systems, crop products and crop combinations with a max supply constraint
-                for ops, cp, cg in herd.data_attr.get(
-                    "feed.max_supply_from_crop_group"
-                ).columns:
-                    # Get maximum supply of crop product (cp) from output production system (ops) in region (re)
-                    # from crop_group (cg) per head of defining animal of species (sp) and breed (br) in production
-                    # system (ps), sub system (ss) and region (re)
-                    res = -herd.data_attr.get("feed.max_supply_from_crop_group").loc[
-                        :, (ops, cp, cg)
-                    ]
-
-                    # Store values and row/col nr
-                    val.extend(res.values)
-                    row_nr.extend(
-                        [row_idx.get_loc((cp, cg, ops, re)) for re in res.index]
-                    )
-                    col_nr.extend(
-                        [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
-                    )
-
-        # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_sparse(
-            (val, (row_nr, col_nr)),
-            row_idx,
-            col_idx,
-        )
-
-    def make_A5_2(self):
+        """
+        Maps the crops in x to their respective crop products, generating the total
+        amount of each crop product (with crop group) produced in each production system
+        and region.
+        """
         # Get crop product and crop_group combindations where there is a constraint for maximum inclusion
         cps_cgs = self.feed_mgmt.par.get_unique(
             ["crop_prod", "crop_group"], qry='parameter == "max_crop_in_crop_prod"'
@@ -1669,6 +1618,100 @@ class FeedDistributor:
                 ]
             )
             col_nr.extend([col_idx.get_loc((cr, ps, re)) for cr, ps, re in res.index])
+
+        # Create Compressed Sparse Column matrix
+        return IndexedMatrix.from_sparse(
+            (val, (row_nr, col_nr)),
+            row_idx,
+            col_idx,
+        )
+
+    def make_A5_2(self):
+        """
+        Maps the feed products to their respective maximum share of crop products
+        generated
+        """
+        # Get crop product and crop combinations where there is a constraint for maximum inclusion
+        cps_cgs = self.feed_mgmt.par.get_unique(
+            ["species", "crop_prod", "crop_group"],
+            qry='parameter == "max_crop_in_crop_prod"',
+        ).set_index("species")
+
+        # Get the factors mapping feeds to crop products.
+        fps_to_cps_factors = self.get_feed_to_crop_prod_factors()
+        # Pick only the domestic share, as this constraint does not apply to imported crops.
+        fps_to_cps_factors = fps_to_cps_factors["feed_to_prod"] * (
+            1 - fps_to_cps_factors["share_imported"]
+        )
+
+        # Dict to lookup which feeds a given crop_product maps to
+        cp_to_fds = inv_dict(dict(fps_to_cps_factors.index.unique().values))
+
+        # Create the row index (cp,cg,ps,re)
+        row_idx = pd.MultiIndex.from_tuples(
+            [
+                (cp, cg, ps, re)
+                for cp, cg in cps_cgs.values
+                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
+                for re in self.x_idx["ani"].get_level_values("region").unique()
+            ],
+            names=["crop_prod", "crop_group", "prod_system", "region"],
+        )
+        # Get col index from feeds (f,ani,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
+
+        val = []
+        row_nr = []
+        col_nr = []
+
+        for herd in self.herds:
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+
+            # Skip if there are no max_crop constraints for this species
+            if sp not in cps_cgs.index:
+                continue
+
+            df = pd.DataFrame(
+                index=pd.MultiIndex.from_tuples(
+                    [(sp, br, ps, ss)],
+                    names=["species", "breed", "prod_system", "sub_system"],
+                ),
+                columns=pd.MultiIndex.from_tuples(
+                    [
+                        (c[0], c[1], an)
+                        for c in cps_cgs.loc[[sp]].values
+                        for an in herd.animals
+                    ],
+                    names=["crop_prod", "crop_group", "animal"],
+                ),
+            )
+
+            max_crop_values = self.feed_mgmt.par.get_from_frame(
+                "max_crop_in_crop_prod", df
+            )
+
+            for cp, cg, ani in max_crop_values.columns:
+                if cp not in cp_to_fds:
+                    warnings.warn(
+                        f"Unexpected case: crop_prod {cp} for parameter 'max_crop_in_crop_prod' was missing for the 'feed_to_prod' parameter"
+                    )
+                    continue
+
+                for sp, br, ps, ss in max_crop_values.index:
+                    max_share = (
+                        max_crop_values.loc[(sp, br, ps, ss), (cp, cg, ani)] / 100
+                    )
+                    for feed, re in product(
+                        cp_to_fds[cp],
+                        col_idx.get_level_values("region").unique(),
+                    ):
+                        col_nr.append(col_idx.get_loc((feed, ani, sp, br, ps, ss, re)))
+                        row_nr.append(row_idx.get_loc((cp, cg, ps, re)))
+                        _feed_to_crop = fps_to_cps_factors.loc[(feed, cp)]
+                        val.append(-_feed_to_crop * max_share)
 
         # Create Compressed Sparse Column matrix
         return IndexedMatrix.from_sparse(
