@@ -45,7 +45,8 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
             'module' : ['CropProduction'],
             'attr' : ['fertiliser.mineral_N_supply_chain_emissions',
                       'fertiliser.mineral_P_supply_chain_emissions',
-                      'fertiliser.mineral_K_supply_chain_emissions']
+                      'fertiliser.mineral_K_supply_chain_emissions',
+                      'fertiliser.liming_supply_chain_emissions']
         },
         'agricultural soils' : {
             'module' : ['CropProduction'],
@@ -58,6 +59,10 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
                       'fertiliser.crop_residues_N_soil_loss',
                       'fertiliser.organic_soil_N_loss',
                       'fertiliser.leaching_N']
+        },
+        'liming' : {
+            'module' : ['CropProduction'],
+            'attr' : ['fertiliser.liming_emissions']
         },
         'waste and circularity' : {
             'module' : ['WasteAndCircularity'],
