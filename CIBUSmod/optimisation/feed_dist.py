@@ -814,37 +814,40 @@ class FeedDistributor:
         )
 
     def make_C7(self) -> None:
-        """Creates C7: Drops variables
+        """
+        Creates C7: Drops variables
 
-        Constrain crops to certain regions based on minimum growing degree days (GDD5). The minimum
-        GDD5 for different crops is set with the parameter 'min_GDD5' in the 'CropProduction' module.
-        The number of GDD5 in each region is defined by the parameter 'GDD' in the 'Regions' module.
+        Constrain crops to certain regions based on minimum growing degree days (GDD5).
+        The minimum GDD5 for different crops is set with the parameter 'min_GDD5' in the
+        'CropProduction' module. The number of GDD5 in each region is defined by the
+        parameter 'GDD' in the 'Regions' module.
 
-        This constraint also indirectly constrains animals with regional demand for crops that can't
-        be grown in a region."""
+        This constraint also indirectly constrains animals with regional demand for
+        crops that can't be grown in a region.
+        """
 
         # This constraint is not implemented as a constraint in the solver but instead drops
         # variables representing crops or animals that can't be present in a region.
         # IMPORTANT: This must be run after all other constraints have been defined!
 
         # Index of crops
-        cr_idx = self.x_idx["crp"]
+        crp_idx = self.x_idx["crp"]
 
         # Get allowed crop-region combinations (i.e. region GDD5 >= min_GDD5 for crop)
         self.crops.par.clear()
         self.regions.par.clear()
-        sel_cr = cr_idx[
-            self.regions.par.get("GDD5", **cr_idx.to_frame().to_dict("list"))
-            >= self.crops.par.get("min_GDD5", **cr_idx.to_frame().to_dict("list"))
+        sel_crp = crp_idx[
+            self.regions.par.get("GDD5", **crp_idx.to_frame().to_dict("list"))
+            >= self.crops.par.get("min_GDD5", **crp_idx.to_frame().to_dict("list"))
         ]
 
         # Index of animal herds
-        an_idx = self.x_idx["ani"]
+        ani_idx = self.x_idx["ani"]
 
         # Get crop products that CAN be produced in region
         sel_cp = (
             self.crops.data_attr.get("production")
-            .loc[sel_cr]
+            .loc[sel_crp]
             .stack()
             .groupby(["crop_prod", "prod_system", "region"])
             .sum()
@@ -867,7 +870,7 @@ class FeedDistributor:
         # List to populate with herds that can be in region
         # (i.e. with no regional demand for feeds that can't be
         # produced in the region)
-        sel_an = []
+        sel_ani = []
 
         for h in self.herds:
             if h.data_attr.get("feed.regional_crop_product_demand").shape[1] > 0:
@@ -895,26 +898,26 @@ class FeedDistributor:
             br = h.breed
             ps = h.prod_system
             ss = h.sub_system
-            sel_an += [(sp, br, ps, ss, re) for re in sel_re]
+            sel_ani += [(sp, br, ps, ss, re) for re in sel_re]
         # To pandas MultiIndex
-        sel_an = pd.MultiIndex.from_tuples(
-            sel_an, names=["species", "breed", "prod_system", "sub_system", "region"]
+        sel_ani = pd.MultiIndex.from_tuples(
+            sel_ani, names=["species", "breed", "prod_system", "sub_system", "region"]
         )
 
         # Get variable positions not to drop
-        isel_an = [an_idx.get_loc(s) for s in sel_an]
-        isel_cr = [cr_idx.get_loc(s) + len(an_idx) for s in sel_cr]
-        isel = isel_an + isel_cr
+        isel_ani = [ani_idx.get_loc(s) for s in sel_ani]
+        isel_crp = [crp_idx.get_loc(s) + len(ani_idx) for s in sel_crp]
+        isel = isel_ani + isel_crp
 
         # Store short index (i.e. index of variables after dropping)
-        self.x_idx_short = {"ani": sel_an, "crp": sel_cr}
+        self.x_idx_short = {"ani": sel_ani, "crp": sel_crp}
 
         # Drop variables from objective and constraint matrices
         for mat in self.matrices().values():
             if mat.M.shape[1] > len(isel):
                 mat.M = mat.M[:, isel]
-                mat.cols["ani"] = sel_an.copy()
-                mat.cols["crp"] = sel_cr.copy()
+                mat.cols["ani"] = sel_ani.copy()
+                mat.cols["crp"] = sel_crp.copy()
 
         return None
 
@@ -1551,12 +1554,9 @@ class FeedDistributor:
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
-        Z_crp = scipy.sparse.csc_matrix(
-            (M.shape[0], len(self.x_idx["crp"]))
-        )  # Zero matrix
-        Z_fds = scipy.sparse.csc_matrix(
-            (M.shape[0], len(self.x_idx["fds"]))
-        )  # Zero matrix
+        # Zero matrices for crops and feeds
+        Z_crp = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["crp"])))
+        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
@@ -1892,6 +1892,9 @@ class FeedDistributor:
         }
 
     def make_AB_1(self, row_idx: pd.MultiIndex):
+        """
+        Map animals to their respective feed requirements
+        """
         col_idx = self.x0_idx["ani"]
 
         feed_params = list(set(row_idx.get_level_values("feed_param")))
@@ -2005,6 +2008,7 @@ class FeedDistributor:
         Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["crp"])))
         AB_2 = self.make_AB_2(row_idx)
 
+        # TODO: Drop rows where all values are zero?
         M = scipy.sparse.hstack([AB_1.M, Z_crp, AB_2.M])
 
         return {
@@ -2067,9 +2071,9 @@ class FeedDistributor:
         This, as we do not want to include the feeds in the optimisation target.
         """
 
-        # Get row index from x0['crp'] (f,sp,br,ps,ss,re)
+        # Get row index from x0['fds'] (f,ani,sp,br,ps,ss,re)
         row_idx = self.x0_idx["fds"]
-        # Get row index from x['crp'] (f,sp,br,ps,ss,re)
+        # Get row index from x['fds'] (f,ani,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
         # To store data and corresponding row/col numbers for constructing matrix
