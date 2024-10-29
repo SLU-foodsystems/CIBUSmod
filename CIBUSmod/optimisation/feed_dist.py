@@ -1865,7 +1865,7 @@ class FeedDistributor:
 
         return M
 
-    def make_AA_1(self, D_idx: pd.MultiIndex) -> IndexedMatrix:
+    def make_A10_1(self, D_idx: pd.MultiIndex) -> IndexedMatrix:
         """
         Create a matrix mapping feeds to by-products.
         """
@@ -1891,7 +1891,10 @@ class FeedDistributor:
 
         return IndexedMatrix(scipy.sparse.csc_matrix(feed_to_prod), row_idx, col_idx)
 
-    def make_CA(self):
+    def make_C10(self):
+        """
+        Ensure the production of by-products meets the demand required by feeds.
+        """
         # Fetch the demand of byproducts as calculated in the DemandsAndConversions-module
         D_byprod = self.demand.data_attr.get("by_products")
 
@@ -1900,14 +1903,14 @@ class FeedDistributor:
             D_byprod = used_byprod.astype(float).reindex(D_byprod.index).fillna(0)
 
         # Construct the mapping of feed-products to by-products
-        AA_fds = self.make_AA_1(D_byprod.index)
+        A10_fds = self.make_A10_1(D_byprod.index)
 
         # Zero matrices
-        Z_ani = scipy.sparse.csc_matrix((AA_fds.M.shape[0], len(self.x_idx["ani"])))
-        Z_crp = scipy.sparse.csc_matrix((AA_fds.M.shape[0], len(self.x_idx["crp"])))
+        Z_ani = scipy.sparse.csc_matrix((A10_fds.M.shape[0], len(self.x_idx["ani"])))
+        Z_crp = scipy.sparse.csc_matrix((A10_fds.M.shape[0], len(self.x_idx["crp"])))
 
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z_ani, Z_crp, AA_fds.M], format="csc"),
+            scipy.sparse.hstack([Z_ani, Z_crp, A10_fds.M], format="csc"),
             D_byprod.index,
             {
                 "ani": self.x_idx["ani"],
@@ -1917,13 +1920,13 @@ class FeedDistributor:
         )
 
         return {
-            "left": lambda Aa, x, D: Aa @ x - D,
+            "left": lambda A10, x, D: A10 @ x - D,
             "right": lambda A, D: 0,
-            "rel": ">=",
-            "pars": {"Aa": M, "D": D_byprod},
+            "rel": "<=",
+            "pars": {"A10": M, "D": D_byprod},
         }
 
-    def make_AB_1(self, row_idx: pd.MultiIndex):
+    def make_A12_1(self, row_idx: pd.MultiIndex):
         """
         Map animals to their respective feed requirements
         """
@@ -1955,7 +1958,7 @@ class FeedDistributor:
 
         return M
 
-    def make_AB_2(self, row_idx: pd.MultiIndex):
+    def make_A12_2(self, row_idx: pd.MultiIndex):
         """
         Map feeds to their respective feed parameters (e.g. fat, energy, etc. contents)
         """
@@ -2002,7 +2005,7 @@ class FeedDistributor:
             col_idx=col_idx,
         )
 
-    def make_CB(self):
+    def make_CX(self):
         """
         Ensures the nutrient demands are met by the suggested animals- and feed
         configuration.
@@ -2036,18 +2039,18 @@ class FeedDistributor:
             ],
         )
 
-        AB_1 = self.make_AB_1(row_idx)
+        A12_1 = self.make_A12_1(row_idx)
         Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["crp"])))
-        AB_2 = self.make_AB_2(row_idx)
+        A12_2 = self.make_A12_2(row_idx)
 
         # TODO: Drop rows where all values are zero?
-        M = scipy.sparse.hstack([AB_1.M, Z_crp, AB_2.M])
+        A12 = scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M])
 
         return {
-            "left": lambda Ab, x: Ab @ x,
-            "right": lambda Ab: 0,
+            "left": lambda A12, x: A12 @ x,
+            "right": lambda A12: 0,
             "rel": ">=",
-            "pars": {"Ab": M},
+            "pars": {"A11": A12},
         }
 
     def make_P1_1(self):
