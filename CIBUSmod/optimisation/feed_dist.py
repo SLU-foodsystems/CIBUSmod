@@ -925,7 +925,8 @@ class FeedDistributor:
         self,
         C8_crp: pd.Series | None = None,
         C8_ani: pd.Series | None = None,
-        C8_rel: str = "==",
+        C8_fds: pd.Series | None = None,
+        C8_rel: list[str] | Literal["==", ">=", "<="] = "==",
         C8_tol: float = 1e-4,
     ):
         """Creates C8: A8 @ x <rel> b8
@@ -943,6 +944,8 @@ class FeedDistributor:
             Crop areas to constrain to (index must match self.x_idx['crp'])
         C8_ani : (list of) pandas.Series
             Animal numbers to constrain to (index must match self.x_idx['ani'])
+        C8_fds : (list of) pandas.Series
+            Feed numbers to constrain to (index must match self.x_idx['fds'])
         C8_rel : (list of) string
             Type of constraint. Equality ('=='), minimum ('>=') or maximum ('<=')
         C8_tol : (list of) float
@@ -952,14 +955,20 @@ class FeedDistributor:
         None
         """
 
-        pars = {"C8_crp": C8_crp, "C8_ani": C8_ani, "C8_rel": C8_rel, "C8_tol": C8_tol}
+        pars = {
+            "C8_crp": C8_crp,
+            "C8_ani": C8_ani,
+            "C8_fds": C8_fds,
+            "C8_rel": C8_rel,
+            "C8_tol": C8_tol,
+        }
         pars_len = {p: len(pars[p]) if isinstance(pars[p], list) else 0 for p in pars}
         pars_len_max = max(max(pars_len.values()), 1)
 
-        if any([x > 1 and x < pars_len_max for x in pars_len.values()]):
+        if any([p_len > 1 and p_len < pars_len_max for p_len in pars_len.values()]):
             raise ValueError("Supplied lists must have the same length")
 
-        # Align lists
+        # Align lists, e.g. ensuring that C8_rel is a list of relations rather than one
         for p in pars:
             if pars_len[p] < pars_len_max:
                 if pars_len[p] == 1:
@@ -967,9 +976,7 @@ class FeedDistributor:
                 else:
                     pars[p] = [pars[p]] * pars_len_max
 
-        if all([v is None for v in pars["C8_crp"]]) and all(
-            [v is None for v in pars["C8_ani"]]
-        ):
+        if all([pars[k].isnull.all() for k in ["C8_crp", "C8_ani", "C8_fds"]]):
             raise ValueError(
                 "At least one of 'C8_crp' or 'C8_ani' must be given to use constraint C8"
             )
@@ -993,17 +1000,21 @@ class FeedDistributor:
 
         for i in range(pars_len_max):
             # Make matrix (A8)
-            A8 = self.make_A8(pars["C8_crp"][i], pars["C8_ani"][i])
+            A8 = self.make_A8(
+                C8_ani=pars["C8_ani"][i],
+                C8_crp=pars["C8_crp"][i],
+                C8_fds=pars["C8_fds"][i],
+            )
 
             # Make right hand vector (b8)
-            if (pars["C8_crp"][i] is not None) & (pars["C8_ani"][i] is not None):
-                b8 = np.concatenate(
-                    (pars["C8_ani"][i].values, pars["C8_crp"][i].values)
-                )
-            elif pars["C8_crp"][i] is not None:
-                b8 = pars["C8_crp"][i].values
-            else:
-                b8 = pars["C8_ani"][i].values
+            # TODO: Should we not fill with zeroes otherwise?
+            b8 = np.concatenate(
+                [
+                    pars[k][i].values
+                    for k in ["C8_ani", "C8_crp", "C8_fds"]
+                    if pars[k][k] is not None
+                ]
+            )
 
             rel = pars["C8_rel"][i]
 
@@ -1779,29 +1790,37 @@ class FeedDistributor:
 
         return M
 
-    def make_A8(self, C8_crp, C8_ani):
-        # Get row index (cr,ps,re), (sp,br,ps,ss,re)
+    def make_A8(self, C8_ani, C8_crp, C8_fds):
+        # Get row index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,sp,br,ps,ss,re)
         row_idx = {}
-        # Get col index (cr,ps,re), (sp,br,ps,ss,re)
+        # Get col index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,sp,br,ps,ss,re)
         col_idx = {k: v.copy() for k, v in self.x_idx.items()}
 
         MS = []
-        for ac in ["ani", "crp"]:
-            if eval("C8_" + ac) is not None:
-                row_idx[ac] = eval("C8_" + ac).index
-                # Create identity matrix from col_idx
-                n = len(col_idx[ac])
-                M = scipy.sparse.identity(n, format="csc")
-                # Drop rows to match row index
-                sel_rows = [col_idx[ac].get_loc(i) for i in row_idx[ac]]
-                M = M[sel_rows, :]
-                # Create zero matrix and hstack
-                if ac == "ani":
-                    Z = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["crp"])))
-                    MS.append(scipy.sparse.hstack([M, Z], format="csc"))
-                else:
-                    Z = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["ani"])))
-                    MS.append(scipy.sparse.hstack([Z, M], format="csc"))
+        for label, A in [("ani", C8_ani), ("crp", C8_crp), ("fds", C8_fds)]:
+            if A is None:
+                continue
+            # Assign index
+            row_idx[label] = A.index
+            # Create identity matrix from col_idx
+            n = len(col_idx[label])
+            M = scipy.sparse.identity(n, format="csc")
+            # Drop rows to match row index
+            sel_rows = [col_idx[label].get_loc(i) for i in row_idx[label]]
+            M = M[sel_rows, :]
+            # Create zero matrix and hstack
+            Z_ani = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["ani"])))
+            Z_crp = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["crp"])))
+            Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["fds"])))
+            # Extend M with zeroes
+            if label == "ani":
+                M = scipy.sparse.hstack([M, Z_crp, Z_fds], format="csc")
+            elif label == "crp":
+                M = scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc")
+            else:  # ac == fds
+                M = scipy.sparse.hstack([Z_ani, Z_crp, M], format="csc")
+
+            MS.append(M)
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(scipy.sparse.vstack(MS), row_idx, col_idx)
