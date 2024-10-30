@@ -87,9 +87,9 @@ class IndexedMatrix:
 
 
 class FeedDistributor:
-    """Class that handles the distribution of animals, crops and feeds across regions for a given
-    demand and a number of constraints by minimising deviation from an initial distribution
-    of crop areas and animal heads (x0).
+    """Class that handles the distribution of animals, crops and feeds across regions
+    for a given demand and a number of constraints by minimising deviation from an
+    initial distribution of crop areas and animal heads (x0).
 
     Parameters
     ----------
@@ -148,8 +148,8 @@ class FeedDistributor:
         Parameters
         ----------
         use_cons : (list of) str
-            List of numbers corresponding to the constraints to be used. For descriptions
-            of each constraint see ?FeedDistributor.make_C<nr>
+            List of numbers corresponding to the constraints to be used. For
+            descriptions of each constraint see ?FeedDistributor.make_C<nr>
         scale_power : float, default 0.4
             Power used to calculate scaling factors for the optimisation.
             scale_power=0 -> minimise absolute difference in crop areas/animal numbers
@@ -486,11 +486,13 @@ class FeedDistributor:
     def calculate_scaling_factors(
         self, scale_power: float = 0.0, cutoff_percentile: float = 99.0
     ):
-        """Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf where rn is a factor
-        normalising all features (i.e. distinct land uses and animal species) to the same range and fs is a
-        scaling factor calculated as fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
-        maximum scaling factor to a certain percentile is implemented to avoid that crops/animals with x0 close
-        to or equal to zero are effectively removed from the solution space.
+        """Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf
+        where rn is a factor normalising all features (i.e. distinct land uses and
+        animal species) to the same range and fs is a scaling factor calculated as
+        fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
+        maximum scaling factor to a certain percentile is implemented to avoid that
+        crops/animals with x0 close to or equal to zero are effectively removed from the
+        solution space.
         """
 
         scale_f = {key: df.copy() for key, df in zip(self.x0.keys(), self.x0.values())}
@@ -604,8 +606,9 @@ class FeedDistributor:
     def make_C1(self):
         """Creates C1: A1 @ x == b1
 
-        Main constraint to ensure that production exactly meets demand. Crop and animal products without any
-        demand remain unconstrained. Demand is calculated in the 'DemandAndConversions' module.
+        Main constraint to ensure that production exactly meets demand. Crop and animal
+        products without any demand remain unconstrained. Demand is calculated in the
+        'DemandAndConversions' module.
         """
 
         # Animal product demand
@@ -659,9 +662,9 @@ class FeedDistributor:
         """
         Creates C2: A2 @ x >= 0
 
-        Constraint the share of feed demand for different crop products that must be met regionally.
-        The minimum share is set via the parameter 'share_regional' in the 'FeedMgmt' module and can differ
-        for different animals.
+        Constraint the share of feed demand for different crop products that must be met
+        regionally. The minimum share is set via the parameter 'share_regional' in the
+        'FeedMgmt' module and can differ for different animals.
         """
 
         # Production of crop products
@@ -693,12 +696,15 @@ class FeedDistributor:
     def make_C3(self):
         """Creates C3: A3 @ x <= b3
 
-        Constrain the maximum area per 'land_use' in each region. The maximum area is set relative to areas
-        in x0 via the parameter 'max_land_use_factor' in the 'Regions' module. A 'max_land_use_factor' of 1
-        implies that areas can't exceed current areas in each region.
-        If the Regions setting 'max_land_use_from_scenario_x0' is set to True (default is False) maximum land
-        use changes if there are changes to 'x0_crops' in a scenario, otherwise default values of 'x0_crops'
-        are used irrespective of any changes in scenarios.
+        Constrain the maximum area per 'land_use' in each region. The maximum area is
+        set relative to areas in x0 via the parameter 'max_land_use_factor' in the
+        'Regions' module. A 'max_land_use_factor' of 1 implies that areas can't exceed
+        current areas in each region.
+
+        If the Regions setting 'max_land_use_from_scenario_x0' is set to True (default
+        is False) maximum land use changes if there are changes to 'x0_crops' in a
+        scenario, otherwise default values of 'x0_crops' are used irrespective of any
+        changes in scenarios.
         """
 
         A3 = self.make_A3()
@@ -725,11 +731,11 @@ class FeedDistributor:
     def make_C4(self):
         """Creates C4: A4 @ x <= 0
 
-        Constrain the maximum share of defining animal heads per species, breed and prod_system belonging
-        to a given sub_system on national level
+        Constrain the maximum share of defining animal heads per species, breed and
+        prod_system belonging to a given sub_system on national level.
 
-        The maximum share is set via the parameter 'max_share_sub_system' in the respective 'AnimalHerd'
-        modules and can differ by breed.
+        The maximum share is set via the parameter 'max_share_sub_system' in the
+        respective 'AnimalHerd' modules and can differ by breed.
         """
 
         A4 = self.make_A4()
@@ -749,13 +755,14 @@ class FeedDistributor:
     def make_C5(self):
         """Creates C5: A5 @ x <= 0
 
-        Constrain the maximum share of a crop product demand for feed that can be supplied by a
-        particular crop group. This constraint is used to e.g. constrain the share of 'grazing' that can be
-        supplied by 'semi-natural grasslands', but can also be used to constrain e.g. share of wheat for
-        feed from winter/spring variaties.
+        Constrain the maximum share of a crop product demand for feed that can be
+        supplied by a particular crop group. This constraint is used to e.g. constrain
+        the share of 'grazing' that can be supplied by 'semi-natural grasslands', but
+        can also be used to constrain e.g. share of wheat for feed from winter/spring
+        varieties.
 
-        The maximum share is set via the parameter 'max_crop_in_crop_prod' in the 'FeedMgmt'
-        module and can differ for different animals.
+        The maximum share is set via the parameter 'max_crop_in_crop_prod' in the
+        'FeedMgmt' module and can differ for different animals.
         """
 
         # Production of crop products
@@ -788,11 +795,12 @@ class FeedDistributor:
     def make_C6(self):
         """Creates C6: A6 @ x <= 0
 
-        Constrain the maximum share of cropland devoted to a given crop group in a given region in a
-        given production system. The maximum share is set on 'crop_group' level via the parameter
-        'max_in_rot' in the 'CropProduction' module.
+        Constrain the maximum share of cropland devoted to a given crop group in a given
+        region in a given production system. The maximum share is set on 'crop_group'
+        level via the parameter 'max_in_rot' in the 'CropProduction' module.
 
-        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the relation tables.
+        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the
+        relation tables.
         """
 
         # Note to future:
@@ -1070,9 +1078,10 @@ class FeedDistributor:
         """Creates C9: A9 @ x <rel> b9
 
         Flexible constraint that constrains the sum of crop areas and/or animal numbers
-        corresponding to the index of passed Series in relation to the sum of given Series.
-        Constraints can be either equality or max/min. Equality constraints (C9_rel = '==')
-        are implemented as min and max constraints with a relative tolerance of +/- C9_tol.
+        corresponding to the index of passed Series in relation to the sum of given
+        Series. Constraints can be either equality or max/min. Equality constraints
+        (C9_rel = '==') are implemented as min and max constraints with a relative
+        tolerance of +/- C9_tol.
 
         Multiple constraints can be created by supplying lists as parameters.
 
