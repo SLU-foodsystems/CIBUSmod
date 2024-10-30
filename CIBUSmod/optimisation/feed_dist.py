@@ -1885,20 +1885,23 @@ class FeedDistributor:
 
         feed_to_prod = self.get_feed_to_crop_prod_factors("by_prod")
 
-        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
+        val = []
+        row_nr = []
+        col_nr = []
 
-        for row in row_idx:
+        for i, row in enumerate(row_idx):
             bp = row[1]
-            for col in col_idx:
+            for j, col in enumerate(col_idx):
                 f = col[0]
-                res.loc[row, col] = (
-                    feed_to_prod.loc[(f, bp), "feed_to_prod"]
-                    * (1 - feed_to_prod.loc[(f, bp), "share_imported"])
-                    if (f, bp) in feed_to_prod.index
-                    else 0
-                )
+                if (f, bp) in feed_to_prod.index:
+                    val.append(
+                        feed_to_prod.loc[(f, bp), "feed_to_prod"]
+                        * (1 - feed_to_prod.loc[(f, bp), "share_imported"])
+                    )
+                    row_nr.append(i)
+                    col_nr.append(j)
 
-        return IndexedMatrix(scipy.sparse.csc_matrix(feed_to_prod), row_idx, col_idx)
+        return IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_C10(self):
         """
