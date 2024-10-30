@@ -1931,12 +1931,16 @@ class FeedDistributor:
             },
         )
 
-        return {
-            "left": lambda A10, x, D: A10 @ x - D,
-            "right": lambda A, D: 0,
-            "rel": "<=",
-            "pars": {"A10": M, "D": D_byprod},
-        }
+        self.constraints.update(
+            {
+                "C10: A10 @ x - D <= 0": {
+                    "left": lambda A10, x, D: A10 @ x - D,
+                    "right": lambda A, D: 0,
+                    "rel": "<=",
+                    "pars": {"A10": M, "D": D_byprod},
+                }
+            }
+        )
 
     def make_A12_1(self, row_idx: pd.MultiIndex):
         """
