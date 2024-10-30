@@ -2065,6 +2065,81 @@ class FeedDistributor:
             "pars": {"A11": A12},
         }
 
+    def make_CC(self):
+        """
+        Limit the intake of certain feed params from certain feed products to given
+        ratios.
+        """
+        FEED_PARS = [
+            "feed_par_ASH",
+            "feed_par_DE",
+            "feed_par_DM",
+            "feed_par_E",
+            "feed_par_fat",
+            "feed_par_GE",
+            "feed_par_K",
+            "feed_par_N",
+            "feed_par_P",
+        ]
+
+        # TODO: Possibly just construct this from the dataset instead.
+        row_idx = pd.MultiIndex.from_tuples(
+            (
+                (feed_param, feed_product, sp, br, ps, ss)
+                for (sp, br, ps, ss) in self.herds.index
+                for feed_param in FEED_PARS
+                for feed_product in self.x_idx["fds"].get_level_values("feed").unique()
+            ),
+            names=[
+                "feed_param",
+                "feed",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "region",
+            ],
+        )
+
+        col_idx = self.x_idx["fds"]
+
+        # We need to get the data, which should read [animal/species, feed, feed_param_
+        # value].
+
+        if False:
+            for herd in self.herds:
+                keys = ["animal", "feed"]
+                pairs = herd.par.get_unique(["animal", "feed"])
+                filters = {k: pairs[k].tolist() for k in keys}
+                # Q: Can we fetch multiple params at once?
+
+                for feed_par in map(
+                    lambda x: x.replace("_par", "") + "_req", FEED_PARS
+                ):
+                    (par_min, par_max) = (f"{feed_par}_min", f"{feed_par} _max")
+                    herd.par.get(par_min, **filters)
+                    herd.par.get(par_max, **filters)
+
+                # Then, two params for each feed_param (_min, _max)
+
+        AC = []
+
+        M = scipy.sparse.hstack(
+            [
+                scipy.sparse.csc_array(
+                    (len(row_idx), len(self.x_idx["ani"]) + len(self.x_idx["ani"]))
+                ),
+                AC,
+            ]
+        )
+
+        return {
+            "left": lambda Ac, x: Ac @ x,
+            "right": lambda Ac: 0,
+            "rel": "<=",
+            "pars": {"Ac": M},
+        }
+
     def make_P1_1(self):
         """
         Creates the P_{1,1} matrix, which is an identity matrix of size len(x0['ani'])
