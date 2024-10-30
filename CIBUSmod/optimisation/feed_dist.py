@@ -69,7 +69,7 @@ class IndexedMatrix:
         return pd.Series(self.M @ x, index=self.rows)
 
     @classmethod
-    def from_sparse(
+    def from_coordinates(
         cls, coo: tuple[list, tuple[list[int], list[int]]], row_idx, col_idx
     ):
         """
@@ -1299,7 +1299,7 @@ class FeedDistributor:
                         )
 
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A1_2(self):
         # Get row index from crop product demand vector (ps,cp)
@@ -1341,7 +1341,7 @@ class FeedDistributor:
                     )
 
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_sparse(
+        return IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
@@ -1448,7 +1448,7 @@ class FeedDistributor:
                         ]
                     )
 
-        return IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A2_2(self):
         factors = self.get_feed_to_crop_prod_factors()
@@ -1484,7 +1484,7 @@ class FeedDistributor:
                 row_nr.append(row_idx.get_loc((ps, cp, re_r)))
                 col_nr.append(col_idx.get_loc((f, ani, sp, br, ps, ss, re_c)))
 
-        return IndexedMatrix.from_sparse(
+        return IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx=row_idx,
             col_idx=col_idx,
@@ -1653,7 +1653,7 @@ class FeedDistributor:
             col_nr.extend([col_idx.get_loc((cr, ps, re)) for cr, ps, re in res.index])
 
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_sparse(
+        return IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
@@ -1747,7 +1747,7 @@ class FeedDistributor:
                         val.append(-_feed_to_crop * max_share)
 
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_sparse(
+        return IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
@@ -1901,7 +1901,7 @@ class FeedDistributor:
                     row_nr.append(i)
                     col_nr.append(j)
 
-        return IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_C10(self):
         """
@@ -1966,7 +1966,7 @@ class FeedDistributor:
                             row_idx.get_loc((f_param_name, sp, br, ps, ss, re))
                         )
 
-        M = IndexedMatrix.from_sparse((val, (row_nr, col_nr)), row_idx, col_idx)
+        M = IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
         return M
 
@@ -2011,7 +2011,7 @@ class FeedDistributor:
                 col_nr.append(col_idx.get_loc(col))
                 row_nr.append(row_idx.get_loc(row))
 
-        return IndexedMatrix.from_sparse(
+        return IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx=row_idx,
             col_idx=col_idx,
@@ -2081,7 +2081,7 @@ class FeedDistributor:
         row_nr = [row_idx.get_loc((sp, br, ps, re)) for sp, br, ps, _, re in col_idx]
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix.from_sparse(
+        M = IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
@@ -2104,7 +2104,7 @@ class FeedDistributor:
         row_nr = [row_idx.get_loc((cr, ps, re)) for cr, ps, re in col_idx]
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix.from_sparse(
+        M = IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
@@ -2129,7 +2129,7 @@ class FeedDistributor:
         row_nr = [row_idx.get_loc(row_loc) for row_loc in col_idx]
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix.from_sparse(
+        M = IndexedMatrix.from_coordinates(
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
