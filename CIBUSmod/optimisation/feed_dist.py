@@ -2021,6 +2021,124 @@ class FeedDistributor:
             col_idx=col_idx,
         )
 
+    def make_A11(self, param: str) -> None | IndexedMatrix:
+        col_idx = self.x_idx["fds"]
+
+        herd_dfs = []
+        for herd in self.herds:
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+
+            p = herd.par
+            p.clear()
+
+            feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
+
+            # Where there are no 'constraints' for this parameter- and herd combo, we
+            # do not need to add anything to the df.
+            if len(feeds) == 0:
+                continue
+
+            retrieve_df = pd.DataFrame(
+                index=pd.MultiIndex.from_tuples(
+                    [(sp, br, ps, ss, ani) for ani in herd.animals],
+                    names=["species", "breed", "prod_system", "sub_system", "animal"],
+                ),
+                columns=pd.Index(feeds, name="feed"),
+            )
+            df = p.get_from_frame(param, retrieve_df, warn_if_nan=False).stack("feed")
+
+            herd_dfs.append(df)
+
+        # No values for the given parameter defined, in which case we can return a None
+        if len(herd_dfs) == 0:
+            return None
+
+        shares_df = (
+            pd.concat(herd_dfs).reorder_levels(
+                [n for n in self.x_idx["fds"].names if n != "region"]
+            )
+            / 100
+        )
+
+        row_idx = pd.MultiIndex.from_tuples(
+            [
+                (f, ani, sp, br, ps, ss, re)
+                for (f, ani, sp, br, ps, ss) in shares_df.index
+                for re in col_idx.get_level_values("region").unique()
+            ],
+            names=self.x_idx["fds"].names,
+        )
+
+        val = []
+        row_nr = []
+        col_nr = []
+
+        for row_i, (r_f, r_ani, r_sp, r_br, r_ps, r_ss, r_re) in enumerate(row_idx):
+            for col_i, (c_f, c_ani, c_sp, c_br, c_ps, c_ss, c_re) in enumerate(col_idx):
+                base_eqs = [
+                    r_ani == c_ani,
+                    r_sp == c_sp,
+                    r_br == c_br,
+                    r_ps == c_ps,
+                    r_ss == c_ss,
+                    r_re == c_re,
+                ]
+                if not np.array(base_eqs).all():
+                    continue
+                max_share = shares_df.loc[(r_f, r_ani, r_sp, r_br, r_ps, r_ss)]
+                val.append(1 - max_share if c_f == r_f else -max_share)
+                row_nr.append(row_i)
+                col_nr.append(col_i)
+
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+
+    def make_C11(self):
+        """
+        Ensure that the feed amounts comply with feed rations
+        """
+
+        def with_zeroes(A11: None | IndexedMatrix):
+            if A11 is None:
+                return None
+            Z_ani = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["ani"])))
+            Z_crp = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["crp"])))
+            return scipy.sparse.hstack([Z_ani, Z_crp, A11.M], format="csc")
+
+        A11_eq = with_zeroes(self.make_A11("share_in_ration"))
+        A11_min = with_zeroes(self.make_A11("min_share_in_ration"))
+        A11_max = with_zeroes(self.make_A11("max_share_in_ration"))
+
+        C11s = {}
+
+        if A11_min is not None:
+            C11s["C11 (min): A11 @ x >= 0"] = {
+                "left": lambda x, A11: A11 @ x,
+                "right": lambda A11: 0,
+                "rel": ">=",
+                "pars": {"A11": A11_min},
+            }
+
+        if A11_eq is not None:
+            C11s["C11 (eq): A11 @ x == 0"] = {
+                "left": lambda x, A11: A11 @ x,
+                "right": lambda A11: 0,
+                "rel": "==",
+                "pars": {"A11": A11_eq},
+            }
+
+        if A11_max is not None:
+            C11s["C11 (max): A11 @ x <= 0"] = {
+                "left": lambda x, A11: A11 @ x,
+                "right": lambda A11: 0,
+                "rel": "<=",
+                "pars": {"A11": A11_max},
+            }
+
+        self.constraints.update(C11s)
+
     def make_CX(self):
         """
         Ensures the nutrient demands are met by the suggested animals- and feed
