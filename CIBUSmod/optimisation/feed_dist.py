@@ -1934,8 +1934,8 @@ class FeedDistributor:
         self.constraints.update(
             {
                 "C10: A10 @ x - D <= 0": {
-                    "left": lambda A10, x, D: A10 @ x - D,
-                    "right": lambda A, D: 0,
+                    "left": lambda x, A10, D: A10.M @ x - D,
+                    "right": lambda A10, D: 0,
                     "rel": "<=",
                     "pars": {"A10": M, "D": D_byprod},
                 }
@@ -2181,7 +2181,7 @@ class FeedDistributor:
         A12 = scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M])
 
         return {
-            "left": lambda A12, x: A12 @ x,
+            "left": lambda x, A12: A12 @ x,
             "right": lambda A12: 0,
             "rel": ">=",
             "pars": {"A11": A12},
@@ -2256,7 +2256,7 @@ class FeedDistributor:
         )
 
         return {
-            "left": lambda Ac, x: Ac @ x,
+            "left": lambda x, Ac: Ac @ x,
             "right": lambda Ac: 0,
             "rel": "<=",
             "pars": {"Ac": M},
