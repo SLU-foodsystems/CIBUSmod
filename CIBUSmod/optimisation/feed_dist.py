@@ -1220,7 +1220,15 @@ class FeedDistributor:
                 return None
             Z_ani = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["ani"])))
             Z_crp = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["crp"])))
-            return scipy.sparse.hstack([Z_ani, Z_crp, A11.M], format="csc")
+            return IndexedMatrix(
+                scipy.sparse.hstack([Z_ani, Z_crp, A11.M], format="csc"),
+                col_idx={
+                    "ani": self.x_idx["ani"],
+                    "crp": self.x_idx["crp"],
+                    "fds": self.x_idx["fds"],
+                },
+                row_idx=A11.rows,
+            )
 
         # Create A-matrices for each of the parameters. If there is no data for any
         # given parameter, we will not add that constraint.
@@ -1232,7 +1240,7 @@ class FeedDistributor:
 
         if A11_min is not None:
             C11s["C11 (min): A11 @ x >= 0"] = {
-                "left": lambda x, A11: A11 @ x,
+                "left": lambda x, A11: A11.M @ x,
                 "right": lambda A11: 0,
                 "rel": ">=",
                 "pars": {"A11": A11_min},
@@ -1240,7 +1248,7 @@ class FeedDistributor:
 
         if A11_eq is not None:
             C11s["C11 (eq): A11 @ x == 0"] = {
-                "left": lambda x, A11: A11 @ x,
+                "left": lambda x, A11: A11.M @ x,
                 "right": lambda A11: 0,
                 "rel": "==",
                 "pars": {"A11": A11_eq},
@@ -1248,7 +1256,7 @@ class FeedDistributor:
 
         if A11_max is not None:
             C11s["C11 (max): A11 @ x <= 0"] = {
-                "left": lambda x, A11: A11 @ x,
+                "left": lambda x, A11: A11.M @ x,
                 "right": lambda A11: 0,
                 "rel": "<=",
                 "pars": {"A11": A11_max},
