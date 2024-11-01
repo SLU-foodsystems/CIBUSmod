@@ -1209,6 +1209,53 @@ class FeedDistributor:
 
         return None
 
+    def make_C11(self):
+        """
+        Ensure that the feed amounts comply with the feed rations.
+        """
+
+        def with_zeroes(A11: None | IndexedMatrix):
+            """Helper function to add 0s for the animal- and crop parts"""
+            if A11 is None:
+                return None
+            Z_ani = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["ani"])))
+            Z_crp = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["crp"])))
+            return scipy.sparse.hstack([Z_ani, Z_crp, A11.M], format="csc")
+
+        # Create A-matrices for each of the parameters. If there is no data for any
+        # given parameter, we will not add that constraint.
+        A11_eq = with_zeroes(self.make_A11("share_in_ration"))
+        A11_min = with_zeroes(self.make_A11("min_share_in_ration"))
+        A11_max = with_zeroes(self.make_A11("max_share_in_ration"))
+
+        C11s: dict[str, Constraint] = {}
+
+        if A11_min is not None:
+            C11s["C11 (min): A11 @ x >= 0"] = {
+                "left": lambda x, A11: A11 @ x,
+                "right": lambda A11: 0,
+                "rel": ">=",
+                "pars": {"A11": A11_min},
+            }
+
+        if A11_eq is not None:
+            C11s["C11 (eq): A11 @ x == 0"] = {
+                "left": lambda x, A11: A11 @ x,
+                "right": lambda A11: 0,
+                "rel": "==",
+                "pars": {"A11": A11_eq},
+            }
+
+        if A11_max is not None:
+            C11s["C11 (max): A11 @ x <= 0"] = {
+                "left": lambda x, A11: A11 @ x,
+                "right": lambda A11: 0,
+                "rel": "<=",
+                "pars": {"A11": A11_max},
+            }
+
+        self.constraints.update(C11s)
+
     def make_P1(self):
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
@@ -2094,50 +2141,6 @@ class FeedDistributor:
                 col_nr.append(col_i)
 
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
-
-    def make_C11(self):
-        """
-        Ensure that the feed amounts comply with feed rations
-        """
-
-        def with_zeroes(A11: None | IndexedMatrix):
-            if A11 is None:
-                return None
-            Z_ani = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["ani"])))
-            Z_crp = scipy.sparse.csc_array((A11.M.shape[0], len(self.x_idx["crp"])))
-            return scipy.sparse.hstack([Z_ani, Z_crp, A11.M], format="csc")
-
-        A11_eq = with_zeroes(self.make_A11("share_in_ration"))
-        A11_min = with_zeroes(self.make_A11("min_share_in_ration"))
-        A11_max = with_zeroes(self.make_A11("max_share_in_ration"))
-
-        C11s = {}
-
-        if A11_min is not None:
-            C11s["C11 (min): A11 @ x >= 0"] = {
-                "left": lambda x, A11: A11 @ x,
-                "right": lambda A11: 0,
-                "rel": ">=",
-                "pars": {"A11": A11_min},
-            }
-
-        if A11_eq is not None:
-            C11s["C11 (eq): A11 @ x == 0"] = {
-                "left": lambda x, A11: A11 @ x,
-                "right": lambda A11: 0,
-                "rel": "==",
-                "pars": {"A11": A11_eq},
-            }
-
-        if A11_max is not None:
-            C11s["C11 (max): A11 @ x <= 0"] = {
-                "left": lambda x, A11: A11 @ x,
-                "right": lambda A11: 0,
-                "rel": "<=",
-                "pars": {"A11": A11_max},
-            }
-
-        self.constraints.update(C11s)
 
     def make_CX(self):
         """
