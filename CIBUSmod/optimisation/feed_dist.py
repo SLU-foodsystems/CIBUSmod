@@ -53,20 +53,31 @@ class IndexedMatrix:
     """Class to store pandas.Index/MultiIndex alongside a sparse
     matrix to keep track of things"""
 
-    def __init__(self, matrix, row_idx, col_idx):
-        self.M = matrix
+    type IndexLike = pd.Index | pd.MultiIndex | dict[str, pd.MultiIndex]
 
-        if isinstance(row_idx, list):
-            levels = list(row_idx[0].names)
-            for idx in row_idx:
-                levels.extend([lvl for lvl in idx.names if lvl not in levels])
-            print(levels)
+    def __init__(self, matrix, row_idx: IndexLike, col_idx: IndexLike):
+        self.M = matrix
 
         self.rows = row_idx
         self.cols = col_idx
 
     def eval(self, x):
         return pd.Series(self.M @ x, index=self.rows)
+
+    def todense(self):
+        index = self.rows
+        columns = self.cols
+
+        if isinstance(index, dict):
+            index = np.concatenate(list(index.values()))
+        if isinstance(columns, dict):
+            columns = np.concatenate(list(columns.values()))
+
+        return pd.DataFrame(
+            self.M.todense(),
+            index=index,
+            columns=columns,
+        )
 
     @classmethod
     def from_coordinates(
