@@ -119,7 +119,9 @@ class FeedMgmt():
             if fp != 'DM':
 
                 # Get energy content of feeds [MJ/kg DM]
-                E_per_feed = self.par.get_from_frame('feed_composition',df_feeds, feed_par = fp)
+                E_per_feed = self.par.get_from_frame(
+                    "feed_composition", df_feeds, feed_par=fp
+                )
 
                 # Calculate avg. energy in feed ration [MJ/kg DM]
                 E_per_DM = (shares_per_feed * E_per_feed).T.groupby(['prod_system','animal']).sum().T
@@ -176,11 +178,15 @@ class FeedMgmt():
             for par in pars:
                 res = (
                     (
-                        self.par.get_from_frame('feed_composition',feed_DM, feed_par = par)
+                        self.par.get_from_frame(
+                            "feed_composition", feed_DM, feed_par=par
+                        )
                         * feed_DM
                     )
-                    .T.groupby(['prod_system','animal']).sum().T
-                    / ration_DM.replace({0:np.nan}) # To avoid div by 0 error
+                    .T.groupby(["prod_system", "animal"])
+                    .sum()
+                    .T
+                    / ration_DM.replace({0: np.nan})  # To avoid div by 0 error
                 )
 
                 # Add data attribute
