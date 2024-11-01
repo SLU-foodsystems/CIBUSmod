@@ -1459,35 +1459,25 @@ class FeedDistributor:
         col_idx = self.x_idx["fds"]
         # Conversion factors between feed products and crop products
         factors = self.get_feed_to_crop_prod_factors()
-        # DF to store the data in
-        res = pd.DataFrame(index=row_idx, columns=col_idx, dtype=float)
 
-        # Ensure factors.index is a MultiIndex, and row_idx is also a MultiIndex
-        # Convert row_idx to a list of tuples
-        row_tuples = list(row_idx)
+        val = []
+        row_nr = []
+        col_nr = []
+        for row_i, row in enumerate(row_idx):
+            cp = row[0]
+            for col_i, col in enumerate(col_idx):
+                f = col[0]
+                if (f, cp) not in factors.index:
+                    continue
 
-        # Filter factors that match the row index (ps, cp) tuples without specifying level
-        matching_factors = factors.loc[factors.index.intersection(row_tuples)]
+                val.append(
+                    -factors.loc[(f, cp), "feed_to_prod"]
+                    * (1 - factors.loc[(f, cp), "share_imported"])
+                )
+                row_nr.append(row_i)
+                col_nr.append(col_i)
 
-        # Compute the result using vectorized operations
-        res.update(
-            matching_factors["feed_to_prod"] * (1 - matching_factors["share_imported"])
-        )
-
-        # Alternative implementation of the above three statements: for loop
-        # for ps, cp in row_idx:
-        #     for f, ani, sp, br, ps, ss, re in col_idx:
-        #         res.loc[(ps, cp), (f, ani, sp, br, ps, ss, re)] = (
-        #             factors.loc[(f, cp), "feed_to_prod"]
-        #             * (1 - factors.loc[(f, cp), "share_imported"])
-        #             if (f, cp) in factors.index
-        #             else 0
-        #         )
-
-        # Convert the result to a sparse array
-        M = scipy.sparse.csc_array(res.fillna(0))
-
-        return IndexedMatrix(M, row_idx, col_idx)
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A2_1(self):
         factors = self.get_feed_to_crop_prod_factors()
