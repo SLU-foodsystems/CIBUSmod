@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
@@ -644,6 +645,23 @@ class PlantNutrientMgmt():
             mineral_fertiliser_to_apply,
             axis=0
         ).fillna(0)
+
+        # Warn if fertilisers do not cover requirements
+        if (mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)).any():
+            warn_idx = (
+                mineral_fertiliser_to_apply
+                .loc[mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)]
+                .index
+                .to_frame(index=False)
+            )
+            warnings.warn(f'''
+Fertiliser {element} application did not cover requirements.
+Likely due to total 'mineral_{element}_fertiliser_share' < 100% and not enough manure
+and other organic fertiliser.
+------------------
+{warn_idx}
+------------------
+            ''')
 
         # Add data attribute
         self.crops.data_attr.add(
