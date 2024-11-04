@@ -1256,6 +1256,50 @@ class FeedDistributor:
 
         self.constraints.update(C11s)
 
+    def make_C12(self):
+        """
+        Ensure the nutrient demands are met by the animals- and feed configuration.
+        """
+        feed_pars = self.feed_mgmt.par.get_unique("feed_par")
+        row_idx = pd.MultiIndex.from_tuples(
+            (
+                (feed_param, sp, br, ps, ss, region)
+                for (sp, br, ps, ss) in self.herds.index
+                for region in self.x_idx["fds"].get_level_values("region").unique()
+                for feed_param in feed_pars
+            ),
+            names=[
+                "feed_param",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "region",
+            ],
+        )
+
+        A12_1 = self.make_A12_1(row_idx)
+        Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x_idx["crp"])))
+        A12_2 = self.make_A12_2(row_idx)
+
+        # TODO: Drop rows where all values are zero?
+        A12 = IndexedMatrix(
+            scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M]),
+            row_idx=row_idx,
+            col_idx={
+                "ani": self.x_idx["ani"],
+                "crp": self.x_idx["crp"],
+                "fds": self.x_idx["fds"],
+            },
+        )
+
+        self.constraints["C12: A12 @ x >= 0"] = {
+            "left": lambda x, A12: A12.M @ x,
+            "right": lambda A12: 0,
+            "rel": ">=",
+            "pars": {"A12": A12},
+        }
+
     def make_P1(self):
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
@@ -1993,10 +2037,10 @@ class FeedDistributor:
         """
         Map animals to their respective feed requirements
         """
-        col_idx = self.x0_idx["ani"]
+        col_idx = self.x_idx["ani"]
 
-        feed_params = list(set(row_idx.get_level_values("feed_param")))
-        feed_reqs = list(map(lambda x: x.replace("_par", "") + "_req", feed_params))
+        feed_params = row_idx.get_level_values("feed_param").unique()
+        feed_reqs = list(map(lambda p_name: f"feed_{p_name}_req", feed_params))
 
         val = []
         col_nr = []
@@ -2005,42 +2049,72 @@ class FeedDistributor:
         for herd in self.herds:
             sp = herd.species
             br = herd.breed
-            # TODO: Can herd.prod_system differ from the ps below?
-            ss = herd.sub_system
+            herd_ps = herd.prod_system
+            herd_ss = herd.sub_system
             for f_param_name, f_req_name in zip(feed_params, feed_reqs):
                 if f_req_name in herd.data_attr:
                     data = herd.data_attr.get(f_req_name).unstack()
-                    for ps, ani, re in data.index:
-                        val.append(-1 * data.loc[(ps, ani, re)])
-                        col_nr.append(col_idx.get_loc((sp, br, ps, re)))
+                    for feed_ps, ani, re in data.index:
+                        val.append(-1 * data.loc[(feed_ps, ani, re)])
+                        col_nr.append(col_idx.get_loc((sp, br, herd_ps, herd_ss, re)))
+                        # TODO: this is not entirely correct: we shouldn't map herd
+                        # sub-system to the feed row? I think?
                         row_nr.append(
-                            row_idx.get_loc((f_param_name, sp, br, ps, ss, re))
+                            row_idx.get_loc(
+                                (f_param_name, sp, br, feed_ps, herd_ss, re)
+                            )
                         )
 
-        M = IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
-
-        return M
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A12_2(self, row_idx: pd.MultiIndex):
         """
-        Map feeds to their respective feed parameters (e.g. fat, energy, etc. contents)
+        Map feeds to their respective feed parameters (e.g. fat, energy, etc. contents),
+        adjusted for storage- and feeding losses
         """
-        col_idx = self.x0_idx["fds"]
+        col_idx = self.x_idx["fds"]
 
         self.feed_mgmt.par.clear()
-        feeds = self.feed_mgmt.par.get_unique(["feed"])["feed"].tolist()
+
+        # Get all feeds
+        feeds = self.feed_mgmt.par.get_unique(
+            "feed", qry="parameter=='feed_composition'"
+        ).tolist()
+
+        # Get all losses
+        losses_retrieve_df = pd.DataFrame(
+            columns=self.x_idx["fds"].get_level_values("feed").unique(),
+            index=self.x_idx["fds"].droplevel(["region", "feed"]).unique(),
+        )
+
+        def perc_to_change_factor(df):
+            return 100 / (100 - df)
+
+        loss_factors = perc_to_change_factor(
+            self.feed_mgmt.par.get_from_frame("storage_losses", losses_retrieve_df)
+        ) * perc_to_change_factor(
+            self.feed_mgmt.par.get_from_frame("feeding_losses", losses_retrieve_df)
+        )
 
         val = []
         row_nr = []
         col_nr = []
 
         for row in row_idx:
-            (feed_param, species, breed, prod_sys, sub_sys, region) = row
+            (feed_par, species, breed, prod_sys, sub_sys, region) = row
             self.feed_mgmt.par.clear()
-            general_values = self.feed_mgmt.par.get(feed_param, feed=feeds)
-            species_values = self.feed_mgmt.par.get(
-                feed_param, species=[species], feed=feeds
-            )
+
+            if feed_par == "DM":
+                values = np.ones(len(feeds))
+            else:
+                values = self.feed_mgmt.par.get(
+                    "feed_composition",
+                    feed_par=feed_par,
+                    species=species,
+                    feed=feeds,
+                    warn_if_nan=False,
+                )
+
             for col in col_idx:
                 (f, ani, sp, br, ps, ss, re) = col
                 ignore = (
@@ -2054,11 +2128,11 @@ class FeedDistributor:
                 if ignore:
                     continue
 
-                f_idx = feeds.index(f)
-                # Pick the species-specific value if not nan, otherwise general (if not
-                # nan), otherwise 0
-                possible_values = [species_values[f_idx], general_values[f_idx], 0]
-                val.append(next(x for x in possible_values if x is not math.isnan(x)))
+                value = values[feeds.index(f)]
+                if np.isnan(value):
+                    continue
+
+                val.append(value * loss_factors.loc[(ani, sp, br, ps, ss), f])
                 col_nr.append(col_idx.get_loc(col))
                 row_nr.append(row_idx.get_loc(row))
 
@@ -2141,54 +2215,6 @@ class FeedDistributor:
                 col_nr.append(col_i)
 
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
-
-    def make_CX(self):
-        """
-        Ensures the nutrient demands are met by the suggested animals- and feed
-        configuration.
-        """
-        FEED_PARS = [
-            "feed_par_ASH",
-            "feed_par_DE",
-            "feed_par_DM",
-            "feed_par_E",
-            "feed_par_fat",
-            "feed_par_GE",
-            "feed_par_K",
-            "feed_par_N",
-            "feed_par_P",
-        ]
-
-        row_idx = pd.MultiIndex.from_tuples(
-            (
-                (feed_param, sp, br, ps, ss, region)
-                for (sp, br, ps, ss) in self.herds.index
-                for region in set(self.x0_idx["fds"].get_level_values("region"))
-                for feed_param in FEED_PARS
-            ),
-            names=[
-                "feed_param",
-                "species",
-                "breed",
-                "prod_system",
-                "sub_system",
-                "region",
-            ],
-        )
-
-        A12_1 = self.make_A12_1(row_idx)
-        Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x0_idx["crp"])))
-        A12_2 = self.make_A12_2(row_idx)
-
-        # TODO: Drop rows where all values are zero?
-        A12 = scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M])
-
-        return {
-            "left": lambda x, A12: A12 @ x,
-            "right": lambda A12: 0,
-            "rel": ">=",
-            "pars": {"A11": A12},
-        }
 
     def make_CC(self):
         """
