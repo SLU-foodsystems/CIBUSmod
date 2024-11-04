@@ -2216,29 +2216,18 @@ class FeedDistributor:
 
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
-    def make_CC(self):
+    def make_C13(self):
         """
         Limit the intake of certain feed params from certain feed products to given
         ratios.
         """
-        FEED_PARS = [
-            "feed_par_ASH",
-            "feed_par_DE",
-            "feed_par_DM",
-            "feed_par_E",
-            "feed_par_fat",
-            "feed_par_GE",
-            "feed_par_K",
-            "feed_par_N",
-            "feed_par_P",
-        ]
-
         # TODO: Possibly just construct this from the dataset instead.
+
         row_idx = pd.MultiIndex.from_tuples(
             (
                 (feed_param, feed_product, sp, br, ps, ss)
                 for (sp, br, ps, ss) in self.herds.index
-                for feed_param in FEED_PARS
+                for feed_param in self.feed_mgmt.par.get_unique("feed_par")
                 for feed_product in self.x_idx["fds"].get_level_values("feed").unique()
             ),
             names=[
@@ -2264,9 +2253,7 @@ class FeedDistributor:
                 filters = {k: pairs[k].tolist() for k in keys}
                 # Q: Can we fetch multiple params at once?
 
-                for feed_par in map(
-                    lambda x: x.replace("_par", "") + "_req", FEED_PARS
-                ):
+                for feed_par in map(lambda x: x.replace("_par", "") + "_req", feed_par):
                     (par_min, par_max) = (f"{feed_par}_min", f"{feed_par} _max")
                     herd.par.get(par_min, **filters)
                     herd.par.get(par_max, **filters)
