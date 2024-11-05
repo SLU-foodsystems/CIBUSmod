@@ -648,18 +648,21 @@ class PlantNutrientMgmt():
 
         # Warn if fertilisers do not cover requirements
         if (mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)).any():
-            warn_idx = (
-                mineral_fertiliser_to_apply
+            warn_df = (
+                (
+                    mineral_fertiliser_to_apply -
+                    mineral_fertiliser_application.sum(axis=1)
+                )
                 .loc[mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)]
-                .index
-                .to_frame(index=False)
+                .groupby(['region','prod_system']).sum()
             )
             warnings.warn(f'''
 Fertiliser {element} application did not cover requirements.
 Likely due to total 'mineral_{element}_fertiliser_share' < 100% and not enough manure
 and other organic fertiliser.
+Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
 ------------------
-{warn_idx}
+{warn_df}
 ------------------
             ''')
 
