@@ -2331,7 +2331,9 @@ class FeedDistributor:
         return M
 
     def get_feed_to_crop_prod_factors(
-        self, crop_prod_type: Literal["crop_prod", "by_prod"] = "crop_prod"
+        self,
+        crop_prod_type: Literal["crop_prod", "by_prod"] = "crop_prod",
+        **extra_filters,
     ):
         """
         Get a DataFrame mapping feed products to crop products, with their respective
@@ -2343,7 +2345,7 @@ class FeedDistributor:
         keys = ["feed", crop_prod_type]
         feed_crop_products: pd.DataFrame = feed_par.get_unique(keys)
 
-        filters = {k: feed_crop_products[k].to_list() for k in keys}
+        filters = {k: feed_crop_products[k].to_list() for k in keys} | extra_filters
 
         feed_crop_products["feed_to_prod"] = feed_par.get("feed_to_prod", **filters)
 
