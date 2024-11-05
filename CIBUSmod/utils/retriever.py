@@ -685,6 +685,11 @@ def _read_xl(path,sheet):
         # using relation tables.
         rel_filters = [f for f in df.index.names if ':' in f]
         if len(rel_filters)>0:
+
+            # If df is a Series make DataFrame
+            if isinstance(df, pd.Series):
+                df = df.rename(value_cols).to_frame()
+
             for rf in rel_filters:
                 # Get aggregated and target filter names
                 f_from = rf.split(':')[0][2:]
@@ -693,15 +698,14 @@ def _read_xl(path,sheet):
 
                 # If target filter column does not exist create it
                 if 'f_'+f_to not in df.index.names:
-                    df_ = df.to_frame()
+                    df_ = df.copy()
                     df_['f_'+f_to] = np.nan
                     df_ = df_.set_index('f_'+f_to, append=True)
-                    df = df_['value']
+                    df = df_
 
                 # Get rows
                 df_w_rf = df.loc[~df.index.get_level_values(rf).isna(),:]
                 df = df.loc[df.index.get_level_values(rf).isna(),:]
-
                 # Make sure that the target filter column is empty
                 if not df_w_rf.index.get_level_values('f_'+f_to).isna().all():
                     raise Exception('Target filter column has values')
@@ -711,7 +715,7 @@ def _read_xl(path,sheet):
                 tf_i = df.index.names.index('f_'+f_to)
 
                 # Create new df where data values are propagaed across target filter values
-                new_df = pd.Series(
+                new_df = pd.DataFrame.from_dict(
                     {
                         tuple(
                             list(idx[:tf_i]) +
@@ -721,9 +725,10 @@ def _read_xl(path,sheet):
                         for idx, v in zip(df_w_rf.index, df_w_rf.values)
                         for f in rel[idx[rf_i]]
                     },
-                    name = 'value'
+                    orient = 'index'
                 )
-                new_df.index.names = df.index.names
+                new_df.index = pd.MultiIndex.from_tuples(new_df.index, names = df.index.names)
+                new_df.columns = value_cols if isinstance(value_cols, list) else [value_cols]
 
                 # Remove any rows with identical filters as rows in the big df
                 sel = [
@@ -744,6 +749,10 @@ def _read_xl(path,sheet):
             # Make sure that 'parameter' is the last level in index.
             par_i = df.index.names.index('parameter')
             df = df.reorder_levels(df.index.names[:par_i]+df.index.names[par_i+1:]+[df.index.names[par_i]])
+
+            # Convert back to Series if value_cols not a list
+            if not isinstance(value_cols, list):
+                df = df[value_cols]
 
         # Raise error if duplicates found and print some usefull info
         if df.index.duplicated().any():
