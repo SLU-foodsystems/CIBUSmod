@@ -1448,9 +1448,15 @@ class GeoDistributor:
         col_nr = []
 
         for cg,ps in row_idx.droplevel('region').unique():
-            f = float(self.crops.par.get('max_in_rot' ,crop_group=cg, prod_system=ps)/100)
 
-            vls = [0 if (ps != ps_) | (lu_rel[cr] != 'cropland') else ((1-f) if cg_rel[cr] == cg else -f) for cr,ps_,_ in col_idx]
+            # Create Series of 'max_in_rot' factors for crop_group = cg
+            # and prod_system = ps for each region
+            f = pd.Series(
+                self.crops.par.get('max_in_rot', crop_group=cg, prod_system=ps, region=list(res))/100,
+                index = res
+            )
+
+            vls = [0 if (ps != ps_) | (lu_rel[cr] != 'cropland') else ((1-f.loc[re]) if cg_rel[cr] == cg else -f.loc[re]) for cr,ps_,re in col_idx]
             cns = list(range(len(col_idx)))
             rns = [row_idx.get_loc((cg,ps,re)) for _,_,re in col_idx]
 
