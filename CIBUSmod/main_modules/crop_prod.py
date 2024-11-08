@@ -67,14 +67,14 @@ class CropProduction(object):
             name = 'harvest',
             unit = 'kg/year',
             orig = 'CropProduction',
-            desc = 'Total crop harvest in "natural" water content (see CropProduction parameter sheet)'
+            desc = 'Total potential crop harvest in "natural" water content (see CropProduction parameter sheet)'
         )
         self.data_attr.add(
             harvest_dm,
             name = 'harvest_dm',
             unit = 'kg DM/year',
             orig = 'CropProduction',
-            desc = 'Total crop harvest in dry matter'
+            desc = 'Total potential crop harvest in dry matter'
         )
 
         vprint('Calculating production ...')
@@ -171,8 +171,8 @@ class CropProduction(object):
         crop_residues = (
             pd.DataFrame(
                 np.array([
-                    p('ag_resid'),
-                    p('bg_resid'),
+                    p('ag_resid') * p('frac_renew'),
+                    p('bg_resid') * p('frac_renew'),
                 ]).T,
                 index = self.index,
                 columns = pd.Index(['above ground','below ground'], name='residue')

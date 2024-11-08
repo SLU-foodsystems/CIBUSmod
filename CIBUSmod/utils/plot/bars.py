@@ -410,18 +410,24 @@ def marimekko(
     linewidth = 0.5,
     
     axis_padding = 10,
+
+    xlim_pad = 0.01,
+    ylim_pad = 0.01,
     
     xlabel = '',
     xlabel_fontsize = 11,
     ylabel = '',
     ylabel_fontsize = 11,
     ticklabels_fontsize = 10,
+
+    sort_xcategories = True,
+    sort_categories = True,
     
-    categorylabels_threshold = 0.02,
-    categorylabels_wrap = False,
-    categorylabels_fontsize = 9,
-    categorylabels_rotation = 45,
-    categorylabels_halign = 'right'
+    xcategorylabels_threshold = 0.02,
+    xcategorylabels_wrap = False,
+    xcategorylabels_fontsize = 9,
+    xcategorylabels_rotation = 45,
+    xcategorylabels_halign = 'right'
 ):
 
     if ax is None:
@@ -440,15 +446,17 @@ def marimekko(
         x = data.loc[:,x_column]
         y = data.drop(x_column, axis=1)
         
-    # Sort stack categories
-    sorter = y.sum().sort_values(ascending=False).index
-    y = y.loc[:,sorter]
+    # Sort categories
+    if sort_categories:
+        sorter = y.sum().sort_values(ascending=False).index
+        y = y.loc[:,sorter]
     
     # Sort x axis categories
-    if x_column is None:
-        sorter = y.sort_values(y.columns.tolist(), ascending=False).index
-    else:
-        sorter = y.sum(axis=1).sort_values(ascending=False).index
+    if sort_xcategories:
+        if x_column is None:
+            sorter = y.sort_values(y.columns.tolist(), ascending=False).index
+        else:
+            sorter = y.sum(axis=1).sort_values(ascending=False).index
     x = x.loc[sorter]
     y = y.loc[sorter]
     
@@ -473,32 +481,32 @@ def marimekko(
     
 
     # Set axes ranges
-    ax.set_xlim(-x_sum*0.01, x_sum*1.01)
-    ax.set_ylim(-y_sum*0.01, y_sum*1.01)
+    ax.set_xlim(-x_sum*0.01, x_sum*(1+xlim_pad))
+    ax.set_ylim(-y_sum*0.01, y_sum*(1+ylim_pad))
 
     # Style axes and spines
     ax.tick_params(axis='x', which='major', labelsize = ticklabels_fontsize,
                    bottom=False, top=True, labelbottom=False, labeltop=True)
-    ax.tick_params(axis='x', which='minor', labelsize = categorylabels_fontsize,
+    ax.tick_params(axis='x', which='minor', labelsize = xcategorylabels_fontsize,
                    length=5, width=0.8,
                    bottom=True, top=False, labelbottom=True, labeltop=False)
     ax.spines[['left','top']].set_position(('outward', axis_padding))
-    xticks = [t for t in ax.get_xticks() if t <= x_sum*1.01 and t >= 0]
-    yticks = [t for t in ax.get_yticks() if t <= y_sum*1.01 and t >= 0]
+    xticks = [t for t in ax.get_xticks() if t <= x_sum*(1+xlim_pad) and t >= 0]
+    yticks = [t for t in ax.get_yticks() if t <= y_sum*(1+ylim_pad) and t >= 0]
     ax.spines['top'].set_bounds((min(xticks), max(xticks)))
     ax.spines['left'].set_bounds((min(yticks), max(yticks)))
     ax.spines[['bottom','right']].set_visible(False)
 
     # Create category labels
-    ticks = [x for x,w in zip(x_mid,x) if w > x_sum * categorylabels_threshold]
-    labels = [fill(l, categorylabels_wrap, break_long_words=False) if categorylabels_wrap else l
-                for l,w in zip(x.index,x) if w > x_sum * categorylabels_threshold]
+    ticks = [x for x,w in zip(x_mid,x) if w > x_sum * xcategorylabels_threshold]
+    labels = [fill(l, xcategorylabels_wrap, break_long_words=False) if xcategorylabels_wrap else l
+                for l,w in zip(x.index,x) if w > x_sum * xcategorylabels_threshold]
     ax.set_xticks(
         minor=True,
         ticks = ticks,
         labels = labels,
-        rotation = categorylabels_rotation,
-        ha = categorylabels_halign,
+        rotation = xcategorylabels_rotation,
+        ha = xcategorylabels_halign,
         rotation_mode = 'anchor'
     )
     

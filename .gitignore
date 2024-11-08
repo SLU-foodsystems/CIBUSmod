@@ -22,6 +22,9 @@ dev/
 # Ecoinvent files
 data/ecoinvent/*
 
+# Model output
+data/output/*
+
 # Model output files
 *.pkl
 *.bz2

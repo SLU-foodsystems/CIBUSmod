@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
+import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict
+from ..utils.misc import multiply_aligned, inv_dict, index_to_multi
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -94,6 +95,12 @@ class PlantNutrientMgmt():
         self.calculate_leaching_N()
 
         # TO BE ADDED: Leaching of P and K
+
+        vprint('Calculating lime application ...')
+        self.calculate_lime_application()
+
+        vprint('Calculating liming emissions ...')
+        self.calculate_liming_emissions()
 
         vprint(type='end')
 
@@ -639,6 +646,26 @@ class PlantNutrientMgmt():
             axis=0
         ).fillna(0)
 
+        # Warn if fertilisers do not cover requirements
+        if (mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)).any():
+            warn_df = (
+                (
+                    mineral_fertiliser_to_apply -
+                    mineral_fertiliser_application.sum(axis=1)
+                )
+                .loc[mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)]
+                .groupby(['region','prod_system']).sum()
+            )
+            warnings.warn(f'''
+Fertiliser {element} application did not cover requirements.
+Likely due to total 'mineral_{element}_fertiliser_share' < 100% and not enough manure
+and other organic fertiliser.
+Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
+------------------
+{warn_df}
+------------------
+            ''')
+
         # Add data attribute
         self.crops.data_attr.add(
             mineral_fertiliser_application,
@@ -945,6 +972,164 @@ class PlantNutrientMgmt():
             unit = 'kg N/year',
             orig = 'PlantNutrientMgmt',
             desc = 'Losses of nitrogen (N) via leaching'
+        )
+
+    def calculate_lime_application(self):
+        """"Method to calculate lime application based on the liming effect of
+        removed harvest, removed crop residues and applied fertilisers and manure"""
+
+        # Calculate lime effect of removed harvest
+        self.par.clear()
+        crops_CaO = self.crops.data_attr.get('harvest_dm')
+        crops_CaO = crops_CaO.mul(
+            self.par.get(
+                'lime_effect_crops',
+                **crops_CaO.index.to_frame().to_dict('list')
+            )
+        )
+        # Set lime effect on non-cropland to zero
+        crops_CaO.loc[
+            crops_CaO.rename(
+                self.par.get_rel('crop','land_use'),
+                level='crop'
+            )
+            .index.get_level_values('crop') != 'cropland'
+        ] = 0
+
+        # Calculate lime effect of removed crop residues
+        self.par.clear()
+        crop_resid_CaO = self.crops.data_attr.get('crop_residues_harvest')
+        crop_resid_CaO = crop_resid_CaO.mul(
+            self.par.get_from_frame(
+                'lime_effect_crops',
+                crop_resid_CaO
+            )
+        )
+
+        # Calculate lime effect of manure application
+        self.par.clear()
+        manure_CaO = self.crops.data_attr.get('fertiliser.manure_N')
+        manure_CaO = manure_CaO.mul(
+            self.par.get(
+                'lime_effect_manure',
+                **manure_CaO.columns.to_frame().to_dict('list')
+            ), axis = 1
+        )
+
+        # Calculate lime effect of N fertiliser application
+        self.par.clear()
+        fert_N_CaO = self.crops.data_attr.get('fertiliser.mineral_N')
+        fert_N_CaO = fert_N_CaO.mul(
+            self.par.get(
+                'lime_effect_fertiliser_N',
+                **fert_N_CaO.columns.to_frame().to_dict('list')
+            ), axis = 1
+        )
+
+        # Calculate lime effect of P fertiliser application
+        self.par.clear()
+        fert_P_CaO = self.crops.data_attr.get('fertiliser.mineral_P')
+        fert_P_CaO = fert_P_CaO.mul(
+            self.par.get(
+                'lime_effect_fertiliser_P',
+                **fert_P_CaO.columns.to_frame().to_dict('list')
+            ), axis = 1
+        )
+
+        # Calculate lime effect of K fertiliser application
+        self.par.clear()
+        fert_K_CaO = self.crops.data_attr.get('fertiliser.mineral_K')
+        fert_K_CaO = fert_K_CaO.mul(
+            self.par.get(
+                'lime_effect_fertiliser_K',
+                **fert_K_CaO.columns.to_frame().to_dict('list')
+            ), axis = 1
+        )
+
+        # Calculate total lime effect
+        total_CaO = (
+            crops_CaO +
+            crop_resid_CaO.sum(axis=1) +
+            fert_N_CaO.sum(axis=1) +
+            fert_P_CaO.sum(axis=1) +
+            fert_K_CaO.sum(axis=1) +
+            manure_CaO.sum(axis=1)
+        )
+
+        # Create DF for lime application
+        lime_application = pd.DataFrame(
+            1.0,
+            index = total_CaO.index,
+            columns = pd.Index(self.par.get_unique('fertiliser_type', qry='parameter == "liming_agent_share"'), name = 'fertiliser_type')
+        )
+
+        # Calculate applied lime per liming agend
+        lime_application = (
+            lime_application *
+            # Factor in liming agent shares
+            (self.par.get_from_frame(
+                'liming_agent_share',
+                lime_application
+            )/100) *
+            # Factor in neutralising value of different liming agent (CaO equivalents)
+            (1/(self.par.get_from_frame(
+                'liming_agent_CaO_value',
+                lime_application
+            )/100))
+        ).mul(
+            # Multiply by total liming requirements
+            -total_CaO, axis = 0
+        )
+
+        # Remove negative lime applications while
+        # maintaining sum of application
+        total_appl = lime_application.sum()
+        lime_application = lime_application.where(lime_application>0,0)
+        lime_application = lime_application.div(lime_application.sum(), axis=1).mul(total_appl, axis=1)
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            lime_application,
+            name = 'fertiliser.liming',
+            unit = 'kg/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Applied lime'
+        )
+
+    def calculate_liming_emissions(self):
+        self.par.clear()
+
+        # Get lime application
+        lime_application = self.crops.data_attr.get('fertiliser.liming')
+
+        # Get compounds
+        cmps = self.par.get_unique('compound', qry='parameter == "liming_emissions"')
+
+        # Create result DF with 'compound' column level
+        liming_emissions = pd.DataFrame(
+            1.0,
+            index = lime_application.index,
+            columns = pd.MultiIndex.from_tuples(
+                [col+(cmp,) for col in index_to_multi(lime_application.columns) for cmp in cmps],
+                names = lime_application.columns.names + ['compound']
+            )
+        )
+
+        # Calculate emissions from lime
+        liming_emissions = multiply_aligned(liming_emissions, lime_application).mul(
+            self.par.get(
+                'liming_emissions',
+                **liming_emissions.columns.to_frame().to_dict('list')
+            )
+        )
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            liming_emissions,
+            name = 'fertiliser.liming_emissions',
+            unit = 'kg/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'CO2 emissions from lime application'
         )
 
 _elem_to_name = {
