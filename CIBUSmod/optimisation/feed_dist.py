@@ -22,7 +22,7 @@ from ..utils.misc import multiply_aligned, inv_dict
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
-from typing import Callable, Literal, TypedDict
+from typing import Callable, Literal, TypedDict, Self
 
 
 class Constraint(TypedDict):
@@ -64,6 +64,13 @@ class IndexedMatrix:
     def eval(self, x):
         return pd.Series(self.M @ x, index=self.rows)
 
+    def align(self, other: Self):
+        rows_indices_other = [i for i, x in enumerate(self.rows) if x in other.rows]
+
+        M_csr = self.M.tocsr()
+        self.M = M_csr[rows_indices_other, :].tocsc()
+        self.rows = other.rows.copy()
+
     def todense(self):
         index = self.rows
         columns = self.cols
@@ -82,19 +89,27 @@ class IndexedMatrix:
     @classmethod
     def from_coordinates(
         cls, coo: tuple[list, tuple[list[int], list[int]]], row_idx, col_idx
-    ):
+    ) -> Self:
         """
         Create an IndexedMatrix from a (values, coordinates)-matrix and row- and
         column indices.
         """
         (val, (row_nr, col_nr)) = coo
-        return IndexedMatrix(
+        return cls(
             scipy.sparse.coo_array(
                 (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
             ).tocsc(),
             row_idx=row_idx,
             col_idx=col_idx,
         )
+
+    @classmethod
+    def align_matrix_rows(cls, A: Self, B: Self) -> Self:
+        rows_indices_A = [i for i, x in enumerate(B.rows) if x in A.rows]
+
+        B_csr = B.M.tocsr()
+        B_csr_pruned = B_csr[rows_indices_A, :]
+        return cls(B_csr_pruned.tocsc(), row_idx=A.rows, col_idx=B.cols)
 
 
 class FeedDistributor:
