@@ -17,6 +17,10 @@ class IndexedMatrix:
         self.rows = row_idx
         self.cols = col_idx
 
+    @property
+    def shape(self):
+        return self.M.shape
+
     def eval(self, x):
         return pd.Series(self.M @ x, index=self.rows)
 
