@@ -41,6 +41,24 @@ class IndexedMatrix:
         self.M = M_csr[rows_indices_other, :].tocsc()
         self.rows = other.rows.copy()
 
+    def prune_rows(self):
+        if isinstance(self.rows, dict):
+            raise ValueError("IndexedMatrix.prune_rows only works with flat indices.")
+
+        # Convert to CSR format for efficient row-based operations
+        csr_mat = self.M.tocsr()
+
+        # Identify rows that contain non-zero entries
+        non_empty_rows = np.flatnonzero(csr_mat.getnnz(axis=1))
+
+        # Slice the CSR matrix to keep only non-empty rows
+        pruned_csr = csr_mat[non_empty_rows, :]
+
+        # Convert back to CSC format
+        self.M = pruned_csr.tocsc()
+        self.rows = self.rows[non_empty_rows]
+        return self
+
     def todense(self):
         index = self.rows
         columns = self.cols

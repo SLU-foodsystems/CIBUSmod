@@ -116,6 +116,28 @@ class TestIndexedMatrix(unittest.TestCase):
         # Check column count is unchanged
         self.assertEqual(aligned_matrix.M.shape[1], matrix_A.M.shape[1])
 
+    def test_prune_rows(self):
+        """Test the prune_rows method."""
+        # Create a new 4x6 IndexedMatrix with a bunch of zeroes
+        vals = [1, 1]
+        cols = [0, 5]
+        rows = [0, 2]
+        M = sp.coo_array((vals, (rows, cols)), shape=(4, 6)).tocsc()
+        self.indexed_matrix = IndexedMatrix(
+            M, pd.Index(["A", "B", "C", "D"]), pd.Index(["a", "b", "c", "d", "e", "f"])
+        )
+
+        # Prune!
+        self.indexed_matrix.prune_rows()
+
+        # Ensure rows are reduced
+        self.assertEqual(self.indexed_matrix.M.shape[0], 2)
+        self.assertTrue((self.indexed_matrix.rows == pd.Index(["A", "C"])).all())
+        # Ensure cols remain untouched
+        self.assertEqual(self.indexed_matrix.M.shape[1], 6)
+        self.assertEqual(len(self.indexed_matrix.cols), 6)
+
+
 
 if __name__ == "__main__":
     unittest.main()
