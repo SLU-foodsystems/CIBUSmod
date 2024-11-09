@@ -2518,7 +2518,7 @@ class FeedDistributor:
         # Calculate shares of total demand per use
         total_demand_shares = total_demand.mul(1 / prod, axis=0)
         # Assume 100% none demand for rows with NaNs (i.e. where prod==0)
-        total_demand_shares.loc[:, "none"].fillna(1, inplace=True)
+        total_demand_shares.loc[:, "none"] = total_demand_shares.loc[:, "none"].fillna(1)
         total_demand_shares.fillna(0, inplace=True)
 
         assert np.isclose(total_demand_shares.sum(axis=1), 1).all()
