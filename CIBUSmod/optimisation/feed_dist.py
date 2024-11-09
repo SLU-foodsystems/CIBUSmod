@@ -1767,13 +1767,14 @@ class FeedDistributor:
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["ani"])))  # Zero matrix
+        Z_ani = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["ani"])))
+        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z, M], format="csc"),
+            scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc"),
             row_idx,
-            {"ani": self.x_idx["ani"], "crp": col_idx},
+            {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
         )
 
         return M
