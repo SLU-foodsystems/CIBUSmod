@@ -7,7 +7,7 @@ from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 from ..utils.retriever import ParameterRetriever
 
-from typing import Literal, Any
+from typing import Literal
 
 class AnimalHerd(ABC):
     '''Class that handels animal herd structure, feed requirements, production etc.
@@ -227,6 +227,7 @@ animals              {self.animals}
             **self.index.to_frame().to_dict('list')
         )
 
+<<<<<<< HEAD
         # Create template DataFrame
         df_req = pd.DataFrame(
             index=self.index,
@@ -234,7 +235,50 @@ animals              {self.animals}
                 [], names=["prod_system", "animal", "feed_par"]
             ),
             dtype=float,
+||||||| parent of 16558658 (Rewrite how feed requirements are saved for C12)
+        # Remove 'milk_to_calves' attribute if it exists
+        if 'milk_to_calves' in self.data_attr:
+            self.data_attr.remove('milk_to_calves')
+
+
+        df_req = pd.DataFrame(
+            index = self.index,
+            columns = self.data_attr.get('heads').columns,
+            dtype = float
+=======
+        # Remove 'milk_to_calves' attribute if it exists
+        if 'milk_to_calves' in self.data_attr:
+            self.data_attr.remove('milk_to_calves')
+
+
+        df_req_eq = pd.DataFrame(
+            index=self.index,
+            columns=pd.MultiIndex.from_tuples(
+                [], names=["prod_system", "animal", "feed_param"]
+            ),
+            dtype=float,
+>>>>>>> 16558658 (Rewrite how feed requirements are saved for C12)
         )
+<<<<<<< HEAD
+||||||| parent of 16558658 (Rewrite how feed requirements are saved for C12)
+        pss = list(df_req.columns.get_level_values('prod_system'))
+        anis = list(df_req.columns.get_level_values('animal'))
+        if self.species == 'cattle':
+            # Make sure calves are hendeled first to get milk from cows
+            # to calves
+            anis.insert(0, anis.pop(anis.index('calves')))
+=======
+        df_req_min = df_req_eq.copy()
+        df_req_max = df_req_eq.copy()
+
+
+        pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
+        anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+        if self.species == 'cattle':
+            # Make sure calves are hendeled first to get milk from cows
+            # to calves
+            anis.insert(0, anis.pop(anis.index('calves')))
+>>>>>>> 16558658 (Rewrite how feed requirements are saved for C12)
 
         # Create data attributes for equality, minimum and maximum constraints for
         # feed requirements.
@@ -260,6 +304,7 @@ animals              {self.animals}
             desc="Feed requirements that represents maximum constraints. *differ by 'feed_par'",
         )
 
+<<<<<<< HEAD
         # Create data attributes for minimum and maximum requirements in terms of
         # inclusion of feed parameters in total dry matter feed
         self.data_attr.add(
@@ -278,10 +323,95 @@ animals              {self.animals}
             desc="Maximum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
             scalable=False
         )
+||||||| parent of 16558658 (Rewrite how feed requirements are saved for C12)
+            # Calculate feed requirements (energy [MJ] or dry matter [kg DM])
+            (feed_req_type, req) = self._calculate_feed_req(ps, ani)
+=======
+            # Calculate feed requirements (energy [MJ] or dry matter [kg DM]) per region
+            (feed_req_type, req_per_region) = self._calculate_feed_req(ps, ani)
+            # Multiply by the number of heads in the herd
+            n_heads = self.data_attr.get('heads').loc[:,(ps, ani)]
+>>>>>>> 16558658 (Rewrite how feed requirements are saved for C12)
 
+<<<<<<< HEAD
         # Run AnimalHerd-module specific method
         self._calculate_feed_req()
+||||||| parent of 16558658 (Rewrite how feed requirements are saved for C12)
+            df_req.loc[:,(ps,ani)] = req
+=======
+            df_req_eq.loc[:, (ps, ani, feed_req_type)] = req_per_region * n_heads
+            if feed_req_type == "ME":
+                df_req_max.loc[:, (ps, ani, "DM")] = req_per_region * n_heads / 11
+                df_req_min.loc[:, (ps, ani, "AAT")] = req_per_region * n_heads * 6.5
+>>>>>>> 16558658 (Rewrite how feed requirements are saved for C12)
 
+<<<<<<< HEAD
+||||||| parent of 16558658 (Rewrite how feed requirements are saved for C12)
+        # No animals found in animal-herd, we can exit.
+        # We should maybe raise an Exception here.
+        if feed_req_type is None:
+            return
+
+        # If herd has a method to calculate energy requirements of animals
+        # energy requirements are calculated from live weights, growth rates,
+        # gestation, lactation, etc.
+        # Otherwise dry matter feed requirements are calculated from feed
+        # conversion ratios or a fixed feed intake per animal.
+        if feed_req_type == "E":
+            self.data_attr.add(
+                (df_req * self.data_attr.get('heads')),
+                name = 'feed_E_req',
+                unit = 'MJ/year',
+                orig = 'AnimalHerd',
+                desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
+            )
+        else:
+            self.data_attr.add(
+                (df_req * self.data_attr.get('heads')),
+                name = 'feed_DM_req',
+                unit = 'kg DM/year',
+                orig = 'AnimalHerd',
+                desc = 'Total feed requirements in terms of dry matter'
+            )
+=======
+        # No animals found in animal-herd, we can exit.
+        # We should maybe raise an Exception here.
+        if feed_req_type is None:
+            return
+
+        self.data_attr.add(
+            df_req_eq,
+            name="feed_req_eq",
+            unit="MJ/year",
+            orig="AnimalHerd",
+            desc="Total feed requirements in terms of energy. Type of energy differ by species",
+        )
+        self.data_attr.add(
+            df_req_min,
+            name="feed_req_min",
+            unit="MJ/year",
+            orig="AnimalHerd",
+            desc="TODO",
+        )
+        self.data_attr.add(
+            df_req_max,
+            name="feed_req_max",
+            unit="MJ/year",
+            orig="AnimalHerd",
+            desc="TODO",
+        )
+
+        # TODO: For backwards compatibility, for now
+        df_req_DM = df_req_max.loc[:, (slice(None), slice(None), "DM")]
+        df_req_DM.columns = df_req_DM.columns.droplevel("feed_param")
+        self.data_attr.add(
+            df_req_DM,
+            name="feed_DM_req",
+            unit="MJ/year",
+            orig="AnimalHerd",
+            desc="TODO",
+        )
+>>>>>>> 16558658 (Rewrite how feed requirements are saved for C12)
 
     def calculate_production(self):
 

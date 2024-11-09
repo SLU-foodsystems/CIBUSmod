@@ -1,6 +1,5 @@
 from itertools import product
 import warnings
-import math
 import re as regex
 
 import pandas as pd
@@ -1267,16 +1266,20 @@ class FeedDistributor:
         """
         Ensure the nutrient demands are met by the animals- and feed configuration.
         """
-        feed_pars = self.feed_mgmt.par.get_unique("feed_par")
+        self.feed_mgmt.par.clear()
+        # We manually add "DM" here, as it's not a value in feed_par
+        feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
         row_idx = pd.MultiIndex.from_tuples(
             (
-                (feed_param, sp, br, ps, ss, region)
+                (feed_param, ani, sp, br, ps, ss, region)
                 for (sp, br, ps, ss) in self.herds.index
+                for ani in self.herds[(sp, br, ps, ss)].animals
                 for region in self.x_idx["fds"].get_level_values("region").unique()
                 for feed_param in feed_pars
             ),
             names=[
                 "feed_param",
+                "animal",
                 "species",
                 "breed",
                 "prod_system",
@@ -1285,26 +1288,48 @@ class FeedDistributor:
             ],
         )
 
-        A12_1 = self.make_A12_1(row_idx)
-        Z_crp = scipy.sparse.csc_matrix((len(row_idx), len(self.x_idx["crp"])))
-        A12_2 = self.make_A12_2(row_idx)
+        A12_2_complete = self.make_A12_2(row_idx)
 
-        # TODO: Drop rows where all values are zero?
-        A12 = IndexedMatrix(
-            scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M]),
-            row_idx=row_idx,
-            col_idx={
-                "ani": self.x_idx["ani"],
-                "crp": self.x_idx["crp"],
-                "fds": self.x_idx["fds"],
-            },
-        )
+        def make_A12(rel):
+            A12_1 = self.make_A12_1(row_idx, rel)
+            # Drop rows where we lack constriants
+            A12_1.prune_rows()
+            # Create an A12_2 which only contains the rows for which we have data for
+            # the given herd, animal and feed_param.
+            A12_2 = IndexedMatrix.align_rows(A12_2_complete, A12_1)
+            Z_crp = scipy.sparse.csc_matrix((len(A12_1.rows), len(self.x_idx["crp"])))
 
-        self.constraints["C12: A12 @ x >= 0"] = {
+            return IndexedMatrix(
+                scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M]),
+                row_idx=row_idx,
+                col_idx={
+                    "ani": self.x_idx["ani"],
+                    "crp": self.x_idx["crp"],
+                    "fds": self.x_idx["fds"],
+                },
+            )
+
+        A12_min = make_A12("min")
+        A12_eq = make_A12("eq")
+        A12_max = make_A12("max")
+
+        self.constraints["C12 (min): A12 @ x >= 0"] = {
             "left": lambda x, A12: A12.M @ x,
             "right": lambda A12: 0,
             "rel": ">=",
-            "pars": {"A12": A12},
+            "pars": {"A12": A12_min},
+        }
+        self.constraints["C12 (eq): A12 @ x == 0"] = {
+            "left": lambda x, A12: A12.M @ x,
+            "right": lambda A12: 0,
+            "rel": "==",
+            "pars": {"A12": A12_eq},
+        }
+        self.constraints["C12 (max): A12 @ x <= 0"] = {
+            "left": lambda x, A12: A12.M @ x,
+            "right": lambda A12: 0,
+            "rel": "<=",
+            "pars": {"A12": A12_max},
         }
 
     def make_P1(self):
@@ -2030,14 +2055,11 @@ class FeedDistributor:
             }
         )
 
-    def make_A12_1(self, row_idx: pd.MultiIndex):
+    def make_A12_1(self, row_idx: pd.MultiIndex, rel: Literal["min", "eq", "max"]):
         """
         Map animals to their respective feed requirements
         """
         col_idx = self.x_idx["ani"]
-
-        feed_params = row_idx.get_level_values("feed_param").unique()
-        feed_reqs = list(map(lambda p_name: f"feed_{p_name}_req", feed_params))
 
         val = []
         col_nr = []
@@ -2048,19 +2070,18 @@ class FeedDistributor:
             br = herd.breed
             herd_ps = herd.prod_system
             herd_ss = herd.sub_system
-            for f_param_name, f_req_name in zip(feed_params, feed_reqs):
-                if f_req_name in herd.data_attr:
-                    data = herd.data_attr.get(f_req_name).unstack()
-                    for feed_ps, ani, re in data.index:
-                        val.append(-1 * data.loc[(feed_ps, ani, re)])
-                        col_nr.append(col_idx.get_loc((sp, br, herd_ps, herd_ss, re)))
-                        # TODO: this is not entirely correct: we shouldn't map herd
-                        # sub-system to the feed row? I think?
-                        row_nr.append(
-                            row_idx.get_loc(
-                                (f_param_name, sp, br, feed_ps, herd_ss, re)
-                            )
-                        )
+
+            req = herd.data_attr.get(f"feed_req_{rel}")
+
+            for feed_ps, ani, feed_par in req.columns:
+                for re in req.index:
+                    val.append(-1 * req.loc[re, (feed_ps, ani, feed_par)])
+                    col_nr.append(col_idx.get_loc((sp, br, herd_ps, herd_ss, re)))
+                    row_nr.append(
+                        row_idx.get_loc((feed_par, ani, sp, br, feed_ps, herd_ss, re))
+                    )
+
+
 
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
@@ -2085,7 +2106,7 @@ class FeedDistributor:
         )
 
         def perc_to_change_factor(df):
-            return 100 / (100 - df)
+            return (100 - df) / 100
 
         loss_factors = perc_to_change_factor(
             self.feed_mgmt.par.get_from_frame("storage_losses", losses_retrieve_df)
@@ -2098,7 +2119,7 @@ class FeedDistributor:
         col_nr = []
 
         for row in row_idx:
-            (feed_par, species, breed, prod_sys, sub_sys, region) = row
+            (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
             self.feed_mgmt.par.clear()
 
             if feed_par == "DM":
@@ -2116,6 +2137,7 @@ class FeedDistributor:
                 (f, ani, sp, br, ps, ss, re) = col
                 ignore = (
                     f not in feeds
+                    or animal is not ani
                     or species is not sp
                     or breed is not br
                     or prod_sys is not ps
