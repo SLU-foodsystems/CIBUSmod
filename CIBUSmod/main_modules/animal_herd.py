@@ -76,7 +76,11 @@ class AnimalHerd(ABC):
     id_attr = set(['species','breed','prod_system','sub_system','animals'])
     module_name = 'AnimalHerd'
 
+    # Store the number of (defining) animals
+    x: np.ndarray
+
     # Defined in subclasses
+    x_is: str # defining what x represents, e.g. 'cows', 'total hens', etc.
     species: str
     animals: list[str]
 
