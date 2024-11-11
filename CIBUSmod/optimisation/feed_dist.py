@@ -1,5 +1,6 @@
 from itertools import product
 import warnings
+import sys
 import re as regex
 
 import pandas as pd
@@ -167,7 +168,13 @@ class FeedDistributor:
         for nr in use_cons:
             fun = getattr(self, f"make_C{nr}")
             vprint(f"Making constraint C{nr}...")
-            fun(**{k: v for k, v in kwargs.items() if f"C{nr}" in k})
+            try:
+                fun(**{k: v for k, v in kwargs.items() if f"C{nr}" in k})
+            except Exception as e:
+                print(
+                    f"Exception raised when making constraint C{nr}.", file=sys.stderr
+                )
+                raise e
 
         # If C7 not included no variables are dropped
         if "7" not in use_cons:
