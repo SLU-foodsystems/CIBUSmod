@@ -2125,20 +2125,26 @@ class FeedDistributor:
         row_nr = []
         col_nr = []
 
+        values = self.feed_mgmt.par.get_from_frame(
+            "feed_composition",
+            # Retrieve df
+            pd.DataFrame(
+                index=pd.MultiIndex.from_product(
+                    [feeds, row_idx.get_level_values("species").unique()],
+                    names=["feed", "species"],
+                ),
+                columns=pd.Index(
+                    row_idx.get_level_values("feed_param").unique(), name="feed_par"
+                ),
+                dtype=float,
+            ),
+            warn_if_nan=False,
+        )
+        values.loc[:, "DM"] = 1 # Dry-matter not part of the feed_composition pars
+
         for row in row_idx:
             (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
             self.feed_mgmt.par.clear()
-
-            if feed_par == "DM":
-                values = np.ones(len(feeds))
-            else:
-                values = self.feed_mgmt.par.get(
-                    "feed_composition",
-                    feed_par=feed_par,
-                    species=species,
-                    feed=feeds,
-                    warn_if_nan=False,
-                )
 
             for col in col_idx:
                 (f, ani, sp, br, ps, ss, re) = col
@@ -2154,7 +2160,7 @@ class FeedDistributor:
                 if ignore:
                     continue
 
-                value = values[feeds.index(f)]
+                value = values.loc[(f, sp), feed_par]
                 if np.isnan(value):
                     continue
 
