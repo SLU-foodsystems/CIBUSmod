@@ -432,75 +432,7 @@ class CattleHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def _calculate_feed_req(self):
-
-        p = self.par.get
-
-        # Remove 'milk_to_calves' attribute if it exists
-        if 'milk_to_calves' in self.data_attr:
-            self.data_attr.remove('milk_to_calves')
-
-        # Get production systems and animals present
-        pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
-        anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
-
-        # Make sure calves are hendeled first to get milk from cows
-        # to calves
-        anis.insert(0, anis.pop(anis.index('calves, suckling')))
-
-        # Get available paramters
-        pars = self.par.data.index.get_level_values('parameter')
-
-        # Check which feed parameters to include
-        incl_pars = set()
-
-        for ani, ps in zip(anis, pss):
-            self.par.set(
-                prod_system = ps,
-                animal = ani
-            )
-
-            # Get number of heads of animal = ani & production system = ps
-            heads = self.data_attr.get('heads').loc[:,(ps,ani)]
-
-            # Calculate metabolizable energy requirements
-            ME_req = self._calculate_ME_req(ps, ani)
-            self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
-            incl_pars.add('ME')
-
-            # Calculate protein requirements in terms of AAT
-            if 'AAT_factor' in pars:
-                AAT_min = ME_req * p('AAT_factor')
-                self.data_attr.get('feed_req_min').loc[:,(ps,ani,'AAT')] = AAT_min * heads
-                incl_pars.add('AAT')
-
-            # Calculate min and max PBV
-            if (
-                'min_PBV' in pars and
-                'max_PBV' in pars and
-                'min_PBV_per_ME' in pars and
-                'max_PBV_per_ME' in pars
-            ):
-                PBV_min = p('min_PBV') * 365.25 + p('min_PBV_per_ME') * ME_req
-                PBV_max = p('max_PBV') * 365.25 + p('max_PBV_per_ME') * ME_req
-                self.data_attr.get('feed_req_min').loc[:,(ps,ani,'PBV')] = PBV_min * heads
-                self.data_attr.get('feed_req_max').loc[:,(ps,ani,'PBV')] = PBV_max * heads
-                incl_pars.add('PBV')
-
-            # Get maximum dry matter intake
-            if 'max_DMI' in pars:
-                DM_max = p('max_DMI') * 365.25
-                self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
-                incl_pars.add('DM')
-
-            # Get maximum fat [g fat/kg DM]
-            if 'max_fat' in pars:
-                fat_max = p('max_fat')
-                self.data_attr.get('feed_req_of_DM_max').loc[:,(ps,ani,'fat')] = fat_max
-                incl_pars.add('fat')
-
-        print('[',', '.join(incl_pars), ']', sep='', end=' ')
-
+        return None
 
     def _calculate_feed_req(self):
 
