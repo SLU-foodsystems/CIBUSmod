@@ -128,3 +128,4 @@ class HorseHerd(AnimalHerd):
         E_req = E_maint * (1 + (f_acti + f_gest + f_lact))
 
         return E_req
+
