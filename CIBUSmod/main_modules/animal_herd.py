@@ -114,11 +114,11 @@ animals              {self.animals}
         pass
 
     @abstractmethod
-    def _calculate_feed_req(self, ps, ani) -> tuple[Literal['E', 'DM'], Any]:
+    def _calculate_feed_req(self) -> None:
         """
-        Calculate the feed energy [MJ] or dry matter [kg DM] requirements.
-        The first item in the tuple describes which type of feed requirement the
-        animal herd specifies, and the second is the value thereof.
+        AnimalHerd-module specific method to calculate feed requirements.
+        This methods writes to the 'feed_req_eq', 'feed_req_min' and 'feed_req_max'
+        data attributes
         """
         pass
 
@@ -259,61 +259,44 @@ animals              {self.animals}
             **self.index.to_frame().to_dict('list')
         )
 
-        # Remove 'milk_to_calves' attribute if it exists
-        if 'milk_to_calves' in self.data_attr:
-            self.data_attr.remove('milk_to_calves')
-
-
-        df_req = pd.DataFrame(
-            index = self.index,
-            columns = self.data_attr.get('heads').columns,
-            dtype = float
+        # Create DataFrames for equality, minimum and maximum constraints for
+        # feed requirements.
+        df_req_eq = pd.DataFrame(
+            index=self.index,
+            columns=pd.MultiIndex.from_tuples(
+                [], names=["prod_system", "animal", "feed_param"]
+            ),
+            dtype=float,
         )
-        pss = list(df_req.columns.get_level_values('prod_system'))
-        anis = list(df_req.columns.get_level_values('animal'))
-        if self.species == 'cattle':
-            # Make sure calves are hendeled first to get milk from cows
-            # to calves
-            anis.insert(0, anis.pop(anis.index('calves')))
+        df_req_min = df_req_eq.copy()
+        df_req_max = df_req_eq.copy()
 
-        feed_req_type = None
-        for ani, ps in zip(anis, pss):
-            self.par.set(
-                prod_system = ps,
-                animal = ani
-            )
+        # Store DataFrames as data attributes
+        self.data_attr.add(
+            df_req_eq,
+            name="feed_req_eq",
+            unit="*/year",
+            orig="AnimalHerd",
+            desc="Feed requirements that must be met precisely. Units differ by 'feed_param'",
+        )
+        self.data_attr.add(
+            df_req_min,
+            name="feed_req_min",
+            unit="*/year",
+            orig="AnimalHerd",
+            desc="Feed requirements that represents minimum constraints. Units differ by 'feed_param'",
+        )
+        self.data_attr.add(
+            df_req_max,
+            name="feed_req_max",
+            unit="*/year",
+            orig="AnimalHerd",
+            desc="Feed requirements that represents maximum constraints. Units differ by 'feed_param'",
+        )
 
-            # Calculate feed requirements (energy [MJ] or dry matter [kg DM])
-            (feed_req_type, req) = self._calculate_feed_req(ps, ani)
+        # Run AnimalHerd-module specific method
+        self._calculate_feed_req()
 
-            df_req.loc[:,(ps,ani)] = req
-
-        # No animals found in animal-herd, we can exit.
-        # We should maybe raise an Exception here.
-        if feed_req_type is None:
-            return
-
-        # If herd has a method to calculate energy requirements of animals
-        # energy requirements are calculated from live weights, growth rates,
-        # gestation, lactation, etc.
-        # Otherwise dry matter feed requirements are calculated from feed
-        # conversion ratios or a fixed feed intake per animal.
-        if feed_req_type == "E":
-            self.data_attr.add(
-                (df_req * self.data_attr.get('heads')),
-                name = 'feed_E_req',
-                unit = 'MJ/year',
-                orig = 'AnimalHerd',
-                desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
-            )
-        else:
-            self.data_attr.add(
-                (df_req * self.data_attr.get('heads')),
-                name = 'feed_DM_req',
-                unit = 'kg DM/year',
-                orig = 'AnimalHerd',
-                desc = 'Total feed requirements in terms of dry matter'
-            )
 
     def calculate_production(self):
 

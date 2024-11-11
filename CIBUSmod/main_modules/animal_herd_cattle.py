@@ -420,8 +420,47 @@ class CattleHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def _calculate_feed_req(self,ps,ani):
-        '''Calculates Metabolizable Energy (ME) and water requrements for cattle based on
+    def _calculate_feed_req(self):
+
+        p = self.par.get
+        
+        # Remove 'milk_to_calves' attribute if it exists
+        if 'milk_to_calves' in self.data_attr:
+            self.data_attr.remove('milk_to_calves')
+
+        # Get production systems and animals present
+        pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
+        anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+
+        # Make sure calves are hendeled first to get milk from cows
+        # to calves
+        anis.insert(0, anis.pop(anis.index('calves')))
+
+        for ani, ps in zip(anis, pss):
+            self.par.set(
+                prod_system = ps,
+                animal = ani
+            )
+
+            # Calculate metabolizable energy requirements
+            ME_req = self._calculate_ME_req(ps, ani)
+            # Calculate protein requirements in terms of AAT
+            AAT_min = ME_req * p('AAT_factor')
+            # Get maximum dry matter intake
+            DM_max = p('max_DMI') * 365.25
+
+            # Get number of heads of animal = ani & production system = ps
+            heads = self.data_attr.get('heads').loc[:,(ps,ani)]
+
+            # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
+            idx = pd.IndexSlice
+            self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
+            self.data_attr.get('feed_req_min').loc[:,(ps,ani,'AAT')] = AAT_min * heads
+            self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
+
+
+    def _calculate_ME_req(self,ps,ani):
+        '''Calculates Metabolizable Energy (ME) requrements for cattle based on
         Spörndly, R. (ed.). (2003). Fodertabeller för idisslare 2003. HUV Rapport 257. SLU'''
 
         p = self.par.get
@@ -509,4 +548,4 @@ class CattleHerd(AnimalHerd):
 
         E_req_final = np.nan_to_num(E_req_final)
 
-        return ("E", E_req_final)
+        return E_req_final
