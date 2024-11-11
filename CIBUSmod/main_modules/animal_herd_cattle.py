@@ -446,6 +446,9 @@ class CattleHerd(AnimalHerd):
             ME_req = self._calculate_ME_req(ps, ani)
             # Calculate protein requirements in terms of AAT
             AAT_min = ME_req * p('AAT_factor')
+            # Calculate min and max PBV
+            PBV_min = p('min_PBV') * 365.25 + p('min_PBV_per_ME') * ME_req
+            PBV_max = p('max_PBV') * 365.25 + p('max_PBV_per_ME') * ME_req
             # Get maximum dry matter intake
             DM_max = p('max_DMI') * 365.25
 
@@ -453,10 +456,11 @@ class CattleHerd(AnimalHerd):
             heads = self.data_attr.get('heads').loc[:,(ps,ani)]
 
             # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
-            idx = pd.IndexSlice
             self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
             self.data_attr.get('feed_req_min').loc[:,(ps,ani,'AAT')] = AAT_min * heads
+            self.data_attr.get('feed_req_min').loc[:,(ps,ani,'PBV')] = PBV_min * heads
             self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
+            self.data_attr.get('feed_req_max').loc[:,(ps,ani,'PBV')] = PBV_max * heads
 
 
     def _calculate_ME_req(self,ps,ani):
