@@ -318,9 +318,23 @@ class PlantNutrientMgmt():
             manure_TAN_application = \
             manure_TAN_application.add(manure_TAN_per_grazing_crop, fill_value=0)
 
+        # Get plant available N in manure available to spread (approximated from TAN)
+        # and add in N assumed ot become plant available in the long term
+        manure_N = herds.data_attr.get('manure.N_to_spread').drop('grazing', level='MMS', axis=1)
+        manure_TAN = herds.data_attr.get('manure.TAN_to_spread').drop('grazing', level='MMS', axis=1)
+        self.par.clear()
+        manure_long = (
+            (manure_N-manure_TAN) * (
+                self.par.get(
+                    'N_resid_manure',
+                    **manure_N.columns.to_frame().to_dict('list')
+                )/100
+            )
+        )
+
         # Create dataframes to track manure TAN available to spread and TAN
         # requirements that are not yet met.
-        manure_TAN = herds.data_attr.get('manure.TAN_to_spread').drop('grazing', level='MMS', axis=1)
+        manure_TAN = manure_TAN + manure_long
         TAN_req = self.crops.data_attr.get('fertiliser.TAN_req')
         manure_TAN_remaining = manure_TAN.copy()
         TAN_req_remaining = TAN_req.copy()
@@ -428,15 +442,8 @@ class PlantNutrientMgmt():
             manure_TAN_application
             .rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
         )
-        self.crops.data_attr.add(
-            res,
-            name = 'fertiliser.manure_TAN',
-            unit = 'kg TAN/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Plant available nitrogen (TAN) in applied manure'
-        )
 
-        for element in ['N', 'P', 'K', 'C']:
+        for element in ['N', 'TAN', 'P', 'K', 'C']:
             res = (
                 herds.data_attr.get(f'manure.{element}_to_spread')
                 .multiply(share_manure_per_crop)
@@ -467,21 +474,44 @@ class PlantNutrientMgmt():
         #       in conventional crops nationally.
 
         # Get TAN requirements remaining after manure application
+        # (including long-term effects).
         # Set to zero if manure covers more than requirements
+        manure_N = self.crops.data_attr.get('fertiliser.manure_N')
+        manure_TAN = self.crops.data_attr.get('fertiliser.manure_TAN')
+        self.par.clear()
+        manure_long = (
+            (manure_N-manure_TAN) * (
+                self.par.get(
+                    'N_resid_manure',
+                    **manure_N.columns.to_frame().to_dict('list')
+                )/100
+            )
+        )
         TAN_req = (
             self.crops.data_attr.get('fertiliser.TAN_req') -
-            self.crops.data_attr.get('fertiliser.manure_TAN').sum(axis=1)
+            (manure_TAN + manure_long).sum(axis=1)
         ).clip(lower=0)
 
-        # Get TAN available in organic fertilisers
-        # Note: These are aggregated by treatment to save computation time.
-        # The groupby could potentially be removed to preserve the origin
-        # of feedstocks
-        org_TAN = (
-            self.waste.data_attr.get('organic_fertiliser_TAN')
-            .T.groupby('treatment').sum().T
+        # Get N and TAN available in organic fertilisers and 
+        # add non-TAN N assumed to become plant available long term
+        org_N = self.waste.data_attr.get('organic_fertiliser_TAN')
+        org_TAN = self.waste.data_attr.get('organic_fertiliser_TAN')
+        self.par.clear()
+        org_long = (
+            (org_N-org_TAN) * (
+                self.par.get(
+                    'N_resid_organic',
+                    **org_N.columns.to_frame().to_dict('list')
+                )/100
+            )
         )
-        # org_TAN.iloc[:,1] = org_TAN.iloc[:,0]
+        org_TAN = org_TAN + org_long 
+
+        # Aggregate by treatment to save computation time.
+        # Note: The groupby could potentially be removed to
+        # preserve the origin of feedstocks
+        org_TAN = org_TAN.T.groupby('treatment').sum().T
+
 
         # Create dataframe for results
         org_TAN_application = pd.DataFrame(
@@ -528,6 +558,10 @@ class PlantNutrientMgmt():
             else:
                 TAN_to_cover = TAN_req_remaining
 
+            # No no TAN to cover, skip step
+            if TAN_to_cover.sum() == 0:
+                continue
+
             share_to_use = 1 if TAN_to_cover.sum() > org_TAN_remaining.sum().sum() else TAN_to_cover.sum()/org_TAN_remaining.sum().sum()
 
             dist_key = (
@@ -557,15 +591,7 @@ class PlantNutrientMgmt():
             .fillna(0)
         )
 
-        self.crops.data_attr.add(
-            org_TAN_application,
-            name = 'fertiliser.organic_TAN',
-            unit = 'kg TAN/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Plant available nitrogen (TAN) in applied non-manure organic fertilisers'
-        )
-
-        for element in ['N', 'P', 'K', 'C']:
+        for element in ['N', 'TAN', 'P', 'K', 'C']:
             res = (
                 self.waste.data_attr.get(f'organic_fertiliser_{element}')
                 .T.groupby('treatment').sum().T
@@ -1135,6 +1161,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
 _elem_to_name = {
     'C' : 'carbon (C)',
     'N' : 'nitrogen (N)',
+    'TAN' : 'plant available nitrogen (TAN)',
     'P' : 'phosphorous (P)',
     'K' : 'potassium (K)'
 }
