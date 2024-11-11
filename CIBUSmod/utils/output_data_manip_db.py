@@ -153,9 +153,11 @@ def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
         'CH4fos' : 1,
         'N2O' : 1,
         'N2O-N' : (44/28),
-        'NH3-N' : 0.010 * (44/28), # IPCC 2019 Guidelines Table 11.3
-        'NOx-N' : 0.010 * (44/28), # IPCC 2019 Guidelines Table 11.3
-        'NO3-N' : 0.011 * (44/28), # IPCC 2019 Guidelines Table 11.3
+        'NH3' : (14/17) * 0.10 * (44/28), # NH3 -> NH3-N -> N2O-N -> N2O
+        'NH3-N' : 0.010 * (44/28), # NH3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
+        'NOx' : (14/30) * 0.10 * (44/28), # # NOx -> NOx-N -> N2O-N -> N2O (Assumes NOx = NO)
+        'NOx-N' : 0.010 * (44/28), # NOx-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
+        'NO3-N' : 0.011 * (44/28), # NO3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
 
     }
     # -----
