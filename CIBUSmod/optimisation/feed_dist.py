@@ -23,32 +23,9 @@ from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
+from .utils import Constraint, make_cvxpy_constraint
 
-from typing import Callable, Literal, TypedDict
-
-
-class Constraint(TypedDict):
-    left: Callable
-    right: Callable
-    rel: Literal["==", ">=", "<="]
-    pars: dict
-
-
-def make_cvxpy_constraint(cons: Constraint, x: cvxpy.Variable) -> cvxpy.Constraint:
-    """
-    Convert a Constraint-dict to a cvxpy.Constraint instant
-    """
-    operators = {
-        "==": lambda left, right: left == right,
-        ">=": lambda left, right: left >= right,
-        "<=": lambda left, right: left <= right,
-    }
-    left = cons["left"]
-    right = cons["right"]
-    rel = cons["rel"]
-    pars = cons["pars"]
-
-    return operators[rel](left(x, **pars), right(**pars))
+from typing import Literal
 
 
 class FeedDistributor:
