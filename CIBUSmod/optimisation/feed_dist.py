@@ -1122,11 +1122,12 @@ class FeedDistributor:
 
         # Align lists
         for p in pars:
-            if pars_len[p] < pars_len_max:
-                if pars_len[p] == 1:
-                    pars[p] = pars[p] * pars_len_max
-                else:
-                    pars[p] = [pars[p]] * pars_len_max
+            if pars_len[p] >= pars_len_max:
+                continue
+            if pars_len[p] == 1:
+                pars[p] = pars[p] * pars_len_max
+            else:
+                pars[p] = [pars[p]] * pars_len_max
 
         if all([pars[k].isnull().all() for k in ["C9_ani", "C9_crp", "C9_fds"]]):
             raise ValueError(
@@ -1151,68 +1152,65 @@ class FeedDistributor:
             n_def = 0
 
         for i in range(pars_len_max):
-            if any([pars[k] is not None for k in ["C9_ani", "C9_crp", "C9_fds"]]):
-                # Make matrix (A9)
-                A9 = self.make_A9(
-                    pars["C9_ani"][i],
-                    pars["C9_crp"][i],
-                    pars["C9_fds"][i],
-                )
-
-                # Make right hand vector (b9)
-                b9 = sum(
-                    [
-                        pars[k][i].sum() if pars[k][i] is not None else 0
-                        for k in ["C9_ani", "C9_crp", "C9_fds"]
-                    ]
-                )
-
-                rel = pars["C9_rel"][i]
-
-                # Append constraint
-                if rel == "==":
-                    tol = pars["C9_tol"][i]
-
-                    # Lower bound
-                    self.constraints.update(
-                        {
-                            f"C9_{str(i+n_def)}(low): A9 @ x >= b9 * (1-tol)": {
-                                "left": lambda x, A9, b9, tol: A9.M @ x,
-                                "right": lambda A9, b9, tol: b9 * (1 - tol),
-                                "rel": ">=",
-                                "pars": {"A9": A9, "b9": b9, "tol": tol},
-                            }
-                        }
-                    )
-                    # Upper bound
-                    self.constraints.update(
-                        {
-                            f"C9_{str(i+n_def)}(upp): A9 @ x <= b9 * (1+tol)": {
-                                "left": lambda x, A9, b9, tol: A9.M @ x,
-                                "right": lambda A9, b9, tol: b9 * (1 + tol),
-                                "rel": "<=",
-                                "pars": {"A9": A9, "b9": b9, "tol": tol},
-                            }
-                        }
-                    )
-
-                else:
-                    self.constraints.update(
-                        {
-                            f"C9_{str(i+n_def)}: A9 @ x {rel} b9": {
-                                "left": lambda x, A9, b9: A9.M @ x,
-                                "right": lambda A9, b9: b9,
-                                "rel": rel,
-                                "pars": {"A9": A9, "b9": b9},
-                            }
-                        }
-                    )
-            else:
+            if all([pars[k] is None for k in ["C9_ani", "C9_crp", "C9_fds"]]):
                 raise ValueError(
                     "The constraints 'C9_ani', C9_crp', and 'C9_fds' were all None"
                 )
 
-        return None
+            # Make matrix (A9)
+            A9 = self.make_A9(
+                pars["C9_ani"][i],
+                pars["C9_crp"][i],
+                pars["C9_fds"][i],
+            )
+
+            # Make right hand vector (b9)
+            b9 = sum(
+                [
+                    pars[k][i].sum() if pars[k][i] is not None else 0
+                    for k in ["C9_ani", "C9_crp", "C9_fds"]
+                ]
+            )
+
+            rel = pars["C9_rel"][i]
+
+            # Append constraint
+            if rel == "==":
+                tol = pars["C9_tol"][i]
+
+                # Lower bound
+                self.constraints.update(
+                    {
+                        f"C9_{str(i+n_def)}(low): A9 @ x >= b9 * (1-tol)": {
+                            "left": lambda x, A9, b9, tol: A9.M @ x,
+                            "right": lambda A9, b9, tol: b9 * (1 - tol),
+                            "rel": ">=",
+                            "pars": {"A9": A9, "b9": b9, "tol": tol},
+                        }
+                    }
+                )
+                # Upper bound
+                self.constraints.update(
+                    {
+                        f"C9_{str(i+n_def)}(upp): A9 @ x <= b9 * (1+tol)": {
+                            "left": lambda x, A9, b9, tol: A9.M @ x,
+                            "right": lambda A9, b9, tol: b9 * (1 + tol),
+                            "rel": "<=",
+                            "pars": {"A9": A9, "b9": b9, "tol": tol},
+                        }
+                    }
+                )
+            else:
+                self.constraints.update(
+                    {
+                        f"C9_{str(i+n_def)}: A9 @ x {rel} b9": {
+                            "left": lambda x, A9, b9: A9.M @ x,
+                            "right": lambda A9, b9: b9,
+                            "rel": rel,
+                            "pars": {"A9": A9, "b9": b9},
+                        }
+                    }
+                )
 
     def make_C11(self):
         """
@@ -2088,8 +2086,6 @@ class FeedDistributor:
                         row_idx.get_loc((feed_par, ani, sp, br, feed_ps, herd_ss, re))
                     )
 
-
-
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A12_2(self, row_idx: pd.MultiIndex):
@@ -2140,7 +2136,7 @@ class FeedDistributor:
             ),
             warn_if_nan=False,
         )
-        values.loc[:, "DM"] = 1 # Dry-matter not part of the feed_composition pars
+        values.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition pars
 
         for row in row_idx:
             (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
