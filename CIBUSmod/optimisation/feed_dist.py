@@ -2130,12 +2130,12 @@ class FeedDistributor:
                 (f, ani, sp, br, ps, ss, re) = col
                 ignore = (
                     f not in feeds
-                    or animal is not ani
-                    or species is not sp
-                    or breed is not br
-                    or prod_sys is not ps
-                    or sub_sys is not ss
-                    or region is not re
+                    or animal != ani
+                    or species != sp
+                    or breed != br
+                    or prod_sys != ps
+                    or sub_sys != ss
+                    or region != re
                 )
                 if ignore:
                     continue
@@ -2228,7 +2228,7 @@ class FeedDistributor:
 
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
-    def make_B13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
+    def make_b13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
         """ """
         self.feed_mgmt.par.clear()
 
@@ -2294,12 +2294,12 @@ class FeedDistributor:
         import, while the B matrix contains the ceiling of max imported volume. This is
         done per prod_sys and feed product, for both main- and by-products.
         """
-        B13_cp = self.make_B13("crop_prod")
-        B13_by = self.make_B13("by_prod")
-        B13 = np.concatenate([np.array(B13_cp.values), np.array(B13_by.values)])
+        b13_cp = self.make_b13("crop_prod")
+        b13_by = self.make_b13("by_prod")
+        b13 = np.concatenate([np.array(b13_cp.values), np.array(b13_by.values)])
 
-        A13_cp = self.make_A13("crop_prod", B13_cp.index)
-        A13_by = self.make_A13("by_prod", B13_by.index)
+        A13_cp = self.make_A13("crop_prod", b13_cp.index)
+        A13_by = self.make_A13("by_prod", b13_by.index)
 
         n_rows = A13_cp.shape[0] + A13_by.shape[0]
         A13 = scipy.sparse.hstack(
@@ -2314,10 +2314,10 @@ class FeedDistributor:
         self.constraints.update(
             {
                 "C14: A14 @ x >= 0": {
-                    "left": lambda x, A13, B13: A13 @ x - B13,
+                    "left": lambda x, A13, b13: A13 @ x - b13,
                     "right": lambda **kwargs: 0,
                     "rel": "<=",
-                    "pars": {"A13": A13, "B13": B13},
+                    "pars": {"A13": A13, "b13": b13},
                 }
             }
         )
