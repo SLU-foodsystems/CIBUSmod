@@ -447,24 +447,29 @@ class FeedDistributor:
 
         # Add rows for any domestically produced crop products used for feed or seed not
         # already in crop product demand vector (D['crp'])
-        self.feed_mgmt.par.clear()
         # Get all crop-products from feed_mgmt and the seed crop products from Crops
+        self.feed_mgmt.par.clear()
         cps = set(self.feed_mgmt.par.get_unique("crop_prod")) | set(
             self.crops.par.get_unique("crop_prod", qry='parameter == "seed"')
         )
         # ... and the prod_systems in the crop-demand vector
         pss = self.D["crp"].index.get_level_values("prod_system").unique()
 
-        for (cp, ps) in product(cps, pss):
-            idx = (ps, cp)
-            imported_crops = (
-                self.feed_mgmt.par.get(
-                    "share_imported", crop_prod=cp, prod_system=ps
-                )
-                != 100
-            )
-            if imported_crops.any() and (idx not in self.D["crp"].index):
-                self.D["crp"][idx] = 0
+        share_imported = self.feed_mgmt.par.get_from_frame(
+            "share_imported",
+            pd.DataFrame(
+                index=pd.Index(pss, name="prod_system"),
+                columns=pd.Index(cps, name="crop_prod"),
+                dtype=float,
+            ),
+        )
+
+        for ps, cp in product(pss, cps):
+            # Skip if already assigned
+            if (ps, cp) in self.D["crp"].index:
+                continue
+            if (share_imported.loc[ps, cp] != 100).any():
+                self.D["crp"][(ps, cp)] = 0
 
         # Store indexes
         self.D_idx = {"ani": self.D["ani"].index, "crp": self.D["crp"].index}
