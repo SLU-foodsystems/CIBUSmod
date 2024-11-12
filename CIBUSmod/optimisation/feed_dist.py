@@ -2122,20 +2122,7 @@ class FeedDistributor:
             "feed", qry="parameter=='feed_composition'"
         ).tolist()
 
-        # Get all losses
-        losses_retrieve_df = pd.DataFrame(
-            columns=self.x_idx["fds"].get_level_values("feed").unique(),
-            index=self.x_idx["fds"].droplevel(["region", "feed"]).unique(),
-        )
-
-        def perc_to_change_factor(df):
-            return (100 - df) / 100
-
-        loss_factors = perc_to_change_factor(
-            self.feed_mgmt.par.get_from_frame("storage_losses", losses_retrieve_df)
-        ) * perc_to_change_factor(
-            self.feed_mgmt.par.get_from_frame("feeding_losses", losses_retrieve_df)
-        )
+        loss_factors = self._get_losses_factors()
 
         val = []
         row_nr = []
@@ -2420,6 +2407,33 @@ class FeedDistributor:
         feed_par.clear()
 
         return feed_crop_products.set_index(["feed", crop_prod_type])
+
+    def _get_losses_factors(self) -> pd.DataFrame:
+        """
+        Get change factors to account for losses in feeds.
+
+        Returns
+        -------
+        pd.DataFrame: with row-index corresonding to x_fds (except for region and feed)
+            and single-level column-index "feed".
+        """
+
+        # Get all losses
+        losses_retrieve_df = pd.DataFrame(
+            columns=self.x_idx["fds"].get_level_values("feed").unique(),
+            index=self.x_idx["fds"].droplevel(["region", "feed"]).unique(),
+        )
+
+        def perc_to_change_factor(df):
+            return (100 - df) / 100
+
+        self.feed_mgmt.par.clear()
+        return perc_to_change_factor(
+            self.feed_mgmt.par.get_from_frame("storage_losses", losses_retrieve_df)
+        ) * perc_to_change_factor(
+            self.feed_mgmt.par.get_from_frame("feeding_losses", losses_retrieve_df)
+        )
+
 
     def allocate_crop_production_per_use(self):
         """Allocate crop areas to different uses.
