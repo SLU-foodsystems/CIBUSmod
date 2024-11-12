@@ -8,11 +8,7 @@ class IndexedMatrix:
     """Class to store pandas.Index/MultiIndex alongside a sparse
     matrix to keep track of things"""
 
-    type IndexLike = pd.Index | pd.MultiIndex | dict[str, pd.MultiIndex]
-
-    def __init__(
-        self, matrix: scipy.sparse.csc_matrix, row_idx: IndexLike, col_idx: IndexLike
-    ):
+    def __init__(self, matrix: scipy.sparse.csc_matrix, row_idx, col_idx):
         self.M = matrix
         self.rows = row_idx
         self.cols = col_idx
