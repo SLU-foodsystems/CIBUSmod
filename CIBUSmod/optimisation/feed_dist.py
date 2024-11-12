@@ -2439,7 +2439,7 @@ class FeedDistributor:
 
     def allocate_crop_production_per_use(self):
         """Allocate crop areas to different uses.
-        Creates attriute 'production_per_use' in CropProduction"""
+        Creates attribute 'production_per_use' in CropProduction"""
 
         # Get prouction per crop product
         prod = (
