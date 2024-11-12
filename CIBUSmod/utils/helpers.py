@@ -19,16 +19,21 @@ def check_constraints(geodist):
         right = cons['right']
         rel = cons['rel']
         pars = cons['pars']
-    
-        M_rows = [m.rows for m in pars.values() if hasattr(m, 'rows')][0]
+
+        M_rows_lst = [m.rows for m in pars.values() if hasattr(m, 'rows')]
+        if len(M_rows_lst) == 0:
+            warnings.warn("Skipping constraint where no M.rows was available on A-matrix.")
+            continue
+
+        M_rows = M_rows_lst[0]
         try:
             M_rows = np.concatenate(list(M_rows.values()))
-        except:
+        except Exception:
             pass
         res = pd.DataFrame(
             index = M_rows
         )
-        
+
         res['left'] = left(x, **pars)
         res['right'] = right(**pars)
         res['left - right'] = res['left'] - res['right']
