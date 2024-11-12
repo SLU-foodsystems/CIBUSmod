@@ -166,7 +166,9 @@ def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
         'CH4bio' : 'CH4bio',
         'CH4fos' : 'CH4fos',
         'N2O-N' : 'N2O',
+        'NH3' : 'N2Oind',
         'NH3-N' : 'N2Oind',
+        'NOx' : 'N2Oind',
         'NOx-N' : 'N2Oind',
         'NO3-N' : 'N2Oind'
     }
