@@ -1,6 +1,6 @@
 import functools
 import pandas as pd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, Iterable, Sequence, Hashable
 
 if TYPE_CHECKING:
     from ..main_modules.animal_herd import AnimalHerd
@@ -94,3 +94,38 @@ def check_index(herds : pd.Series) -> None:
         for n in range(len(herds)-1):
             if (herds.iloc[n].index != herds.iloc[n+1].index).any():
                 raise Exception('Indexes does not match across herds!')
+
+def extend_index(
+    levels: Sequence[Iterable[Hashable]],
+    names: Iterable[str],
+    index: pd.MultiIndex,
+    mode: Literal["append", "prepend"] = "prepend",
+) -> pd.MultiIndex:
+    """
+    Extend index with new values
+    """
+    # Return existing index if user does provide new levels/names
+    if len([*levels]) == 0 or len([*names]) == 0:
+        return index
+
+    # Return new index if the original had no values
+    if any(map(lambda lvl: len(lvl) == 0, index.levels)):
+        return pd.MultiIndex.from_product(
+            levels,
+            names=names
+        )
+
+    if mode == "append":
+        new_levels = [*index.levels, *levels]
+        new_names = [*index.names, *names]
+    elif mode == "prepend":
+        new_levels = [*levels, *index.levels]
+        new_names = [*names, *index.names]
+    else:
+        msg = f"Unexpected mode: {mode}."
+        raise ValueError(msg)
+
+    return pd.MultiIndex.from_product(
+        new_levels,
+        names=new_names,
+    )
