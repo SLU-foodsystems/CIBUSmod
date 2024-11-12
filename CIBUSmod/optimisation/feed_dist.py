@@ -1348,7 +1348,7 @@ class FeedDistributor:
 
         self.constraints.update(
             {
-                "C14: A14 @ x >= 0": {
+                "C13: A13 @ x >= 0": {
                     "left": lambda x, A13, b13: A13 @ x - b13,
                     "right": lambda **kwargs: 0,
                     "rel": "<=",
