@@ -227,39 +227,56 @@ animals              {self.animals}
             **self.index.to_frame().to_dict('list')
         )
 
-        # Create DataFrames for equality, minimum and maximum constraints for
-        # feed requirements.
-        df_req_eq = pd.DataFrame(
+        # Create template DataFrame
+        df_req = pd.DataFrame(
             index=self.index,
             columns=pd.MultiIndex.from_tuples(
                 [], names=["prod_system", "animal", "feed_par"]
             ),
             dtype=float,
         )
-        df_req_min = df_req_eq.copy()
-        df_req_max = df_req_eq.copy()
 
-        # Store DataFrames as data attributes
+        # Create data attributes for equality, minimum and maximum constraints for
+        # feed requirements.
         self.data_attr.add(
-            df_req_eq,
+            df_req.copy(),
             name="feed_req_eq",
             unit="*/year",
             orig="AnimalHerd",
-            desc="Feed requirements that must be met precisely. Units differ by 'feed_par'",
+            desc="Feed requirements that must be met precisely. *differ by 'feed_par'",
         )
         self.data_attr.add(
-            df_req_min,
+            df_req.copy(),
             name="feed_req_min",
             unit="*/year",
             orig="AnimalHerd",
-            desc="Feed requirements that represents minimum constraints. Units differ by 'feed_par'",
+            desc="Feed requirements that represents minimum constraints. *differ by 'feed_par'",
         )
         self.data_attr.add(
-            df_req_max,
+            df_req.copy(),
             name="feed_req_max",
             unit="*/year",
             orig="AnimalHerd",
-            desc="Feed requirements that represents maximum constraints. Units differ by 'feed_par'",
+            desc="Feed requirements that represents maximum constraints. *differ by 'feed_par'",
+        )
+
+        # Create data attributes for minimum and maximum requirements in terms of
+        # inclusion of feed parameters in total dry matter feed
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_of_DM_min",
+            unit="kg*/kg DM",
+            orig="AnimalHerd",
+            desc="Minimum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
+            scalable=False
+        )
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_of_DM_max",
+            unit="kg*/kg DM",
+            orig="AnimalHerd",
+            desc="Maximum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
+            scalable=False
         )
 
         # Run AnimalHerd-module specific method
