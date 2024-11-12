@@ -1321,6 +1321,42 @@ class FeedDistributor:
             "pars": {"A12": A12_max},
         }
 
+    def make_C13(self):
+        """
+        Ensure that the imports of feed do not exceed the max_total_imported parameter.
+
+        The A-matrix maps feeds to their import-shares, so that we get the volume we
+        import, while the B matrix contains the ceiling of max imported volume. This is
+        done per prod_sys and feed product, for both main- and by-products.
+        """
+        b13_cp = self.make_b13("crop_prod")
+        b13_by = self.make_b13("by_prod")
+        b13 = np.concatenate([np.array(b13_cp.values), np.array(b13_by.values)])
+
+        A13_cp = self.make_A13("crop_prod", b13_cp.index)
+        A13_by = self.make_A13("by_prod", b13_by.index)
+
+        n_rows = A13_cp.shape[0] + A13_by.shape[0]
+        A13 = scipy.sparse.hstack(
+            [
+                scipy.sparse.csc_matrix((n_rows, len(self.x_idx["ani"]))),
+                scipy.sparse.csc_matrix((n_rows, len(self.x_idx["crp"]))),
+                scipy.sparse.vstack([A13_cp.M, A13_by.M], format="csc"),
+            ],
+            format="csc",
+        )
+
+        self.constraints.update(
+            {
+                "C14: A14 @ x >= 0": {
+                    "left": lambda x, A13, b13: A13 @ x - b13,
+                    "right": lambda **kwargs: 0,
+                    "rel": "<=",
+                    "pars": {"A13": A13, "b13": b13},
+                }
+            }
+        )
+
     def make_P1(self):
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
@@ -2284,42 +2320,6 @@ class FeedDistributor:
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
-        )
-
-    def make_C13(self):
-        """
-        Ensure that the imports of feed do not exceed the max_total_imported parameter.
-
-        The A-matrix maps feeds to their import-shares, so that we get the volume we
-        import, while the B matrix contains the ceiling of max imported volume. This is
-        done per prod_sys and feed product, for both main- and by-products.
-        """
-        b13_cp = self.make_b13("crop_prod")
-        b13_by = self.make_b13("by_prod")
-        b13 = np.concatenate([np.array(b13_cp.values), np.array(b13_by.values)])
-
-        A13_cp = self.make_A13("crop_prod", b13_cp.index)
-        A13_by = self.make_A13("by_prod", b13_by.index)
-
-        n_rows = A13_cp.shape[0] + A13_by.shape[0]
-        A13 = scipy.sparse.hstack(
-            [
-                scipy.sparse.csc_matrix((n_rows, len(self.x_idx["ani"]))),
-                scipy.sparse.csc_matrix((n_rows, len(self.x_idx["crp"]))),
-                scipy.sparse.vstack([A13_cp.M, A13_by.M], format="csc"),
-            ],
-            format="csc",
-        )
-
-        self.constraints.update(
-            {
-                "C14: A14 @ x >= 0": {
-                    "left": lambda x, A13, b13: A13 @ x - b13,
-                    "right": lambda **kwargs: 0,
-                    "rel": "<=",
-                    "pars": {"A13": A13, "b13": b13},
-                }
-            }
         )
 
     def make_P1_1(self):
