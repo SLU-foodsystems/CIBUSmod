@@ -2527,7 +2527,9 @@ class FeedDistributor:
         # Calculate shares of total demand per use
         total_demand_shares = total_demand.mul(1 / prod, axis=0)
         # Assume 100% none demand for rows with NaNs (i.e. where prod==0)
-        total_demand_shares.loc[:, "none"] = total_demand_shares.loc[:, "none"].fillna(1)
+        total_demand_shares.loc[:, "none"] = total_demand_shares.loc[:, "none"].fillna(
+            1
+        )
         total_demand_shares.fillna(0, inplace=True)
 
         assert np.isclose(total_demand_shares.sum(axis=1), 1).all()
@@ -2559,13 +2561,15 @@ class FeedDistributor:
         )
 
     def adjust_crop_allocation(self):
-        """Adjust allocation of crop production to uses on FeedMgmt
-        'max_crop_in_crop_prod' parameter used to e.g. limite the share of grazing that
-        can be supplied from semi-natural grasslands for different animals"""
+        """
+        Adjust allocation of crop production to uses on FeedMgmt 'max_crop_in_crop_prod'
+        parameter used to e.g. limit the share of grazing that can be supplied from
+        semi-natural grasslands for different animals
+        """
 
-        # NOTE: THIS ALLOCATION PROCEDURE GENERATES UNRELIABLE RESULTS IN TERMS OF ALLOCATING
-        # TOO MUCH OR LITTLE TO DIFFERENT ANIMAL HERDS. BALANCES ON REGION/ PRODUCTION SYSTEM
-        # LEVEL ARE HOWEVER FINE. BUT INTERPRET RESULTS WITH CARE
+        # NOTE: THIS ALLOCATION PROCEDURE GENERATES UNRELIABLE RESULTS IN TERMS OF
+        # ALLOCATING TOO MUCH OR LITTLE TO DIFFERENT ANIMAL HERDS. BALANCES ON REGION/
+        # PRODUCTION SYSTEM LEVEL ARE HOWEVER FINE. BUT INTERPRET RESULTS WITH CARE
 
         # Get crop production per use and create df for adjustments
         crop_production_per_use = self.crops.data_attr.get("production_per_use").copy()
