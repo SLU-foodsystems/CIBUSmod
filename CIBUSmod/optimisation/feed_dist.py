@@ -544,29 +544,27 @@ class FeedDistributor:
         sf = cvxpy.Constant(
             np.concatenate(
                 [
-                    (
-                        self.scale_f["ani"]
-                        .reindex(
-                            self.x_idx["ani"].reorder_levels(
-                                [
-                                    "species",
-                                    "breed",
-                                    "prod_system",
-                                    "region",
-                                    "sub_system",
-                                ]
-                            )
+                    self.scale_f["ani"]
+                    .reindex(
+                        self.x_idx["ani"].reorder_levels(
+                            [
+                                "species",
+                                "breed",
+                                "prod_system",
+                                "region",
+                                "sub_system",
+                            ]
                         )
-                        .reindex(
-                            self.x_idx_short["ani"].reorder_levels(
-                                [
-                                    "species",
-                                    "breed",
-                                    "prod_system",
-                                    "region",
-                                    "sub_system",
-                                ]
-                            )
+                    )
+                    .reindex(
+                        self.x_idx_short["ani"].reorder_levels(
+                            [
+                                "species",
+                                "breed",
+                                "prod_system",
+                                "region",
+                                "sub_system",
+                            ]
                         )
                     ),
                     self.scale_f["crp"].reindex(self.x_idx_short["crp"]),
