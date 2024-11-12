@@ -2117,37 +2117,16 @@ class FeedDistributor:
 
         self.feed_mgmt.par.clear()
 
-        # Get all feeds
-        feeds = self.feed_mgmt.par.get_unique(
-            "feed", qry="parameter=='feed_composition'"
-        ).tolist()
-
         loss_factors = self._get_losses_factors()
+        feed_compositions = self._get_feed_compositions()
+        feeds = feed_compositions.index.get_level_values("feed").unique()
 
         val = []
         row_nr = []
         col_nr = []
 
-        values = self.feed_mgmt.par.get_from_frame(
-            "feed_composition",
-            # Retrieve df
-            pd.DataFrame(
-                index=pd.MultiIndex.from_product(
-                    [feeds, row_idx.get_level_values("species").unique()],
-                    names=["feed", "species"],
-                ),
-                columns=pd.Index(
-                    row_idx.get_level_values("feed_param").unique(), name="feed_par"
-                ),
-                dtype=float,
-            ),
-            warn_if_nan=False,
-        )
-        values.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition pars
-
         for row in row_idx:
             (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
-            self.feed_mgmt.par.clear()
 
             for col in col_idx:
                 (f, ani, sp, br, ps, ss, re) = col
@@ -2163,11 +2142,12 @@ class FeedDistributor:
                 if ignore:
                     continue
 
-                value = values.loc[(f, sp), feed_par]
-                if np.isnan(value):
+                loss_factor = loss_factors.loc[(ani, sp, br, ps, ss), f]
+                feed_to_fpar_factor = feed_compositions.loc[(f, sp), feed_par]
+                if np.isnan(feed_to_fpar_factor):
                     continue
 
-                val.append(value * loss_factors.loc[(ani, sp, br, ps, ss), f])
+                val.append(feed_to_fpar_factor * loss_factor)
                 col_nr.append(col_idx.get_loc(col))
                 row_nr.append(row_idx.get_loc(row))
 
@@ -2433,6 +2413,44 @@ class FeedDistributor:
         ) * perc_to_change_factor(
             self.feed_mgmt.par.get_from_frame("feeding_losses", losses_retrieve_df)
         )
+
+    def _get_feed_compositions(self):
+        """
+        Get the feed compositions, i.e. the ratio of a certan feed_par (e.g. ME, energy)
+        that is present in a given feed for a given species per unit of dry-mass.
+
+        DM is included and set to 1 for each feed.
+
+        index: feed, species
+        columns: feed_par
+
+        Returns
+        -------
+        pd.DataFrame
+        """
+        # Get all feeds for which we have a feed_composition
+        feeds = self.feed_mgmt.par.get_unique(
+            "feed", qry="parameter=='feed_composition'"
+        ).tolist()
+        feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
+
+        values = self.feed_mgmt.par.get_from_frame(
+            "feed_composition",
+            # TODO: Do we want to add more levels to this df, so that we can specify
+            # the parameter-values more precisely?
+            # Retrieve df
+            pd.DataFrame(
+                index=pd.MultiIndex.from_product(
+                    [feeds, self.x_idx["fds"].get_level_values("species").unique()],
+                    names=["feed", "species"],
+                ),
+                columns=pd.Index(feed_pars, name="feed_par"),
+                dtype=float,
+            ),
+            warn_if_nan=False,
+        )
+        values.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition sheet
+        return values
 
 
     def allocate_crop_production_per_use(self):
