@@ -317,9 +317,9 @@ class FeedDistributor:
             self.data_attr.add(
                 self.x["fds"],
                 name="x_feeds",
-                unit="Todo",
+                unit="kg DM",
                 orig="FeedDistributor",
-                desc="TODO",
+                desc="Total amount of feed for each animal system",
             )
 
             if apply_solution:
