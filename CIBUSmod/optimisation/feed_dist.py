@@ -18,7 +18,7 @@ from .. import (
 )
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict
+from ..utils.misc import multiply_aligned, inv_dict, extend_index
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
@@ -1357,6 +1357,55 @@ class FeedDistributor:
             }
         )
 
+    def make_C14(self):
+        """
+        Constrain feed parameters in relation to DM through the data_attr
+        "feed_req_of_DM_{min,max}" set on herds.
+        """
+        A14_fds_min = self.make_A14("min")
+        A14_fds_max = self.make_A14("max")
+
+        n_cols_ani = len(self.x_idx["ani"])
+        n_cols_crp = len(self.x_idx["crp"])
+
+        def _A14(A14_fds: IndexedMatrix):
+            M = scipy.sparse.hstack(
+                [
+                    scipy.sparse.csc_matrix((A14_fds.shape[0], n_cols_ani)),
+                    scipy.sparse.csc_matrix((A14_fds.shape[0], n_cols_crp)),
+                    A14_fds.M,
+                ],
+                format="csc",
+            )
+            return IndexedMatrix(
+                M,
+                row_idx=A14_fds.rows,
+                col_idx={
+                    "crp": self.x_idx["crp"],
+                    "ani": self.x_idx["ani"],
+                    "fds": self.x_idx["fds"],
+                },
+            )
+
+        A14_min = _A14(A14_fds_min)
+        A14_max = _A14(A14_fds_max)
+
+        if A14_min.shape[0] > 0:
+            self.constraints["C14 (min): A14 @ x >= 0"] = {
+                "left": lambda x, A14: A14.M @ x,
+                "right": lambda A14: 0,
+                "rel": ">=",
+                "pars": {"A14": A14_min},
+            }
+
+        if A14_max.shape[0] > 0:
+            self.constraints["C14 (max): A14 @ x <= 0"] = {
+                "left": lambda x, A14: A14.M @ x,
+                "right": lambda A14: 0,
+                "rel": "<=",
+                "pars": {"A14": A14_max},
+            }
+
     def make_P1(self):
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
@@ -2287,6 +2336,104 @@ class FeedDistributor:
             (val, (row_nr, col_nr)),
             row_idx,
             col_idx,
+        )
+
+    def make_A14(self, rel_type: Literal["min", "max"]):
+        """
+        Maps x_fds to values ensuring that feed_req_of_DM_{min/max} are met.
+
+        Each row maps to one feed_parameter constraint (e.g. min 5% fat of DM) in one
+        animal system (ani, sp, br, ps, ss, re). Each value in that row maps the feed
+        given in the corresponding column to one of two values:
+
+        - 0, if the animal system is not the same, else
+        - (p - k) * l, where:
+
+            - p is the factor of the given feed_par in this feed for this animal sys,
+            - k is the min/max share of the feed_par in relation to the DM
+            - l is the factor (e.g. 5% loss -> 0.95) for storage- and feeding losses
+        """
+
+        col_idx = self.x_idx["fds"]
+
+        feed_pars = set()
+        herd_dfs = {}
+
+        for herd in self.herds:
+            data = herd.data_attr.get(f"feed_req_of_DM_{rel_type}")
+
+            # Where there are no 'constraints' for this parameter- and herd combo, we
+            # do not need to add anything to the df.
+            if data.empty:
+                continue
+            # Keep track of which
+            feed_pars.update(data.columns.get_level_values("feed_param").unique())
+            herd_dfs[(herd.species, herd.breed, herd.prod_system, herd.sub_system)] = (
+                data
+            )
+
+        # We base our row-idx on x_fds, but without the 'feed' level
+        _base_row_idx = self.x_idx["fds"].droplevel("feed")
+        # ... and then multiply in each feed_par that we want to look at
+        row_idx = extend_index(
+            levels=[feed_pars], names=["feed_par"], index=_base_row_idx
+        )
+
+        # Get all feeds
+        loss_factors = self._get_losses_factors()
+        feed_compositions = self._get_feed_compositions()
+
+        val = []
+        row_nr = []
+        col_nr = []
+
+        # Each row matches the min/max constraint of a given feed_par in a given animal system (ani,sp,br,ps,ss,re)
+        for row_i, row in enumerate(row_idx):
+            (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
+
+            # We fetch the limit for this specific herd - if there's none, we don't need the row at all.
+            data = herd_dfs[(species, breed, prod_sys, sub_sys)]
+            if data is None:
+                continue
+
+            # k is the min/max share of dm. Again, if no value, we don't need the row.
+            k = data.loc[region, (prod_sys, animal, feed_par)]
+            if np.isnan(k):
+                continue
+
+            # Iterate over all columns
+            for col_i, col in enumerate(col_idx):
+                (f, ani, sp, br, ps, ss, re) = col
+                # Only keep values where the row and col overlap
+                if (
+                    animal != ani
+                    or species != sp
+                    or breed != br
+                    or prod_sys != ps
+                    or sub_sys != ss
+                    or region != re
+                ):
+                    continue
+
+                # Get the conversion-ratio for this feed (and species) to the amount of the given feed_par, if it exists
+                feed_to_feed_par = (
+                    feed_compositions.loc[(f, sp), feed_par]
+                    if (f, sp) in feed_compositions.index
+                    else 0
+                )
+                # ... and then multiply to account for the losses
+                feed_to_feed_par *= loss_factors.loc[(ani, sp, br, ps, ss), f]
+                # Subtract by k, the min/max share in relation to DM
+                value = feed_to_feed_par - k
+
+                val.append(value)
+                row_nr.append(row_i)
+                col_nr.append(col_i)
+
+        return IndexedMatrix.from_coordinates(
+            (val, (row_nr, col_nr)),
+            row_idx=row_idx,
+            col_idx=col_idx,
         )
 
     def make_P1_1(self):
