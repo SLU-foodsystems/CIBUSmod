@@ -1513,7 +1513,7 @@ class FeedDistributor:
         row_nr = []
         col_nr = []
         for row_i, row in enumerate(row_idx):
-            cp = row[0]
+            cp = row[1]
             for col_i, col in enumerate(col_idx):
                 f = col[0]
                 if (f, cp) not in factors.index:
