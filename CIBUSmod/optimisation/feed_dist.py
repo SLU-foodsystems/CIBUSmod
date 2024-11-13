@@ -784,31 +784,38 @@ class FeedDistributor:
     def make_C6(self):
         """Creates C6: A6 @ x <= 0
 
-        Constrain the maximum share of cropland devoted to a given crop group in a given
-        region in a given production system. The maximum share is set on 'crop_group'
-        level via the parameter 'max_in_rot' in the 'CropProduction' module.
+        Constrain the minimum and/or maximum share of cropland devoted to a given crop group in a given
+        region in a given production system. The maximum share is set on 'crop_group' level via the parameters
+        'min_in_rot' and 'max_in_rot' in the 'CropProduction' module.
 
-        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the
-        relation tables.
+        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the relation tables.
         """
 
         # Note to future:
-        # - Would it be useful with a constraint for minimum share?
         # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
 
-        A6 = self.make_A6()
+        for minmax in ["min", "max"]:
+            if (
+                self.crops.par.get_unique(
+                    "crop_group", qry=f'parameter == "{minmax}_in_rot"'
+                ).shape[0]
+                > 0
+            ):
+                A6 = self.make_A6(minmax)
 
-        # Append constraint
-        self.constraints.update(
-            {
-                "C6: A6 @ x <= 0": {
-                    "left": lambda x, A6: A6.M @ x,
-                    "right": lambda A6: 0,
-                    "rel": "<=",
-                    "pars": {"A6": A6},
-                }
-            }
-        )
+                sign = "<=" if minmax == "max" else ">="
+
+                # Append constraint
+                self.constraints.update(
+                    {
+                        f"C6_{minmax}: A6 @ x {sign} 0": {
+                            "left": lambda x, A6: A6.M @ x,
+                            "right": lambda A6: 0,
+                            "rel": sign,
+                            "pars": {f"A6": A6},
+                        }
+                    }
+                )
 
     def make_C7(self) -> None:
         """
@@ -1940,11 +1947,13 @@ class FeedDistributor:
             col_idx,
         )
 
-    def make_A6(self):
+    def make_A6(self, minmax: Literal["min", "max"]):
         self.crops.par.clear()
 
-        # Get crop groups with max/min inclusion in rotation constraint
-        cgs = self.crops.par.get_unique("crop_group", qry='parameter == "max_in_rot"')
+        # Get crop groups with min/max inclusion in rotation constraint
+        cgs = self.crops.par.get_unique(
+            "crop_group", qry=f'parameter == "{minmax}_in_rot"'
+        )
         pss = self.x_idx["crp"].get_level_values("prod_system").unique()
         res = self.x_idx["crp"].get_level_values("region").unique()
 
@@ -1967,15 +1976,21 @@ class FeedDistributor:
         col_nr = []
 
         for cg, ps in row_idx.droplevel("region").unique():
-            f = float(
-                self.crops.par.get("max_in_rot", crop_group=cg, prod_system=ps) / 100
+            # Create Series of 'min/max_in_rot' factors for crop_group = cg
+            # and prod_system = ps for each region
+            f = pd.Series(
+                self.crops.par.get(
+                    f"{minmax}_in_rot", crop_group=cg, prod_system=ps, region=list(res)
+                )
+                / 100,
+                index=res,
             )
 
             vls = [
                 0
                 if (ps != ps_) | (lu_rel[cr] != "cropland")
-                else ((1 - f) if cg_rel[cr] == cg else -f)
-                for cr, ps_, _ in col_idx
+                else ((1 - f.loc[re]) if cg_rel[cr] == cg else -f.loc[re])
+                for cr, ps_, re in col_idx
             ]
             cns = list(range(len(col_idx)))
             rns = [row_idx.get_loc((cg, ps, re)) for _, _, re in col_idx]
@@ -1991,13 +2006,11 @@ class FeedDistributor:
         Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
+        return IndexedMatrix(
             scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc"),
             row_idx,
             {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
         )
-
-        return M
 
     def make_A8(self, C8_ani, C8_crp, C8_fds):
         # Get row index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,sp,br,ps,ss,re)
