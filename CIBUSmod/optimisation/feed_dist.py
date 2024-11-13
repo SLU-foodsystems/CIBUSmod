@@ -2178,9 +2178,9 @@ class FeedDistributor:
             (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
 
             for col in col_idx:
-                (f, ani, sp, br, ps, ss, re) = col
+                (feed, ani, sp, br, ps, ss, re) = col
                 ignore = (
-                    f not in feeds
+                    feed not in feeds
                     or animal != ani
                     or species != sp
                     or breed != br
@@ -2191,8 +2191,8 @@ class FeedDistributor:
                 if ignore:
                     continue
 
-                loss_factor = loss_factors.loc[(ani, sp, br, ps, ss), f]
-                feed_to_fpar_factor = feed_compositions.loc[(f, sp), feed_par]
+                loss_factor = loss_factors.loc[(ani, sp, br, ps, ss), feed]
+                feed_to_fpar_factor = feed_compositions.loc[(feed, sp), feed_par]
                 if np.isnan(feed_to_fpar_factor):
                     continue
 
