@@ -1290,7 +1290,7 @@ class FeedDistributor:
 
             return IndexedMatrix(
                 scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M]),
-                row_idx=row_idx,
+                row_idx=A12_1.rows,
                 col_idx={
                     "ani": self.x_idx["ani"],
                     "crp": self.x_idx["crp"],
