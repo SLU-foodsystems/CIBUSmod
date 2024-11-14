@@ -23,7 +23,7 @@ from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
-from .utils import Constraint, make_cvxpy_constraint
+from .utils import Constraint, make_cvxpy_constraint, feed_demands_to_crop_demands
 
 from typing import Literal
 
@@ -323,7 +323,7 @@ class FeedDistributor:
         )
         return mats
 
-    def allocate_feed_per_herd(self):
+    def allocate_feed_demands(self):
         """
         Save the feed consumption stored in x_fds on the data_attr of each herd based on
         the number of animals in x_ani.
@@ -331,28 +331,43 @@ class FeedDistributor:
         if self.x is None:
             return
 
-        n_animals = (
-            pd.DataFrame(self.x["ani"])
-            .reset_index()
-            .pivot(columns=["prod_system"], index="region", values=0)
-        )
-
-        feeds_consumption = n_animals * (
-            pd.DataFrame(self.x["fds"])
-            .reset_index()
-            .pivot(
-                columns=["prod_system", "animal", "feed"],
-                index="region",
-                values=0,  # name=0 given by pandas when converting series to dataframe
-            )
-        )
-
+        feed_to_crop_prod_factors = self.get_feed_to_crop_prod_factors()
         for herd in self.herds:
-            herd.data_attr.update(
-                name="feed.consumption",
-                data=feeds_consumption.loc[
-                    :, (herd.prod_system, slice(None), slice(None))
-                ],
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+
+            feed_demands = (
+                pd.DataFrame(self.x["fds"])
+                .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
+                .reset_index()
+                .pivot(
+                    columns=["prod_system", "animal", "feed"],
+                    index="region",
+                    values=0,  # name=0 given by pandas when converting series to dataframe
+                )
+            )
+
+            # Compute the demand for crop_products yielded by the feed demands
+            feed_crop_prod_demands = feed_demands_to_crop_demands(
+                feed_demands, feed_to_crop_prod_factors
+            )
+
+            herd.data_attr.add(
+                feed_demands,
+                name="feed.demand",
+                unit="kg DM/year",
+                orig="FeedDist",
+                desc="Demand for feed",
+            )
+
+            herd.data_attr.add(
+                feed_crop_prod_demands,
+                name="feed.crop_product_demand",
+                unit="kg/year",
+                orig="FeedDist",
+                desc="Demand for crop products for feed",
             )
 
     def apply_solution(self, x=None):
@@ -378,12 +393,12 @@ class FeedDistributor:
                     x_is=h.x_is,
                 )
 
+        self.allocate_feed_demands()
+
         # Allocate crop production to uses
         self.allocate_crop_production_per_use()
         if "A5" in self.matrices():
             self.adjust_crop_allocation()
-
-        self.allocate_feed_per_herd()
 
     def make_x0(self):
         # Define index for x
