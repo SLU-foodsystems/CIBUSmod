@@ -61,7 +61,7 @@ def check_constraints(geodist):
     
     return plot_dfs
 
-def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and products'):
+def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and products', tol=1e-2):
 
     '''Induces beef exports in DemandAndConversions if beef production from dairy
     systems under given demand for milk products exceeds total beef demand.
@@ -81,6 +81,9 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     herds : pd.Series of AnimalHerd objects
     beef_food_name : str, default 'Bovine meat and products'
         Name of food item representing beef
+    tol : float, default 1e-2
+        Induced beef exports are multiplied by 1+tol to make sure
+        that the problem is feasible
     
     Returns
     -------
@@ -123,6 +126,9 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     else:
         warnings.warn('meat/milk from dairy herds not equal across all regions. median(meat/milk) is used but this is likely to induce more beef exports than strictly needed')
         meat_per_milk = meat_per_milk.median()
+
+    # Add tolerance
+    meat_per_milk *= (1+tol)
 
     # Calculate ammount of meat from dairy systems
     meat_from_dairy = milk_demand * 0
