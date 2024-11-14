@@ -1,5 +1,3 @@
-from itertools import product
-from typing import Literal
 import warnings
 import pandas as pd
 import numpy as np
@@ -38,30 +36,15 @@ class FeedMgmt():
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='FeedMgmt')
 
-        vprint('Calculating feed consumption ...')
-        self.calculate_feed_consumption()
+        vprint('Calculating feed consumption and losses ...')
+        self.calculate_consumption_and_losses()
 
-        vprint('Calculating feed losses ...')
-        self.calculate_losses()
-
-        vprint('Calculating demand for crop products ...')
-        self.calculate_product_demand(of='crop_prod')
+        # vprint('Calculating demand for crop products ...')
         self.calculate_max_crop_in_crop_prod()
 
-        vprint('Calculating demand for by-products ...')
-        self.calculate_product_demand(of='by_prod')
-
-        vprint('Calculating demand for crop residues ...')
-        self.calculate_product_demand(of='crop_resid')
-
-        vprint(type='end')
-
-    def calculate2(self, verbose=False):
-        # Define functions to print progress messages if verbose==True
-        vprint = verbose_init(verbose, id_str='FeedMgmt')
-
-        vprint('Adjusting feed rations (not implemented) ...')
-        self.redistribute_feeds()
+        # vprint('Calculating demand for crop residues ...')
+        # TODO: How do we handle this?
+        self.calculate_product_demand()
 
         vprint('Calculating feed ration characteristics ...')
         self.calculate_ration_characteristics()
@@ -70,80 +53,6 @@ class FeedMgmt():
         self.calculate_enteric_methane()
 
         vprint(type='end')
-
-
-    def calculate_feed_consumption(self):
-        '''Calculates energy requirements per animal and from this + defined feed
-        rations the total demand for feeds per animal.'''
-
-        for herd in self.herds:
-            # Set species and breed filters for ParameterRetriever
-            self.par.set(
-                species = herd.species,
-                breed = herd.breed
-            )
-
-            # Get ouput production systems
-            pss = herd.data_attr.get('heads').columns.get_level_values('prod_system').unique()
-            # Get animals
-            anis = herd.animals
-            # Get feeds in rations from feeds listed in the parameters 'f_feed' column
-            fes = herd.par.get_unique('feed')
-
-            # Create dataframe to store feed req.
-            df_feeds = pd.DataFrame(
-                index = herd.index,
-                columns = pd.MultiIndex.from_tuples(
-                    list(product(pss, anis, fes)),
-                    names=['prod_system','animal','feed']
-                ),
-                dtype = float
-            )
-
-            # Get feed rations
-            shares_per_feed = herd.par.get_from_frame('share_in_ration', df_feeds).fillna(0) / 100
-
-            # Check so that ration shares add up to 100%
-            if not np.isclose(shares_per_feed.T.groupby(['prod_system','animal']).sum(),1).all():
-                warnings.warn(f'\n\nAll feed ration shares did not add up to 100% for species: {herd.species}, breed: {herd.breed}. Feed rations were corrected.\n')
-                shares_per_feed = (
-                    shares_per_feed /
-                    shares_per_feed.T.groupby(['prod_system','animal']).sum().T.align(shares_per_feed)[0]
-                )
-
-            # Get feed_param that decides feed requirements
-            fp = herd.data_attr.get('feed_req_eq').columns.unique('feed_par')[0]
-
-            # If herd has feed energy requirements calculate dry
-            # matter requirements from energy requirements
-            if fp != 'DM':
-
-                # Get energy content of feeds [MJ/kg DM]
-                E_per_feed = self.par.get_from_frame(
-                    "feed_composition", df_feeds, feed_par=fp
-                )
-
-                # Calculate avg. energy in feed ration [MJ/kg DM]
-                E_per_DM = (shares_per_feed * E_per_feed).T.groupby(['prod_system','animal']).sum().T
-
-                # Calculate required DM
-                feed_DM_req = herd.data_attr.get('feed_req_eq').xs(fp, level='feed_par', axis=1) / E_per_DM
-            else:
-                # Get DM requirements
-                feed_DM_req = herd.data_attr.get('feed_req_eq').xs(fp, level='feed_par', axis=1)
-
-            # Calculate and assign feed quantities [kg DM]
-            df_feeds.loc[:,:] = multiply_aligned(shares_per_feed, feed_DM_req)
-
-            # Add data attribute (drop zero cols)
-            df_feeds = df_feeds.loc[:, df_feeds.sum() > 0]
-            herd.data_attr.add(
-                df_feeds,
-                name = 'feed.consumption',
-                unit = 'kg DM/year',
-                orig = 'FeedMgmt',
-                desc = 'Total feed consumption per feed'
-            )
 
     def calculate_ration_characteristics(self):
         '''Calculates ration characteristics'''
@@ -200,169 +109,119 @@ class FeedMgmt():
                 )
 
 
-    def calculate_losses(self):
-        '''Calculate feeds lost during storage and feeding and demand for feed products entering on-farm storage.
-        '''
+    def calculate_consumption_and_losses(self):
+        """
+        Calculate feeds lost during storage and feeding, as well consumption of feed
+        products from feed demand, assigning it to the herd objects
+        """
+
         for herd in self.herds:
-
             # Set species and breed filters for ParameterRetriever
-            self.par.set(
-                species = herd.species,
-                breed = herd.breed
-                )
+            self.par.set(species=herd.species, breed=herd.breed)
 
-            feed_to_feeding = herd.data_attr.get('feed.consumption') * ( 1 / ( 1 - self.par.get_from_frame('feeding_losses', herd.data_attr.get('feed.consumption'))/100 ) )
-            feeding_losses = feed_to_feeding - herd.data_attr.get('feed.consumption')
+            # Get the base demand, i.e. the net feed amount, before losses are made
+            feed_demand = herd.data_attr.get("feed.demand")
 
-            feed_to_storage = feed_to_feeding * ( 1 / ( 1 - self.par.get_from_frame('storage_losses', feed_to_feeding)/100 ) )
+            feed_to_feeding = feed_demand * (
+                1 - self.par.get_from_frame("feeding_losses", feed_demand) / 100
+            )
+            feeding_losses = feed_to_feeding - feed_demand
+
+            feed_to_storage = feed_to_feeding * (
+                (1 - self.par.get_from_frame("storage_losses", feed_to_feeding) / 100)
+            )
             storage_losses = feed_to_storage - feed_to_feeding
 
             # Add data attributes
             herd.data_attr.add(
                 feed_to_storage,
-                name = 'feed.demand',
-                unit = 'kg DM/year',
-                orig = 'FeedMgmt',
-                desc = 'Demand for feed after accounting for storage and feeding losses'
+                name="feed.consumption",
+                unit="kg DM/year",
+                orig="FeedMgmt",
+                desc="Demand for feed after accounting for storage and feeding losses",
             )
             herd.data_attr.add(
                 storage_losses,
-                name = 'feed.storage_losses',
-                unit = 'kg DM/year',
-                orig = 'FeedMgmt',
-                desc = 'Losses of feed during storage'
+                name="feed.storage_losses",
+                unit="kg DM/year",
+                orig="FeedMgmt",
+                desc="Losses of feed during storage",
             )
             herd.data_attr.add(
                 feeding_losses,
-                name = 'feed.feeding_losses',
-                unit = 'kg DM/year',
-                orig = 'FeedMgmt',
-                desc = 'Losses of feed during feeding'
+                name="feed.feeding_losses",
+                unit="kg DM/year",
+                orig="FeedMgmt",
+                desc="Losses of feed during feeding",
             )
 
 
-    def calculate_product_demand(
-        self, of: Literal["crop_prod", "crop_resid", "by_prod"]
-    ):
+    def calculate_product_demand(self):
         # Get Series of crop/by- products or crop residues with feed as index
-        prs = self.par.get_unique(['feed',of]).set_index('feed')[of]
+        prs = self.par.get_unique(["feed", "crop_resid"]).set_index("feed")[
+            "crop_resid"
+        ]
 
-        if (of != 'crop_prod') and (len(self.par.get_unique(of, 'parameter == "share_imported"')) > 0):
-            warnings.warn(f"FeedMgmt: Spicified import shares for '{of}' will have no effect! For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed.")
+        if len(self.par.get_unique("crop_resid", 'parameter == "share_imported"')) > 0:
+            warnings.warn(
+                f"FeedMgmt: Spicified import shares for 'crop_resid' will have no effect! For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
+            )
 
         for herd in self.herds:
-
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
             self.par.set(
-                species = herd.species,
-                breed = herd.breed,
-                sub_system = herd.sub_system
+                species=herd.species, breed=herd.breed, sub_system=herd.sub_system
             )
 
             # Construct retrieve dataframe columns
             df_cols = []
-            for ps, ani, fe in herd.data_attr.get('feed.demand').columns:
+            for ps, ani, fe in herd.data_attr.get("feed.demand").columns:
                 if fe in prs.index:
                     for pr in prs[fe] if not isinstance(prs[fe], str) else [prs[fe]]:
                         df_cols += [(ps, ani, pr, fe)]
 
             retrieve_df = pd.DataFrame(
-                index = herd.index,
-                columns = pd.MultiIndex.from_tuples(
-                    df_cols,
-                    names=['prod_system', 'animal', of, 'feed']
-                    ),
-                dtype = float
+                index=herd.index,
+                columns=pd.MultiIndex.from_tuples(
+                    df_cols, names=["prod_system", "animal", "crop_resid", "feed"]
+                ),
+                dtype=float,
             )
 
             if retrieve_df.shape[1] > 0:
-
                 # Get factors feed --> product
-                feed_to_prod = self.par.get_from_frame('feed_to_prod', retrieve_df)
+                feed_to_prod = self.par.get_from_frame("feed_to_prod", retrieve_df)
 
-                if of == 'crop_prod':
-
-                    # Get import shares
-                    feed_to_imp_prod = feed_to_prod * self.par.get_from_frame('share_imported', retrieve_df)/100
-                    feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
-
-                    # Calculate domestic and imported crop product demand
-                    dom_prod = (
-                        multiply_aligned(feed_to_dom_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
-                    )
-                    imp_prod = (
-                        multiply_aligned(feed_to_imp_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of],sort=False).sum().T
-                    )
-
-                    # Combine
-                    result_df = pd.concat([
-                        pd.concat(
-                            {'domestic': (dom_prod)},
-                            names=['origin'],
-                            axis=1
-                        ),
-
-                        pd.concat(
-                            {'imported': (imp_prod)},
-                            names=['origin'],
-                            axis=1
-                        )
-                    ], axis=1)
-
-                    # Calculate regional demand for crop products
-                    feed_to_reg_prod = feed_to_dom_prod * self.par.get_from_frame('share_regional', retrieve_df)/100
-                    result_df_reg = (
-                        multiply_aligned(feed_to_reg_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of], sort=False).sum().T
-                    )
-                else:
-                    # Calculate demand
-                    result_df = (
-                        multiply_aligned(feed_to_prod,herd.data_attr.get('feed.demand'))
-                        .T.groupby(['prod_system','animal',of],sort=False).sum().T
-                    )
+                # Calculate demand
+                result_df = (
+                    multiply_aligned(feed_to_prod, herd.data_attr.get("feed.demand"))
+                    .T.groupby(["prod_system", "animal", "crop_resid"], sort=False)
+                    .sum()
+                    .T
+                )
             else:
                 # Empty result dataframes
                 result_df = pd.DataFrame(
-                    index = herd.index,
-                    columns = pd.MultiIndex.from_tuples(
+                    index=herd.index,
+                    columns=pd.MultiIndex.from_tuples(
                         [],
-                        names = ['origin', 'prod_system', 'animal', of] if of == 'crop_prod'
-                        else ['prod_system', 'animal', of]
+                        names=["origin", "prod_system", "animal", "crop_resid"]
+                        if "crop_resid" == "crop_prod"
+                        else ["prod_system", "animal", "crop_resid"],
                     ),
-                    dtype = float
-                )
-                result_df_reg = pd.DataFrame(
-                    index = herd.index,
-                    columns = pd.MultiIndex.from_tuples(
-                        [],
-                        names = ['prod_system', 'animal', of]
-                    ),
-                    dtype = float
+                    dtype=float,
                 )
 
             # Add data attributes (drop zero cols)
             result_df = result_df.loc[:, result_df.sum() > 0]
             herd.data_attr.add(
                 result_df,
-                name = 'feed.' + of + ('ue_demand' if of == 'crop_resid' else 'uct_demand'),
-                unit = 'kg DM/year' if of == 'crop_resid' else 'kg/year',
-                orig = 'FeedMgmt',
-                desc = f'Demand for {"crop products" if of == "crop_prod" else "by-products" if of=="by_prod" else "crop residues"} for feed'
+                name="feed." + "crop_resid" + "ue_demand",
+                unit="kg DM/year",
+                orig="FeedMgmt",
+                desc="Demand for crop residues for feed",
             )
-
-            if of == 'crop_prod':
-                result_df_reg = result_df_reg.loc[:, result_df_reg.sum() > 0]
-                herd.data_attr.add(
-                    result_df_reg,
-                    name = 'feed.regional_crop_product_demand',
-                    unit = 'kg/year',
-                    orig = 'FeedMgmt',
-                    desc = 'Demand for crop products for feed that must be supplied regionally'
-                )
 
     def calculate_max_crop_in_crop_prod(self):
         idx = pd.IndexSlice
@@ -374,41 +233,8 @@ class FeedMgmt():
         )
 
         for herd in self.herds:
-            if herd.data_attr.get('feed.crop_product_demand').columns.get_level_values('crop_prod').isin(cgs.index).any():
-
-                # Set species and breed filters for ParameterRetriever
-                self.par.clear()
-                self.par.set(
-                    species = herd.species,
-                    breed = herd.breed,
-                    sub_system = herd.sub_system
-                )
-
-                # Get crop product demand supplied by crops in crs
-                df = herd.data_attr.get('feed.crop_product_demand').loc[:,idx['domestic',:,:,cgs.index]]
-
-                # Append crops to column index
-                df.columns = pd.MultiIndex.from_tuples(map(lambda x: (x + tuple([cgs[x[-1]]])), df.columns), names = df.columns.names + ['crop_group'])
-
-                # Calculate maximum supply of crop_prod from crop
-                res = (df * self.par.get_from_frame(
-                    'max_crop_in_crop_prod',
-                    df,
-                    species=herd.species,
-                    breed=herd.breed,
-                    sub_system=herd.sub_system
-                )).T.groupby(['prod_system','crop_prod','crop_group']).sum().T/100
-
-                # Add data attribute
-                herd.data_attr.add(
-                    res,
-                    name = 'feed.max_supply_from_crop_group',
-                    unit = 'kg/year',
-                    orig = 'FeedMgmt',
-                    desc = 'Maximum supply of feed from crop_group. Used in GeoDistributor constraint'
-                )
-
-            else:
+            # If all empty, skip the calculations and just add a None
+            if not herd.data_attr.get('feed.crop_product_demand').columns.get_level_values('crop_prod').isin(cgs.index).any():
                 # Add data attribute
                 herd.data_attr.add(
                     None,
@@ -417,12 +243,39 @@ class FeedMgmt():
                     orig = 'FeedMgmt',
                     desc = 'Maximum supply of feed from crop_group. Used in GeoDistributor constraint'
                 )
+                continue
 
-    def redistribute_feeds(self):
-        # IMPLEMENT METHOD TO REDISTRIBUTE FEEDS
-        # IN ORDER TO ALIGN WITH GENERATED/IMPORTED
-        # BY-PRODUCTS
-        pass
+            # Set species and breed filters for ParameterRetriever
+            self.par.clear()
+            self.par.set(
+                species = herd.species,
+                breed = herd.breed,
+                sub_system = herd.sub_system
+            )
+
+            # Get crop product demand supplied by crops in crs
+            df = herd.data_attr.get('feed.crop_product_demand').loc[:,idx['domestic',:,:,cgs.index]]
+
+            # Append crops to column index
+            df.columns = pd.MultiIndex.from_tuples(map(lambda x: (x + tuple([cgs[x[-1]]])), df.columns), names = df.columns.names + ['crop_group'])
+
+            # Calculate maximum supply of crop_prod from crop
+            res = (df * self.par.get_from_frame(
+                'max_crop_in_crop_prod',
+                df,
+                species=herd.species,
+                breed=herd.breed,
+                sub_system=herd.sub_system
+            )).T.groupby(['prod_system','crop_prod','crop_group']).sum().T/100
+
+            # Add data attribute
+            herd.data_attr.add(
+                res,
+                name = 'feed.max_supply_from_crop_group',
+                unit = 'kg/year',
+                orig = 'FeedMgmt',
+                desc = 'Maximum supply of feed from crop_group. Used in GeoDistributor constraint'
+            )
 
     def calculate_enteric_methane(self):
 
