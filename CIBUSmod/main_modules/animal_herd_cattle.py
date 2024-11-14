@@ -162,7 +162,7 @@ class CattleHerd(AnimalHerd):
             tmp_female2lost_after_weaning * (
                 tmp_female_calves2slaughter /
                 _np_zero_to_nan(tmp_female_calves2slaughter + tmp_calves2recruitment + tmp_calves2heifer) #  # To avoid zero div errors
-            ) 
+            )
         )
         calves_slaughter2lost = tmp_calves_slaughter2lost_male + tmp_calves_slaughter2lost_female
         calves_heifer2lost = np.nan_to_num(
@@ -268,7 +268,7 @@ class CattleHerd(AnimalHerd):
             # Male calves
             (lw_calves_weaning_male - lw_calves_start) / p('weaning_age') * # -> kg/head/day
             tmp_calves_suckling_male + # -> kg/day
-            
+
             # Female calves
             (lw_calves_weaning_female - lw_calves_start) / p('weaning_age') * # -> kg/head/day
             tmp_calves_suckling_female # -> kg/day
@@ -289,7 +289,7 @@ class CattleHerd(AnimalHerd):
                 ) * # -> kg/head/day
                 tmp_heifers_slaughter # -> kg/day
             ) / _np_zero_to_nan(heifers) # To avoid zero div errors
-        ) # kg/head/day 
+        ) # kg/head/day
         lwg_calves_heifer = tmp_lwg_heifers * calves_heifer * 365.25 # -> kg/year
         lwg_heifers = tmp_lwg_heifers * heifers * 365.25 # -> kg/year
 
@@ -312,7 +312,7 @@ class CattleHerd(AnimalHerd):
             (p('live_weight_slaughter', animal='calves, for slaughter') - lw_calves_weaning_male) /
             (p('slaughter_age', animal='calves, for slaughter')*30.44 - weaning_age) # -> kg/head/day
             * tmp_calves_slaughter_male + # -> kg/day
-            
+
             # Female calves
             # Male calves
             (p('live_weight_slaughter', animal='calves, for slaughter') - lw_calves_weaning_female) /
@@ -437,7 +437,7 @@ class CattleHerd(AnimalHerd):
     def _calculate_feed_req(self):
 
         p = self.par.get
-        
+
         # Remove 'milk_to_calves' attribute if it exists
         if 'milk_to_calves' in self.data_attr:
             self.data_attr.remove('milk_to_calves')
@@ -538,7 +538,7 @@ class CattleHerd(AnimalHerd):
             E_req_tot = (0.16 * live_weight + 12.5 * growth_rate) # Equation deduced from (Tabell 3)
 
             # Share of energy from milk
-            E_from_milk = E_req_tot * (p('energy_share_before_weaning_from_milk')/100)   
+            E_from_milk = E_req_tot * (p('energy_share_before_weaning_from_milk')/100)
 
             # Calculate milk to calves and store data attribute
             milk_to_calves = pd.Series(
@@ -556,7 +556,7 @@ class CattleHerd(AnimalHerd):
             # Subtract energy from milk to get energy from feeds and convert to MJ/year
             E_req = (E_req_tot - E_from_milk) * 365.25
             return E_req
-            
+
         # Daily ME req. for maintenance [MJ/day]
         E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
 
@@ -586,7 +586,7 @@ class CattleHerd(AnimalHerd):
             # Subtract maintanance energy requirements for the time between
             # slaughter of cow to first calving of replacement heifer
             # Mainly applicable in suckler cow systems where the cow is
-            # slaughtered after weaning (autumn) but first calving of 
+            # slaughtered after weaning (autumn) but first calving of
             # replacing heifer is in the spring.
             time_lag = p('time_lag_recruitment')
             time_lag_share = time_lag / (time_lag + ((1/recruitment_rate) * 12))
@@ -605,7 +605,7 @@ class CattleHerd(AnimalHerd):
         E_req_final = np.nan_to_num(E_req_final)
 
         return E_req_final
-    
+
 # Function to convert all zeros in np.array to np.nan
 # in order to avoid div by zero problems
 def _np_zero_to_nan(x):
