@@ -38,39 +38,6 @@ class AnimalHerd(ABC):
     animals : list
         List of str specifying animal categories in the herd (depends on which AnimalHerd
         sub-class is used)
-
-    Attributes set by AnimalHerd.calculate()
-    ----------------------------------------
-    heads : pandas.DataFrame
-        Yearly average number of heads per animal [heads]
-    slaughtered_n : pandas.DataFrame
-        Number of slaughtered animals per year [heads]
-    lost_n : pandas.DataFrame
-        Number of lost animals per year [heads]
-    production : pandas.DataFrame
-        Production per year for each animal and product  [kg]
-
-    Attributes set by FeedMgmt.calculate()
-    --------------------------------------
-    feed.energy_req : pandas.DataFrame
-        Total energy requirements per year for each animal type [MJ]
-        Energy is expressed differently across animal species. E.g. for cattle energy is in
-        terms of Metabolizable Energy (ME) and for pigs energy is in terms of Net Energy (NE)
-    feed.consumption : pandas.DataFrame
-        Feed demand per year for each animal type and feed (in terms of feed consumed) [kg DM]
-
-    Attributes set by ManureMgmt.calculate()
-    ----------------------------------------
-    manure.<element>_excr : pandas.DataFrame
-        Manure excretion by animals [kg <element>]
-    manure.<element>_loss : pandas.DataFrame
-        Losses of <element> in stables and storage by compound [kg <element>]
-    manure.<element>_to_spread : pandas.DataFrame
-        <element> available to spread [kg <element>]
-
-    <element> is 'VS' (volatile solids), 'N' (nitrogen), 'P' (phosphorous) and 'K' (potassium).
-    (ONLY 'N' IMPLEMENTED AT THE MOMENT)
-
     '''
     # Set of ID attributes in class
     id_attr = set(['species','breed','prod_system','sub_system','animals'])
@@ -155,7 +122,7 @@ animals              {self.animals}
         vprint('Calculating herd structure ...')
         self.calculate_herd()
 
-        vprint('Calculating feed energy or DM requirements ...')
+        vprint('Calculating feed requirements ...')
         self.calculate_feed_req()
 
         vprint('Calculating production ...')
