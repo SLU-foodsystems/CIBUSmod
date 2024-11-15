@@ -1569,35 +1569,36 @@ class FeedDistributor:
     def make_A1_3(self):
         """
         Matrix that converts feed products to crop products at a national level.
-
-        Note: potentially memory intensive, as we first allocate everything into a
-        normal df, before we convert it to a sparse matrix.
+        The values are negative to subtract from the other crop products produces, for
+        the A1 matrix to yield the net amount of crop products on multiplication with x.
         """
         # Get row index from crop product demand vector (ps,cp)
         row_idx = self.D_idx["crp"]
         # Get col index from feed demands (f,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
-        # Conversion factors between feed products and crop products
-        factors = self.get_feed_to_crop_prod_factors()
 
-        val = []
-        row_nr = []
-        col_nr = []
-        for row_i, row in enumerate(row_idx):
-            cp = row[1]
-            for col_i, col in enumerate(col_idx):
-                f = col[0]
-                if (f, cp) not in factors.index:
-                    continue
+        # Convert row- and col indices to dataframes to prepare for merging
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-                val.append(
-                    -factors.loc[(f, cp), "feed_to_prod"]
-                    * (1 - factors.loc[(f, cp), "share_imported"])
-                )
-                row_nr.append(row_i)
-                col_nr.append(col_i)
+        # Get the factors, and perform the multiplication now for ease when merging
+        factors = self.get_feed_to_crop_prod_factors().reset_index()
+        # Negative values (*-1) to indicate a 'demand', rather than production, of cps
+        factors["feed_to_prod"] *= -1 * (1 - factors["share_imported"])
 
-        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+        # Merge the row_idx with factors, and the result of that with the col_idx
+        merged = row_idx_df.merge(factors, on="crop_prod").merge(col_idx_df, on="feed")
+
+        val = merged["feed_to_prod"].values
+        row_nr = merged["row_i"].values
+        col_nr = merged["col_i"].values
+
+        # Create sparse matrix
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A2_1(self):
         factors = self.get_feed_to_crop_prod_factors()
