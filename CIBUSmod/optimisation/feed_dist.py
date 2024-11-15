@@ -671,16 +671,27 @@ class FeedDistributor:
         'FeedMgmt' module and can differ for different animals.
         """
 
-        # Production of crop products
-        A2_1 = self.make_A2_1()
-        # Regional feed demand for crop products
-        A2_2 = self.make_A2_2()
+        factors = self.get_feed_to_crop_prod_factors()
+        factors_with_reg_share = factors[factors["share_regional"] > 0].copy()
+        row_idx = pd.MultiIndex.from_product(
+            [
+                self.x_idx["fds"].get_level_values("prod_system").unique(),
+                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
+                self.x_idx["fds"].get_level_values("region").unique(),
+            ],
+            names=["prod_system", "crop_prod", "region"],
+        )
+
         # We do not need the x_animal part for this
-        A2_Z = scipy.sparse.csc_matrix((A2_1.M.shape[0], len(self.x_idx["ani"])))
+        Z_ani = scipy.sparse.csc_matrix((len(row_idx), len(self.x_idx["ani"])))
+        # Production of crop products
+        A2_1 = self.make_A2_1(row_idx)
+        # Regional feed demand for crop products
+        A2_2 = self.make_A2_2(row_idx, factors_with_reg_share)
 
         # Stack matrices
         A2 = IndexedMatrix(
-            matrix=scipy.sparse.hstack([A2_Z, A2_1.M, A2_2.M], format="csc"),
+            matrix=scipy.sparse.hstack([Z_ani, A2_1.M, A2_2.M], format="csc"),
             row_idx=A2_2.rows,
             col_idx={"ani": self.x_idx["ani"], "crp": A2_1.cols, "fds": A2_2.cols},
         )
@@ -1600,105 +1611,92 @@ class FeedDistributor:
 
         return IndexedMatrix(M, row_idx, col_idx)
 
-    def make_A2_1(self):
-        factors = self.get_feed_to_crop_prod_factors()
-        # Limit to factors with regional share
-        factors_with_reg_share = factors[factors["share_regional"] > 0]
-
-        row_idx = pd.MultiIndex.from_product(
-            [
-                self.x_idx["fds"].get_level_values("prod_system").unique(),
-                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
-                self.x_idx["fds"].get_level_values("region").unique(),
-            ],
-            names=["prod_system", "crop_prod", "region"],
-        )
+    def make_A2_1(self, row_idx: pd.MultiIndex):
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx["crp"]
 
-        row_idx_lookup = row_idx.droplevel("region").sort_values()
+        # dataframe with index (crop, prod_system, region) and multi-index columns
+        # (crop_prod)
+        crop_production = self.crops.data_attr.get("production")
+        # Get the crop_products in the index - anything else we can ignore
+        crop_products = row_idx.get_level_values("crop_prod").unique()
 
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
+        # Filter crop production to only produced crops (cp, ps)
+        produced_crops = crop_production.index[
+            crop_production[crop_products].sum(axis=1) > 0
+        ].unique()
 
-        for cr, ps in (
-            self.crops.data_attr.get("production")
-            .index.droplevel("region")[
-                self.crops.data_attr.get("production")[
-                    row_idx.get_level_values("crop_prod").unique()
-                ].sum(axis=1)
-                > 0
-            ]
-            .unique()
-        ):
-            for cp in row_idx.get_level_values("crop_prod").unique():
-                if (cp, ps) in row_idx_lookup:
-                    # Get production of crop product (cp) from production system (ps) per area of crop (cr)
-                    # in production system (ps) and region (re)
-                    res = (
-                        self.crops.data_attr.get("production")
-                        .loc[(cr, ps, slice(None)), (cp)]
-                        .fillna(0)
-                    )
-
-                    # Store values and row/col nr
-                    val.extend(res.values)
-                    row_nr.extend(
-                        [
-                            row_idx.get_loc((cp, ps, re))
-                            for re in res.index.get_level_values("region")
-                        ]
-                    )
-                    col_nr.extend(
-                        [
-                            col_idx.get_loc((cr, ps, re))
-                            for re in res.index.get_level_values("region")
-                        ]
-                    )
-
-        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
-
-    def make_A2_2(self):
-        factors = self.get_feed_to_crop_prod_factors()
-        # Limit to factors with regional share
-        factors_with_reg_share = factors[factors["share_regional"] > 0]
-
-        row_idx = pd.MultiIndex.from_product(
-            [
-                self.x_idx["fds"].get_level_values("prod_system").unique(),
-                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
-                self.x_idx["fds"].get_level_values("region").unique(),
-            ],
-            names=["prod_system", "crop_prod", "region"],
+        # Filter crop production to only produced crops
+        filtered_production = crop_production.loc[produced_crops].reset_index()
+        # Reshape production DataFrame to long format, with the index:
+        #   crop, prod_system, region, crop_prod, production
+        production_long = (
+            filtered_production.melt(
+                id_vars=["crop", "prod_system", "region"],
+                value_vars=crop_products,
+                var_name="crop_prod",
+                value_name="production",
+            ).dropna(subset=["production"])  # Exclude missing production values
         )
-        # Get col index from feed consumption (f,ani,sp,br,ps,ss,re)
+
+        # Merge production with `row_idx` and `col_idx` to get row and column indices
+        merged = production_long.merge(
+            row_idx.to_frame(index=False),
+            on=["prod_system", "crop_prod", "region"],
+        ).merge(
+            col_idx.to_frame(index=False),
+            on=["crop", "prod_system", "region"],
+        )
+
+        # Extract values, row indices, and column indices for the sparse matrix
+        # Ensure it's negative, as this is the regional feed 'demand'
+        val = -merged["production"]
+
+        row_nr = row_idx.get_indexer(merged.set_index(row_idx.names).index)
+        col_nr = col_idx.get_indexer(merged.set_index(col_idx.names).index)
+
+        # Construct sparse matrix
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
+
+    def make_A2_2(self, row_idx: pd.MultiIndex, factors_with_reg_share: pd.DataFrame):
+        # Construct series with index (feed, crop_prod) by multiplying together columns
+        factors = factors_with_reg_share.copy()
+        factors["feed_to_reg_cp"] = (
+            factors["feed_to_prod"]
+            * (1 - factors["share_imported"])
+            * factors["share_regional"]
+        )
+        factors = factors.reset_index()
+        # Get col index from feed consumption (feed,animal,species,breed,prod_system,sub_system,region)
         col_idx = self.x_idx["fds"]
 
-        # DF to store the data in
-        val = []
-        row_nr = []
-        col_nr = []
+        # Create DataFrames from indices for merging
+        row_idx_df = row_idx.to_frame(index=False)
+        col_idx_df = col_idx.to_frame(index=False)
 
-        for ps, cp, re_r in row_idx:
-            for f, ani, sp, br, ps, ss, re_c in col_idx:
-                if (f, cp) not in factors_with_reg_share.index:
-                    continue
-
-                val.append(
-                    factors.loc[(f, cp), "feed_to_prod"]
-                    * (1 - factors.loc[(f, cp), "share_imported"])
-                    * (factors.loc[(f, cp), "share_regional"])
-                )
-                row_nr.append(row_idx.get_loc((ps, cp, re_r)))
-                col_nr.append(col_idx.get_loc((f, ani, sp, br, ps, ss, re_c)))
-
-        return IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
-            row_idx=row_idx,
-            col_idx=col_idx,
+        # Merge factors with row and column indices to perform vectorized calculations
+        merged = row_idx_df.merge(
+            factors[["feed", "crop_prod", "feed_to_reg_cp"]],
+            on="crop_prod",
+        ).merge(
+            col_idx_df,
+            on=["prod_system", "region", "feed"],
         )
+
+        val = merged["feed_to_reg_cp"]
+        row_nr = row_idx.get_indexer(merged.set_index(row_idx.names).index)
+        col_nr = col_idx.get_indexer(merged.set_index(col_idx.names).index)
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)),
+            shape=(len(row_idx), len(col_idx)),
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A3(self):
         # Get land uses to constrain
