@@ -214,14 +214,14 @@ class CattleHerd(AnimalHerd):
                 # Calves reaching 1 year
                 (lw_calves_1yr - lw_calves_start) * # -> kg/head
                 (tmp_calves2recruitment + tmp_calves2heifer +
-                tmp_calves2heifer + tmp_calves2steer + tmp_calves2bull) # -> kg/year
+                tmp_calves2steer + tmp_calves2bull) # -> kg/year
                 +
                 # Calves to slaughter
                 (lw_calves_slaughter - lw_calves_start) /  # -> kg/head
                 p('slaughter_age', animal='calves') * 12 * # -> kg/head/year
                 tmp_calves2slaughter # -> kg/year
             ) / (tmp_calves2recruitment + tmp_calves2heifer + tmp_calves2slaughter +
-             tmp_calves2heifer + tmp_calves2steer + tmp_calves2bull) # -> kg/head/year
+             tmp_calves2steer + tmp_calves2bull) # -> kg/head/year
         ) * calves # -> kg/year
 
         # lwg for cows includes fetus growth
