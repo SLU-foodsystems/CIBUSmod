@@ -289,7 +289,7 @@ Parameters
                 n = min([len(self.selection),5])
                 str2 = "\n----------\n".join([
                     "\n".join([
-                        key + " = " + val
+                        key + " = " + str(val)
                         for key,val in zip(self.selection.names, sel)
                     ])
                     for sel in self.selection[0:n]
@@ -301,7 +301,7 @@ Parameters
                 n = min([len(nan_sel),5])
                 str2 = "\n----------\n".join([
                     "\n".join([
-                        key + " = " + val
+                        key + " = " + str(val)
                         for key,val in zip(nan_sel.names, sel)
                     ])
                     for sel in nan_sel[0:n]
