@@ -10,7 +10,9 @@ class CattleHerd(AnimalHerd):
     def __init__(self,par,index,**kwargs):
 
         self.species = 'cattle'
-        self.animals = ['cows','breeding bulls','calves','heifers','steers','bulls']
+        self.animals = ['cows','breeding bulls',
+                        'calves, suckling','calves, for slaughter','calves, heifer','calves, steer','calves, bull', # < 1 year
+                        'heifers','steers','bulls'] # > 1 year
 
         self.x_is = 'cows'
 
@@ -71,12 +73,12 @@ class CattleHerd(AnimalHerd):
         # ... of which female
         tmp_female_calves_born = tmp_calves_born - tmp_male_calves_born
 
-        self.par.set(animal = 'calves')
+        self.par.set(animal = 'calves, suckling')
 
         # No. male calves surviving past weaning
-        tmp_male2weaned = tmp_male_calves_born * (1-p('mortality_male_0towean')/100)
+        tmp_male2weaned = tmp_male_calves_born * (1-p('mortality_male')/100)
         # No. female calves surviving past weaning
-        tmp_female2weaned = tmp_female_calves_born * (1-p('mortality_female_0towean')/100)
+        tmp_female2weaned = tmp_female_calves_born * (1-p('mortality_female')/100)
 
         # Handle redistribution of calves from one production system to another.
         tmp_male2weaned_before_redist = tmp_male2weaned.copy()
