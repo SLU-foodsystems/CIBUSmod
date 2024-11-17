@@ -103,6 +103,9 @@ class ParameterRetriever:
         -------
         Nothing. Updates all ParameterRetriever parameter values."""
 
+        # Update relation tables
+        cls.update_relation_tables()
+
         if modules != 'all':
             if not isinstance(modules,list):
                 modules = [modules]
@@ -124,6 +127,58 @@ class ParameterRetriever:
             else:
                 # Update to default data
                 pr.update_parameter_values()
+
+        # Check data integrity
+        cls.check_data_integrity()
+
+    @classmethod
+    def check_data_integrity(cls):
+        '''Class method to check data integrity across all ParameteRetriever instances and warn if problems are detected'''
+
+        # Get all filter levels and values in data
+        levels_and_values_in_data = _get_filter_levels_and_values(cls.instances)
+
+        # Check for missing filter values in relation tables
+        levels_in_rel_tables = cls.relation_tables.keys()
+        difs = {}
+        for lvl in levels_in_rel_tables:
+            values_in_data = levels_and_values_in_data[lvl]
+            values_in_rel_tables = cls.relation_tables[lvl][lvl]
+            dif = set(values_in_data) - set(values_in_rel_tables)
+            if len(dif)>0:
+                difs.update({lvl : dif})
+        if len(difs)>0:
+            str = '\n'.join(["Missing for '" + lvl + "': '" +"', '".join(dif) + "'" for lvl, dif in difs.items()])
+            warnings.warn(f"""
+-----------------------------------------------------------------------------
+Some filer values included in data was not available in relation_tables.xlsx.
+{str}
+------------------------------------------------------------------------------""")
+
+        # Check for crops/ species, breeds not in x0_crops/ x0_animals
+        regions_pr = [pr for pr in cls.instances if pr.name == 'Regions'][0]
+
+        # crops not in x0_crops
+        dif = levels_and_values_in_data['crop'] - set(regions_pr.get_unique('crop', qry="parameter == 'x0_crops'"))
+        if len(dif)>0:
+                warnings.warn(f"""
+--------------------------------------------------------------------------------------------
+Data includes crop(s) without an x0 area specified through 'x0_crops' in the Regions module.
+Missing: '{"', '".join(dif)}'
+--------------------------------------------------------------------------------------------""")
+
+        # species/breed not in x0_animals
+        dif_sp = levels_and_values_in_data['species'] - set(regions_pr.get_unique('species', qry="parameter == 'x0_animals'"))
+        dif_br = levels_and_values_in_data['breed'] - set(regions_pr.get_unique('breed', qry="parameter == 'x0_animals'"))
+        if len(dif_sp)>0 | len(dif_br)>0:
+                warnings.warn(f"""
+---------------------------------------------------------------------------------------------------------------
+Data includes species and/or breed(s) without an x0 number specified through 'x0_animals' in the Regions module.
+Missing species: '{"', '".join(dif_sp)}'
+Missing breed(s): '{"', '".join(dif_br)}'
+---------------------------------------------------------------------------------------------------------------""") 
+
+        return None
 
     @classmethod
     def qry_stats(cls):
@@ -894,3 +949,13 @@ def _get_parameter_values(data, selection, parameter):
     result = _select_with_least_defaults(selection_unique, problem_data).reindex(selection)
 
     return result.values
+
+def _get_filter_levels_and_values(prs):
+    '''Get dict of all filter levels (keys) and available values (values) in data
+    from iterable of ParameterRetriever objects'''
+    filer_levels_values = {}
+    for pr in prs:
+        lvls = [lvl.replace('f_','') for lvl in pr.data.index.names if 'f_' in lvl]
+        for lvl in lvls:
+            filer_levels_values.update({lvl : filer_levels_values.get(lvl, set()) | set(pr.get_unique(lvl))})
+    return filer_levels_values
