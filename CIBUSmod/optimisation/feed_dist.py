@@ -2110,24 +2110,29 @@ class FeedDistributor:
         col_idx = self.x_idx["fds"]
 
         feed_to_prod = self.get_feed_to_crop_prod_factors("by_prod")
+        feed_to_prod["by_prod_dom"] = feed_to_prod["feed_to_prod"] * (
+            1 - feed_to_prod["share_imported"]
+        )
 
-        val = []
-        row_nr = []
-        col_nr = []
+        feed_to_prod_long = feed_to_prod[["by_prod_dom"]].reset_index()
+        # Avoid storing zero-values
+        feed_to_prod_long = feed_to_prod_long.replace({0: np.nan}).dropna()
 
-        for i, row in enumerate(row_idx):
-            bp = row[1]
-            for j, col in enumerate(col_idx):
-                f = col[0]
-                if (f, bp) in feed_to_prod.index:
-                    val.append(
-                        feed_to_prod.loc[(f, bp), "feed_to_prod"]
-                        * (1 - feed_to_prod.loc[(f, bp), "share_imported"])
-                    )
-                    row_nr.append(i)
-                    col_nr.append(j)
+        row_idx_df = D_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+        merged_df = feed_to_prod_long.merge(row_idx_df, on="by_prod").merge(
+            col_idx_df, on=["feed", "prod_system"]
+        )
+
+        values = merged_df["by_prod_dom"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+        M = scipy.sparse.coo_array(
+            (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_C10(self):
         """
