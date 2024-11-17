@@ -1879,14 +1879,18 @@ class FeedDistributor:
         ).set_index("species")
 
         # Get the factors mapping feeds to crop products.
-        fps_to_cps_factors = self.get_feed_to_crop_prod_factors()
+        fds_to_cps_factors = self.get_feed_to_crop_prod_factors()
         # Pick only the domestic share, as this constraint does not apply to imported crops.
-        fps_to_cps_factors = fps_to_cps_factors["feed_to_prod"] * (
-            1 - fps_to_cps_factors["share_imported"]
+        fds_to_cps_factors = fds_to_cps_factors["feed_to_prod"] * (
+            1 - fds_to_cps_factors["share_imported"]
         )
+        # Convert from Series to a dataframe so that we can merge it later
+        fds_to_cps_factors = pd.DataFrame(
+            fds_to_cps_factors, columns=["feed_to_dom_crop_prod"]
+        ).reset_index()
 
-        # Dict to lookup which feeds a given crop_product maps to
-        cp_to_fds = inv_dict(dict(fps_to_cps_factors.index.unique().values))
+        # All regions
+        regions = self.x_idx["ani"].get_level_values("region").unique()
 
         # Create the row index (cp,cg,ps,re)
         row_idx = pd.MultiIndex.from_tuples(
@@ -1894,72 +1898,80 @@ class FeedDistributor:
                 (cp, cg, ps, re)
                 for cp, cg in cps_cgs.values
                 for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
-                for re in self.x_idx["ani"].get_level_values("region").unique()
+                for re in regions
             ],
             names=["crop_prod", "crop_group", "prod_system", "region"],
         )
         # Get col index from feeds (f,ani,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
-        val = []
-        row_nr = []
-        col_nr = []
-
-        for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-
-            # Skip if there are no max_crop constraints for this species
-            if sp not in cps_cgs.index:
-                continue
-
-            df = pd.DataFrame(
-                index=pd.MultiIndex.from_tuples(
-                    [(sp, br, ps, ss)],
-                    names=["species", "breed", "prod_system", "sub_system"],
-                ),
-                columns=pd.MultiIndex.from_tuples(
-                    [
-                        (c[0], c[1], an)
-                        for c in cps_cgs.loc[[sp]].values
-                        for an in herd.animals
-                    ],
-                    names=["crop_prod", "crop_group", "animal"],
-                ),
-            )
-
-            max_crop_values = self.feed_mgmt.par.get_from_frame(
-                "max_crop_in_crop_prod", df
-            )
-
-            for cp, cg, ani in max_crop_values.columns:
-                if cp not in cp_to_fds:
-                    warnings.warn(
-                        f"Unexpected case: crop_prod {cp} for parameter 'max_crop_in_crop_prod' was missing for the 'feed_to_prod' parameter"
-                    )
-                    continue
-
-                for sp, br, ps, ss in max_crop_values.index:
-                    max_share = (
-                        max_crop_values.loc[(sp, br, ps, ss), (cp, cg, ani)] / 100
-                    )
-                    for feed, re in product(
-                        cp_to_fds[cp],
-                        col_idx.get_level_values("region").unique(),
-                    ):
-                        col_nr.append(col_idx.get_loc((feed, ani, sp, br, ps, ss, re)))
-                        row_nr.append(row_idx.get_loc((cp, cg, ps, re)))
-                        _feed_to_crop = fps_to_cps_factors.loc[(feed, cp)]
-                        val.append(-_feed_to_crop * max_share)
-
-        # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
-            row_idx,
-            col_idx,
+        # Create DataFrame from herds to use with vectorized operations
+        herd_df = pd.DataFrame(
+            {
+                "species": [herd.species for herd in self.herds],
+                "breed": [herd.breed for herd in self.herds],
+                "prod_system": [herd.prod_system for herd in self.herds],
+                "sub_system": [herd.sub_system for herd in self.herds],
+                "animal": [herd.animals for herd in self.herds],
+            }
         )
+
+        # Filter herds by species present in cps_cgs to avoid unnecessary computations
+        herd_df: pd.DataFrame = herd_df[herd_df["species"].isin(cps_cgs.index)]
+
+        # Expand herds by animals and crop product groups using explode and merge
+        # We then get one row per animal, instead.
+        herd_expanded = herd_df.explode(column="animal").merge(
+            cps_cgs.reset_index(), on="species"
+        )
+
+        retrieve_df = herd_expanded.copy()
+        retrieve_df["value"] = np.nan
+        retrieve_df = retrieve_df.pivot(
+            index=["species", "breed", "prod_system", "sub_system", "animal"],
+            columns=["crop_prod", "crop_group"],
+            values="value",
+        )
+
+        self.feed_mgmt.par.clear()
+        # Get all max_crop_in_crop_prod values for all herds at the same time,
+        # and format to a long-format so that we can merge it later
+        max_crop_values = (
+            (
+                self.feed_mgmt.par.get_from_frame("max_crop_in_crop_prod", retrieve_df)
+                / 100
+            )
+            .stack(level=["crop_prod", "crop_group"], future_stack=True)
+            .reset_index()
+            .rename(columns={0: "max_crop_in_crop_prod"})
+            .dropna()
+        )
+
+        # Build a dataframe with the necessary values, matching
+        values_df = max_crop_values.merge(fds_to_cps_factors, on="crop_prod")
+        values_df["value"] = (
+            -1 * values_df["feed_to_dom_crop_prod"] * values_df["max_crop_in_crop_prod"]
+        )
+        values_df = values_df.drop(
+            columns=["feed_to_dom_crop_prod", "max_crop_in_crop_prod"]
+        )
+
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+
+        merged_df = values_df.merge(
+            row_idx_df, on=["prod_system", "crop_prod", "crop_group"]
+        ).merge(col_idx_df, on=col_idx.names)
+
+        val = merged_df["value"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A6(self, minmax: Literal["min", "max"]):
         self.crops.par.clear()
