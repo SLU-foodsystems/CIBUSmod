@@ -112,27 +112,27 @@ class FeedMgmt():
                     shares_per_feed.T.groupby(['prod_system','animal']).sum().T.align(shares_per_feed)[0]
                 )
 
+            # Get feed_param that decides feed requirements
+            fp = herd.data_attr.get('feed_req_eq').columns.unique('feed_par')[0]
+
             # If herd has feed energy requirements calculate dry
             # matter requirements from energy requirements
-            if 'feed_E_req' in herd.data_attr:
+            if fp != 'DM':
 
                 # Get energy content of feeds [MJ/kg DM]
-                E_per_feed = self.par.get_from_frame('feed_par_E',df_feeds)
+                E_per_feed = self.par.get_from_frame('feed_composition',df_feeds, feed_par = fp)
 
                 # Calculate avg. energy in feed ration [MJ/kg DM]
                 E_per_DM = (shares_per_feed * E_per_feed).T.groupby(['prod_system','animal']).sum().T
 
-                # Calculate required DM and add data attribute
-                herd.data_attr.add(
-                    herd.data_attr.get('feed_E_req') / E_per_DM,
-                    name = 'feed_DM_req',
-                    unit = 'kg DM/year',
-                    orig = 'FeedMgmt',
-                    desc = 'Total feed requirements in terms of dry matter'
-                )
+                # Calculate required DM
+                feed_DM_req = herd.data_attr.get('feed_req_eq').xs(fp, level='feed_par', axis=1) / E_per_DM
+            else:
+                # Get DM requirements
+                feed_DM_req = herd.data_attr.get('feed_req_eq').xs(fp, level='feed_par', axis=1)
 
             # Calculate and assign feed quantities [kg DM]
-            df_feeds.loc[:,:] = multiply_aligned(shares_per_feed, herd.data_attr.get('feed_DM_req'))
+            df_feeds.loc[:,:] = multiply_aligned(shares_per_feed, feed_DM_req)
 
             # Add data attribute (drop zero cols)
             df_feeds = df_feeds.loc[:, df_feeds.sum() > 0]
@@ -177,7 +177,7 @@ class FeedMgmt():
             for par in pars:
                 res = (
                     (
-                        self.par.get_from_frame('feed_par_'+par,feed_DM)
+                        self.par.get_from_frame('feed_composition',feed_DM, feed_par = par)
                         * feed_DM
                     )
                     .T.groupby(['prod_system','animal']).sum().T
