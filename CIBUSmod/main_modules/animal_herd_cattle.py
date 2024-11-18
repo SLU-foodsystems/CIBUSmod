@@ -434,7 +434,7 @@ class CattleHerd(AnimalHerd):
 
         # Make sure calves are hendeled first to get milk from cows
         # to calves
-        anis.insert(0, anis.pop(anis.index('calves')))
+        anis.insert(0, anis.pop(anis.index('calves, suckling')))
 
         # Get available paramters
         pars = self.par.data.index.get_level_values('parameter')
@@ -501,31 +501,55 @@ class CattleHerd(AnimalHerd):
             live_weight = p('live_weight')
             growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             if ani == 'cows':
-                 # Subtract fetus growth
-                 growth_rate -= (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') / 365.25
-                 self.par.set(animal = ani)
-        elif ani == 'calves':
-            live_weight_1yr = p('birth_weight') + self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)]
-            live_weight_pre_weaning = (p('live_weight_weaning') + p('birth_weight')) / 2
-            growth_rate_pre_weaning = (p('live_weight_weaning') - p('birth_weight')) / p('weaning_age')
-            live_weight = (live_weight_1yr + p('live_weight_weaning')) / 2
-            growth_rate = (live_weight_1yr - p('live_weight_weaning')) / (365.25 - p('weaning_age'))
+                # Subtract fetus growth
+                growth_rate -= (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') / 365.25
+                self.par.set(animal = ani)
         else:
             growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
-            live_weight = (2*p('live_weight_slaughter') - growth_rate * (p('slaughter_age')*30.44 - 365.25)) / 2
+            if ani == 'calves, suckling':
+                live_weight = (2*p('birth_weight') + growth_rate * p('weaning_age')) / 2
+            elif ani in ['calves, heifer', 'calves, steer', 'calves, bull']:
+                sex = 'female' if ani == 'calves, heifer' else 'male'
+                live_weight = (2*p(f'live_weight_weaning_{sex}') + growth_rate * (p(f'live_weight_weaning_{sex}') - 365.25)) / 2
+            else:
+                live_weight = (2*p('live_weight_slaughter') - growth_rate * (p('slaughter_age')*30.44 - 365.25)) / 2
 
+        if ani == 'calves, suckling':
+            E_req_tot = (0.16 * live_weight + 12.5 * growth_rate) # Equation deduced from (Tabell 3)
+
+            # Share of energy from milk
+            E_from_milk = E_req_tot * (p('energy_share_before_weaning_from_milk')/100)   
+
+            # Calculate milk to calves and store data attribute
+            milk_to_calves = pd.Series(
+                E_from_milk * p('weaning_age') * self.data_attr.get('heads').loc[:,(ps, ani)] / p('energy_in_milk_to_calves'),
+                index = self.index, name='milk_to_calves'
+            )
+            self.data_attr.add(
+                milk_to_calves,
+                name = 'milk_to_calves',
+                unit = 'kg/year',
+                orig = 'CattleHerd',
+                desc = 'Milk fed to calves',
+                scalable = False
+            )
+
+            # Subtract energy from milk to get energy from feeds and return
+            E_req = E_req_tot - E_from_milk
+            return E_req
+            
         # Daily ME req. for maintenance [MJ/day]
         E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
 
         # Daily ME req. for changes in body weight [MJ/day]
         if ani in ['cows', 'breeding bulls']:
             E_growth = 35 * growth_rate # (Tabell 1) - This factor is for older dairy cows. Here the same is assumed for beef cows and breeding bulls
+        elif ani == 'calves, suckling':
+            E_growth = growth_rate * 12.56 # (Tabell 3) - Equation coefficients estimated from this table
         else:
             E_growth = (growth_rate * (6.28 + 0.0188 * live_weight)) / ((1 - 0.3 * growth_rate) * 0.435) # (Tabell 4a)
             if np.array(live_weight > 825).any() or np.array(growth_rate > 2).any():
                 warnings.warn('Growth energy equation defined up to 825 kg LW and 2.0 kg LWG/day.')
-
-
 
         if ani == 'cows':
             # ME req. for lactation [MJ/day]
@@ -546,32 +570,7 @@ class CattleHerd(AnimalHerd):
             E_gestation = 0
 
         # Total ME req. [MJ/day] (excl. gestation)
-        if ani=='calves':
-            E_pre_weaning = (0.16 * live_weight_pre_weaning + 12.5 * growth_rate_pre_weaning) # Equation deduced from (Tabell 3)
-            E_from_milk = E_pre_weaning * (p('energy_share_before_weaning_from_milk')/100)
-            E_post_weaning = (E_maintenance + E_growth)
-
-            # Total requirements
-            E_req = ((E_pre_weaning - E_from_milk) * p('weaning_age') + E_post_weaning * (365.25 - p('weaning_age'))) / 365.25
-
-            # Calculate milk to calves and store data attribute
-            milk_to_calves = pd.Series(
-                E_from_milk * p('weaning_age') * self.data_attr.get('heads').loc[:,(ps, 'calves')] / p('energy_in_milk_to_calves'),
-                index = self.index, name='milk_to_calves'
-            )
-            if 'milk_to_calves' in self.data_attr:
-                milk_to_calves += self.data_attr.get('milk_to_calves')
-
-            self.data_attr.add(
-                milk_to_calves,
-                name = 'milk_to_calves',
-                unit = 'kg/year',
-                orig = 'CattleHerd',
-                desc = 'Milk fed to calves',
-                scalable = False
-            )
-        else:
-            E_req = (E_maintenance + E_growth + E_lactation)
+        E_req = (E_maintenance + E_growth + E_lactation)
 
         # Adjust energy requirements based on factors for different animals and breeds and
         # convert to MJ/year and add energy requirements for gestation
