@@ -5,8 +5,8 @@ from .misc import extend_index
 
 # Assuming the function `extend_index` has been imported correctly
 
-class TestExtendIndex(unittest.TestCase):
 
+class TestExtendIndex(unittest.TestCase):
     def setUp(self):
         # Sample initial MultiIndex for testing
         self.initial_index = pd.MultiIndex.from_tuples(
@@ -21,9 +21,18 @@ class TestExtendIndex(unittest.TestCase):
         result = extend_index(new_levels, new_names, self.initial_index, mode="append")
 
         # Expected MultiIndex after appending
-        expected = pd.MultiIndex.from_product(
-            [["A", "B"], [1, 2], ["X", "Y"], [10, 20]],
-            names=["letter", "number", "group", "value"]
+        expected = pd.MultiIndex.from_tuples(
+            [
+                ("A", 1, "X", 10),
+                ("A", 1, "X", 20),
+                ("A", 1, "Y", 10),
+                ("A", 1, "Y", 20),
+                ("B", 2, "X", 10),
+                ("B", 2, "X", 20),
+                ("B", 2, "Y", 10),
+                ("B", 2, "Y", 20),
+            ],
+            names=["letter", "number", "group", "value"],
         )
 
         pd.testing.assert_index_equal(result, expected)
@@ -35,10 +44,19 @@ class TestExtendIndex(unittest.TestCase):
 
         result = extend_index(new_levels, new_names, self.initial_index, mode="prepend")
 
-        # Expected MultiIndex after prepending
-        expected = pd.MultiIndex.from_product(
-            [["X", "Y"], [10, 20], ["A", "B"], [1, 2]],
-            names=["group", "value", "letter", "number"]
+        # Expected MultiIndex after appending
+        expected = pd.MultiIndex.from_tuples(
+            [
+                ("X", 10, "A", 1),
+                ("X", 20, "A", 1),
+                ("Y", 10, "A", 1),
+                ("Y", 20, "A", 1),
+                ("X", 10, "B", 2),
+                ("X", 20, "B", 2),
+                ("Y", 10, "B", 2),
+                ("Y", 20, "B", 2),
+            ],
+            names=["group", "value", "letter", "number"],
         )
 
         pd.testing.assert_index_equal(result, expected)
@@ -59,8 +77,7 @@ class TestExtendIndex(unittest.TestCase):
 
         # Expected MultiIndex with only the new levels since the initial index is empty
         expected = pd.MultiIndex.from_product(
-            [["X", "Y"], [10, 20]],
-            names=["group", "value"]
+            [["X", "Y"], [10, 20]], names=["group", "value"]
         )
         pd.testing.assert_index_equal(result, expected)
 
@@ -72,9 +89,13 @@ class TestExtendIndex(unittest.TestCase):
         result = extend_index(new_levels, new_names, self.initial_index, mode="append")
 
         # Expected MultiIndex after appending single new level
-        expected = pd.MultiIndex.from_product(
-            [["A", "B"], [1, 2], ["extra"]],
-            names=["letter", "number", "new_level"]
+        # Expected MultiIndex after appending
+        expected = pd.MultiIndex.from_tuples(
+            [
+                ("A", 1, "extra"),
+                ("B", 2, "extra"),
+            ],
+            names=["letter", "number", "new_level"],
         )
 
         pd.testing.assert_index_equal(result, expected)

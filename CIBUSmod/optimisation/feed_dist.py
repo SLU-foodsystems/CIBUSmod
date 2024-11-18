@@ -2420,7 +2420,7 @@ class FeedDistributor:
         _base_row_idx = self.x_idx["fds"].droplevel("feed")
         # ... and then multiply in each feed_par that we want to look at
         row_idx = extend_index(
-            levels=[feed_pars], names=["feed_par"], index=_base_row_idx
+            levels=[feed_pars], names=["feed_par"], index=_base_row_idx, mode="prepend"
         )
 
         # Get all feeds
