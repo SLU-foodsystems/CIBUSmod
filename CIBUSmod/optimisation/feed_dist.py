@@ -780,10 +780,26 @@ class FeedDistributor:
         'FeedMgmt' module and can differ for different animals.
         """
 
+        cps_cgs: pd.DataFrame = self.feed_mgmt.par.get_unique(
+            ["crop_prod", "crop_group"],
+            qry='parameter == "max_crop_in_crop_prod"',
+        )
+
+        # Create the row index (cp,cg,ps,re)
+        row_idx = pd.MultiIndex.from_tuples(
+            [
+                (cp, cg, ps, re)
+                for cp, cg in cps_cgs.values
+                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
+                for re in self.x_idx["ani"].get_level_values("region").unique()
+            ],
+            names=["crop_prod", "crop_group", "prod_system", "region"],
+        )
+
         # Production of crop products
-        A5_1 = self.make_A5_1()
+        A5_1 = self.make_A5_1(row_idx)
         # Maximum supply of crop product(s) for a given feed
-        A5_2 = self.make_A5_2()
+        A5_2 = self.make_A5_2(row_idx)
         Z_ani = scipy.sparse.csc_matrix((A5_1.M.shape[0], len(self.x_idx["ani"])))
 
         # Stack matrices
@@ -1294,10 +1310,10 @@ class FeedDistributor:
         row_idx = pd.MultiIndex.from_tuples(
             (
                 (feed_param, ani, sp, br, ps, ss, region)
+                for feed_param in feed_pars
                 for (sp, br, ps, ss) in self.herds.index
                 for ani in self.herds[(sp, br, ps, ss)].animals
                 for region in self.x_idx["fds"].get_level_values("region").unique()
-                for feed_param in feed_pars
             ),
             names=[
                 "feed_param",
@@ -1800,38 +1816,21 @@ class FeedDistributor:
         Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
+        return IndexedMatrix(
             scipy.sparse.hstack([M, Z_crp, Z_fds], format="csc"),
             row_idx,
             {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
         )
 
-        return M
-
-    def make_A5_1(self):
+    def make_A5_1(self, row_idx):
         """
         Maps the crops in x to their respective crop products, generating the total
         amount of each crop product (with crop group) produced in each production system
         and region.
         """
-        # Get crop product and crop_group combindations where there is a constraint for maximum inclusion
-        cps_cgs = self.feed_mgmt.par.get_unique(
-            ["crop_prod", "crop_group"], qry='parameter == "max_crop_in_crop_prod"'
-        )
-
         # Get map crop_group --> crop(s)
         map_cg_cr = inv_dict(self.par.get_rel("crop", "crop_group"))
 
-        # Get row index (cp,cg,ps,re)
-        row_idx = pd.MultiIndex.from_tuples(
-            [
-                (cp, cg, ps, re)
-                for cp, cg in cps_cgs.values
-                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
-                for re in self.x_idx["ani"].get_level_values("region").unique()
-            ],
-            names=["crop_prod", "crop_group", "prod_system", "region"],
-        )
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx["crp"]
 
@@ -1867,16 +1866,16 @@ class FeedDistributor:
             col_idx,
         )
 
-    def make_A5_2(self):
+    def make_A5_2(self, row_idx):
         """
         Maps the feed products to their respective maximum share of crop products
         generated
         """
         # Get crop product and crop combinations where there is a constraint for maximum inclusion
         cps_cgs = self.feed_mgmt.par.get_unique(
-            ["species", "crop_prod", "crop_group"],
+            ["crop_prod", "crop_group"],
             qry='parameter == "max_crop_in_crop_prod"',
-        ).set_index("species")
+        )
 
         # Get the factors mapping feeds to crop products.
         fds_to_cps_factors = self.get_feed_to_crop_prod_factors()
@@ -1902,31 +1901,30 @@ class FeedDistributor:
             ],
             names=["crop_prod", "crop_group", "prod_system", "region"],
         )
+
         # Get col index from feeds (f,ani,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
-        # Create DataFrame from herds to use with vectorized operations
-        herd_df = pd.DataFrame(
-            {
-                "species": [herd.species for herd in self.herds],
-                "breed": [herd.breed for herd in self.herds],
-                "prod_system": [herd.prod_system for herd in self.herds],
-                "sub_system": [herd.sub_system for herd in self.herds],
-                "animal": [herd.animals for herd in self.herds],
-            }
+        # Create one large DataFrame from herds to use with vectorized operations
+        retrieve_df = (
+            pd.DataFrame(
+                {
+                    "species": [herd.species for herd in self.herds],
+                    "breed": [herd.breed for herd in self.herds],
+                    "prod_system": [herd.prod_system for herd in self.herds],
+                    "sub_system": [herd.sub_system for herd in self.herds],
+                    "animal": [herd.animals for herd in self.herds],
+                }
+            )
+            # explode it on animal so that we get one row per animal.
+            .explode(column="animal")
+            # and then cross-merge with cps_cgs to get the cartesian product,
+            # The new len (of rows) is then = len(old) x len(cps_cgs)
+            .merge(cps_cgs, how="cross")
         )
-
-        # Filter herds by species present in cps_cgs to avoid unnecessary computations
-        herd_df: pd.DataFrame = herd_df[herd_df["species"].isin(cps_cgs.index)]
-
-        # Expand herds by animals and crop product groups using explode and merge
-        # We then get one row per animal, instead.
-        herd_expanded = herd_df.explode(column="animal").merge(
-            cps_cgs.reset_index(), on="species"
-        )
-
-        retrieve_df = herd_expanded.copy()
+        # Append a dummy-column so that we can pivot without losing the column index
         retrieve_df["value"] = np.nan
+        # Pivot to get a wide matrix, as get_from_frame cannot use only a series
         retrieve_df = retrieve_df.pivot(
             index=["species", "breed", "prod_system", "sub_system", "animal"],
             columns=["crop_prod", "crop_group"],
@@ -1938,27 +1936,30 @@ class FeedDistributor:
         # and format to a long-format so that we can merge it later
         max_crop_values = (
             (
-                self.feed_mgmt.par.get_from_frame("max_crop_in_crop_prod", retrieve_df)
+                self.feed_mgmt.par.get_from_frame("max_crop_in_crop_prod", retrieve_df, warn_if_nan=False)
                 / 100
             )
             .stack(level=["crop_prod", "crop_group"], future_stack=True)
             .reset_index()
             .rename(columns={0: "max_crop_in_crop_prod"})
-            .dropna()
+            .dropna()  # Drop any nan-values, as we don't need them
         )
 
-        # Build a dataframe with the necessary values, matching
+        # Merge the mappings from feed product -> (domestic) crop products with the max_crop_values
         values_df = max_crop_values.merge(fds_to_cps_factors, on="crop_prod")
         values_df["value"] = (
             -1 * values_df["feed_to_dom_crop_prod"] * values_df["max_crop_in_crop_prod"]
         )
+        # Drop now duplicate values to avoid confusion
         values_df = values_df.drop(
             columns=["feed_to_dom_crop_prod", "max_crop_in_crop_prod"]
         )
 
+        # Create dataframes for row- and col indices so that we can merge with the data
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
+        # Merge with row- and col index to match values with their respective col/row i
         merged_df = values_df.merge(
             row_idx_df, on=["prod_system", "crop_prod", "crop_group"]
         ).merge(col_idx_df, on=col_idx.names)
@@ -1971,7 +1972,7 @@ class FeedDistributor:
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
 
-        return IndexedMatrix(M, row_idx, col_idx)
+        return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_A6(self, minmax: Literal["min", "max"]):
         self.crops.par.clear()
