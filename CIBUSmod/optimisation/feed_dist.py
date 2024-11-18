@@ -2292,37 +2292,43 @@ class FeedDistributor:
             / 100
         )
 
-        row_idx = pd.MultiIndex.from_tuples(
-            [
-                (f, ani, sp, br, ps, ss, re)
-                for (f, ani, sp, br, ps, ss) in shares_df.index
-                for re in col_idx.get_level_values("region").unique()
-            ],
-            names=self.x_idx["fds"].names,
+        # Build row_idx: (f, ani, sp, br, ps, ss, re)
+        regions = col_idx.get_level_values("region").unique()
+        row_idx = extend_index(
+            index=shares_df.index,
+            levels=[regions],
+            names=["region"],
+            mode="append",
         )
 
-        val = []
-        row_nr = []
-        col_nr = []
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        for row_i, (r_f, r_ani, r_sp, r_br, r_ps, r_ss, r_re) in enumerate(row_idx):
-            for col_i, (c_f, c_ani, c_sp, c_br, c_ps, c_ss, c_re) in enumerate(col_idx):
-                base_eqs = [
-                    r_ani == c_ani,
-                    r_sp == c_sp,
-                    r_br == c_br,
-                    r_ps == c_ps,
-                    r_ss == c_ss,
-                    r_re == c_re,
-                ]
-                if not np.array(base_eqs).all():
-                    continue
-                max_share = shares_df.loc[(r_f, r_ani, r_sp, r_br, r_ps, r_ss)]
-                val.append(1 - max_share if c_f == r_f else -max_share)
-                row_nr.append(row_i)
-                col_nr.append(col_i)
+        animal_sys_cols = [cname for cname in row_idx.names if cname != "feed"]
 
-        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+        # Note: ca 85% of execution time for this function spent here
+        S = shares_df.reset_index().rename(columns={0: "share"})
+        merged_df = row_idx_df.merge(
+            col_idx_df,
+            # Match on all but feed, as we want to be able to compare row- and col feeds
+            on=animal_sys_cols,
+            suffixes=("", "_c"),
+        ).merge(S, on=[cname for cname in S.columns if cname != "share"])
+
+
+        val = np.where(
+            merged_df["feed"] == merged_df["feed_c"],
+            1 - merged_df["share"],
+            -merged_df["share"],
+        )
+
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_b13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
         """ """
