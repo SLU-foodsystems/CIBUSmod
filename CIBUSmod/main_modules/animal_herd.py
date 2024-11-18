@@ -231,7 +231,7 @@ animals              {self.animals}
         df_req_eq = pd.DataFrame(
             index=self.index,
             columns=pd.MultiIndex.from_tuples(
-                [], names=["prod_system", "animal", "feed_param"]
+                [], names=["prod_system", "animal", "feed_par"]
             ),
             dtype=float,
         )
@@ -244,21 +244,21 @@ animals              {self.animals}
             name="feed_req_eq",
             unit="*/year",
             orig="AnimalHerd",
-            desc="Feed requirements that must be met precisely. Units differ by 'feed_param'",
+            desc="Feed requirements that must be met precisely. Units differ by 'feed_par'",
         )
         self.data_attr.add(
             df_req_min,
             name="feed_req_min",
             unit="*/year",
             orig="AnimalHerd",
-            desc="Feed requirements that represents minimum constraints. Units differ by 'feed_param'",
+            desc="Feed requirements that represents minimum constraints. Units differ by 'feed_par'",
         )
         self.data_attr.add(
             df_req_max,
             name="feed_req_max",
             unit="*/year",
             orig="AnimalHerd",
-            desc="Feed requirements that represents maximum constraints. Units differ by 'feed_param'",
+            desc="Feed requirements that represents maximum constraints. Units differ by 'feed_par'",
         )
 
         # Run AnimalHerd-module specific method
