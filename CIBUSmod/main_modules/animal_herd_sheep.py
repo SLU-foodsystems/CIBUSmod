@@ -173,4 +173,4 @@ class SheepHerd(AnimalHerd):
         else:
             feed_req = p('feed_per_head')
 
-        return ("DM", feed_req)
+        return feed_req

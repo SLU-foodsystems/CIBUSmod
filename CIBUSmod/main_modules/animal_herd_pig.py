@@ -287,4 +287,4 @@ class PigHerd(AnimalHerd):
 
         E_req = np.nan_to_num(E_req)
 
-        return ("E", E_req)
+        return E_req

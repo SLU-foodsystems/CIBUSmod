@@ -219,4 +219,4 @@ class BroilerHerd(AnimalHerd):
             feed_req = p('feed_per_animal') / ( p('slaughter_age') / 365.25 )
 
 
-        return ("DM", feed_req)
+        return feed_req
