@@ -1316,7 +1316,7 @@ class FeedDistributor:
                 for region in self.x_idx["fds"].get_level_values("region").unique()
             ),
             names=[
-                "feed_param",
+                "feed_par",
                 "animal",
                 "species",
                 "breed",
@@ -1326,6 +1326,8 @@ class FeedDistributor:
             ],
         )
 
+        # Build first a 'large' A12_2, from which we later slice smaller versions
+        # depending on which rows are present in A12_1.
         A12_2_complete = self.make_A12_2(row_idx)
 
         def make_A12(rel):
@@ -1936,7 +1938,9 @@ class FeedDistributor:
         # and format to a long-format so that we can merge it later
         max_crop_values = (
             (
-                self.feed_mgmt.par.get_from_frame("max_crop_in_crop_prod", retrieve_df, warn_if_nan=False)
+                self.feed_mgmt.par.get_from_frame(
+                    "max_crop_in_crop_prod", retrieve_df, warn_if_nan=False
+                )
                 / 100
             )
             .stack(level=["crop_prod", "crop_group"], future_stack=True)
@@ -2180,27 +2184,68 @@ class FeedDistributor:
         """
         col_idx = self.x_idx["ani"]
 
-        val = []
-        col_nr = []
-        row_nr = []
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+
+        dfs = []
 
         for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            herd_ps = herd.prod_system
-            herd_ss = herd.sub_system
+            feed_req = -herd.data_attr.get(f"feed_req_{rel}")
+            data = (
+                feed_req.unstack("region")
+                .reset_index()
+                .rename(
+                    columns={
+                        0: "feed_req",
+                        "prod_system": "feed_ps",
+                        "feed_param": "feed_par",
+                    }
+                )
+            )
+            data["species"] = herd.species
+            data["breed"] = herd.breed
+            data["herd_ps"] = herd.prod_system
+            data["herd_ss"] = herd.sub_system
+            dfs.append(data)
 
-            req = herd.data_attr.get(f"feed_req_{rel}")
+        merged_df = (
+            pd.concat(dfs)
+            .merge(
+                row_idx_df,
+                # TODO: Note the use of 'herd_ss' here. Should we include 'feed_ss'?
+                left_on=[
+                    "animal",
+                    "feed_par",
+                    "species",
+                    "breed",
+                    "feed_ps",
+                    "herd_ss",
+                    "region",
+                ],
+                right_on=[
+                    "feed_par",
+                    "animal",
+                    "species",
+                    "breed",
+                    "prod_system",
+                    "sub_system",
+                    "region",
+                ],
+            )
+            .merge(
+                col_idx_df,
+                left_on=["species", "breed", "herd_ps", "herd_ss", "region"],
+                right_on=["species", "breed", "prod_system", "sub_system", "region"],
+            )
+        )
 
-            for feed_ps, ani, feed_par in req.columns:
-                for re in req.index:
-                    val.append(-1 * req.loc[re, (feed_ps, ani, feed_par)])
-                    col_nr.append(col_idx.get_loc((sp, br, herd_ps, herd_ss, re)))
-                    row_nr.append(
-                        row_idx.get_loc((feed_par, ani, sp, br, feed_ps, herd_ss, re))
-                    )
+        val = merged_df["feed_req"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
 
-        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+        M = scipy.sparse.coo_array((val, (row_nr, col_nr)))
+
+        return IndexedMatrix.from_coordinates(M, row_idx, col_idx)
 
     def make_A12_2(self, row_idx: pd.MultiIndex):
         """
@@ -2209,44 +2254,48 @@ class FeedDistributor:
         """
         col_idx = self.x_idx["fds"]
 
-        self.feed_mgmt.par.clear()
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        loss_factors = self._get_losses_factors()
-        feed_compositions = self._get_feed_compositions()
-        feeds = feed_compositions.index.get_level_values("feed").unique()
+        loss_factors_long = (
+            self._get_losses_factors()
+            .reset_index()
+            .melt(
+                id_vars=["animal", "species", "breed", "prod_system", "sub_system"],
+                var_name="feed",
+            )
+        )
 
-        val = []
-        row_nr = []
-        col_nr = []
+        feed_compositions_long = (
+            self._get_feed_compositions()
+            .reset_index()
+            .melt(id_vars=["feed", "species"], var_name="feed_par")
+            .dropna()
+        )
 
-        for row in row_idx:
-            (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
+        # TODO: Should we really only look at species here, or other animal-sys
+        # properties?
+        data = loss_factors_long.merge(
+            feed_compositions_long, on=["feed", "species"], suffixes=("", "_tmp")
+        )
+        data["value"] *= data["value_tmp"]
+        data = data.drop(columns=["value_tmp"])
 
-            for col in col_idx:
-                (feed, ani, sp, br, ps, ss, re) = col
-                ignore = (
-                    feed not in feeds
-                    or animal != ani
-                    or species != sp
-                    or breed != br
-                    or prod_sys != ps
-                    or sub_sys != ss
-                    or region != re
-                )
-                if ignore:
-                    continue
+        merged_df = data.merge(
+            row_idx_df,
+            on=["feed_par", "animal", "species", "breed", "prod_system", "sub_system"],
+        ).merge(col_idx_df, on=col_idx.names)
 
-                loss_factor = loss_factors.loc[(ani, sp, br, ps, ss), feed]
-                feed_to_fpar_factor = feed_compositions.loc[(feed, sp), feed_par]
-                if np.isnan(feed_to_fpar_factor):
-                    continue
+        values = merged_df["value"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
 
-                val.append(feed_to_fpar_factor * loss_factor)
-                col_nr.append(col_idx.get_loc(col))
-                row_nr.append(row_idx.get_loc(row))
+        M = scipy.sparse.coo_array(
+            (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
 
         return IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
+            M,
             row_idx=row_idx,
             col_idx=col_idx,
         )
