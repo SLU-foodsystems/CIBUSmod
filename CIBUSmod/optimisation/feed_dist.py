@@ -2402,39 +2402,44 @@ class FeedDistributor:
         self, prod_type: Literal["crop_prod", "by_prod"], row_idx: pd.Index
     ) -> IndexedMatrix:
         self.feed_mgmt.par.clear()
-
-        # Get col index from crop production (cr,ps,re)
         col_idx = self.x_idx["fds"]
 
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
+        pss = col_idx.get_level_values("prod_system").unique()
+        col_idx = self.x_idx["fds"]
 
-        for row_i, (ps, cp_or_byp) in enumerate(row_idx):
-            feed_to_prod = self.get_feed_to_crop_prod_factors(prod_type, prod_system=ps)
-            for col_i, col in enumerate(col_idx):
-                feed = col[0]
-                feed_ps = col[3]
-                if feed_ps != ps:  # TODO: Verify
-                    continue
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-                if (feed, cp_or_byp) not in feed_to_prod.index:
-                    continue
-
-                val.append(
-                    feed_to_prod.loc[(feed, cp_or_byp), "feed_to_prod"]
-                    * feed_to_prod.loc[(feed, cp_or_byp), "share_imported"]
+        feed_to_prod = pd.concat(
+            [
+                pd.concat(
+                    {ps: self.get_feed_to_crop_prod_factors(prod_type, prod_system=ps)},
+                    names=["prod_system"],
                 )
-                row_nr.append(row_i)
-                col_nr.append(col_i)
+                for ps in pss
+            ],
+            axis=1,
+        )
+        feed_to_prod = (
+            (feed_to_prod["feed_to_prod"] * feed_to_prod["share_imported"])
+            .reset_index()
+            .rename(columns={0: "feed_to_imp_prod"})
+        )
+
+        merged = feed_to_prod.merge(row_idx_df, on=["prod_system", prod_type]).merge(
+            col_idx_df, on=["prod_system", "feed"]
+        )
+
+        val = merged["feed_to_imp_prod"]
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
 
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
-            row_idx,
-            col_idx,
-        )
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A14(self, rel_type: Literal["min", "max"]):
         """
