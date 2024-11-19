@@ -2471,9 +2471,34 @@ class FeedDistributor:
                 continue
             # Keep track of which
             feed_pars.update(data.columns.get_level_values("feed_param").unique())
-            herd_dfs[(herd.species, herd.breed, herd.prod_system, herd.sub_system)] = (
-                data
+            # prod_system already in data attribute, hence not here.
+            herd_dfs[(herd.species, herd.breed, herd.sub_system)] = data.T.stack(
+                "region"
             )
+
+        if len(herd_dfs) == 0:
+            row_idx = pd.MultiIndex.from_tuples(
+                [],
+                names=[
+                    "feed_par",
+                    "animal",
+                    "species",
+                    "breed",
+                    "prod_system",
+                    "sub_system",
+                    "region",
+                ],
+            )
+            return IndexedMatrix(
+                scipy.sparse.csc_matrix((0, len(col_idx))), row_idx, col_idx
+            )
+
+        herds_df = (
+            pd.concat(herd_dfs, names=["species", "breed", "sub_system"])
+            .to_frame(name="feed_req_of_DM")
+            .reset_index()
+            .rename(columns={"feed_param": "feed_par"})
+        )
 
         # We base our row-idx on x_fds, but without the 'feed' level
         _base_row_idx = self.x_idx["fds"].droplevel("feed")
@@ -2483,61 +2508,59 @@ class FeedDistributor:
         )
 
         # Get all feeds
-        loss_factors = self._get_losses_factors()
-        feed_compositions = self._get_feed_compositions()
-
-        val = []
-        row_nr = []
-        col_nr = []
-
-        # Each row matches the min/max constraint of a given feed_par in a given animal system (ani,sp,br,ps,ss,re)
-        for row_i, row in enumerate(row_idx):
-            (feed_par, animal, species, breed, prod_sys, sub_sys, region) = row
-
-            # We fetch the limit for this specific herd - if there's none, we don't need the row at all.
-            data = herd_dfs[(species, breed, prod_sys, sub_sys)]
-            if data is None:
-                continue
-
-            # k is the min/max share of dm. Again, if no value, we don't need the row.
-            k = data.loc[region, (prod_sys, animal, feed_par)]
-            if np.isnan(k):
-                continue
-
-            # Iterate over all columns
-            for col_i, col in enumerate(col_idx):
-                (f, ani, sp, br, ps, ss, re) = col
-                # Only keep values where the row and col overlap
-                if (
-                    animal != ani
-                    or species != sp
-                    or breed != br
-                    or prod_sys != ps
-                    or sub_sys != ss
-                    or region != re
-                ):
-                    continue
-
-                # Get the conversion-ratio for this feed (and species) to the amount of the given feed_par, if it exists
-                feed_to_feed_par = (
-                    feed_compositions.loc[(f, sp), feed_par]
-                    if (f, sp) in feed_compositions.index
-                    else 0
-                )
-                # ... and then multiply to account for the losses
-                feed_to_feed_par *= loss_factors.loc[(ani, sp, br, ps, ss), f]
-                # Subtract by k, the min/max share in relation to DM
-                value = feed_to_feed_par - k
-
-                val.append(value)
-                row_nr.append(row_i)
-                col_nr.append(col_i)
-
-        return IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
-            row_idx=row_idx,
-            col_idx=col_idx,
+        loss_factors = (
+            self._get_losses_factors()
+            .stack("feed")
+            .to_frame(name="loss_factor")
+            .reset_index()
         )
+        feed_compositions = (
+            self._get_feed_compositions()
+            .stack("feed_par")
+            .to_frame(name="feed_to_par_factor")
+            .reset_index()
+        )
+
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+
+        merged = (
+            herds_df
+            # Merge on row_idx to get a full index matching (feed_par, sp, br, ps, ss, ani, region) -> feed_req_of_dm
+            .merge(row_idx_df, on=row_idx.names)
+            # merge with col_idx to add feed to the rows
+            .merge(
+                col_idx_df,
+                on=[
+                    "animal",
+                    "species",
+                    "breed",
+                    "prod_system",
+                    "sub_system",
+                    "region",
+                ],
+            )
+            # Now merge with feed_compositions to map feeds to feed_pars. how="left" to set a default value of 0
+            .merge(feed_compositions, how="left", on=["feed", "species", "feed_par"])
+            .merge(
+                loss_factors,
+                how="left",
+                on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
+            )
+            .fillna(0)
+        )
+
+        values = (
+            merged["feed_to_par_factor"] * merged["loss_factor"]
+            - merged["feed_req_of_DM"]
+        )
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+        M = scipy.sparse.coo_array(
+            (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_P1_1(self):
         """
