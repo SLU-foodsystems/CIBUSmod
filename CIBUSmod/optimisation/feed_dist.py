@@ -1668,7 +1668,7 @@ class FeedDistributor:
 
         # Extract values, row indices, and column indices for the sparse matrix
         # Ensure it's negative, as this is the regional feed 'demand'
-        val = -merged["production"]
+        val = merged["production"]
         row_nr = merged["row_i"]
         col_nr = merged["col_i"]
 
@@ -1682,7 +1682,7 @@ class FeedDistributor:
     def make_A2_2(self, row_idx: pd.MultiIndex, factors_with_reg_share: pd.DataFrame):
         # Construct series with index (feed, crop_prod) by multiplying together columns
         factors = factors_with_reg_share.copy()
-        factors["feed_to_reg_cp"] = (
+        factors["feed_to_reg_cp"] = -(
             factors["feed_to_prod"]
             * (1 - factors["share_imported"])
             * factors["share_regional"]

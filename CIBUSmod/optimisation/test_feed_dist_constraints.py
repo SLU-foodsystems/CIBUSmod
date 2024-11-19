@@ -109,8 +109,8 @@ class TestMakeA2(unittest.TestCase):
         # Validate non-zero entries based on mock data expectations
         self.assertGreater(result.M.nnz, 0)
 
-        # Ensure all values are non-positive
-        self.assertTrue((result.todense() <= 0).all().all())
+        # Ensure all values are non-negative
+        self.assertTrue((result.todense() >= 0).all().all())
 
         # Check row and column indices match expectations
         np.testing.assert_array_equal(result.rows, self.row_idx)
@@ -126,7 +126,7 @@ class TestMakeA2(unittest.TestCase):
         self.assertTrue(all(map(lambda count: count <= 1, col_counts)))
 
         self.assertEqual(
-            -100,
+            100,
             df.loc[("conventional", "product1", "A"), ("wheat", "conventional", "A")],
         )
 
@@ -141,6 +141,10 @@ class TestMakeA2(unittest.TestCase):
 
         # Validate non-zero entries based on expected calculation results
         self.assertGreater(result.M.nnz, 0)
+
+        # Ensure all values are non-positive
+        self.assertTrue((result.todense() <= 0).all().all())
+
 
         # Check row and column indices match expectations
         np.testing.assert_array_equal(result.rows, self.row_idx)
@@ -158,14 +162,14 @@ class TestMakeA2(unittest.TestCase):
                 ("conventional", "product1", "A"),
                 ("feed1", "cows", "cattle", "dairy", "conventional", "none", "A"),
             ],
-            0.5 * (1 - 0.1) * 0.9,
+            0.5 * (1 - 0.1) * 0.9 * -1,
         )
         self.assertEqual(
             df.loc[
                 ("conventional", "product2", "A"),
                 ("feed2", "cows", "cattle", "dairy", "conventional", "none", "A"),
             ],
-            0.8 * (1 - 0.2) * 0.7,
+            0.8 * (1 - 0.2) * 0.7 * -1,
         )
 
 ## Constraint 10
