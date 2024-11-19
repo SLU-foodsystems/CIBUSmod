@@ -50,6 +50,7 @@ class AnimalHerd(ABC):
     x_is: str # defining what x represents, e.g. 'cows', 'total hens', etc.
     species: str
     animals: list[str]
+    products: list[str]
 
     def __init__(self,par,index,**kwargs):
 
@@ -295,9 +296,21 @@ animals              {self.animals}
             )
 
         # Calculate meat production [kg CW]
-        production.loc[:,(slice(None),slice(None),'meat')] = \
-            pd.concat({'meat': self.data_attr.get('slaughtered_n')}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
-            np.array([p('slaughter_weight', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
+        if 'meat' in prs:
+            slaughter_n = self.data_attr.get('slaughtered_n')
+            filters = [(ps,an) for ps,an in slaughter_n.replace({0:np.nan}).dropna(how='all', axis=1).columns]
+            if len(filters)==0:
+                # If no slaughter copy slaughter_n which is all zeros
+                meat_df = slaughter_n.copy()
+            else:
+                slaughter_weights = pd.DataFrame(
+                    np.array([p('slaughter_weight', prod_system=ps, animal=an) for ps,an in filters]).T,
+                    index = self.index,
+                    columns = pd.MultiIndex.from_tuples(filters, names=['prod_system', 'animal'])
+                )
+                meat_df = slaughter_n.mul(slaughter_weights, fill_value=0)[slaughter_n.columns]
+            production.loc[:,(slice(None),slice(None),'meat')] = \
+                pd.concat({'meat': meat_df}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1)
 
         # Calculate raw milk production [kg ECM]
         # kg ECM = kg milk x 0.25 + kg fat x 12.2 + kg protein x 7.7
