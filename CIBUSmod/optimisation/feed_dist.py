@@ -1635,18 +1635,20 @@ class FeedDistributor:
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx["crp"]
 
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+
         # dataframe with index (crop, prod_system, region) and multi-index columns
         # (crop_prod)
-        crop_production = self.crops.data_attr.get("production")
+        crop_production: pd.DataFrame = self.crops.data_attr.get("production")
         # Get the crop_products in the index - anything else we can ignore
-        crop_products = row_idx.get_level_values("crop_prod").unique()
+        crop_products: pd.Index = row_idx.get_level_values("crop_prod").unique()
 
         # Filter crop production to only produced crops (cp, ps)
         produced_crops = crop_production.index[
             crop_production[crop_products].sum(axis=1) > 0
         ].unique()
-
-        # Filter crop production to only produced crops
+        # ... and filter crop production based on this
         filtered_production = crop_production.loc[produced_crops].reset_index()
         # Reshape production DataFrame to long format, with the index:
         #   crop, prod_system, region, crop_prod, production
@@ -1661,19 +1663,14 @@ class FeedDistributor:
 
         # Merge production with `row_idx` and `col_idx` to get row and column indices
         merged = production_long.merge(
-            row_idx.to_frame(index=False),
-            on=["prod_system", "crop_prod", "region"],
-        ).merge(
-            col_idx.to_frame(index=False),
-            on=["crop", "prod_system", "region"],
-        )
+            row_idx_df, on=["prod_system", "crop_prod", "region"]
+        ).merge(col_idx_df, on=["crop", "prod_system", "region"])
 
         # Extract values, row indices, and column indices for the sparse matrix
         # Ensure it's negative, as this is the regional feed 'demand'
         val = -merged["production"]
-
-        row_nr = row_idx.get_indexer(merged.set_index(row_idx.names).index)
-        col_nr = col_idx.get_indexer(merged.set_index(col_idx.names).index)
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
 
         # Construct sparse matrix
         M = scipy.sparse.coo_array(
@@ -2366,7 +2363,6 @@ class FeedDistributor:
             on=animal_sys_cols,
             suffixes=("", "_c"),
         ).merge(S, on=[cname for cname in S.columns if cname != "share"])
-
 
         val = np.where(
             merged_df["feed"] == merged_df["feed_c"],
