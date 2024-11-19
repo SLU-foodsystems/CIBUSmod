@@ -40,7 +40,7 @@ class AnimalHerd(ABC):
         sub-class is used)
     '''
     # Set of ID attributes in class
-    id_attr = set(['species','breed','prod_system','sub_system','animals'])
+    id_attr = set(['species','breed','prod_system','sub_system','animals','products'])
     module_name = 'AnimalHerd'
 
     # Store the number of (defining) animals
@@ -280,17 +280,8 @@ animals              {self.animals}
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
-        # Define output products
-        prs = ['meat']
-        if self.species == 'cattle':
-            prs.append('milk')
-        if (self.species == 'poultry') and (self.breed == 'layer'):
-            prs.append('eggs')
-        if (self.species == 'sheep') and (self.sub_system == 'other sheep'):
-            prs.append('heads')
-        if self.species == 'horses':
-            prs.append('heads')
-
+        # Get output products
+        prs = self.products
         # Get ouput production systems
         pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
         # Get animals

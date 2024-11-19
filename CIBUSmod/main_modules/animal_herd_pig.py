@@ -10,6 +10,7 @@ class PigHerd(AnimalHerd):
 
         self.species = 'pigs'
         self.animals = ['sows','boars','piglets','gilts','growing pigs','finishing pigs']
+        self.products = ['meat']
 
         self.x_is = 'sows+gilts'
 

@@ -12,6 +12,7 @@ class LayerHerd(AnimalHerd):
         self.breed = 'layer'
         self.animals = ['laying chicks','laying hens (16-28 weeks)','laying hens (29-59 weeks)',
                         'laying hens (>59 weeks)','breeding hens and roosters']
+        self.products = ['meat', 'eggs']
 
         self.x_is = 'total hens'
 

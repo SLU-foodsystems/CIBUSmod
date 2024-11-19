@@ -10,6 +10,9 @@ class SheepHerd(AnimalHerd):
 
         self.species = 'sheep'
         self.animals = ['ewes','rams','lambs']
+        self.products = ['meat'] + (
+            ['heads'] if kwargs.get('sub_system') == 'other sheep' else []
+        )
 
         self.x_is = 'ewes+rams'
 

@@ -9,6 +9,7 @@ class HorseHerd(AnimalHerd):
 
         self.species = 'horses'
         self.animals = ['low-performing horses','medium-performing horses','broodmares','young horses']
+        self.products = ['meat', 'heads']
 
         self.x_is = 'total horses'
 

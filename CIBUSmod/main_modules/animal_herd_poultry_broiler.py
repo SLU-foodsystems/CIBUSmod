@@ -11,6 +11,7 @@ class BroilerHerd(AnimalHerd):
         self.species = 'poultry'
         self.breed = 'broiler'
         self.animals = ['broilers','breeding hens','breeding roosters']
+        self.products = ['meat']
 
         self.x_is = 'broilers'
 

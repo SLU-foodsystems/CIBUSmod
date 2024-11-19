@@ -14,6 +14,7 @@ class CattleHerd(AnimalHerd):
                         'calves, suckling', # 0 -> weaning
                         'calves, for slaughter','calves, heifer','calves, steer','calves, bull', # waening -> 1 year
                         'heifers','steers','bulls'] # 1 year ->
+        self.products = ['meat', 'milk']
 
         self.x_is = 'cows'
 
