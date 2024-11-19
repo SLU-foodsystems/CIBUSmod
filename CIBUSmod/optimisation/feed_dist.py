@@ -1555,45 +1555,47 @@ class FeedDistributor:
         # Get col index from crop production (cr,ps,re)
         col_idx = self.x_idx["crp"]
 
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        cps = self.crops.data_attr.get("production").columns
+        def get_long(name: str) -> pd.DataFrame:
+            return (
+                self.crops.data_attr.get(name)
+                .stack("crop_prod")
+                .reset_index()
+                .rename(columns={0: name})
+            )
 
-        for cr, ps in col_idx.droplevel("region").unique():
-            for cp in cps:
-                if (ps, cp) in row_idx:
-                    # Get production of crop product (cp) minus seed demand
-                    # from production system (ps) per area of crop (cr)
-                    # in production system (ps) and region (re)
-                    res = self.crops.data_attr.get("production").loc[
-                        (cr, ps, slice(None)), (cp)
-                    ] - (
-                        self.crops.data_attr.get("seed_demand").loc[
-                            (cr, ps, slice(None)), (cp)
-                        ]
-                        if cp in self.crops.data_attr.get("seed_demand").columns
-                        else 0
-                    )
+        # Get the crop_production and seed demand, and convert both to long format
+        crop_production = get_long("production")
+        seed_demand = get_long("seed_demand")
 
-                    # Store values and row/col nr
-                    val.extend(res.values)
-                    row_nr.extend([row_idx.get_loc((ps, cp))] * len(res))
-                    col_nr.extend(
-                        [
-                            col_idx.get_loc((cr, ps, re))
-                            for re in res.index.get_level_values("region")
-                        ]
-                    )
+        net_production = crop_production.merge(
+            seed_demand,
+            how="left",  # keep the rows where that have no seed demand.
+            on=["crop", "prod_system", "region", "crop_prod"],
+        )
+
+        net_production["net_production"] = net_production[
+            "production"
+        ] - net_production["seed_demand"].fillna(0)
+        net_production = net_production[
+            ["crop", "prod_system", "region", "crop_prod", "net_production"]
+        ]
+
+        merged = net_production.merge(
+            row_idx_df, on=["prod_system", "crop_prod"]
+        ).merge(col_idx_df, on=["crop", "prod_system", "region"])
+
+        val = merged["net_production"]
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
 
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
-            row_idx,
-            col_idx,
-        )
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A1_3(self):
         """
