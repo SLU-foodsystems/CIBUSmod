@@ -2620,14 +2620,9 @@ class FeedDistributor:
         # Get row index from x['fds'] (f,ani,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = [0] * len(col_idx)
-        col_nr = list(range(len(col_idx)))
-        row_nr = [row_idx.get_loc(row_loc) for row_loc in col_idx]
-
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix.from_coordinates(
-            (val, (row_nr, col_nr)),
+        M = IndexedMatrix(
+            scipy.sparse.csc_matrix((len(row_idx), len(col_idx))),
             row_idx,
             col_idx,
         )
