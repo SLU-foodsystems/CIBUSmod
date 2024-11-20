@@ -200,8 +200,14 @@ class CattleHerd(AnimalHerd):
         # CALCULATE AVERAGE ANNUAL NUMBER OF ANIMALS
         breeding_bulls = cows * p('breeding_bulls_per_cow')
 
-        tmp_calves_suckling_male = (tmp_male2lost * p('mortality_male_0towean_age') + tmp_male2weaned * p('weaning_age')) / 365.25
-        tmp_calves_suckling_female = (tmp_female2lost * p('mortality_female_0towean_age') + tmp_female2weaned * p('weaning_age')) / 365.25
+        tmp_calves_suckling_male = (
+            tmp_male2lost * p('mortality_male_0towean_age') +
+            tmp_male2weaned_before_redist * p('weaning_age')
+        ) / 365.25
+        tmp_calves_suckling_female = (
+            tmp_female2lost * p('mortality_female_0towean_age') +
+            tmp_female2weaned_before_redist * p('weaning_age')
+        ) / 365.25
         calves_suckling = tmp_calves_suckling_male + tmp_calves_suckling_female
 
         tmp_calves_slaughter_male = (
@@ -497,6 +503,10 @@ class CattleHerd(AnimalHerd):
 
         p = self.par.get
 
+        # If no animals return zero array
+        if self.data_attr.get('heads').loc[:,(ps,ani)].sum() == 0:
+            return np.zeros(len(self.index))
+
         # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
         if ani in ['cows','breeding bulls']:
             live_weight = p('live_weight')
@@ -511,7 +521,7 @@ class CattleHerd(AnimalHerd):
                 live_weight = (2*p('birth_weight') + growth_rate * p('weaning_age')) / 2
             elif ani in ['calves, heifer', 'calves, steer', 'calves, bull']:
                 sex = 'female' if ani == 'calves, heifer' else 'male'
-                live_weight = (2*p(f'live_weight_weaning_{sex}') + growth_rate * (p(f'live_weight_weaning_{sex}') - 365.25)) / 2
+                live_weight = (2*p(f'live_weight_weaning_{sex}') + growth_rate * (365.25 - p('weaning_age'))) / 2
             else:
                 live_weight = (2*p('live_weight_slaughter') - growth_rate * (p('slaughter_age')*30.44 - 365.25)) / 2
 
