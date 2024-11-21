@@ -277,7 +277,7 @@ class CattleHerd(AnimalHerd):
         tmp_lwg_heifers = (
             # For recruitment
             (
-                (p('live_weight', animal='cows') - lw_calves_weaning_female) /
+                (p('live_weight_first_calving') - lw_calves_weaning_female) /
                 (p('AFC')*30.44 - weaning_age)
             ) * #  -> kg/head/day
             tmp_heifers_recruitment + # -> kg/day
@@ -320,7 +320,10 @@ class CattleHerd(AnimalHerd):
 
         # lwg for cows includes fetus growth
         lwg_cows_fetus = tmp_calves_per_year * p('birth_weight') * cows # -> kg/year
-        lwg_cows_growth = 0 # No growth assumed for cows (pot. calc. from (cow live weight - heifer live weight @ recruitment) / years as cow)
+        lwg_cows_growth = (
+            (p('live_weight', animal='cows') - p('live_weight_first_calving')) / # -> kg
+            (1/recruitment_rate) # -> kg/year
+        )
         lwg_cows = lwg_cows_fetus + lwg_cows_growth
         lwg_breeding_bulls = np.zeros(len(cows)) # No growth assumed
 
@@ -508,15 +511,17 @@ class CattleHerd(AnimalHerd):
             return np.zeros(len(self.index))
 
         # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
+        growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
         if ani in ['cows','breeding bulls']:
             live_weight = p('live_weight')
-            growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             if ani == 'cows':
                 # Subtract fetus growth
-                growth_rate -= (12/p('calving_interval', animal = 'cows')) * p('birth_weight', animal='calves') / 365.25
-                self.par.set(animal = ani)
+                recruitment_rate = p('recruitment_rate')/100
+                calves_per_year = \
+                    ( 12/p('calving_interval') * (1-recruitment_rate) + recruitment_rate ) \
+                    * ( 1*(1-p('twin_birth')/100) + 2*(p('twin_birth')/100) ) * (1-p('stillborn_calf')/100)
+                growth_rate -= calves_per_year * p('birth_weight') / 365.25
         else:
-            growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
             if ani == 'calves, suckling':
                 live_weight = (2*p('birth_weight') + growth_rate * p('weaning_age')) / 2
             elif ani in ['calves, heifer', 'calves, steer', 'calves, bull']:
@@ -555,8 +560,6 @@ class CattleHerd(AnimalHerd):
         # Daily ME req. for changes in body weight [MJ/day]
         if ani in ['cows', 'breeding bulls']:
             E_growth = 35 * growth_rate # (Tabell 1) - This factor is for older dairy cows. Here the same is assumed for beef cows and breeding bulls
-        elif ani == 'calves, suckling':
-            E_growth = growth_rate * 12.56 # (Tabell 3) - Equation coefficients estimated from this table
         else:
             E_growth = (growth_rate * (6.28 + 0.0188 * live_weight)) / ((1 - 0.3 * growth_rate) * 0.435) # (Tabell 4a)
             if np.array(live_weight > 825).any() or np.array(growth_rate > 2).any():
@@ -576,6 +579,15 @@ class CattleHerd(AnimalHerd):
 
             # ME req. for gestation [MJ/year]
             E_gestation = (12/p('calving_interval')) * live_weight * p('gestation_energy_factor')
+
+            # Subtract maintanance energy requirements for the time between
+            # slaughter of cow to first calving of replacement heifer
+            # Mainly applicable in suckler cow systems where the cow is
+            # slaughtered after weaning (autumn) but first calving of 
+            # replacing heifer is in the spring.
+            time_lag = p('time_lag_recruitment')
+            time_lag_share = time_lag / (time_lag + ((1/recruitment_rate) * 12))
+            E_maintenance *= (1-time_lag_share)
         else:
             E_lactation = 0
             E_gestation = 0
