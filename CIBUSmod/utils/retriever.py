@@ -151,7 +151,7 @@ class ParameterRetriever:
             str = '\n'.join(["Missing for '" + lvl + "': '" +"', '".join(dif) + "'" for lvl, dif in difs.items()])
             warnings.warn(f"""
 -----------------------------------------------------------------------------
-Some filer values included in data was not available in relation_tables.xlsx.
+Some filter values included in data were not available in relation_tables.xlsx.
 {str}
 ------------------------------------------------------------------------------""")
 
