@@ -1309,8 +1309,8 @@ class FeedDistributor:
         feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
         row_idx = pd.MultiIndex.from_tuples(
             (
-                (feed_param, ani, sp, br, ps, ss, region)
-                for feed_param in feed_pars
+                (feed_par, ani, sp, br, ps, ss, region)
+                for feed_par in feed_pars
                 for (sp, br, ps, ss) in self.herds.index
                 for ani in self.herds[(sp, br, ps, ss)].animals
                 for region in self.x_idx["fds"].get_level_values("region").unique()
