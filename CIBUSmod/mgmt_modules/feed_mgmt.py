@@ -123,14 +123,14 @@ class FeedMgmt():
             feed_demand = herd.data_attr.get("feed.demand")
 
             feed_to_feeding = feed_demand * (
-                1 - self.par.get_from_frame("feeding_losses", feed_demand) / 100
+                1 - (self.par.get_from_frame("feeding_losses", feed_demand) / 100)
             )
-            feeding_losses = feed_to_feeding - feed_demand
+            feeding_losses = feed_demand - feed_to_feeding
 
             feed_to_storage = feed_to_feeding * (
-                (1 - self.par.get_from_frame("storage_losses", feed_to_feeding) / 100)
+                1 - (self.par.get_from_frame("storage_losses", feed_to_feeding) / 100)
             )
-            storage_losses = feed_to_storage - feed_to_feeding
+            storage_losses = feed_to_feeding - feed_to_storage
 
             # Add data attributes
             herd.data_attr.add(
