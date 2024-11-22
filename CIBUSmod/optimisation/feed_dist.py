@@ -2261,9 +2261,11 @@ class FeedDistributor:
         row_nr = merged_df["row_i"]
         col_nr = merged_df["col_i"]
 
-        M = scipy.sparse.coo_array((val, (row_nr, col_nr)))
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        )
 
-        return IndexedMatrix.from_coordinates(M, row_idx, col_idx)
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A12_2(self, row_idx: pd.MultiIndex):
         """
@@ -2312,11 +2314,7 @@ class FeedDistributor:
             (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
 
-        return IndexedMatrix.from_coordinates(
-            M,
-            row_idx=row_idx,
-            col_idx=col_idx,
-        )
+        return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_A11(self, param: str) -> None | IndexedMatrix:
         col_idx = self.x_idx["fds"]
