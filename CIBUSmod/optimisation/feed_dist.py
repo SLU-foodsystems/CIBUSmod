@@ -1392,8 +1392,15 @@ class FeedDistributor:
         import, while the B matrix contains the ceiling of max imported volume. This is
         done per prod_sys and feed product, for both main- and by-products.
         """
-        b13_cp = self.make_b13("crop_prod")
-        b13_by = self.make_b13("by_prod")
+        try:
+            b13_cp = self.make_b13("crop_prod")
+            b13_by = self.make_b13("by_prod")
+        except ValueError:
+            warnings.warn(
+                "C13 enabled, but b13 could not be built. This is likely because no feeds had max_total_import defined."
+            )
+            return
+
         b13 = np.concatenate([np.array(b13_cp.values), np.array(b13_by.values)])
 
         A13_cp = self.make_A13("crop_prod", b13_cp.index)
