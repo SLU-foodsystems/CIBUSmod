@@ -1345,6 +1345,9 @@ class FeedDistributor:
             A12_2 = IndexedMatrix.align_rows(A12_2_complete, A12_1)
             Z_crp = scipy.sparse.csc_matrix((len(A12_1.rows), len(self.x_idx["crp"])))
 
+            if A12_1.shape[0] == 0:
+                return None
+
             return IndexedMatrix(
                 scipy.sparse.hstack([A12_1.M, Z_crp, A12_2.M]),
                 row_idx=A12_1.rows,
@@ -1359,24 +1362,27 @@ class FeedDistributor:
         A12_eq = make_A12("eq")
         A12_max = make_A12("max")
 
-        self.constraints["C12 (min): A12 @ x >= 0"] = {
-            "left": lambda x, A12: A12.M @ x,
-            "right": lambda A12: 0,
-            "rel": ">=",
-            "pars": {"A12": A12_min},
-        }
-        self.constraints["C12 (eq): A12 @ x == 0"] = {
-            "left": lambda x, A12: A12.M @ x,
-            "right": lambda A12: 0,
-            "rel": "==",
-            "pars": {"A12": A12_eq},
-        }
-        self.constraints["C12 (max): A12 @ x <= 0"] = {
-            "left": lambda x, A12: A12.M @ x,
-            "right": lambda A12: 0,
-            "rel": "<=",
-            "pars": {"A12": A12_max},
-        }
+        if A12_min is not None:
+            self.constraints["C12 (min): A12 @ x >= 0"] = {
+                "left": lambda x, A12: A12.M @ x,
+                "right": lambda A12: 0,
+                "rel": ">=",
+                "pars": {"A12": A12_min},
+            }
+        if A12_eq is not None:
+            self.constraints["C12 (eq): A12 @ x == 0"] = {
+                "left": lambda x, A12: A12.M @ x,
+                "right": lambda A12: 0,
+                "rel": "==",
+                "pars": {"A12": A12_eq},
+            }
+        if A12_max is not None:
+            self.constraints["C12 (max): A12 @ x <= 0"] = {
+                "left": lambda x, A12: A12.M @ x,
+                "right": lambda A12: 0,
+                "rel": "<=",
+                "pars": {"A12": A12_max},
+            }
 
     def make_C13(self):
         """
