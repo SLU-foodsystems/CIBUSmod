@@ -206,9 +206,7 @@ class FeedMgmt():
                     index=herd.index,
                     columns=pd.MultiIndex.from_tuples(
                         [],
-                        names=["origin", "prod_system", "animal", "crop_resid"]
-                        if "crop_resid" == "crop_prod"
-                        else ["prod_system", "animal", "crop_resid"],
+                        names=["prod_system", "animal", "crop_resid"],
                     ),
                     dtype=float,
                 )
@@ -217,7 +215,7 @@ class FeedMgmt():
             result_df = result_df.loc[:, result_df.sum() > 0]
             herd.data_attr.add(
                 result_df,
-                name="feed." + "crop_resid" + "ue_demand",
+                name="feed.crop_residue_demand",
                 unit="kg DM/year",
                 orig="FeedMgmt",
                 desc="Demand for crop residues for feed",
