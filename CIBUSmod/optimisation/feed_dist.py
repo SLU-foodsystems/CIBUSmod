@@ -2637,6 +2637,8 @@ class FeedDistributor:
         Get a DataFrame mapping feed products to crop products, with their respective
         conversion factor as well as respective import- and regional shares.
         """
+
+        # TODO: look at whether we should add ps to index, as done in C13
         feed_par = self.feed_mgmt.par
         feed_par.clear()
 
