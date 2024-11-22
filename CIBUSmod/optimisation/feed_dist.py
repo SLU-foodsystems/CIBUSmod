@@ -755,6 +755,12 @@ class FeedDistributor:
 
         A4 = self.make_A4()
 
+        if A4.shape[0] == 0:
+            warnings.warn(
+                "When building C4, the resulting A4 matrix turned out empty. C4 thus ignored."
+            )
+            return
+
         # Append constraint
         self.constraints.update(
             {
