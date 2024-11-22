@@ -214,13 +214,15 @@ animals              {self.animals}
         return obj
 
     def calculate_feed_req(self):
+
+        # Clear and set filters for ParameterRetriever
         self.par.clear()
         self.par.set(
-            species=self.species,
-            breed=self.breed,
-            prod_system=self.prod_system,
-            sub_system=self.sub_system,
-            **self.index.to_frame().to_dict("list"),
+            species = self.species,
+            breed = self.breed,
+            prod_system = self.prod_system,
+            sub_system = self.sub_system,
+            **self.index.to_frame().to_dict('list')
         )
 
         # Create template DataFrame
@@ -264,7 +266,7 @@ animals              {self.animals}
             unit="kg*/kg DM",
             orig="AnimalHerd",
             desc="Minimum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
-            scalable=False,
+            scalable=False
         )
         self.data_attr.add(
             df_req.copy(),
@@ -272,7 +274,7 @@ animals              {self.animals}
             unit="kg*/kg DM",
             orig="AnimalHerd",
             desc="Maximum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
-            scalable=False,
+            scalable=False
         )
 
         # Run AnimalHerd-module specific method

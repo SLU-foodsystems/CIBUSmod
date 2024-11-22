@@ -1341,7 +1341,7 @@ class FeedDistributor:
             # Drop rows where we lack constriants
             A12_1.prune_rows()
             # Create an A12_2 which only contains the rows for which we have data for
-            # the given herd, animal and feed_param.
+            # the given herd, animal and feed_par.
             A12_2 = IndexedMatrix.align_rows(A12_2_complete, A12_1)
             Z_crp = scipy.sparse.csc_matrix((len(A12_1.rows), len(self.x_idx["crp"])))
 
@@ -2216,7 +2216,6 @@ class FeedDistributor:
                     columns={
                         0: "feed_req",
                         "prod_system": "feed_ps",
-                        "feed_param": "feed_par",
                     }
                 )
             )
@@ -2487,7 +2486,7 @@ class FeedDistributor:
             if data.empty:
                 continue
             # Keep track of which
-            feed_pars.update(data.columns.get_level_values("feed_param").unique())
+            feed_pars.update(data.columns.get_level_values("feed_par").unique())
             # prod_system already in data attribute, hence not here.
             herd_dfs[(herd.species, herd.breed, herd.sub_system)] = data.T.stack(
                 "region"
@@ -2514,7 +2513,6 @@ class FeedDistributor:
             pd.concat(herd_dfs, names=["species", "breed", "sub_system"])
             .to_frame(name="feed_req_of_DM")
             .reset_index()
-            .rename(columns={"feed_param": "feed_par"})
         )
 
         # We base our row-idx on x_fds, but without the 'feed' level
@@ -2738,7 +2736,6 @@ class FeedDistributor:
         )
         values.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition sheet
         return values
-
 
     def allocate_crop_production_per_use(self):
         """Allocate crop areas to different uses.
