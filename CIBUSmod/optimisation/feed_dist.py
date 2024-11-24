@@ -1313,23 +1313,11 @@ class FeedDistributor:
         self.feed_mgmt.par.clear()
         # We manually add "DM" here, as it's not a value in feed_par
         feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
-        row_idx = pd.MultiIndex.from_tuples(
-            (
-                (feed_par, ani, sp, br, ps, ss, region)
-                for feed_par in feed_pars
-                for (sp, br, ps, ss) in self.herds.index
-                for ani in self.herds[(sp, br, ps, ss)].animals
-                for region in self.x_idx["fds"].get_level_values("region").unique()
-            ),
-            names=[
-                "feed_par",
-                "animal",
-                "species",
-                "breed",
-                "prod_system",
-                "sub_system",
-                "region",
-            ],
+        row_idx = extend_index(
+            index = self.x_idx["fds"].droplevel("feed").unique(),
+            names = ["feed_par"],
+            levels = [feed_pars],
+            mode="prepend"
         )
 
         # Build first a 'large' A12_2, from which we later slice smaller versions
