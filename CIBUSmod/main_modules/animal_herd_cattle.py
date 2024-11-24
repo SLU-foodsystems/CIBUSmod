@@ -538,7 +538,7 @@ class CattleHerd(AnimalHerd):
 
             # Calculate milk to calves and store data attribute
             milk_to_calves = pd.Series(
-                E_from_milk * p('weaning_age') * self.data_attr.get('heads').loc[:,(ps, ani)] / p('energy_in_milk_to_calves'),
+                (E_from_milk * self.data_attr.get('heads').loc[:,(ps, ani)] * 365.25) / p('energy_in_milk_to_calves'),
                 index = self.index, name='milk_to_calves'
             )
             self.data_attr.add(
@@ -546,12 +546,11 @@ class CattleHerd(AnimalHerd):
                 name = 'milk_to_calves',
                 unit = 'kg/year',
                 orig = 'CattleHerd',
-                desc = 'Milk fed to calves',
-                scalable = False
+                desc = 'Milk fed to calves'
             )
 
-            # Subtract energy from milk to get energy from feeds and return
-            E_req = E_req_tot - E_from_milk
+            # Subtract energy from milk to get energy from feeds and convert to MJ/year
+            E_req = (E_req_tot - E_from_milk) * 365.25
             return E_req
             
         # Daily ME req. for maintenance [MJ/day]
