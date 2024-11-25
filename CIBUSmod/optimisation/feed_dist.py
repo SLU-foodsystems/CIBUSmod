@@ -2250,7 +2250,7 @@ class FeedDistributor:
 
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-        )
+        ).tocsc()
 
         return IndexedMatrix(M, row_idx, col_idx)
 
