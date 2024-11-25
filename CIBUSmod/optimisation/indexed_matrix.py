@@ -92,34 +92,6 @@ class IndexedMatrix:
         )
 
     @classmethod
-    def from_frame(
-        cls,
-        df: pd.DataFrame,
-        row_idx: pd.Index | pd.MultiIndex,
-        col_idx: pd.Index | pd.MultiIndex,
-        values_name="values",
-        row_nr_name="row_i",
-        col_nr_name="col_i",
-    ) -> Self:
-        """
-        Create an IndexedMatrix from a (values, coordinates)-matrix and row- and
-        column indices.
-        """
-        assert isinstance(df, pd.DataFrame), "df must be a dataframe"
-
-        val = df[values_name].to_numpy()
-        row_nr = df[row_nr_name].to_numpy()
-        col_nr = df[col_nr_name].to_numpy()
-
-        return cls(
-            scipy.sparse.coo_array(
-                (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-            ).tocsc(),
-            row_idx=row_idx,
-            col_idx=col_idx,
-        )
-
-    @classmethod
     def align_rows(cls, A: Self, B: Self):
         _A = A.copy()
         _A.align(B)

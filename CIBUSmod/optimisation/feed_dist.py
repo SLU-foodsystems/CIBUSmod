@@ -1594,10 +1594,15 @@ class FeedDistributor:
             row_idx_df, on=["prod_system", "crop_prod"]
         ).merge(col_idx_df, on=["crop", "prod_system", "region"])
 
+        val = merged["net_production"]
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
         # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="net_production"
-        )
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A1_3(self):
         """
@@ -1622,9 +1627,16 @@ class FeedDistributor:
         # Merge the row_idx with factors, and the result of that with the col_idx
         merged = row_idx_df.merge(factors, on="crop_prod").merge(col_idx_df, on="feed")
 
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_prod"
-        )
+        val = merged["feed_to_prod"].values
+        row_nr = merged["row_i"].values
+        col_nr = merged["col_i"].values
+
+        # Create sparse matrix
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A2_1(self, row_idx: pd.MultiIndex):
         # Get col index from crops (cr,ps,re)
@@ -1661,9 +1673,18 @@ class FeedDistributor:
             row_idx_df, on=["prod_system", "crop_prod", "region"]
         ).merge(col_idx_df, on=["crop", "prod_system", "region"])
 
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="production"
-        )
+        # Extract values, row indices, and column indices for the sparse matrix
+        # Ensure it's negative, as this is the regional feed 'demand'
+        val = merged["production"]
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+
+        # Construct sparse matrix
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A2_2(self, row_idx: pd.MultiIndex, factors_with_reg_share: pd.DataFrame):
         # Construct series with index (feed, crop_prod) by multiplying together columns
@@ -1678,8 +1699,8 @@ class FeedDistributor:
         col_idx = self.x_idx["fds"]
 
         # Create DataFrames from indices for merging
-        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
-        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+        row_idx_df = row_idx.to_frame(index=False)
+        col_idx_df = col_idx.to_frame(index=False)
 
         # Merge factors with row and column indices to perform vectorized calculations
         merged = row_idx_df.merge(
@@ -1690,9 +1711,16 @@ class FeedDistributor:
             on=["prod_system", "region", "feed"],
         )
 
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_reg_cp"
-        )
+        val = merged["feed_to_reg_cp"]
+        row_nr = row_idx.get_indexer(merged.set_index(row_idx.names).index)
+        col_nr = col_idx.get_indexer(merged.set_index(col_idx.names).index)
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)),
+            shape=(len(row_idx), len(col_idx)),
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A3(self):
         # Get land uses to constrain
@@ -1929,7 +1957,7 @@ class FeedDistributor:
 
         # Merge the mappings from feed product -> (domestic) crop products with the max_crop_values
         values_df = max_crop_values.merge(fds_to_cps_factors, on="crop_prod")
-        values_df["values"] = (
+        values_df["value"] = (
             -1 * values_df["feed_to_dom_crop_prod"] * values_df["max_crop_in_crop_prod"]
         )
         # Drop now duplicate values to avoid confusion
@@ -1942,11 +1970,19 @@ class FeedDistributor:
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
         # Merge with row- and col index to match values with their respective col/row i
-        merged = values_df.merge(
+        merged_df = values_df.merge(
             row_idx_df, on=["prod_system", "crop_prod", "crop_group"]
         ).merge(col_idx_df, on=col_idx.names)
 
-        return IndexedMatrix.from_frame(merged, row_idx, col_idx)
+        val = merged_df["value"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_A6(self, minmax: Literal["min", "max"]):
         self.crops.par.clear()
@@ -2100,9 +2136,14 @@ class FeedDistributor:
             col_idx_df, on=["feed", "prod_system"]
         )
 
-        return IndexedMatrix.from_frame(
-            merged_df, row_idx, col_idx, values_name="by_prod_dom"
-        )
+        values = merged_df["by_prod_dom"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+        M = scipy.sparse.coo_array(
+            (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_C10(self):
         """
@@ -2203,9 +2244,15 @@ class FeedDistributor:
             )
         )
 
-        return IndexedMatrix.from_frame(
-            merged_df, row_idx, col_idx, values_name="feed_req"
+        val = merged_df["feed_req"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         )
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A12_2(self, row_idx: pd.MultiIndex):
         """
@@ -2238,7 +2285,7 @@ class FeedDistributor:
         data = loss_factors_long.merge(
             feed_compositions_long, on=["feed", "species"], suffixes=("", "_tmp")
         )
-        data["values"] *= data["value_tmp"]
+        data["value"] *= data["value_tmp"]
         data = data.drop(columns=["value_tmp"])
 
         merged_df = data.merge(
@@ -2246,7 +2293,15 @@ class FeedDistributor:
             on=["feed_par", "animal", "species", "breed", "prod_system", "sub_system"],
         ).merge(col_idx_df, on=col_idx.names)
 
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
+        values = merged_df["value"]
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+
+        M = scipy.sparse.coo_array(
+            (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_A11(self, param: str) -> None | IndexedMatrix:
         row_idx = self.x_idx["fds"]
@@ -2308,13 +2363,19 @@ class FeedDistributor:
             on=[cname for cname in shares_df.columns if cname != "share"],
         )
 
-        merged_df["values"] = np.where(
+        val = np.where(
             merged_df["feed"] == merged_df["feed_c"],
             1 - merged_df["share"],
             -merged_df["share"],
         )
 
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
+        row_nr = merged_df["row_i"]
+        col_nr = merged_df["col_i"]
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_b13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
         """ """
@@ -2368,9 +2429,16 @@ class FeedDistributor:
             col_idx_df, on=["prod_system", "feed"]
         )
 
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_imp_prod"
-        )
+        val = merged["feed_to_imp_prod"]
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+
+        M = scipy.sparse.coo_array(
+            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        # Create Compressed Sparse Column matrix
+        return IndexedMatrix(M, row_idx, col_idx)
 
     def make_A14(self, rel_type: Literal["min", "max"]):
         """
@@ -2480,11 +2548,17 @@ class FeedDistributor:
             .fillna(0)
         )
 
-        merged["values"] = (
+        values = (
             merged["feed_to_par_factor"] * merged["loss_factor"]
             - merged["feed_req_of_DM"]
         )
-        return IndexedMatrix.from_frame(merged, row_idx, col_idx)
+        row_nr = merged["row_i"]
+        col_nr = merged["col_i"]
+        M = scipy.sparse.coo_array(
+            (values, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
+        ).tocsc()
+
+        return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_P1_1(self):
         """
