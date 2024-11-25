@@ -38,42 +38,9 @@ class AnimalHerd(ABC):
     animals : list
         List of str specifying animal categories in the herd (depends on which AnimalHerd
         sub-class is used)
-
-    Attributes set by AnimalHerd.calculate()
-    ----------------------------------------
-    heads : pandas.DataFrame
-        Yearly average number of heads per animal [heads]
-    slaughtered_n : pandas.DataFrame
-        Number of slaughtered animals per year [heads]
-    lost_n : pandas.DataFrame
-        Number of lost animals per year [heads]
-    production : pandas.DataFrame
-        Production per year for each animal and product  [kg]
-
-    Attributes set by FeedMgmt.calculate()
-    --------------------------------------
-    feed.energy_req : pandas.DataFrame
-        Total energy requirements per year for each animal type [MJ]
-        Energy is expressed differently across animal species. E.g. for cattle energy is in
-        terms of Metabolizable Energy (ME) and for pigs energy is in terms of Net Energy (NE)
-    feed.consumption : pandas.DataFrame
-        Feed demand per year for each animal type and feed (in terms of feed consumed) [kg DM]
-
-    Attributes set by ManureMgmt.calculate()
-    ----------------------------------------
-    manure.<element>_excr : pandas.DataFrame
-        Manure excretion by animals [kg <element>]
-    manure.<element>_loss : pandas.DataFrame
-        Losses of <element> in stables and storage by compound [kg <element>]
-    manure.<element>_to_spread : pandas.DataFrame
-        <element> available to spread [kg <element>]
-
-    <element> is 'VS' (volatile solids), 'N' (nitrogen), 'P' (phosphorous) and 'K' (potassium).
-    (ONLY 'N' IMPLEMENTED AT THE MOMENT)
-
     '''
     # Set of ID attributes in class
-    id_attr = set(['species','breed','prod_system','sub_system','animals'])
+    id_attr = set(['species','breed','prod_system','sub_system','animals','products'])
     module_name = 'AnimalHerd'
 
     # Store the number of (defining) animals
@@ -83,6 +50,7 @@ class AnimalHerd(ABC):
     x_is: str # defining what x represents, e.g. 'cows', 'total hens', etc.
     species: str
     animals: list[str]
+    products: list[str]
 
     def __init__(self,par,index,**kwargs):
 
@@ -114,11 +82,11 @@ animals              {self.animals}
         pass
 
     @abstractmethod
-    def _calculate_feed_req(self, ps, ani) -> tuple[Literal['E', 'DM'], Any]:
+    def _calculate_feed_req(self) -> None:
         """
-        Calculate the feed energy [MJ] or dry matter [kg DM] requirements.
-        The first item in the tuple describes which type of feed requirement the
-        animal herd specifies, and the second is the value thereof.
+        AnimalHerd-module specific method to calculate feed requirements.
+        This methods writes to the 'feed_req_eq', 'feed_req_min' and 'feed_req_max'
+        data attributes
         """
         pass
 
@@ -155,7 +123,7 @@ animals              {self.animals}
         vprint('Calculating herd structure ...')
         self.calculate_herd()
 
-        vprint('Calculating feed energy or DM requirements ...')
+        vprint('Calculating feed requirements ...')
         self.calculate_feed_req()
 
         vprint('Calculating production ...')
@@ -259,61 +227,61 @@ animals              {self.animals}
             **self.index.to_frame().to_dict('list')
         )
 
-        # Remove 'milk_to_calves' attribute if it exists
-        if 'milk_to_calves' in self.data_attr:
-            self.data_attr.remove('milk_to_calves')
-
-
+        # Create template DataFrame
         df_req = pd.DataFrame(
-            index = self.index,
-            columns = self.data_attr.get('heads').columns,
-            dtype = float
+            index=self.index,
+            columns=pd.MultiIndex.from_tuples(
+                [], names=["prod_system", "animal", "feed_par"]
+            ),
+            dtype=float,
         )
-        pss = list(df_req.columns.get_level_values('prod_system'))
-        anis = list(df_req.columns.get_level_values('animal'))
-        if self.species == 'cattle':
-            # Make sure calves are hendeled first to get milk from cows
-            # to calves
-            anis.insert(0, anis.pop(anis.index('calves')))
 
-        feed_req_type = None
-        for ani, ps in zip(anis, pss):
-            self.par.set(
-                prod_system = ps,
-                animal = ani
-            )
+        # Create data attributes for equality, minimum and maximum constraints for
+        # feed requirements.
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_eq",
+            unit="*/year",
+            orig="AnimalHerd",
+            desc="Feed requirements that must be met precisely. *differ by 'feed_par'",
+        )
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_min",
+            unit="*/year",
+            orig="AnimalHerd",
+            desc="Feed requirements that represents minimum constraints. *differ by 'feed_par'",
+        )
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_max",
+            unit="*/year",
+            orig="AnimalHerd",
+            desc="Feed requirements that represents maximum constraints. *differ by 'feed_par'",
+        )
 
-            # Calculate feed requirements (energy [MJ] or dry matter [kg DM])
-            (feed_req_type, req) = self._calculate_feed_req(ps, ani)
+        # Create data attributes for minimum and maximum requirements in terms of
+        # inclusion of feed parameters in total dry matter feed
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_of_DM_min",
+            unit="kg*/kg DM",
+            orig="AnimalHerd",
+            desc="Minimum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
+            scalable=False
+        )
+        self.data_attr.add(
+            df_req.copy(),
+            name="feed_req_of_DM_max",
+            unit="kg*/kg DM",
+            orig="AnimalHerd",
+            desc="Maximum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
+            scalable=False
+        )
 
-            df_req.loc[:,(ps,ani)] = req
+        # Run AnimalHerd-module specific method
+        self._calculate_feed_req()
 
-        # No animals found in animal-herd, we can exit.
-        # We should maybe raise an Exception here.
-        if feed_req_type is None:
-            return
-
-        # If herd has a method to calculate energy requirements of animals
-        # energy requirements are calculated from live weights, growth rates,
-        # gestation, lactation, etc.
-        # Otherwise dry matter feed requirements are calculated from feed
-        # conversion ratios or a fixed feed intake per animal.
-        if feed_req_type == "E":
-            self.data_attr.add(
-                (df_req * self.data_attr.get('heads')),
-                name = 'feed_E_req',
-                unit = 'MJ/year',
-                orig = 'AnimalHerd',
-                desc = 'Total feed requirements in terms of energy. Type of energy differ by species'
-            )
-        else:
-            self.data_attr.add(
-                (df_req * self.data_attr.get('heads')),
-                name = 'feed_DM_req',
-                unit = 'kg DM/year',
-                orig = 'AnimalHerd',
-                desc = 'Total feed requirements in terms of dry matter'
-            )
 
     def calculate_production(self):
 
@@ -330,17 +298,8 @@ animals              {self.animals}
         # Provide shorthand 'p()' to get parameters
         p = self.par.get
 
-        # Define output products
-        prs = ['meat']
-        if self.species == 'cattle':
-            prs.append('milk')
-        if (self.species == 'poultry') and (self.breed == 'layer'):
-            prs.append('eggs')
-        if (self.species == 'sheep') and (self.sub_system == 'other sheep'):
-            prs.append('heads')
-        if self.species == 'horses':
-            prs.append('heads')
-
+        # Get output products
+        prs = self.products
         # Get ouput production systems
         pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
         # Get animals
@@ -354,9 +313,21 @@ animals              {self.animals}
             )
 
         # Calculate meat production [kg CW]
-        production.loc[:,(slice(None),slice(None),'meat')] = \
-            pd.concat({'meat': self.data_attr.get('slaughtered_n')}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1) * \
-            np.array([p('slaughter_weight', animal=ani, prod_system=ps) for ps in pss for ani in anis]).T
+        if 'meat' in prs:
+            slaughter_n = self.data_attr.get('slaughtered_n')
+            filters = [(ps,an) for ps,an in slaughter_n.replace({0:np.nan}).dropna(how='all', axis=1).columns]
+            if len(filters)==0:
+                # If no slaughter copy slaughter_n which is all zeros
+                meat_df = slaughter_n.copy()
+            else:
+                slaughter_weights = pd.DataFrame(
+                    np.array([p('slaughter_weight', prod_system=ps, animal=an) for ps,an in filters]).T,
+                    index = self.index,
+                    columns = pd.MultiIndex.from_tuples(filters, names=['prod_system', 'animal'])
+                )
+                meat_df = slaughter_n.mul(slaughter_weights, fill_value=0)[slaughter_n.columns]
+            production.loc[:,(slice(None),slice(None),'meat')] = \
+                pd.concat({'meat': meat_df}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1)
 
         # Calculate raw milk production [kg ECM]
         # kg ECM = kg milk x 0.25 + kg fat x 12.2 + kg protein x 7.7

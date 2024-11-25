@@ -10,6 +10,9 @@ class SheepHerd(AnimalHerd):
 
         self.species = 'sheep'
         self.animals = ['ewes','rams','lambs']
+        self.products = ['meat'] + (
+            ['heads'] if kwargs.get('sub_system') == 'other sheep' else []
+        )
 
         self.x_is = 'ewes+rams'
 
@@ -135,7 +138,32 @@ class SheepHerd(AnimalHerd):
 
         return None
 
-    def _calculate_feed_req(self,ps,ani):
+    def _calculate_feed_req(self):
+        # Get production systems and animals present
+        pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
+        anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+
+        for ani, ps in zip(anis, pss):
+            self.par.set(
+                prod_system = ps,
+                animal = ani
+            )
+
+            # Calculate dry matter requirements
+            DM_req = self._calculate_DM_req(ps, ani)
+
+            # Get number of heads of animal = ani & production system = ps
+            heads = self.data_attr.get('heads').loc[:,(ps,ani)]
+
+            # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
+            self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'DM')] = DM_req * heads
+
+            # NOTE: THIS METHOD ONLY CALCULATES DM REQUIREMENTS AND THEREFORE RELY ON
+            # STRICTLY DEFINING FEED RATIONS WITH 'share_in_ration' PARAMETER
+
+        print('[DM]', sep='', end=' ')
+
+    def _calculate_DM_req(self,ps,ani):
         '''Calculates feed DM requirements from fixed intake per head or lifetime'''
 
         p = self.par.get
@@ -148,4 +176,4 @@ class SheepHerd(AnimalHerd):
         else:
             feed_req = p('feed_per_head')
 
-        return ("DM", feed_req)
+        return feed_req

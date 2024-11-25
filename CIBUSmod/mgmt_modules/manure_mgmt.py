@@ -519,10 +519,38 @@ class ManureMgmt():
                     .T.groupby(['prod_system','animal']).sum().T
                 )
 
+                # Nutrients in milk fed to calves represent and export
+                # from 'cows' and an input to 'calves, suckling'
+                if 'milk_to_calves' in herd.data_attr:
+                    # Get milk from cows to suckling calves
+                    df = (
+                        herd.data_attr.get('milk_to_calves')
+                        .rename('milk')
+                        .to_frame()
+                        .rename_axis('animal_prod', axis=1)
+                    )
+                    # Calculate N/P/K content
+                    df = (
+                        df *
+                        self.par.get_from_frame(element + '_in_prod', df)
+                    ).loc[:,'milk']/1000
+                    # Create DataFrame
+                    milk_to_calves = pd.DataFrame(
+                        0.0,
+                        index = herd.index,
+                        columns = feed.columns
+                    )
+                    # Insert N/P/K in milk to calves into the 'cows' columns as negative values
+                    # and into the 'calves, suckling' column as positive values
+                    milk_to_calves.loc[:,(herd.prod_system,'calves, suckling')] = df
+                    milk_to_calves.loc[:,(herd.prod_system,'cows')] = -df
+                else:
+                    milk_to_calves = 0
+
                 # Calculate excretion from animals
                 excr_df = multiply_aligned(
                     herd.data_attr.get('manure.mms_shares')/100,
-                    (feed - lwg - prod)
+                    (feed - lwg - prod + milk_to_calves)
                 )
 
                 # Add nutrients in bedding materials

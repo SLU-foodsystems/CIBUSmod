@@ -10,6 +10,7 @@ class PigHerd(AnimalHerd):
 
         self.species = 'pigs'
         self.animals = ['sows','boars','piglets','gilts','growing pigs','finishing pigs']
+        self.products = ['meat']
 
         self.x_is = 'sows+gilts'
 
@@ -210,7 +211,33 @@ class PigHerd(AnimalHerd):
             desc = 'Total number of heads lost'
         )
 
-    def _calculate_feed_req(self,ps,ani):
+    def _calculate_feed_req(self):
+        
+        # Get production systems and animals present
+        pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
+        anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+
+        for ani, ps in zip(anis, pss):
+            self.par.set(
+                prod_system = ps,
+                animal = ani
+            )
+
+            # Calculate net energy requirements
+            NE_req = self._calculate_NE_req(ps, ani)
+
+            # Get number of heads of animal = ani & production system = ps
+            heads = self.data_attr.get('heads').loc[:,(ps,ani)]
+
+            # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
+            self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'NE')] = NE_req * heads
+
+            # NOTE: THIS METHOD ONLY CALCULATES NE REQUIREMENTS AND THEREFORE RELY ON
+            # STRICTLY DEFINING FEED RATIONS WITH 'share_in_ration' PARAMETER
+
+        print('[NE]', sep='', end=' ')
+
+    def _calculate_NE_req(self,ps,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
         [1] Simonsson, A. (2006). Fodermedel och näringsrekommendationer för gris. HUV Rapport 266. SLU
         [2] Göransson, L., Lindberg, J.E. (2011). Näringsrekommendationer ver. 2011.1 - Energi'''
@@ -261,4 +288,4 @@ class PigHerd(AnimalHerd):
 
         E_req = np.nan_to_num(E_req)
 
-        return ("E", E_req)
+        return E_req
