@@ -1315,10 +1315,10 @@ class FeedDistributor:
         # We manually add "DM" here, as it's not a value in feed_par
         feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
         row_idx = extend_index(
-            index = self.x_idx["fds"].droplevel("feed").unique(),
-            names = ["feed_par"],
-            levels = [feed_pars],
-            mode="prepend"
+            index=self.x_idx["fds"].droplevel("feed").unique(),
+            names=["feed_par"],
+            levels=[feed_pars],
+            mode="prepend",
         )
 
         # Build first a 'large' A12_2, from which we later slice smaller versions
