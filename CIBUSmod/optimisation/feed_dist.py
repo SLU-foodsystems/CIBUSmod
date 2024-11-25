@@ -232,6 +232,7 @@ class FeedDistributor:
                 self.x = None
                 self.success = False
                 vprint(f"Failed with {type(e).__name__}: {e}", type="msg")
+                print(e, file=sys.stderr)
                 continue
 
             if self.problem.status and "optimal" in self.problem.status:
