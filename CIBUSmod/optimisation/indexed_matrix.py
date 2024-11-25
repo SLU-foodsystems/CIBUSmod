@@ -46,7 +46,7 @@ class IndexedMatrix:
             raise ValueError("IndexedMatrix.prune_rows only works with flat indices.")
 
         # Convert to CSR format for efficient row-based operations
-        csr_mat = self.M.tocsr()
+        csr_mat = scipy.sparse.csr_matrix(self.M)
 
         # Identify rows that contain non-zero entries
         non_empty_rows = np.flatnonzero(csr_mat.getnnz(axis=1))
