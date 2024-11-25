@@ -2238,7 +2238,7 @@ class FeedDistributor:
         data = loss_factors_long.merge(
             feed_compositions_long, on=["feed", "species"], suffixes=("", "_tmp")
         )
-        data["values"] *= data["value_tmp"]
+        data["value"] *= data["value_tmp"]
         data = data.drop(columns=["value_tmp"])
 
         merged_df = data.merge(
@@ -2246,7 +2246,7 @@ class FeedDistributor:
             on=["feed_par", "animal", "species", "breed", "prod_system", "sub_system"],
         ).merge(col_idx_df, on=col_idx.names)
 
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
+        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx, values_name="value")
 
     def make_A11(self, param: str) -> None | IndexedMatrix:
         row_idx = self.x_idx["fds"]
