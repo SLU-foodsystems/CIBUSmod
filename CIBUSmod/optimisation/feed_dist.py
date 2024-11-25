@@ -2304,6 +2304,7 @@ class FeedDistributor:
         return IndexedMatrix(M, row_idx=row_idx, col_idx=col_idx)
 
     def make_A11(self, param: str) -> None | IndexedMatrix:
+        row_idx = self.x_idx["fds"]
         col_idx = self.x_idx["fds"]
 
         herd_dfs = []
@@ -2339,34 +2340,28 @@ class FeedDistributor:
             return None
 
         shares_df = (
-            pd.concat(herd_dfs).reorder_levels(
-                [n for n in self.x_idx["fds"].names if n != "region"]
+            (
+                pd.concat(herd_dfs).reorder_levels(
+                    [n for n in self.x_idx["fds"].names if n != "region"]
+                )
+                / 100
             )
-            / 100
-        )
-
-        # Build row_idx: (f, ani, sp, br, ps, ss, re)
-        regions = col_idx.get_level_values("region").unique()
-        row_idx = extend_index(
-            index=shares_df.index,
-            levels=[regions],
-            names=["region"],
-            mode="append",
+            .to_frame(name="share")
+            .reset_index()
         )
 
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        animal_sys_cols = [cname for cname in row_idx.names if cname != "feed"]
-
         # Note: ca 85% of execution time for this function spent here
-        S = shares_df.reset_index().rename(columns={0: "share"})
         merged_df = row_idx_df.merge(
             col_idx_df,
-            # Match on all but feed, as we want to be able to compare row- and col feeds
-            on=animal_sys_cols,
+            on=[cname for cname in row_idx.names if cname != "feed"],
             suffixes=("", "_c"),
-        ).merge(S, on=[cname for cname in S.columns if cname != "share"])
+        ).merge(
+            shares_df,
+            on=[cname for cname in shares_df.columns if cname != "share"],
+        )
 
         val = np.where(
             merged_df["feed"] == merged_df["feed_c"],
