@@ -2219,8 +2219,8 @@ class FeedDistributor:
                 row_idx_df,
                 # TODO: Note the use of 'herd_ss' here. Should we include 'feed_ss'?
                 left_on=[
-                    "animal",
                     "feed_par",
+                    "animal",
                     "species",
                     "breed",
                     "feed_ps",
