@@ -152,35 +152,35 @@ class CattleHerd(AnimalHerd):
         cows2lost = cows * p('mortality',animal='cows')/100
         breeding_bulls2lost = np.zeros(len(cows)) # No losses assumed for breeding bulls for now...
         calves_suckling2lost = tmp_male2lost + tmp_female2lost
-        tmp_calves_slaughter2lost_male = (
+        tmp_calves_slaughter2lost_male = np.nan_to_num(
             tmp_male2lost_after_weaning * (
                 tmp_male_calves2slaughter /
-                (tmp_male_calves2slaughter + tmp_calves2steer + tmp_calves2bull)
+                _np_zero_to_nan(tmp_male_calves2slaughter + tmp_calves2steer + tmp_calves2bull)  # To avoid zero div errors
             )
         )
-        tmp_calves_slaughter2lost_female = (
+        tmp_calves_slaughter2lost_female = np.nan_to_num(
             tmp_female2lost_after_weaning * (
                 tmp_female_calves2slaughter /
-                (tmp_female_calves2slaughter + tmp_calves2recruitment + tmp_calves2heifer)
+                _np_zero_to_nan(tmp_female_calves2slaughter + tmp_calves2recruitment + tmp_calves2heifer) #  # To avoid zero div errors
             ) 
         )
         calves_slaughter2lost = tmp_calves_slaughter2lost_male + tmp_calves_slaughter2lost_female
-        calves_heifer2lost = (
+        calves_heifer2lost = np.nan_to_num(
             tmp_female2lost_after_weaning * (
                 (tmp_calves2recruitment + tmp_calves2heifer) /
-                (tmp_female_calves2slaughter + tmp_calves2recruitment + tmp_calves2heifer)
+                _np_zero_to_nan(tmp_female_calves2slaughter + tmp_calves2recruitment + tmp_calves2heifer)  # To avoid zero div errors
             )
         )
-        calves_steer2lost = (
+        calves_steer2lost = np.nan_to_num(
             tmp_male2lost_after_weaning * (
                 tmp_calves2steer /
-                (tmp_male_calves2slaughter + tmp_calves2steer + tmp_calves2bull)
+                _np_zero_to_nan(tmp_male_calves2slaughter + tmp_calves2steer + tmp_calves2bull)  # To avoid zero div errors
             )
         )
-        calves_bull2lost = (
+        calves_bull2lost = np.nan_to_num(
             tmp_male2lost_after_weaning * (
                 tmp_calves2bull /
-                (tmp_male_calves2slaughter + tmp_calves2steer + tmp_calves2bull)
+                _np_zero_to_nan(tmp_male_calves2slaughter + tmp_calves2steer + tmp_calves2bull) # To avoid zero div errors
             )
         )
         heifers2lost = np.zeros(len(cows)) # No losses
@@ -274,20 +274,22 @@ class CattleHerd(AnimalHerd):
             tmp_calves_suckling_female # -> kg/day
         ) * 365.25 # -> kg/year
 
-        tmp_lwg_heifers = (
-            # For recruitment
+        tmp_lwg_heifers = np.nan_to_num( # <----
             (
-                (p('live_weight_first_calving') - lw_calves_weaning_female) /
-                (p('AFC')*30.44 - weaning_age)
-            ) * #  -> kg/head/day
-            tmp_heifers_recruitment + # -> kg/day
-            # For slaughter
-            (
-                (p('live_weight_slaughter', animal='heifers') - lw_calves_weaning_female) /
-                (p('slaughter_age', animal='heifers')*30.44 - weaning_age)
-            ) * # -> kg/head/day
-            tmp_heifers_slaughter # -> kg/day
-        ) / heifers # kg/head/day
+                # For recruitment
+                (
+                    (p('live_weight_first_calving') - lw_calves_weaning_female) /
+                    (p('AFC')*30.44 - weaning_age)
+                ) * #  -> kg/head/day
+                tmp_heifers_recruitment + # -> kg/day
+                # For slaughter
+                (
+                    (p('live_weight_slaughter', animal='heifers') - lw_calves_weaning_female) /
+                    (p('slaughter_age', animal='heifers')*30.44 - weaning_age)
+                ) * # -> kg/head/day
+                tmp_heifers_slaughter # -> kg/day
+            ) / _np_zero_to_nan(heifers) # To avoid zero div errors
+        ) # kg/head/day 
         lwg_calves_heifer = tmp_lwg_heifers * calves_heifer * 365.25 # -> kg/year
         lwg_heifers = tmp_lwg_heifers * heifers * 365.25 # -> kg/year
 
@@ -429,6 +431,8 @@ class CattleHerd(AnimalHerd):
             orig = 'CattleHerd',
             desc = 'Total number of heads lost'
         )
+
+        return None
 
     def _calculate_feed_req(self):
 
@@ -601,3 +605,8 @@ class CattleHerd(AnimalHerd):
         E_req_final = np.nan_to_num(E_req_final)
 
         return E_req_final
+    
+# Function to convert all zeros in np.array to np.nan
+# in order to avoid div by zero problems
+def _np_zero_to_nan(x):
+    return np.where(x == 0, np.nan, x)
