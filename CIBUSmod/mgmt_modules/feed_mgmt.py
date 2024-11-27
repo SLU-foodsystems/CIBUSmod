@@ -122,19 +122,25 @@ class FeedMgmt():
             # Get the base demand, i.e. the net feed amount, before losses are made
             feed_demand = herd.data_attr.get("feed.demand")
 
-            feed_to_feeding = feed_demand * (
-                1 - (self.par.get_from_frame("feeding_losses", feed_demand) / 100)
+            # Percentage points feeding-losses for each feed, e.g. 5 %
+            pp_feeding_losses = (
+                self.par.get_from_frame("feeding_losses", feed_demand) / 100
             )
-            feeding_losses = feed_demand - feed_to_feeding
+            # Percentage points storage-losses for each feed, e.g. 10 %
+            pp_storage_losses = (
+                self.par.get_from_frame("storage_losses", feed_demand) / 100
+            )
 
-            feed_to_storage = feed_to_feeding * (
-                1 - (self.par.get_from_frame("storage_losses", feed_to_feeding) / 100)
-            )
-            storage_losses = feed_to_feeding - feed_to_storage
+            # Compute the amounts of losses, as well as the total consumption
+            storage_losses = feed_demand * pp_storage_losses
+            feeding_losses = (feed_demand - storage_losses) * pp_feeding_losses
+
+            # total consumption = demand * (1-pp_feeding) * (1-pp_storage)
+            feed_consumption = feed_demand - feeding_losses - storage_losses
 
             # Add data attributes
             herd.data_attr.add(
-                feed_to_storage,
+                feed_consumption,
                 name="feed.consumption",
                 unit="kg DM/year",
                 orig="FeedMgmt",
@@ -154,7 +160,6 @@ class FeedMgmt():
                 orig="FeedMgmt",
                 desc="Losses of feed during feeding",
             )
-
 
     def calculate_product_demand(self):
         # Get Series of crop/by- products or crop residues with feed as index
