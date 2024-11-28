@@ -2620,7 +2620,7 @@ class FeedDistributor:
 
         return df
 
-    def _get_feed_compositions(self):
+    def _get_feed_compositions(self, shape: Literal["wide", "long"] = "wide"):
         """
         Get the feed compositions, i.e. the ratio of a certan feed_par (e.g. ME, energy)
         that is present in a given feed for a given species per unit of dry-mass.
@@ -2640,7 +2640,7 @@ class FeedDistributor:
         ).tolist()
         feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
 
-        values = self.feed_mgmt.par.get_from_frame(
+        data = self.feed_mgmt.par.get_from_frame(
             "feed_composition",
             # TODO: Do we want to add more levels to this df, so that we can specify
             # the parameter-values more precisely?
@@ -2655,8 +2655,12 @@ class FeedDistributor:
             ),
             warn_if_nan=False,
         )
-        values.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition sheet
-        return values
+        data.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition sheet
+
+        if shape == "long":
+            data = data.stack("feed_par").to_frame(name="feed_to_par_factor")
+
+        return data
 
     def allocate_crop_production_per_use(self):
         """Allocate crop areas to different uses.
