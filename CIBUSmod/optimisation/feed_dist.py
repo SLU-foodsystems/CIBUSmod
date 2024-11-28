@@ -2218,28 +2218,19 @@ class FeedDistributor:
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        loss_factors_long = (
-            self._get_losses_factors()
-            .reset_index()
-            .melt(
-                id_vars=["animal", "species", "breed", "prod_system", "sub_system"],
-                var_name="feed",
-            )
-        )
+        loss_factors = self._get_losses_factors(shape="long").reset_index()
 
         feed_compositions_long = (
             self._get_feed_compositions()
             .reset_index()
-            .melt(id_vars=["feed", "species"], var_name="feed_par")
+            .melt(id_vars=["feed", "species"], var_name="feed_par", value_name="values")
             .dropna()
         )
 
         # TODO: Should we really only look at species here, or other animal-sys
         # properties?
-        data = loss_factors_long.merge(
-            feed_compositions_long, on=["feed", "species"], suffixes=("", "_tmp")
-        )
-        data["value"] *= data["value_tmp"]
+        data = loss_factors.merge(feed_compositions_long, on=["feed", "species"])
+        data["values"] *= data["losses_factor"]
         data = data.drop(columns=["value_tmp"])
 
         merged_df = data.merge(
@@ -2247,7 +2238,7 @@ class FeedDistributor:
             on=["feed_par", "animal", "species", "breed", "prod_system", "sub_system"],
         ).merge(col_idx_df, on=col_idx.names)
 
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx, values_name="value")
+        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
 
     def make_A11(self, param: str) -> None | IndexedMatrix:
         row_idx = self.x_idx["fds"]
@@ -2439,12 +2430,7 @@ class FeedDistributor:
         )
 
         # Get all feeds
-        loss_factors = (
-            self._get_losses_factors()
-            .stack("feed")
-            .to_frame(name="loss_factor")
-            .reset_index()
-        )
+        losses_factors = self._get_losses_factors(shape="long").reset_index()
         feed_compositions = (
             self._get_feed_compositions()
             .stack("feed_par")
@@ -2474,7 +2460,7 @@ class FeedDistributor:
             # Now merge with feed_compositions to map feeds to feed_pars. how="left" to set a default value of 0
             .merge(feed_compositions, how="left", on=["feed", "species", "feed_par"])
             .merge(
-                loss_factors,
+                losses_factors,
                 how="left",
                 on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
             )
@@ -2482,7 +2468,7 @@ class FeedDistributor:
         )
 
         merged["values"] = (
-            merged["feed_to_par_factor"] * merged["loss_factor"]
+            merged["feed_to_par_factor"] * merged["losses_factor"]
             - merged["feed_req_of_DM"]
         )
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
@@ -2583,7 +2569,9 @@ class FeedDistributor:
 
         return feed_crop_products.set_index(["feed", crop_prod_type])
 
-    def _get_losses_factors(self) -> pd.DataFrame:
+    def _get_losses_factors(
+        self, shape: Literal["wide", "long"] = "wide"
+    ) -> pd.DataFrame:
         """
         Get change factors to account for losses in feeds.
 
@@ -2603,11 +2591,18 @@ class FeedDistributor:
             return (100 - df) / 100
 
         self.feed_mgmt.par.clear()
-        return perc_to_change_factor(
+        df = perc_to_change_factor(
             self.feed_mgmt.par.get_from_frame("storage_losses", losses_retrieve_df)
         ) * perc_to_change_factor(
             self.feed_mgmt.par.get_from_frame("feeding_losses", losses_retrieve_df)
         )
+
+        assert shape in ["wide", "long"]
+
+        if shape == "long":
+            df = df.stack("feed").to_frame(name="losses_factor")
+
+        return df
 
     def _get_feed_compositions(self):
         """
