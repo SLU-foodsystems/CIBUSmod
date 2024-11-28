@@ -2222,17 +2222,14 @@ class FeedDistributor:
         loss_factors = self._get_losses_factors(shape="long").reset_index()
 
         feed_compositions_long = (
-            self._get_feed_compositions()
-            .reset_index()
-            .melt(id_vars=["feed", "species"], var_name="feed_par", value_name="values")
-            .dropna()
+            self._get_feed_compositions(shape="long").reset_index().dropna()
         )
 
         # TODO: Should we really only look at species here, or other animal-sys
         # properties?
         data = loss_factors.merge(feed_compositions_long, on=["feed", "species"])
-        data["values"] *= data["losses_factor"]
-        data = data.drop(columns=["value_tmp"])
+        data["values"] = data["losses_factor"] * data["feed_to_par_factor"]
+        data = data.drop(columns=["losses_factor", "feed_to_par_factor"])
 
         merged_df = data.merge(
             row_idx_df,
@@ -2447,12 +2444,7 @@ class FeedDistributor:
 
         # Get all feeds
         losses_factors = self._get_losses_factors(shape="long").reset_index()
-        feed_compositions = (
-            self._get_feed_compositions()
-            .stack("feed_par")
-            .to_frame(name="feed_to_par_factor")
-            .reset_index()
-        )
+        feed_compositions = self._get_feed_compositions(shape="long").reset_index()
 
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
