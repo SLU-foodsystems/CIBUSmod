@@ -539,7 +539,54 @@ def composting(waste:WasteAndCircularity):
     print('NOT IMPLEMENTED!', end=' ')
 
 def incineration(waste:WasteAndCircularity):
-    print('NOT IMPLEMENTED!', end=' ')
+
+    idx = pd.IndexSlice
+
+    # Get feedstock VS
+    feedstock_VS = (
+        waste.data_attr.get('feedstock_VS')
+        .xs('incineration', level='treatment', axis=1, drop_level=False)
+    )
+
+    # Calculate heating value [kWh]
+    feedstock_heating_value = (
+        feedstock_VS * 
+        waste.par.get_from_frame('incineration_heating_value', feedstock_VS)
+    )
+
+    # Get energy production efficiency
+    energy_prod_efficiency = waste.par.get_from_frame(
+        'incineration_efficiency',
+        waste.data_attr.get('energy_prod')
+        .xs('incineration', level='treatment',
+            axis=1, drop_level=False)
+    )
+
+    # Calculate energy production
+    waste.data_attr.get('energy_prod').update(
+        multiply_aligned(energy_prod_efficiency, feedstock_heating_value)
+    )
+        
+    # Calculate combustion emissions
+    for element in ['VS','N','P','K']:
+
+        # Get emission factors
+        waste.par.clear()
+        EFs = waste.par.get_from_frame(
+            'incineration_emissions',
+            waste.data_attr.get(f'losses_{element}')
+            .xs('incineration', level='treatment', axis=1, drop_level=False),
+            element = element
+        )
+
+        # Calculate emissions
+        waste.data_attr.get(f'losses_{element}').update(
+            multiply_aligned(EFs, feedstock_heating_value)
+        )
+
+    # No organic fertilisers generated, set to zero
+    for element in ['C','N','P','K','TAN']:
+        waste.data_attr.get(f'organic_fertiliser_{element}').loc[:,idx[:,:,:,'incineration']] = 0.0
 
 def landfill(waste:WasteAndCircularity):
     print('NOT IMPLEMENTED!', end=' ')
