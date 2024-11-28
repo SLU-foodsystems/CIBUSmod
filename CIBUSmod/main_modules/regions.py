@@ -90,7 +90,12 @@ class Regions(object):
 
         # Get x0_crops
         self.par.clear()
-        idx = pd.MultiIndex.from_frame(self.par.get_unique(['crop','prod_system','region'], qry='parameter == "x0_crops"'))
+        cps_pss = self.par.get_unique(['crop','prod_system'], qry='parameter == "x0_crops"').values
+        res = self.par.get_unique('region', qry='parameter == "x0_crops"')
+        idx = pd.MultiIndex.from_tuples(
+            [(cp, ps, re) for cp,ps in cps_pss for re in res],
+            names = ['crop', 'prod_system', 'region']
+        )
         x0_crp = pd.Series(
             self.par.get('x0_crops', **idx.to_frame().to_dict('list')),
             index = idx,
@@ -99,7 +104,12 @@ class Regions(object):
 
         # Get x0_animals
         self.par.clear()
-        idx = pd.MultiIndex.from_frame(self.par.get_unique(['species','breed','prod_system','region'], qry='parameter == "x0_animals"'))
+        sps_brs_pss = self.par.get_unique(['species','breed','prod_system'], qry='parameter == "x0_animals"').values
+        res = self.par.get_unique('region', qry='parameter == "x0_animals"')
+        idx = pd.MultiIndex.from_tuples(
+            [(sp, br, ps, re) for sp,br,ps in sps_brs_pss for re in res],
+            names = ['species', 'breed', 'prod_system', 'region']
+        )
         x0_ani = pd.Series(
             self.par.get('x0_animals', **idx.to_frame().to_dict('list')),
             index = idx,
