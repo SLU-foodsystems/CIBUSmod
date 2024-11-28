@@ -340,13 +340,14 @@ class FeedDistributor:
             ss = herd.sub_system
 
             feed_demands = (
-                pd.DataFrame(self.x["fds"])
+                self.x["fds"]
+                .to_frame(name="feed_amount")
                 .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
                 .reset_index()
                 .pivot(
                     columns=["prod_system", "animal", "feed"],
                     index="region",
-                    values=0,  # name=0 given by pandas when converting series to dataframe
+                    values="feed_amount",  # name=0 given by pandas when converting series to dataframe
                 )
             )
 
