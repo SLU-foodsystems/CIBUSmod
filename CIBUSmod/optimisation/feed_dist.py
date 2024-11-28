@@ -2290,20 +2290,35 @@ class FeedDistributor:
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
+        # Get loss factors which we want to multiply with every (non-zero) element.
+        # This, because we in x_fds have feed demand, whereas the constraint regards
+        # the feed consumption.
+        losses = self._get_losses_factors(shape="long").reset_index()
+
         # Note: ca 85% of execution time for this function spent here
-        merged_df = row_idx_df.merge(
-            col_idx_df,
-            on=[cname for cname in row_idx.names if cname != "feed"],
-            suffixes=("", "_c"),
-        ).merge(
-            shares_df,
-            on=[cname for cname in shares_df.columns if cname != "share"],
+        merged_df = (
+            row_idx_df.merge(
+                col_idx_df,
+                on=[cname for cname in row_idx.names if cname != "feed"],
+                suffixes=("", "_c"),
+            )
+            .merge(
+                shares_df,
+                on=[cname for cname in shares_df.columns if cname != "share"],
+            )
+            .merge(
+                losses,
+                on=[cname for cname in losses.columns if cname != "losses_factor"],
+            )
         )
 
-        merged_df["values"] = np.where(
-            merged_df["feed"] == merged_df["feed_c"],
-            1 - merged_df["share"],
-            -merged_df["share"],
+        merged_df["values"] = (
+            np.where(
+                merged_df["feed"] == merged_df["feed_c"],
+                1 - merged_df["share"],
+                -merged_df["share"],
+            )
+            * merged_df["losses_factor"]
         )
 
         return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
