@@ -89,7 +89,8 @@ class WasteAndCircularity(object):
         }
         empty_df = pd.DataFrame(
             index=self.data_attr.get('feedstock_VS').index,
-            columns=self.data_attr.get('feedstock_VS').columns
+            columns=self.data_attr.get('feedstock_VS').columns,
+        dtype = float
         )
 
         # Create columns for the diferent data attributes
@@ -106,7 +107,8 @@ class WasteAndCircularity(object):
                     columns = pd.MultiIndex.from_tuples(
                         [i + (cmp,) for i in empty_df.columns for cmp in cmps],
                         names = empty_df.columns.names + ['compound']
-                    )
+                    ),
+                    dtype = float
                 )
             elif 'energy' in n:
                 level = 'energy_source' if 'use' in n else 'energy_prod'
@@ -116,7 +118,8 @@ class WasteAndCircularity(object):
                     columns = pd.MultiIndex.from_tuples(
                         [i + (en,) for i in empty_df.columns for en in ens],
                         names = empty_df.columns.names + [level]
-                    )
+                    ),
+                    dtype = float
                 )
             else:
                 df = empty_df.copy()
