@@ -1,0 +1,10 @@
+"compound","ghg","factor"
+"CO2","CO2",1.0
+"CH4bio","CH4bio","nan"
+"CH4fos","CH4fos","nan"
+"N2O-N","N2O","nan"
+"NH3","N2Oind","nan"
+"NH3-N","N2Oind","nan"
+"NOx","N2Oind","nan"
+"NOx-N","N2Oind","nan"
+"NO3-N","N2Oind","nan"
