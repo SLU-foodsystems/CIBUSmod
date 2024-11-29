@@ -673,23 +673,17 @@ class PlantNutrientMgmt():
         ).fillna(0)
 
         # Warn if fertilisers do not cover requirements
-        if (mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)).any():
-            warn_df = (
-                (
-                    mineral_fertiliser_to_apply -
-                    mineral_fertiliser_application.sum(axis=1)
-                )
-                .loc[mineral_fertiliser_to_apply > mineral_fertiliser_application.sum(axis=1) * (1 + 1E-6)]
-                .groupby(['region','prod_system']).sum()
-            )
+        warn_df = mineral_fertiliser_to_apply - mineral_fertiliser_application.sum(axis=1)
+        if not np.isclose(warn_df, 0.0).all():
+            warn_df = warn_df.loc[~np.isclose(warn_df, 0.0)].groupby(['region','prod_system']).sum()
             warnings.warn(f'''
 Fertiliser {element} application did not cover requirements.
 Likely due to total 'mineral_{element}_fertiliser_share' < 100% and not enough manure
 and other organic fertiliser.
 Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
-------------------
-{warn_df}
-------------------
+----------------------------------------
+{warn_df.rename(f"Deficits (kg {element})").to_frame().applymap(lambda x: f"{x:,.0f}")}
+----------------------------------------
             ''')
 
         # Add data attribute
