@@ -27,8 +27,8 @@ from .mgmt_modules.byprod_mgmt import ByProductMgmt
 # Import geo distiributor
 from .optimisation.geo_dist import GeoDistributor
 
-# Import output data manipulation functions
-from .utils.output_data_manip_db import get_emissions, get_GHG, to_ICBM
+# Import module with impact assessment functions
+from . import impact
 
 # Import module with helper functions
 from .utils import helpers
