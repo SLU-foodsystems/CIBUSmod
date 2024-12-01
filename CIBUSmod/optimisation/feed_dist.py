@@ -1258,6 +1258,8 @@ class FeedDistributor:
         Ensure that the feed amounts comply with the feed rations.
         """
 
+        MERGE_EQ_AS_MIN_MAX = False
+
         def with_zeroes(A11: None | IndexedMatrix):
             """Helper function to add 0s for the animal- and crop parts"""
             if A11 is None:
@@ -1276,10 +1278,10 @@ class FeedDistributor:
 
         # Create A-matrices for each of the parameters. If there is no data for any
         # given parameter, we will not add that constraint.
-        A11_eq = self.make_A11("share_in_ration")
+        A11_eq = with_zeroes(self.make_A11("share_in_ration"))
 
-        A11_min = self.make_A11("min_share_in_ration")
-        A11_max = self.make_A11("max_share_in_ration")
+        A11_min = with_zeroes(self.make_A11("min_share_in_ration"))
+        A11_max = with_zeroes(self.make_A11("max_share_in_ration"))
 
         def combine_A11s(
             A11_eq: IndexedMatrix, A11_minmax: None | IndexedMatrix, mul_factor: float
@@ -1298,10 +1300,11 @@ class FeedDistributor:
                 A11_minmax.cols,
             )
 
-        tol = 0.01
-        if A11_eq is not None:
+        if MERGE_EQ_AS_MIN_MAX and A11_eq is not None:
+            tol = 0.01  # fraction
             A11_min = with_zeroes(combine_A11s(A11_eq, A11_min, 1 - tol))
             A11_max = with_zeroes(combine_A11s(A11_eq, A11_max, 1 + tol))
+            A11_eq = None
 
         C11s: dict[str, Constraint] = {}
 
@@ -1311,6 +1314,14 @@ class FeedDistributor:
                 "right": lambda A11: 0,
                 "rel": ">=",
                 "pars": {"A11": A11_min},
+            }
+
+        if A11_eq is not None:
+            C11s["C11 (eq): A11 @ x == 0"] = {
+                "left": lambda x, A11: A11.M @ x,
+                "right": lambda A11: 0,
+                "rel": "==",
+                "pars": {"A11": A11_eq},
             }
 
         if A11_max is not None:
