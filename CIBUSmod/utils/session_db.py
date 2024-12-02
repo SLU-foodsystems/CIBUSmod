@@ -1100,8 +1100,8 @@ class Session(object):
             If a dict is supplied relation tables are used
         scn : (list of) str
         years : (list of) str
-        fill_index : Bool, default True
-            If True, returns with a column index with all level combinations
+        all_region_levels : Bool, default True
+            If True, returns with a column index containing all regions
             (filling with zeros)
         interpolate : Bool, default False
             If True interpolate between defined years
