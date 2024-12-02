@@ -1,6 +1,10 @@
+import os
+import pandas as pd
+
+from . import  IMPACT_DATA_PATH
 from .general import get_emissions
 
-def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
+def get_GHG(session, scn='all', years = 'all', CO2eq='GWP100 AR4', interpolate=False):
     '''
     Parameters
     ----------
@@ -11,43 +15,12 @@ def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
         Translate GHGs to CO2-eq
     interpolate : Bool, default False
         Interpolate between defined years'''
-    
-    # Conversion factors --------->
-    to_GHG = {
-        'CO2' : 1,
-        'CH4bio' : 1,
-        'CH4fos' : 1,
-        'N2O' : 1,
-        'N2O-N' : (44/28),
-        'NH3' : (14/17) * 0.10 * (44/28), # NH3 -> NH3-N -> N2O-N -> N2O
-        'NH3-N' : 0.010 * (44/28), # NH3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
-        'NOx' : (14/30) * 0.10 * (44/28), # # NOx -> NOx-N -> N2O-N -> N2O (Assumes NOx = NO)
-        'NOx-N' : 0.010 * (44/28), # NOx-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
-        'NO3-N' : 0.011 * (44/28), # NO3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
 
-    }
-    # -----
-    to_GHG_names = {
-        'CO2' : 'CO2',
-        'CH4bio' : 'CH4bio',
-        'CH4fos' : 'CH4fos',
-        'N2O-N' : 'N2O',
-        'NH3' : 'N2Oind',
-        'NH3-N' : 'N2Oind',
-        'NOx' : 'N2Oind',
-        'NOx-N' : 'N2Oind',
-        'NO3-N' : 'N2Oind'
-    }
-    # -----
-    to_CO2eq = {
-        'CO2' : 1,
-        'CH4bio' : 25,
-        'CH4fos' : 26,
-        'N2O' : 298,
-        'N2Oind' : 298
-    }
-    # <--------------------------
-    
+    # Get conversion factors, compound --> GHG
+    emi_to_ghg = pd.read_csv(os.path.join(IMPACT_DATA_PATH, 'emi_to_ghg.csv'), index_col='compound')
+    to_GHG = emi_to_ghg['factor'].to_dict()
+    to_GHG_names = emi_to_ghg['ghg'].to_dict()
+
     # Get emissions
     res = get_emissions(session, scn=scn, years=years, interpolate = interpolate)
 
@@ -63,6 +36,12 @@ def get_GHG(session, scn='all', years = 'all', CO2eq=True, interpolate=False):
     )
 
     if CO2eq:
+        # Get conversion factors
+        to_CO2eq = pd.read_csv(os.path.join(IMPACT_DATA_PATH, 'ghg_to_CO2eq.csv'), index_col=['ghg','method'])['factor']
+
+        # Select method
+        to_CO2eq = to_CO2eq.xs(CO2eq, level='method').to_dict()
+
         # Calculate CO2 equivalents
         res = (
             res
