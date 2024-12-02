@@ -1,4 +1,7 @@
+import os
 import pandas as pd
+
+from . import IMPACT_DATA_PATH
 
 from ..utils.retriever import ParameterRetriever
 
@@ -22,116 +25,66 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
     -------
     pandas.DataFrame'''
 
-    prs = {
-        'enteric fermentation' : {
-            'module' : ['AnimalHerd'],
-            'attr' : ['enteric_methane']
-        },
-        'manure management' : {
-            'module' : ['AnimalHerd'],
-            'attr' : ['manure.N_loss',
-                      'manure.P_loss',
-                      'manure.K_loss',
-                      'manure.VS_loss']
-        },
-        'energy use' : {
-            'module' : ['AnimalHerd',
-                        'CropProduction',
-                        'WasteAndCircularity'],
-            'attr' : ['energy_use_emissions',
-                      'energy_use_supply_chain_emissions']
-        },
-        'fertiliser production' : {
-            'module' : ['CropProduction'],
-            'attr' : ['fertiliser.mineral_N_supply_chain_emissions',
-                      'fertiliser.mineral_P_supply_chain_emissions',
-                      'fertiliser.mineral_K_supply_chain_emissions',
-                      'fertiliser.liming_supply_chain_emissions']
-        },
-        'agricultural soils' : {
-            'module' : ['CropProduction'],
-            'attr' : ['fertiliser.manure_N_application_loss',
-                      'fertiliser.manure_N_soil_loss',
-                      'fertiliser.organic_N_application_loss',
-                      'fertiliser.organic_N_soil_loss',
-                      'fertiliser.mineral_N_application_loss',
-                      'fertiliser.mineral_N_soil_loss',
-                      'fertiliser.crop_residues_N_soil_loss',
-                      'fertiliser.organic_soil_N_loss',
-                      'fertiliser.leaching_N']
-        },
-        'liming' : {
-            'module' : ['CropProduction'],
-            'attr' : ['fertiliser.liming_emissions']
-        },
-        'waste and circularity' : {
-            'module' : ['WasteAndCircularity'],
-            'attr' : ['losses_N',
-                      'losses_P',
-                      'losses_K',
-                      'losses_VS']
-        }
-    }
+    # Get all modules and data attributes with emissions and
+    # their corresponding process and sub-process from csv
+    emissions_attrs = pd.read_csv(os.path.join(IMPACT_DATA_PATH,'emissions_attrs.csv'))
 
     d = []
 
-    for pr in prs:
-        mds = prs[pr]['module']
-        ats = prs[pr]['attr']
-        for md in mds:
-            for at in ats:
-                if md == 'CropProduction':
-                    df = session.get_attr(
-                        module = 'CropProduction',
-                        attr = at,
-                        groupby = {'prod_system':None, 'crop':'crop_group2',
-                                   'region':None, 'compound':None},
-                        scn = scn,
-                        years = years,
-                        interpolate = interpolate
-                    )
-                    df = df.rename_axis(columns = {'crop_group2' : 'item'})
-                elif md == 'WasteAndCircularity':
-                    df = session.get_attr(
-                        module = 'WasteAndCircularity',
-                        attr = at,
-                        groupby = {'treatment':None,
-                                   'region':None, 'compound':None},
-                        scn = scn,
-                        years = years,
-                        interpolate = interpolate
-                    )
-                    df = df.rename_axis(columns = {'treatment' : 'item'})
-                    # Add 'prod_system' to column level as not applicable (n/a)
-                    df = pd.concat({'n/a': df}, names=['prod_system'], axis=1)
-                elif md == 'AnimalHerd':
-                    df = session.get_attr(
-                        module = 'AnimalHerd',
-                        attr = at,
-                        groupby = ['prod_system','species',
-                                   'breed','region','compound'],
-                        scn = scn,
-                        years = years,
-                        interpolate = interpolate
-                    )
-                    df.columns = pd.MultiIndex.from_tuples(
-                        [(ps,f'{sp}, {br}',re,cp) for ps,sp,br,re,cp in df.columns],
-                        names = ['prod_system', 'item',
-                                 'region', 'compound']
-                    )
+    for md,at,pr,spr in emissions_attrs.values:
+        if md == 'CropProduction':
+            df = session.get_attr(
+                module = 'CropProduction',
+                attr = at,
+                groupby = {'prod_system':None, 'crop':'crop_group2',
+                            'region':None, 'compound':None},
+                scn = scn,
+                years = years,
+                interpolate = interpolate
+            )
+            df = df.rename_axis(columns = {'crop_group2' : 'item'})
+        elif md == 'WasteAndCircularity':
+            df = session.get_attr(
+                module = 'WasteAndCircularity',
+                attr = at,
+                groupby = {'treatment':None,
+                            'region':None, 'compound':None},
+                scn = scn,
+                years = years,
+                interpolate = interpolate
+            )
+            df = df.rename_axis(columns = {'treatment' : 'item'})
+            # Add 'prod_system' to column level as not applicable (n/a)
+            df = pd.concat({'n/a': df}, names=['prod_system'], axis=1)
+        elif md == 'AnimalHerd':
+            df = session.get_attr(
+                module = 'AnimalHerd',
+                attr = at,
+                groupby = ['prod_system','species',
+                            'breed','region','compound'],
+                scn = scn,
+                years = years,
+                interpolate = interpolate
+            )
+            df.columns = pd.MultiIndex.from_tuples(
+                [(ps,f'{sp}, {br}',re,cp) for ps,sp,br,re,cp in df.columns],
+                names = ['prod_system', 'item',
+                            'region', 'compound']
+            )
 
-                df = pd.concat([df], keys=[pr], names=['process'], axis=1)
-                d += [df]
+        df = pd.concat([df], keys=[spr], names=['sub-process'], axis=1)
+        df = pd.concat([df], keys=[pr], names=['process'], axis=1)
+        d += [df]
 
     res = pd.concat(d, axis=1)
     res = (
         res
         .T.groupby(
-            ['process','prod_system', 'item',
+            ['process','sub-process','prod_system', 'item',
              'region', 'compound']
         ).sum().T
     )
-    
+
     return res
 
 def to_ICBM(session):
