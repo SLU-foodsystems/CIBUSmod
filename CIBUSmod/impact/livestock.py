@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 def get_LSU(session, groupby = 'all', scn='all', years = 'all', method='factors', interpolate=False):
     '''Gives animal numbers in terms of livestock units (LSU)
