@@ -1278,10 +1278,9 @@ class FeedDistributor:
 
         # Create A-matrices for each of the parameters. If there is no data for any
         # given parameter, we will not add that constraint.
-        A11_eq = with_zeroes(self.make_A11("share_in_ration"))
-
-        A11_min = with_zeroes(self.make_A11("min_share_in_ration"))
-        A11_max = with_zeroes(self.make_A11("max_share_in_ration"))
+        A11_eq = self.make_A11("share_in_ration")
+        A11_min = self.make_A11("min_share_in_ration")
+        A11_max = self.make_A11("max_share_in_ration")
 
         def combine_A11s(
             A11_eq: IndexedMatrix, A11_minmax: None | IndexedMatrix, mul_factor: float
@@ -1301,10 +1300,14 @@ class FeedDistributor:
             )
 
         if MERGE_EQ_AS_MIN_MAX and A11_eq is not None:
-            tol = 0.01  # fraction
-            A11_min = with_zeroes(combine_A11s(A11_eq, A11_min, 1 - tol))
-            A11_max = with_zeroes(combine_A11s(A11_eq, A11_max, 1 + tol))
+            tol = 0.01
+            A11_min = combine_A11s(A11_eq, A11_min, 1 - tol)
+            A11_max = combine_A11s(A11_eq, A11_max, 1 + tol)
             A11_eq = None
+
+        A11_eq = with_zeroes(A11_eq)
+        A11_min = with_zeroes(A11_min)
+        A11_max = with_zeroes(A11_max)
 
         C11s: dict[str, Constraint] = {}
 
