@@ -8,6 +8,7 @@ import scipy
 from .feed_dist import FeedDistributor
 from .indexed_matrix import IndexedMatrix
 
+
 class TestMakeA2(unittest.TestCase):
     def setUp(self):
         # Setup mock data and expected output structure for the tests
@@ -145,7 +146,6 @@ class TestMakeA2(unittest.TestCase):
         # Ensure all values are non-positive
         self.assertTrue((result.todense() <= 0).all().all())
 
-
         # Check row and column indices match expectations
         np.testing.assert_array_equal(result.rows, self.row_idx)
         np.testing.assert_array_equal(result.cols, self.mock_x_idx["fds"])
@@ -172,6 +172,7 @@ class TestMakeA2(unittest.TestCase):
             0.8 * (1 - 0.2) * 0.7 * -1,
         )
 
+
 ## Constraint 10
 class TestMakeA10(unittest.TestCase):
     def setUp(self):
@@ -180,27 +181,33 @@ class TestMakeA10(unittest.TestCase):
         # Sample row index (D_idx) for byproducts demand with MultiIndex
         self.row_idx = pd.MultiIndex.from_tuples(
             [("conv", "by_prod1"), ("conv", "by_prod2")],
-            names=["prod_system", "by_prod"]
+            names=["prod_system", "by_prod"],
         )
 
         # Sample col index for feed demands with MultiIndex
         self.col_idx = pd.MultiIndex.from_tuples(
-            [("feed1", "ani1", "sp1", "br1", "conv", "ss1", "region1"),
-             ("feed2", "ani2", "sp2", "br2", "org", "ss2", "region2")],
-            names=["feed", "animal", "species", "breed", "prod_system", "sub_system",
-                   "region"]
+            [
+                ("feed1", "ani1", "sp1", "br1", "conv", "ss1", "region1"),
+                ("feed2", "ani2", "sp2", "br2", "org", "ss2", "region2"),
+            ],
+            names=[
+                "feed",
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "region",
+            ],
         )
 
         # Mock data for `feed_to_prod` DataFrame
         self.feed_to_prod = pd.DataFrame(
-            {
-                "feed_to_prod": [0.8, 0.6, 0.4],
-                "share_imported": [0.2, 0.0, 0.5]
-            },
+            {"feed_to_prod": [0.8, 0.6, 0.4], "share_imported": [0.2, 0.0, 0.5]},
             index=pd.MultiIndex.from_tuples(
                 [("feed1", "by_prod1"), ("feed1", "by_prod2"), ("feed2", "by_prod1")],
-                names=["feed", "by_prod"]
-            )
+                names=["feed", "by_prod"],
+            ),
         )
 
         # Mocked x_idx and D_idx
@@ -218,19 +225,27 @@ class TestMakeA10(unittest.TestCase):
         )
 
         self.feed_dist.x_idx = self.mock_x_idx
-        self.feed_dist.get_feed_to_crop_prod_factors = lambda *args,**kwargs: self.feed_to_prod
+        self.feed_dist.get_feed_to_crop_prod_factors = (
+            lambda *args, **kwargs: self.feed_to_prod
+        )
         # Mock method to return feed_to_prod when called by make_A10_1
 
     def test_make_A_basic_functionality(self):
         # Test that make_A10_1 runs and produces output with correct shape
         A10_1 = self.feed_dist.make_A10_1(self.row_idx)
         self.assertEqual(A10_1.shape, (len(self.row_idx), len(self.col_idx)))
-        self.assertTrue(scipy.sparse.issparse(A10_1.M), "Output M is not a sparse matrix")
-        self.assertTrue(isinstance(A10_1, IndexedMatrix), "Output is not an IndexedMatrix matrix")
+        self.assertTrue(
+            scipy.sparse.issparse(A10_1.M), "Output M is not a sparse matrix"
+        )
+        self.assertTrue(
+            isinstance(A10_1, IndexedMatrix), "Output is not an IndexedMatrix matrix"
+        )
 
     def test_make_A10_1_value_calculation(self):
         # Test that make_A10_1 correctly calculates values based on feed_to_prod
-        A = self.feed_dist.make_A10_1(self.row_idx).M.tocoo()  # Convert to COO format to inspect entries
+        A = self.feed_dist.make_A10_1(
+            self.row_idx
+        ).M.tocoo()  # Convert to COO format to inspect entries
 
         # Expected values based on `feed_to_prod` and `share_imported`
         # Notice that the organic value should not be present
