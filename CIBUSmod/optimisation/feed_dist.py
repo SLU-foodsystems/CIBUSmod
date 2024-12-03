@@ -2287,8 +2287,8 @@ class FeedDistributor:
 
             retrieve_df = pd.DataFrame(
                 index=pd.MultiIndex.from_tuples(
-                    [(sp, br, ps, ss, ani) for ani in herd.animals],
-                    names=["species", "breed", "prod_system", "sub_system", "animal"],
+                    [(ani, sp, br, ps, ss) for ani in herd.animals],
+                    names=["animal", "species", "breed", "prod_system", "sub_system"],
                 ),
                 columns=pd.Index(feeds, name="feed"),
             )
