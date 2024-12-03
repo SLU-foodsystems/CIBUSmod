@@ -38,7 +38,9 @@ def bar(
     grouptitle_fontsize = 11,
 
     grouplabels_fontsize = 10,
-    grouplabels_vertical = False
+    grouplabels_vertical = False,
+
+    ylim = None
 ):
     '''Plots a grouped and stacked bar chart from a pandas.DataFrame. Columns are taken
     as categories (i.e. color), inner most index level as groups and remaining index levels
@@ -191,12 +193,16 @@ def bar(
     xmax = x.max() + 0.5
     ax.set_xlim(xmin, xmax)
 
-    if stacked:
-        ymax = y.sum(axis=1).max() * 1.01
-        ymin = y_neg.sum(axis=1).min() * 1.01 if has_neg else -ymax * 0.01
+    if ylim is not None:
+        ymin = ylim[0]
+        ymax = ylim[1]
     else:
-        ymax = y.max(axis=1).max() * 1.01
-        ymin = y_neg.min(axis=1).min() * 1.01 if has_neg else -ymax * 0.01
+        if stacked:
+            ymax = y.sum(axis=1).max() * 1.01
+            ymin = y_neg.sum(axis=1).min() * 1.01 if has_neg else -ymax * 0.01
+        else:
+            ymax = y.max(axis=1).max() * 1.01
+            ymin = y_neg.min(axis=1).min() * 1.01 if has_neg else -ymax * 0.01
     ax.set_ylim(ymin, ymax)
 
     group_axs = []
