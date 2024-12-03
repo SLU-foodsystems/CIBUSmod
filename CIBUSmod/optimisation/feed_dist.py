@@ -1413,7 +1413,7 @@ class FeedDistributor:
             b13_by = self.make_b13("by_prod")
         except ValueError:
             warnings.warn(
-                "C13 enabled, but b13 could not be built. This is likely because no feeds had max_total_import defined."
+                "C13 enabled, but b13 could not be built. This is likely because no feeds had max_total_import defined. Thus, C13 was ignored."
             )
             return
 
@@ -2183,6 +2183,7 @@ class FeedDistributor:
         dfs = []
 
         for herd in self.herds:
+            # Note: negative values to indicate demand
             feed_req = -herd.data_attr.get(f"feed_req_{rel}")
             data = (
                 feed_req.unstack("region")
