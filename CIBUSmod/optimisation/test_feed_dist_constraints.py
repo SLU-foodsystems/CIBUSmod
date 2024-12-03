@@ -254,7 +254,134 @@ class TestMakeA10(unittest.TestCase):
             # Only matching prod_system entries should be present
             row_sys = self.row_idx[row][0]
             col_sys = self.col_idx[col][4]
-            self.assertEqual(row_sys, col_sys, f"Mismatch in prod_system: {row_sys} vs {col_sys}")
+            self.assertEqual(
+                row_sys, col_sys, f"Mismatch in prod_system: {row_sys} vs {col_sys}"
+            )
+
+
+class TestMakeA11(unittest.TestCase):
+    def setUp(self):
+        noop = MagicMock()
+
+        self.feed_dist = FeedDistributor(
+            regions=noop,
+            demand=noop,
+            crops=noop,
+            herds=noop,
+            feed_mgmt=noop,
+            par=noop,
+        )
+
+        base_idx = pd.MultiIndex.from_product(
+            [
+                ["ley silage, 1st cut", "grazing"],
+                ["cows", "bulls"],
+                ["cattle"],
+                ["dairy"],
+                ["conventional"],
+                ["ley based"],
+                ["1001"],
+            ],
+            names=[
+                "feed",
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "region",
+            ],
+        )
+
+        herd = MagicMock()
+        herd.animals = ["cows", "bulls"]
+        herd.species = "cattle"
+        herd.breed = "dairy"
+        herd.prod_system = "conventional"
+        herd.sub_system = "ley based"
+        herd.index = pd.Index(["1001"], name="Region")
+
+        herd.par = MagicMock()
+        _feeds = base_idx.get_level_values("feed").unique().to_list()
+        _feeds_mock = MagicMock()
+        _feeds_mock.feed.tolist = MagicMock(return_value=_feeds)
+        herd.par.get_unique = MagicMock(return_value=_feeds_mock)
+        shares_in_ration = pd.DataFrame(
+            data=[
+                [22.0, 78.0],
+                [60.0, 40.0],
+            ],
+            index=pd.MultiIndex.from_tuples(
+                [
+                    ("cows", "cattle", "dairy", "conventional", "ley based"),
+                    ("bulls", "cattle", "dairy", "conventional", "ley based"),
+                ],
+                names=["animal", "species", "breed", "prod_system", "sub_system"],
+            ),
+            columns=pd.Index(_feeds, name="feed"),
+            dtype=float,
+        )
+        herd.par.get_from_frame = MagicMock(return_value=shares_in_ration)
+        self.feed_dist.herds = pd.Series([herd])
+
+        self.feed_dist.x_idx = {"fds": base_idx}
+
+        losses = pd.DataFrame(
+            data=[0.4, 0.9, 0.5, 1.0],
+            index=base_idx.droplevel("region").unique(),
+            columns=pd.Index(["losses_factor"]),
+        )
+        self.feed_dist._get_losses_factors = MagicMock(return_value=losses)
+
+    def test_make_A11_share(self):
+        """
+        Sanity-test for make_A11, ensuring that we parse the data and distribute it
+        into a dataframe nicely. Does, however, not check that we fetch the data
+        correctly from the ParameterRetriever, as this is mocked in these tests.
+        """
+        A11 = self.feed_dist.make_A11("share_in_ration")
+        assert A11 is not None
+        self.assertIsInstance(A11, IndexedMatrix)
+        self.assertEqual(A11.shape, (4, 4))
+        res_df = A11.todense()
+
+        ani_1 = ("cows", "cattle", "dairy", "conventional", "ley based", "1001")
+        ani_2 = ("bulls", "cattle", "dairy", "conventional", "ley based", "1001")
+        f1, f2 = ("ley silage, 1st cut", "grazing")
+
+        f1_ani1 = (f1,) + ani_1
+        f2_ani1 = (f2,) + ani_1
+        f1_ani2 = (f1,) + ani_2
+        f2_ani2 = (f2,) + ani_2
+
+        f1_ani1_row = res_df.loc[f1_ani1, :]
+        f2_ani1_row = res_df.loc[f2_ani1, :]
+        f1_ani2_row = res_df.loc[f1_ani2, :]
+        f2_ani2_row = res_df.loc[f2_ani2, :]
+
+        # Feed 1 (lay), Animal 1 (cows)
+        self.assertEqual(f1_ani1_row.loc[f1_ani1], 0.4 * (1 - 0.22))
+        self.assertEqual(f1_ani1_row.loc[f2_ani1], 0.4 * (0 - 0.22))
+        self.assertEqual(f1_ani1_row.loc[f1_ani2], 0)
+        self.assertEqual(f1_ani1_row.loc[f2_ani2], 0)
+
+        # Feed 2 (grazing), Animal 1 (cows)
+        self.assertEqual(f2_ani1_row.loc[f1_ani1], 0.5 * (0 - 0.78))
+        self.assertEqual(f2_ani1_row.loc[f2_ani1], 0.5 * (1 - 0.78))
+        self.assertEqual(f2_ani1_row.loc[f1_ani2], 0)
+        self.assertEqual(f2_ani1_row.loc[f2_ani2], 0)
+
+        # Feed 1 (lay), Animal 2 (bulls)
+        self.assertEqual(f1_ani2_row.loc[f1_ani1], 0)
+        self.assertEqual(f1_ani2_row.loc[f2_ani1], 0)
+        self.assertEqual(f1_ani2_row.loc[f1_ani2], 0.9 * (1 - 0.6))
+        self.assertEqual(f1_ani2_row.loc[f2_ani2], 0.9 * (0 - 0.6))
+
+        # Feed 2 (grazing), Animal 2 (bulls)
+        self.assertEqual(f2_ani2_row.loc[f1_ani1], 0)
+        self.assertEqual(f2_ani2_row.loc[f2_ani1], 0)
+        self.assertEqual(f2_ani2_row.loc[f1_ani2], 1.0 * (0 - 0.4))
+        self.assertEqual(f2_ani2_row.loc[f2_ani2], 1.0 * (1 - 0.4))
 
 
 if __name__ == "__main__":
