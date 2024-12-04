@@ -2270,9 +2270,16 @@ class FeedDistributor:
             self._get_feed_compositions(shape="long").reset_index().dropna()
         )
 
-        # TODO: Should we really only look at species here, or other animal-sys
-        # properties?
-        data = loss_factors.merge(feed_compositions_long, on=["feed", "species"])
+        data = loss_factors.merge(
+            feed_compositions_long,
+            on=[
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+            ],
+        )
         data["values"] = data["losses_factor"] * data["feed_to_par_factor"]
         data = data.drop(columns=["losses_factor", "feed_to_par_factor"])
 
@@ -2511,11 +2518,23 @@ class FeedDistributor:
                 ],
             )
             # Now merge with feed_compositions to map feeds to feed_pars. how="left" to set a default value of 0
-            .merge(feed_compositions, how="left", on=["feed", "species", "feed_par"])
+            .merge(
+                feed_compositions,
+                how="left",
+                on=[
+                    "feed_par",
+                    "feed",
+                    "animal",
+                    "species",
+                    "breed",
+                    "prod_system",
+                    "sub_system",
+                ],
+            )
             .merge(
                 losses_factors,
                 how="left",
-                on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
+                on=["feed", "animal", "species", "breed", "prod_system", "sub_system"],
             )
             .fillna(0)
         )
@@ -2677,16 +2696,15 @@ class FeedDistributor:
         ).tolist()
         feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
 
+        base_idx = self.x_idx["fds"].droplevel("region").unique()
+        mask = base_idx.get_level_values("feed").isin(feeds)
+        row_idx = base_idx if all(mask) else base_idx[mask]
+
         data = self.feed_mgmt.par.get_from_frame(
             "feed_composition",
-            # TODO: Do we want to add more levels to this df, so that we can specify
-            # the parameter-values more precisely?
             # Retrieve df
             pd.DataFrame(
-                index=pd.MultiIndex.from_product(
-                    [feeds, self.x_idx["fds"].get_level_values("species").unique()],
-                    names=["feed", "species"],
-                ),
+                index=row_idx,
                 columns=pd.Index(feed_pars, name="feed_par"),
                 dtype=float,
             ),
