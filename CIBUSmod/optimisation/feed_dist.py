@@ -262,6 +262,8 @@ class FeedDistributor:
 
             # Get and store optimal value for variable
             x = self.problem.variables()[0].value
+            assert x is not None, "Could not fetch optimal value from problem."
+
             # Put xs on short index (!= index if C7 is used) and reindex
             n_ani_short = len(self.x_idx_short["ani"])
             n_crp_short = len(self.x_idx_short["crp"])
@@ -1358,18 +1360,13 @@ class FeedDistributor:
 
         self.constraints.update(C11s)
 
-    def make_C12(
-        self, feed_pars: list[str] | None = None, w_min=True, w_eq=True, w_max=True
-    ):
+    def make_C12(self):
         """
         Ensure the nutrient demands are met by the animals- and feed configuration.
         """
         self.feed_mgmt.par.clear()
         # We manually add "DM" here, as it's not a value in feed_par
-        if feed_pars is None:
-            feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
-        print("[C12] Solving with feed_pars", feed_pars)
-        print("[C12] w_min, w_eq, w_max:", (w_min, w_eq, w_max))
+        feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
 
         row_idx = extend_index(
             index=self.x_idx["fds"].droplevel("feed").unique(),
@@ -1408,30 +1405,21 @@ class FeedDistributor:
         A12_eq = make_A12("eq")
         A12_max = make_A12("max")
 
-        if A12_min is not None and w_min:
-            print(
-                "[C12] A12_min feed_pars:", A12_min.rows.get_level_values("feed_par").unique()
-            )
+        if A12_min is not None:
             self.constraints["C12 (min): A12 @ x >= 0"] = {
                 "left": lambda x, A12: A12.M @ x,
                 "right": lambda A12: 0,
                 "rel": ">=",
                 "pars": {"A12": A12_min},
             }
-        if A12_eq is not None and w_eq:
-            print(
-                "[C12] A12_eq feed_pars:", A12_eq.rows.get_level_values("feed_par").unique()
-            )
+        if A12_eq is not None:
             self.constraints["C12 (eq): A12 @ x == 0"] = {
                 "left": lambda x, A12: A12.M @ x,
                 "right": lambda A12: 0,
                 "rel": "==",
                 "pars": {"A12": A12_eq},
             }
-        if A12_max is not None and w_max:
-            print(
-                "[C12] A12_max feed_pars:", A12_max.rows.get_level_values("feed_par").unique()
-            )
+        if A12_max is not None:
             self.constraints["C12 (max): A12 @ x <= 0"] = {
                 "left": lambda x, A12: A12.M @ x,
                 "right": lambda A12: 0,
