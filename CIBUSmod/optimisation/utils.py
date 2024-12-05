@@ -44,15 +44,15 @@ def feed_demands_to_crop_demands(
         raise ValueError(msg)
 
     # Ensure the feed_to_crop_products has the two columns feed_to_prod and
-    # share_imported
+    # share_domestic
     if any(
         [
             c not in feed_to_crop_products.columns
-            for c in ["feed_to_prod", "share_imported"]
+            for c in ["feed_to_prod", "share_domestic"]
         ]
     ):
         raise ValueError(
-            "Expected feed_to_crop_products dataframe to have columns named feed_to_prod and share_imported."
+            "Expected feed_to_crop_products dataframe to have columns named feed_to_prod and share_domestic."
         )
 
     # Put the data in a long format so we can merge it
@@ -71,7 +71,7 @@ def feed_demands_to_crop_demands(
     # Bring in the two other columns that we need, so that we can multiply with the
     # demand
     merged = feed_demands_long.merge(
-        feed_to_crop_products[["feed_to_prod", "share_imported"]], on="feed"
+        feed_to_crop_products[["feed_to_prod", "share_domestic"]], on="feed"
     )
     # Map each feed -> crop_product
     merged["feed"] = merged["feed"].replace(dict(feed_to_crop_products.index.values))
@@ -79,10 +79,10 @@ def feed_demands_to_crop_demands(
     merged = merged.rename(columns={"feed": "crop_prod"})
     # Calculate the new values by multiplying demand with import shares
     merged["demand_imported"] = (
-        merged["base_demand"] * merged["feed_to_prod"] * merged["share_imported"]
+        merged["base_demand"] * merged["feed_to_prod"] * (1 - merged["share_domestic"])
     )
     merged["demand_domestic"] = (
-        merged["base_demand"] * merged["feed_to_prod"] * (1 - merged["share_imported"])
+        merged["base_demand"] * merged["feed_to_prod"] * merged["share_domestic"]
     )
 
     # Pivot to reshape back to a wide format with desired columns, and do this for both

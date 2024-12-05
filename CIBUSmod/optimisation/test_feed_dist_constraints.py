@@ -68,7 +68,7 @@ class TestMakeA2(unittest.TestCase):
                 "feed": ["feed1", "feed2"],
                 "crop_prod": ["product1", "product2"],
                 "feed_to_prod": [0.5, 0.8],
-                "share_imported": [0.1, 0.2],
+                "share_domestic": [0.9, 0.8],
                 "share_regional": [0.9, 0.7],
             },
         ).set_index(["feed", "crop_prod"])
@@ -203,7 +203,7 @@ class TestMakeA10(unittest.TestCase):
 
         # Mock data for `feed_to_prod` DataFrame
         self.feed_to_prod = pd.DataFrame(
-            {"feed_to_prod": [0.8, 0.6, 0.4], "share_imported": [0.2, 0.0, 0.5]},
+            {"feed_to_prod": [0.8, 0.6, 0.4], "share_domestic": [0.8, 1.0, 0.5]},
             index=pd.MultiIndex.from_tuples(
                 [
                     ("feed1", "ani1", "sp1", "br1", "conv", "ss1", "by_prod1"),
@@ -237,7 +237,7 @@ class TestMakeA10(unittest.TestCase):
         )
 
         self.feed_dist.x_idx = self.mock_x_idx
-        self.feed_dist._get_extended_feed_to_prod_factors = MagicMock(
+        self.feed_dist._get_feed_to_prod_factors = MagicMock(
             return_value=self.feed_to_prod
         )
 
@@ -258,7 +258,7 @@ class TestMakeA10(unittest.TestCase):
             self.row_idx
         ).M.tocoo()  # Convert to COO format to inspect entries
 
-        # Expected values based on `feed_to_prod` and `share_imported`
+        # Expected values based on `feed_to_prod` and `share_domestic`
         # Notice that the organic value should not be present
         expected_values = [
             (0, 0, 0.8 * (1 - 0.2)),  # feed1 -> by_prod1, conv
@@ -324,9 +324,9 @@ class TestMakeA10(unittest.TestCase):
                 "by_prod",
             ],
         )
-        self.feed_dist._get_extended_feed_to_prod_factors = MagicMock(
+        self.feed_dist._get_feed_to_prod_factors = MagicMock(
             return_value=pd.DataFrame(
-                {"feed_to_prod": [0.8, 0.6], "share_imported": [0.2, 0.5]},
+                {"feed_to_prod": [0.8, 0.6], "share_domestic": [0.8, 0.5]},
                 index=feed_to_prod_idx,
             )
         )

@@ -343,7 +343,7 @@ class GeoDistributor:
         for cp in set(self.feed_mgmt.par.get_unique('crop_prod')) | set(self.crops.par.get_unique('crop_prod', qry='parameter == "seed"')):
             for ps in self.D['crp'].index.get_level_values('prod_system').unique():
                 idx = (ps,cp)
-                if (self.feed_mgmt.par.get('share_imported', crop_prod=cp, prod_system=ps) != 100).any() & (idx not in self.D['crp'].index):
+                if (self.feed_mgmt.par.get('share_domestic', crop_prod=cp, prod_system=ps) != 0).any() & (idx not in self.D['crp'].index):
                     self.D['crp'][idx] = 0
 
         # Store indexes

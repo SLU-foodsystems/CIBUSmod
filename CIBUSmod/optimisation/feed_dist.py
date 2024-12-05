@@ -343,10 +343,10 @@ class FeedDistributor:
         feed_to_crop_prod: pd.DataFrame = feed_par.get_unique(["feed", "crop_prod"])
         feed_par.set(
             feed=feed_to_crop_prod["feed"].to_list(),
-            crop_prod=feed_to_crop_prod["crop_prod"].to_list()
+            crop_prod=feed_to_crop_prod["crop_prod"].to_list(),
         )
         feed_to_crop_prod["feed_to_prod"] = feed_par.get("feed_to_prod")
-        feed_to_crop_prod["share_imported"] = feed_par.get("share_imported") / 100
+        feed_to_crop_prod["share_domestic"] = feed_par.get("share_domestic") / 100
         feed_to_crop_prod["share_regional"] = feed_par.get("share_regional") / 100
         feed_to_crop_prod = feed_to_crop_prod.set_index(["feed", "crop_prod"])
 
@@ -491,8 +491,8 @@ class FeedDistributor:
         # ... and the prod_systems in the crop-demand vector
         pss = self.D["crp"].index.get_level_values("prod_system").unique()
 
-        share_imported = self.feed_mgmt.par.get_from_frame(
-            "share_imported",
+        share_domestic = self.feed_mgmt.par.get_from_frame(
+            "share_domestic",
             pd.DataFrame(
                 index=pd.Index(pss, name="prod_system"),
                 columns=pd.Index(cps, name="crop_prod"),
@@ -504,7 +504,7 @@ class FeedDistributor:
             # Skip if already assigned
             if (ps, cp) in self.D["crp"].index:
                 continue
-            if (share_imported.loc[ps, cp] != 100).any():
+            if (share_domestic.loc[ps, cp] == 0).any():
                 self.D["crp"][(ps, cp)] = 0
 
         # Store indexes
@@ -1672,7 +1672,7 @@ class FeedDistributor:
         # Get the factors, and perform the multiplication now for ease when merging
         factors = self._get_feed_to_prod_factors("crop_prod")
         # Negative values (*-1) to indicate a 'demand' rather than production of cps
-        factors["feed_to_prod"] *= -1 * (1 - factors["share_imported"])
+        factors["feed_to_prod"] *= -1 * factors["share_domestic"]
 
         # Merge the row_idx with factors, and the result of that with the col_idx
         merged = row_idx_df.merge(factors, on=["prod_system", "crop_prod"]).merge(
@@ -1735,7 +1735,7 @@ class FeedDistributor:
         factors = (
             -1
             * factors_with_reg_share["feed_to_prod"]
-            * (1 - factors_with_reg_share["share_imported"])
+            * factors_with_reg_share["share_domestic"]
             * factors_with_reg_share["share_regional"]
         ).reset_index(name="values")
 
@@ -1914,10 +1914,7 @@ class FeedDistributor:
         # Pick only the domestic share, as this constraint does not apply to imported crops.
         # Convert it to a long-format dataframe (w/o index) so that we can merge it
         fds_to_cps_factors = (
-            (
-                fds_to_cps_factors["feed_to_prod"]
-                * (1 - fds_to_cps_factors["share_imported"])
-            )
+            (fds_to_cps_factors["feed_to_prod"] * fds_to_cps_factors["share_domestic"])
             .to_frame(name="feed_to_dom_crop_prod")
             .reset_index()
         )
@@ -2135,7 +2132,7 @@ class FeedDistributor:
     def make_A10_1(self, D_idx: pd.MultiIndex) -> IndexedMatrix:
         """
         Create a matrix mapping feeds to domestic by-products based on the parameters
-        'share_imported' and 'feed_to_prod' in feed_mgmt par.
+        'share_domestic' and 'feed_to_prod' in feed_mgmt par.
         """
         # Get row index from byproducts demand vector (prod_sys, by_prod)
         row_idx = D_idx
@@ -2148,7 +2145,7 @@ class FeedDistributor:
         # Store only the conversion of feed to (domestic share of) byprods, and drop any
         # zero-value rows. Reset the index to prepare for merging.
         feed_to_byprod_long = (
-            (feed_to_byprod["feed_to_prod"] * (1 - feed_to_byprod["share_imported"]))
+            (feed_to_byprod["feed_to_prod"] * feed_to_byprod["share_domestic"])
             .to_frame(name="values")
             .replace({0: np.nan})
             .dropna()
@@ -2424,7 +2421,7 @@ class FeedDistributor:
 
         feed_to_prod = self._get_feed_to_prod_factors(prod_type, index=True)
         feed_to_prod = (
-            feed_to_prod["feed_to_prod"] * feed_to_prod["share_imported"]
+            feed_to_prod["feed_to_prod"] * (1 - feed_to_prod["share_domestic"])
         ).reset_index(name="feed_to_imp_prod")
 
         merged = feed_to_prod.merge(row_idx_df, on=["prod_system", prod_type]).merge(
@@ -2638,12 +2635,12 @@ class FeedDistributor:
         df = row_idx.merge(feed_to_prod, on="feed")
 
         filters = {cname: df[cname].to_list() for cname in df.columns}
-        params = ["feed_to_prod", "share_imported", "share_regional"]
+        params = ["feed_to_prod", "share_domestic", "share_regional"]
         for param in params:
             df[param] = feed_par.get(param, **filters)
 
         # Shares are in % (e.g. 42), but we want them as fraction (e.g. 0.42)
-        for p in ["share_imported", "share_regional"]:
+        for p in ["share_domestic", "share_regional"]:
             df[p] = df[p] / 100
 
         if index:

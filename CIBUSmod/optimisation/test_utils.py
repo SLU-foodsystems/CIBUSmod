@@ -20,9 +20,9 @@ class TestFeedDemandsToCropDemands(unittest.TestCase):
 
         # Basic setup data for `feed_to_crop_products` DataFrame
         data_feed_to_crop = {
-            ("corn", "maize"): {"feed_to_prod": 1.5, "share_imported": 0.6},
-            ("soy", "soybeans"): {"feed_to_prod": 1.2, "share_imported": 0.4},
-            ("wheat", "wheat_grain"): {"feed_to_prod": 0.8, "share_imported": 0.5},
+            ("corn", "maize"): {"feed_to_prod": 1.5, "share_domestic": 0.4},
+            ("soy", "soybeans"): {"feed_to_prod": 1.2, "share_domestic": 0.6},
+            ("wheat", "wheat_grain"): {"feed_to_prod": 0.8, "share_domestic": 0.5},
         }
         self.feed_to_crop_products = pd.DataFrame.from_dict(
             data_feed_to_crop, orient="index"
@@ -63,9 +63,9 @@ class TestFeedDemandsToCropDemands(unittest.TestCase):
         # Test if values are correctly aggregated when multiple feeds map to the same crop
         feed_to_crop_products_agg = self.feed_to_crop_products.copy()
         feed_to_crop_products_agg.loc[("corn", "maize"), "feed_to_prod"] = 1.0
-        feed_to_crop_products_agg.loc[("corn", "maize"), "share_imported"] = 0.5
+        feed_to_crop_products_agg.loc[("corn", "maize"), "share_domestic"] = 0.5
         feed_to_crop_products_agg.loc[("soy", "maize"), "feed_to_prod"] = 1.1
-        feed_to_crop_products_agg.loc[("soy", "maize"), "share_imported"] = 0.4
+        feed_to_crop_products_agg.loc[("soy", "maize"), "share_domestic"] = 0.6
 
         # Avoid duplicate values
         feed_to_crop_products_agg.loc[("soy", "soybeans"), :] = np.nan
@@ -124,7 +124,7 @@ class TestFeedDemandsToCropDemands(unittest.TestCase):
         extra_feed_to_crop_products = self.feed_to_crop_products.copy()
         extra_feed_to_crop_products.loc[("barley", "barley_product")] = {
             "feed_to_prod": 2.0,
-            "share_imported": 0.3,
+            "share_domestic": 0.7,
         }
 
         # Run function

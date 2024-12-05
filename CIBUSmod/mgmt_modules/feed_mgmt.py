@@ -167,7 +167,7 @@ class FeedMgmt():
             "crop_resid"
         ]
 
-        if len(self.par.get_unique("crop_resid", 'parameter == "share_imported"')) > 0:
+        if len(self.par.get_unique("crop_resid", 'parameter == "share_domestic"')) > 0:
             warnings.warn(
                 f"FeedMgmt: Spicified import shares for 'crop_resid' will have no effect! For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
             )
