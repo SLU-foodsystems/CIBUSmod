@@ -531,7 +531,8 @@ Parameters
             accessed_rows = []
 
             # Go through parameters defined in relative (rel) and absolute (abs) terms
-            for val_is in [v for v in ['rel','abs'] if v in val_iss]:
+            # and parameters to be dropped (drop)
+            for val_is in [v for v in ['drop','rel','abs'] if v in val_iss]:
 
                 scn_data_ = scn_data.xs(val_is, level='val_is')
                 scn_data_rows_ = scn_data_rows.xs(val_is, level='val_is')
@@ -572,6 +573,12 @@ Parameters
                         accessed_rows.append(
                             np.unique(_get_parameter_values(scn_data_rows_, scn_selection, parameter))
                         )
+
+                    if val_is=='drop':
+                        # Drop rows from updated data corresponding to those
+                        # that returned av value from the scenario data
+                        updated_data = updated_data.loc[~updated_data.index.isin(values.dropna().index)]
+                        continue
 
                     # If in relative terms multiply with original value
                     if val_is=='rel':

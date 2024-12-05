@@ -272,5 +272,30 @@ try:
 except ValueError as e:
     assert "val_is='new'" in e.args[0], 'Wrong ValueError raised'
 else:
-    assert 1==0, 'No error raised'
+    assert False, 'No error raised'
+
+# %% Drop paramter values in with val_is='drop'
+test.update_parameter_values()
+assert test.get('one', A='a1', B='b1', C='c1') == 1.4
+
+data_len = len(test.data)
+
+test.update_parameter_values('retriever_test_scn4', 1)
+# Parameter 'two' should not have dropped
+assert test.get('two') == 2
+# The row with 1.4 for parameter 'one' should be dropped
+# resulting in fallback to next best match
+assert test.get('one', A='a1', B='b1', C='c1') == 1.3
+
+test.update_parameter_values('retriever_test_scn4', 5)
+# parameter 'two' should now be completely dropped
+try:
+    test.get('two')
+except KeyError as e:
+    assert "two" in e.args[0], 'Unexpected KeyError raised'
+else:
+    assert False, 'Unexpected exception raised'
+
+# Two rows shoul have bropped from data
+assert data_len - len(test.data) == 2, 'Unexpected number of rows dropped'
 # %% END
