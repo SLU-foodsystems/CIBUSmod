@@ -328,11 +328,28 @@ class FeedDistributor:
         """
         Save the feed consumption stored in x_fds on the data_attr of each herd based on
         the number of animals in x_ani.
+
+        TODO: This must be rewritten / extended to ensure we juggle the prod_systems
+        correctly between the prod_system of feeds, of herds, and of individual animals
         """
         if self.x is None:
             return
 
-        feed_to_crop_prod_factors = self.get_feed_to_crop_prod_factors()
+        feed_par = self.feed_mgmt.par
+        feed_par.clear()
+
+        feed_to_crop_prod: pd.DataFrame = feed_par.get_unique(["feed", "crop_prod"])
+        feed_par.set(
+            feed=feed_to_crop_prod["feed"].to_list(),
+            crop_prod=feed_to_crop_prod["crop_prod"].to_list()
+        )
+        feed_to_crop_prod["feed_to_prod"] = feed_par.get("feed_to_prod")
+        feed_to_crop_prod["share_imported"] = feed_par.get("share_imported") / 100
+        feed_to_crop_prod["share_regional"] = feed_par.get("share_regional") / 100
+        feed_to_crop_prod = feed_to_crop_prod.set_index(["feed", "crop_prod"])
+
+        feed_par.clear()
+
         for herd in self.herds:
             sp = herd.species
             br = herd.breed
@@ -353,7 +370,7 @@ class FeedDistributor:
 
             # Compute the demand for crop_products yielded by the feed demands
             feed_crop_prod_demands = feed_demands_to_crop_demands(
-                feed_demands, feed_to_crop_prod_factors
+                feed_demands, feed_to_crop_prod
             )
 
             herd.data_attr.add(
@@ -673,8 +690,8 @@ class FeedDistributor:
         'FeedMgmt' module and can differ for different animals.
         """
 
-        factors = self.get_feed_to_crop_prod_factors()
-        factors_with_reg_share = factors[factors["share_regional"] > 0].copy()
+        factors = self._get_feed_to_prod_factors(index=True)
+        factors_with_reg_share = factors[factors["share_regional"] > 0]
         row_idx = pd.MultiIndex.from_product(
             [
                 self.x_idx["fds"].get_level_values("prod_system").unique(),
@@ -699,16 +716,12 @@ class FeedDistributor:
         )
 
         # Append constraint
-        self.constraints.update(
-            {
-                "C2: A2 @ x >= 0": {
-                    "left": lambda x, A2: A2.M @ x,
-                    "right": lambda A2: 0,
-                    "rel": ">=",
-                    "pars": {"A2": A2},
-                }
-            }
-        )
+        self.constraints["C2: A2 @ x >= 0"] = {
+            "left": lambda x, A2: A2.M @ x,
+            "right": lambda A2: 0,
+            "rel": ">=",
+            "pars": {"A2": A2},
+        }
 
     def make_C3(self):
         """Creates C3: A3 @ x <= b3
@@ -1661,15 +1674,18 @@ class FeedDistributor:
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
         # Get the factors, and perform the multiplication now for ease when merging
-        factors = self.get_feed_to_crop_prod_factors().reset_index()
-        # Negative values (*-1) to indicate a 'demand', rather than production, of cps
+        factors = self._get_feed_to_prod_factors("crop_prod")
+        # Negative values (*-1) to indicate a 'demand' rather than production of cps
         factors["feed_to_prod"] *= -1 * (1 - factors["share_imported"])
 
         # Merge the row_idx with factors, and the result of that with the col_idx
-        merged = row_idx_df.merge(factors, on="crop_prod").merge(col_idx_df, on="feed")
+        merged = row_idx_df.merge(factors, on=["prod_system", "crop_prod"]).merge(
+            col_idx_df,
+            on=["feed", "animal", "species", "breed", "prod_system", "sub_system"],
+        )
 
         return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_prod"
+            merged, row_idx=row_idx, col_idx=col_idx, values_name="feed_to_prod"
         )
 
     def make_A2_1(self, row_idx: pd.MultiIndex):
@@ -1712,33 +1728,27 @@ class FeedDistributor:
         )
 
     def make_A2_2(self, row_idx: pd.MultiIndex, factors_with_reg_share: pd.DataFrame):
-        # Construct series with index (feed, crop_prod) by multiplying together columns
-        factors = factors_with_reg_share.copy()
-        factors["feed_to_reg_cp"] = -(
-            factors["feed_to_prod"]
-            * (1 - factors["share_imported"])
-            * factors["share_regional"]
-        )
-        factors = factors.reset_index()
         # Get col index from feed consumption (feed,animal,species,breed,prod_system,sub_system,region)
         col_idx = self.x_idx["fds"]
-
         # Create DataFrames from indices for merging
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        # Merge factors with row and column indices to perform vectorized calculations
-        merged = row_idx_df.merge(
-            factors[["feed", "crop_prod", "feed_to_reg_cp"]],
-            on="crop_prod",
-        ).merge(
-            col_idx_df,
-            on=["prod_system", "region", "feed"],
+        # Construct series with index (feed, crop_prod) by multiplying together columns
+        # Note: Multiply by -1 to indicate demand
+        factors = (
+            -1
+            * factors_with_reg_share["feed_to_prod"]
+            * (1 - factors_with_reg_share["share_imported"])
+            * factors_with_reg_share["share_regional"]
+        ).reset_index(name="values")
+
+        # Merge factors with row and column indices
+        merged = row_idx_df.merge(factors, on=["prod_system", "crop_prod"]).merge(
+            col_idx_df, on=col_idx.names
         )
 
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_reg_cp"
-        )
+        return IndexedMatrix.from_frame(merged, row_idx, col_idx)
 
     def make_A3(self):
         # Get land uses to constrain
@@ -1895,7 +1905,7 @@ class FeedDistributor:
     def make_A5_2(self, row_idx):
         """
         Maps the feed products to their respective maximum share of crop products
-        generated
+        generated.
         """
         # Get crop product and crop combinations where there is a constraint for maximum inclusion
         cps_cgs = self.feed_mgmt.par.get_unique(
@@ -1904,15 +1914,17 @@ class FeedDistributor:
         )
 
         # Get the factors mapping feeds to crop products.
-        fds_to_cps_factors = self.get_feed_to_crop_prod_factors()
+        fds_to_cps_factors = self._get_feed_to_prod_factors(index=True)
         # Pick only the domestic share, as this constraint does not apply to imported crops.
-        fds_to_cps_factors = fds_to_cps_factors["feed_to_prod"] * (
-            1 - fds_to_cps_factors["share_imported"]
+        # Convert it to a long-format dataframe (w/o index) so that we can merge it
+        fds_to_cps_factors = (
+            (
+                fds_to_cps_factors["feed_to_prod"]
+                * (1 - fds_to_cps_factors["share_imported"])
+            )
+            .to_frame(name="feed_to_dom_crop_prod")
+            .reset_index()
         )
-        # Convert from Series to a dataframe so that we can merge it later
-        fds_to_cps_factors = pd.DataFrame(
-            fds_to_cps_factors, columns=["feed_to_dom_crop_prod"]
-        ).reset_index()
 
         # All regions
         regions = self.x_idx["ani"].get_level_values("region").unique()
@@ -1974,7 +1986,10 @@ class FeedDistributor:
         )
 
         # Merge the mappings from feed product -> (domestic) crop products with the max_crop_values
-        values_df = max_crop_values.merge(fds_to_cps_factors, on="crop_prod")
+        values_df = max_crop_values.merge(
+            fds_to_cps_factors,
+            on=["species", "breed", "prod_system", "sub_system", "animal", "crop_prod"],
+        )
         values_df["values"] = (
             -1 * values_df["feed_to_dom_crop_prod"] * values_df["max_crop_in_crop_prod"]
         )
@@ -2123,32 +2138,35 @@ class FeedDistributor:
 
     def make_A10_1(self, D_idx: pd.MultiIndex) -> IndexedMatrix:
         """
-        Create a matrix mapping feeds to by-products.
+        Create a matrix mapping feeds to domestic by-products based on the parameters
+        'share_imported' and 'feed_to_prod' in feed_mgmt par.
         """
         # Get row index from byproducts demand vector (prod_sys, by_prod)
         row_idx = D_idx
         # Get col index from feed demands (f,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
-        feed_to_prod = self.get_feed_to_crop_prod_factors("by_prod")
-        feed_to_prod["by_prod_dom"] = feed_to_prod["feed_to_prod"] * (
-            1 - feed_to_prod["share_imported"]
+        feed_to_byprod = self._get_feed_to_prod_factors("by_prod").set_index(
+            ["by_prod", "prod_system"]
+        )
+        # Store only the conversion of feed to (domestic share of) byprods, and drop any
+        # zero-value rows. Reset the index to prepare for merging.
+        feed_to_byprod_long = (
+            (feed_to_byprod["feed_to_prod"] * (1 - feed_to_byprod["share_imported"]))
+            .to_frame(name="values")
+            .replace({0: np.nan})
+            .dropna()
+            .reset_index()
         )
 
-        feed_to_prod_long = feed_to_prod[["by_prod_dom"]].reset_index()
-        # Avoid storing zero-values
-        feed_to_prod_long = feed_to_prod_long.replace({0: np.nan}).dropna()
-
-        row_idx_df = D_idx.to_frame(index=False).reset_index(names="row_i")
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        merged_df = feed_to_prod_long.merge(row_idx_df, on="by_prod").merge(
-            col_idx_df, on=["feed", "prod_system"]
-        )
+        merged_df = feed_to_byprod_long.merge(
+            row_idx_df, on=["by_prod", "prod_system"]
+        ).merge(col_idx_df, on=[cname for cname in col_idx.names if cname != "region"])
 
-        return IndexedMatrix.from_frame(
-            merged_df, row_idx, col_idx, values_name="by_prod_dom"
-        )
+        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
 
     def make_C10(self):
         """
@@ -2374,7 +2392,9 @@ class FeedDistributor:
         return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
 
     def make_b13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
-        """ """
+        """
+        Demand vector of the max total import values for each feed
+        """
         self.feed_mgmt.par.clear()
 
         par = "max_total_imported"
@@ -2396,33 +2416,24 @@ class FeedDistributor:
     def make_A13(
         self, prod_type: Literal["crop_prod", "by_prod"], row_idx: pd.Index
     ) -> IndexedMatrix:
+        """
+        Make a matrix mapping the feeds to their total imported amounts of crop
+        products. The row-index is ["prod_system", prod_type].
+        """
         self.feed_mgmt.par.clear()
-        col_idx = self.x_idx["fds"]
-
-        pss = col_idx.get_level_values("prod_system").unique()
         col_idx = self.x_idx["fds"]
 
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        feed_to_prod = pd.concat(
-            [
-                pd.concat(
-                    {ps: self.get_feed_to_crop_prod_factors(prod_type, prod_system=ps)},
-                    names=["prod_system"],
-                )
-                for ps in pss
-            ],
-            axis=1,
-        )
+        feed_to_prod = self._get_feed_to_prod_factors(prod_type, index=True)
         feed_to_prod = (
-            (feed_to_prod["feed_to_prod"] * feed_to_prod["share_imported"])
-            .reset_index()
-            .rename(columns={0: "feed_to_imp_prod"})
-        )
+            feed_to_prod["feed_to_prod"] * feed_to_prod["share_imported"]
+        ).reset_index(name="feed_to_imp_prod")
 
         merged = feed_to_prod.merge(row_idx_df, on=["prod_system", prod_type]).merge(
-            col_idx_df, on=["prod_system", "feed"]
+            col_idx_df,
+            on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
         )
 
         return IndexedMatrix.from_frame(
@@ -2439,7 +2450,6 @@ class FeedDistributor:
 
         - 0, if the animal system is not the same, else
         - (p - k) * l, where:
-
             - p is the factor of the given feed_par in this feed for this animal sys,
             - k is the min/max share of the feed_par in relation to the DM
             - l is the factor (e.g. 5% loss -> 0.95) for storage- and feeding losses
@@ -2611,35 +2621,42 @@ class FeedDistributor:
         )
         return M
 
-    def get_feed_to_crop_prod_factors(
+    def _get_feed_to_prod_factors(
         self,
         crop_prod_type: Literal["crop_prod", "by_prod"] = "crop_prod",
-        **extra_filters,
-    ):
+        index: bool = False,
+    ) -> pd.DataFrame:
         """
         Get a DataFrame mapping feed products to crop products, with their respective
         conversion factor as well as respective import- and regional shares.
-        """
 
-        # TODO: look at whether we should add ps to index, as done in C13
+        Depending on the 'detailed_index' parameter, the function will fetch data on a
+        (ps, feed, crop_or_by_prod) level (if False) or (feed, ani, sp, br, ps, ss) (if
+        True)-level of detail.
+        """
         feed_par = self.feed_mgmt.par
         feed_par.clear()
 
-        keys = ["feed", crop_prod_type]
-        feed_crop_products: pd.DataFrame = feed_par.get_unique(keys)
+        feed_to_prod: pd.DataFrame = feed_par.get_unique(["feed", crop_prod_type])
+        row_idx = self.x_idx["fds"].droplevel("region").unique().to_frame(index=False)
+        df = row_idx.merge(feed_to_prod, on="feed")
 
-        filters = {k: feed_crop_products[k].to_list() for k in keys} | extra_filters
+        filters = {cname: df[cname].to_list() for cname in df.columns}
+        params = ["feed_to_prod", "share_imported", "share_regional"]
+        for param in params:
+            df[param] = feed_par.get(param, **filters)
 
-        feed_crop_products["feed_to_prod"] = feed_par.get("feed_to_prod", **filters)
+        # Shares are in % (e.g. 42), but we want them as fraction (e.g. 0.42)
+        for p in ["share_imported", "share_regional"]:
+            df[p] = df[p] / 100
 
-        feed_par.set(**{crop_prod_type: feed_crop_products[crop_prod_type]})
-        feed_crop_products["share_imported"] = feed_par.get("share_imported") / 100
-        feed_crop_products["share_regional"] = feed_par.get("share_regional") / 100
+        if index:
+            df = df.set_index(
+                ["feed", "animal", "species", "breed", "prod_system", "sub_system"]
+                + [crop_prod_type]
+            )
 
-        # Reset filter
-        feed_par.clear()
-
-        return feed_crop_products.set_index(["feed", crop_prod_type])
+        return df
 
     def _get_losses_factors(
         self, shape: Literal["wide", "long"] = "wide"

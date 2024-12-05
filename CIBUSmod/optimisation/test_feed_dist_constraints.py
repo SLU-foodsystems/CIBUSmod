@@ -205,8 +205,20 @@ class TestMakeA10(unittest.TestCase):
         self.feed_to_prod = pd.DataFrame(
             {"feed_to_prod": [0.8, 0.6, 0.4], "share_imported": [0.2, 0.0, 0.5]},
             index=pd.MultiIndex.from_tuples(
-                [("feed1", "by_prod1"), ("feed1", "by_prod2"), ("feed2", "by_prod1")],
-                names=["feed", "by_prod"],
+                [
+                    ("feed1", "ani1", "sp1", "br1", "conv", "ss1", "by_prod1"),
+                    ("feed1", "ani1", "sp1", "br1", "conv", "ss1", "by_prod2"),
+                    ("feed2", "ani2", "sp2", "br2", "org", "ss2", "by_prod2"),
+                ],
+                names=[
+                    "feed",
+                    "animal",
+                    "species",
+                    "breed",
+                    "prod_system",
+                    "sub_system",
+                    "by_prod",
+                ],
             ),
         )
 
@@ -225,12 +237,11 @@ class TestMakeA10(unittest.TestCase):
         )
 
         self.feed_dist.x_idx = self.mock_x_idx
-        self.feed_dist.get_feed_to_crop_prod_factors = (
-            lambda *args, **kwargs: self.feed_to_prod
+        self.feed_dist._get_extended_feed_to_prod_factors = MagicMock(
+            return_value=self.feed_to_prod
         )
-        # Mock method to return feed_to_prod when called by make_A10_1
 
-    def test_make_A_basic_functionality(self):
+    def test_make_A10_basic_functionality(self):
         # Test that make_A10_1 runs and produces output with correct shape
         A10_1 = self.feed_dist.make_A10_1(self.row_idx)
         self.assertEqual(A10_1.shape, (len(self.row_idx), len(self.col_idx)))
@@ -272,6 +283,71 @@ class TestMakeA10(unittest.TestCase):
             self.assertEqual(
                 row_sys, col_sys, f"Mismatch in prod_system: {row_sys} vs {col_sys}"
             )
+
+    def test_make_A10_different_prod_systems(self):
+        # Sample row index (D_idx) for byproducts demand with MultiIndex
+        row_idx = pd.MultiIndex.from_tuples(
+            [("conv", "by_prod1"), ("org", "by_prod1")],
+            names=["prod_system", "by_prod"],
+        )
+
+        # Sample col index for feed demands with MultiIndex
+        self.feed_dist.x_idx["fds"] = pd.MultiIndex.from_tuples(
+            [
+                ("feed1", "ani1", "sp1", "br1", "conv", "ss1", "region1"),
+                ("feed2", "ani1", "sp1", "br1", "org", "ss1", "region1"),
+            ],
+            names=[
+                "feed",
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "region",
+            ],
+        )
+
+        # Mock data for `feed_to_prod` DataFrame
+        feed_to_prod_idx = pd.MultiIndex.from_tuples(
+            [
+                ("feed1", "ani1", "sp1", "br1", "conv", "ss1", "by_prod1"),
+                ("feed2", "ani1", "sp1", "br1", "org", "ss1", "by_prod1"),
+            ],
+            names=[
+                "feed",
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "by_prod",
+            ],
+        )
+        self.feed_dist._get_extended_feed_to_prod_factors = MagicMock(
+            return_value=pd.DataFrame(
+                {"feed_to_prod": [0.8, 0.6], "share_imported": [0.2, 0.5]},
+                index=feed_to_prod_idx,
+            )
+        )
+
+        # Test that make_A10_1 runs and produces output with correct shape
+        A10_1 = self.feed_dist.make_A10_1(row_idx)
+        self.assertTrue(
+            isinstance(A10_1, IndexedMatrix), "Output is not an IndexedMatrix matrix"
+        )
+
+        row_bp1_conv = ("conv", "by_prod1")
+        row_bp1_org = ("org", "by_prod1")
+
+        row_feed1 = self.feed_dist.x_idx["fds"].values[0]
+        row_feed2 = self.feed_dist.x_idx["fds"].values[1]
+
+        df = A10_1.todense()
+        self.assertEqual(0.8 * (1 - 0.2), df.loc[row_bp1_conv, row_feed1])
+        self.assertEqual(0, df.loc[row_bp1_org, row_feed1])
+        self.assertEqual(0, df.loc[row_bp1_conv, row_feed2])
+        self.assertEqual(0.6 * (1 - 0.5), df.loc[row_bp1_org, row_feed2])
 
 
 class TestMakeA11(unittest.TestCase):
