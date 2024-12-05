@@ -1303,11 +1303,19 @@ class FeedDistributor:
                 A11_min.M = A11_min.M.multiply(mul_factor)
                 return A11_min
 
-            return IndexedMatrix(
-                scipy.sparse.csc_matrix.maximum(
+            if mul_factor <= 1:
+                M = scipy.sparse.csc_matrix.maximum(
                     A11_minmax.M,
                     A11_eq.M.multiply(mul_factor),
-                ),
+                )
+            else:
+                M = scipy.sparse.csc_matrix.minimum(
+                    A11_minmax.M,
+                    A11_eq.M.multiply(mul_factor),
+                )
+
+            return IndexedMatrix(
+                M,
                 A11_minmax.rows,
                 A11_minmax.cols,
             )
