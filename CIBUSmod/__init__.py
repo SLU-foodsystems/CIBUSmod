@@ -41,4 +41,5 @@ from .soil_modules import data_processing
 from .soil_modules import icbm_funcs
 from .soil_modules.soil_class import SoilData
 from .soil_modules.soil_class import SoilDataExplore
+from .soil_modules.soil_class import ScenarioTempCalc
 from .soil_modules import soil_utils
