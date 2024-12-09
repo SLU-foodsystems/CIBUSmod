@@ -681,24 +681,23 @@ class GeoDistributor:
         sel_an = []
 
         for h in self.herds:
-            # Get crop products with a regional feed demand
-            nsel_cp2 = (
-                (h.data_attr.get('feed.crop_product_demand')
-                .xs('regional',axis=1)
-                .stack(['prod_system','crop_prod'])
-                .sum(axis=1)
-                .reorder_levels(['crop_prod','prod_system','region'])
-                > 0)
-                .replace({False:np.nan}).dropna()
-                .index
-            )
-            
-            # Get regions where herd has a regional demand
-            # for a feed that can't be grown. 
-            nsel_re = nsel_cp.intersection(nsel_cp2).get_level_values('region').unique()
-            
-            # Get regions where herd CAN be present
-            sel_re = h.index.difference(nsel_re)
+            if h.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
+                # Get crop products with a regional feed demand
+                nsel_cp2 = (
+                    h.data_attr.get('feed.regional_crop_product_demand')
+                    .stack(['prod_system','crop_prod'])
+                    .reorder_levels(['crop_prod','prod_system','region'])
+                    .index
+                )
+
+                # Get regions where herd has a regional demand
+                # for a feed that can't be grown.
+                nsel_re = nsel_cp.intersection(nsel_cp2).get_level_values('region').unique()
+
+                # Get regions where herd CAN be present
+                sel_re = h.index.difference(nsel_re)
+            else:
+                sel_re = h.index
 
             # Add herds allowed to animal selection
             sp = h.species
