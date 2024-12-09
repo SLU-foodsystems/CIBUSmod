@@ -74,10 +74,11 @@ def get_deltaT(
 
     groupby_orig = groupby.copy()
 
-    # Make sure 'compound' is present and last in list
-    if 'compound' in groupby:
-        groupby.remove('compound')
-    groupby += ['compound']
+    # Make sure 'compound' is first in groupby
+    try:
+        groupby.insert(0,groupby.pop(groupby.index('compound')))
+    except IndexError:
+        groupby.insert(0,'compound')
 
     rename_ghg = {
         'CO2' : 'co2',
@@ -93,6 +94,7 @@ def get_deltaT(
     start_year = ghg.index.get_level_values('year').astype(int).min()
     end_year = ghg.index.get_level_values('year').astype(int).max()
 
+    print('Calculating temperature response ...')
     # Costruct output dataframe with extended year index
     scns = ghg.index.unique('scn')
     deltaT = pd.DataFrame(
@@ -104,23 +106,24 @@ def get_deltaT(
         columns=ghg.columns
     )
 
-    print('Calculating temperature response ...')
     for scn in deltaT.index.unique('scn'):
-        for col in deltaT.loc[scn].columns:
+        for cmp in deltaT.loc[scn].columns.unique('compound'):
             # Get GHG time-series for col
-            ghg_time_series = ghg.loc[scn,col]
-            # Pre-compute temp response curves
-            cmp = col[-1] if isinstance(col, tuple) else col
-            temp_curve = ghg_to_temp(ghg = rename_ghg[cmp], time_horizon=end_year+extend-start_year)
+            ghg_data = ghg.loc[scn,cmp]
+            # Pre-compute temp response curve
+            temp_curve = np.atleast_2d(
+                ghg_to_temp(
+                    ghg = rename_ghg[cmp],
+                    time_horizon=end_year+extend-start_year
+                )
+            ).T
             # Calculate temperature response
             temp_resp = sum([
-                np.concatenate([
-                    np.zeros(y-start_year),
-                    temp_curve[0:end_year+extend-y+1] * ghg_time_series.loc[str(y)]
-                ]) for y in range(start_year, end_year + 1)
+                np.pad(temp_curve[0:end_year+extend-y+1],[(y-start_year,0),(0,0)]) @ np.atleast_2d(ghg_data.loc[str(y)])
+                for y in range(start_year, end_year + 1)
             ])
             # Store results
-            deltaT.loc[scn,col] = temp_resp
+            deltaT.loc[scn,cmp] = temp_resp
 
     if groupby != groupby_orig:
         if len(groupby_orig)>0:
