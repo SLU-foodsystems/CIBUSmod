@@ -1,0 +1,37 @@
+module,attr,process,sub-process
+
+AnimalHerd,enteric_methane,enteric fermentation,enteric fermentation
+
+AnimalHerd,manure.N_loss,manure management,manure management
+AnimalHerd,manure.P_loss,manure management,manure management
+AnimalHerd,manure.K_loss,manure management,manure management
+AnimalHerd,manure.VS_loss,manure management,manure management
+
+AnimalHerd,energy_use_emissions,energy use,energy use
+CropProduction,energy_use_emissions,energy use,energy use
+WasteAndCircularity,energy_use_emissions,energy use,energy use
+AnimalHerd,energy_use_supply_chain_emissions,energy use,energy use
+CropProduction,energy_use_supply_chain_emissions,energy use,energy use
+WasteAndCircularity,energy_use_supply_chain_emissions,energy use,energy use
+
+CropProduction,fertiliser.mineral_N_supply_chain_emissions,input production,fertiliser production
+CropProduction,fertiliser.mineral_P_supply_chain_emissions,input production,fertiliser production
+CropProduction,fertiliser.mineral_K_supply_chain_emissions,input production,fertiliser production
+CropProduction,fertiliser.liming_supply_chain_emissions,input production,lime production
+
+CropProduction,fertiliser.manure_N_application_loss,agricultural soils,fertiliser application
+CropProduction,fertiliser.organic_N_application_loss,agricultural soils,fertiliser application
+CropProduction,fertiliser.mineral_N_application_loss,agricultural soils,fertiliser application
+CropProduction,fertiliser.manure_N_soil_loss,agricultural soils,nitrification and denitrification
+CropProduction,fertiliser.organic_N_soil_loss,agricultural soils,nitrification and denitrification
+CropProduction,fertiliser.mineral_N_soil_loss,agricultural soils,nitrification and denitrification
+CropProduction,fertiliser.crop_residues_N_soil_loss,agricultural soils,nitrification and denitrification
+CropProduction,fertiliser.organic_soil_N_loss,agricultural soils,organic soils
+CropProduction,fertiliser.leaching_N,agricultural soils,leaching
+
+CropProduction,fertiliser.liming_emissions,liming,liming
+
+WasteAndCircularity,losses_N,waste and circularity,waste and circularity
+WasteAndCircularity,losses_P,waste and circularity,waste and circularity
+WasteAndCircularity,losses_K,waste and circularity,waste and circularity
+WasteAndCircularity,losses_VS,waste and circularity,waste and circularity
