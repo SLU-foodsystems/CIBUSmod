@@ -2139,9 +2139,7 @@ class FeedDistributor:
         # Get col index from feed demands (f,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
-        feed_to_byprod = self._get_feed_to_prod_factors("by_prod").set_index(
-            ["by_prod", "prod_system"]
-        )
+        feed_to_byprod = self._get_feed_to_prod_factors("by_prod", index=True)
         # Store only the conversion of feed to (domestic share of) byprods, and drop any
         # zero-value rows. Reset the index to prepare for merging.
         feed_to_byprod_long = (
