@@ -2170,7 +2170,9 @@ class FeedDistributor:
 
         used_byprod = self.demand.data_attr.get("by_prod_demand").sum(axis=1)
         if used_byprod.shape[0] > 0:
-            D_byprod = used_byprod.astype(float).reindex(D_byprod.index).fillna(0)
+            D_byprod = D_byprod - used_byprod.astype(float).reindex(
+                D_byprod.index
+            ).fillna(0)
 
         # Construct the mapping of feed-products to by-products
         A10_fds = self.make_A10_1(D_byprod.index)
