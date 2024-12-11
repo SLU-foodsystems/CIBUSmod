@@ -41,8 +41,6 @@ class TestFeedMgmt(unittest.TestCase):
         expected_feeding_losses = (1000 - expected_storage_losses) * 0.1
         expected_consumption = 1000 * 0.95 * 0.9
 
-        print(self.mock_herd.mock_calls)
-
         # Verify that data_attr.add was called with the expected values
         self.mock_herd.data_attr.add.assert_any_call(
             expected_consumption,
