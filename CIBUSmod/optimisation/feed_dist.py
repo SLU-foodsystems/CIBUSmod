@@ -330,27 +330,12 @@ class FeedDistributor:
         """
         Save the feed consumption stored in x_fds on the data_attr of each herd based on
         the number of animals in x_ani.
-
-        TODO: This must be rewritten / extended to ensure we juggle the prod_systems
-        correctly between the prod_system of feeds, of herds, and of individual animals
         """
         if self.x is None:
             return
 
-        feed_par = self.feed_mgmt.par
-        feed_par.clear()
-
-        feed_to_crop_prod: pd.DataFrame = feed_par.get_unique(["feed", "crop_prod"])
-        feed_par.set(
-            feed=feed_to_crop_prod["feed"].to_list(),
-            crop_prod=feed_to_crop_prod["crop_prod"].to_list(),
-        )
-        feed_to_crop_prod["feed_to_prod"] = feed_par.get("feed_to_prod")
-        feed_to_crop_prod["share_domestic"] = feed_par.get("share_domestic") / 100
-        feed_to_crop_prod["share_regional"] = feed_par.get("share_regional") / 100
-        feed_to_crop_prod = feed_to_crop_prod.set_index(["feed", "crop_prod"])
-
-        feed_par.clear()
+        concatenated_herds = concat_herds(self.herds)
+        heads_total = concatenated_herds.data_attr.get("heads")
 
         for herd in self.herds:
             sp = herd.species
@@ -358,29 +343,102 @@ class FeedDistributor:
             ps = herd.prod_system
             ss = herd.sub_system
 
+            # Get the total number of animals for this (sp, br, ps, ss)-tuple across all
+            # herds.
+            h_total = heads_total.loc[slice(None), (sp, br, ss, ps, slice(None))]
+            # Keep only (ps, ani)
+            h_total.columns = h_total.columns.droplevel(
+                ["species", "breed", "sub_system"]
+            )
+            # Get the number of animals in this herd object, which will be the same
+            # value for most herds (but not non-cows in CattleHerd)
+            h_heads = herd.data_attr.get("heads")
+
+            matching_zeroes = h_heads[h_total == 0].replace({np.nan: 0}) == 0
+            assert (
+                matching_zeroes.all().all()
+            ), "Any location where total is zero should imply that herd.heads is zero"
+
+            # Compute the ratio between the two, where we (thanks to the assertion above) can safely replace 0 with 1 in the denominator to avoid division by zero
+            ratio = (h_heads / h_total.replace({0: 1})).sort_index(axis=1).sort_index()
+
+            if sp != "cattle":
+                non_zero_ratio = ratio[ratio != 0]
+                all_ratio_one_or_zero = (
+                    (non_zero_ratio.replace({np.nan: 1}) == 1).all().all()
+                )
+                assert (
+                    all_ratio_one_or_zero
+                ), "All ratios for non-cattle should be either 0 or 1"
+
             feed_demands = (
                 self.x["fds"]
-                .to_frame(name="feed_amount")
+                .to_frame("feed_amount")
                 .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
                 .reset_index()
                 .pivot(
                     columns=["prod_system", "animal", "feed"],
                     index="region",
-                    values="feed_amount",  # name=0 given by pandas when converting series to dataframe
+                    values="feed_amount",
                 )
+                .sort_index(axis=1)
+                .sort_index()
             )
 
-            # Compute the demand for crop_products yielded by the feed demands
-            feed_crop_prod_demands = feed_demands_to_crop_demands(
-                feed_demands, feed_to_crop_prod
-            )
+            adjusted_feed_demands = (ratio.T * feed_demands.T).T
+
+            if sp != "cattle":
+                n_values_in_row = (
+                    adjusted_feed_demands.replace({0: np.nan})
+                    .dropna(how="all")
+                    .count(axis=1)
+                )
+                assert (n_values_in_row == 1).all()
+
+            # Ensure that wherever h_heads is zero, feed_demands must be zero.
+            heads_long = h_heads.T.stack("region")
+            for (ps, ani, re), _ in heads_long[heads_long == 1]:
+                feed_demands_slice = feed_demands.loc[re, (ps, ani, slice(None))]
+                assert (
+                    feed_demands_slice == 0
+                ).all(), "Wherever we have zero animals, we should also have 0 feed"
 
             herd.data_attr.add(
-                feed_demands,
+                adjusted_feed_demands,
                 name="feed.demand",
                 unit="kg DM/year",
                 orig="FeedDist",
                 desc="Demand for feed",
+            )
+
+    def allocate_feed_crop_prod_demands(self):
+        par = self.feed_mgmt.par
+        par.clear()
+
+        pss = set([herd.prod_system for herd in self.herds])
+        feed_to_crop_prod: pd.DataFrame = par.get_unique(["feed", "crop_prod"])
+        # Copy feed -> cp mapping for each production system, with new col 'prod_system'
+        feed_to_crop_prod = pd.concat(
+            [feed_to_crop_prod.assign(prod_system=ps) for ps in pss]
+        )
+
+        par.set(
+            feed=feed_to_crop_prod["feed"].to_list(),
+            crop_prod=feed_to_crop_prod["crop_prod"].to_list(),
+            prod_system=feed_to_crop_prod["prod_system"].to_list(),
+        )
+        feed_to_crop_prod["feed_to_prod"] = par.get("feed_to_prod")
+        feed_to_crop_prod["share_domestic"] = par.get("share_domestic") / 100
+        feed_to_crop_prod = feed_to_crop_prod.set_index(
+            ["prod_system", "feed", "crop_prod"]
+        )
+
+        for herd in self.herds:
+            feed_demands = herd.data_attr.get("feed.demand")
+
+            # Compute the demand for crop_products yielded by the feed demands
+            feed_crop_prod_demands = feed_demands_to_crop_demands(
+                feed_demands, feed_to_crop_prod
             )
 
             herd.data_attr.add(
@@ -415,6 +473,7 @@ class FeedDistributor:
                 )
 
         self.allocate_feed_demands()
+        self.allocate_feed_crop_prod_demands()
 
         # Allocate crop production to uses
         self.allocate_crop_production_per_use()
@@ -2719,8 +2778,9 @@ class FeedDistributor:
                 dtype=float,
             ),
             warn_if_nan=False,
-        )
-        data.loc[:, "DM"] = 1  # Dry-matter not part of the feed_composition sheet
+        ).sort_index()
+        # Add a column called 'DM' with value 1 everywhere
+        data = data.assign(DM=1)
 
         if shape == "long":
             data = data.stack("feed_par").to_frame(name="feed_to_par_factor")

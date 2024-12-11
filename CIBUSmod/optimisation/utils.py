@@ -32,27 +32,16 @@ def feed_demands_to_crop_demands(
     feed_demands: pd.DataFrame, feed_to_crop_products: pd.DataFrame
 ):
     """
-    Calculate the demand for crop products from the feed demands per origin (domestic
-    and imported).
+    Calculate the demand of crop products (per origin: domestic and imported) from the
+    feed demands and a mapping from feeds to crop products and with share of domestic.
     """
-    # Ensure we don't have duplicates in the 'feed' column, otherwise we can get
-    # inconsistent results
-    if not feed_to_crop_products.reset_index()["feed"].is_unique:
-        _feeds = feed_to_crop_products.reset_index()["feed"]
-        duplicates = ", ".join(_feeds[_feeds.duplicated()].tolist())
-        msg = f"Ambigious mapping of feed_to_crop_products: duplicate feed(s) {duplicates}"
-        raise ValueError(msg)
-
-    # Ensure the feed_to_crop_products has the two columns feed_to_prod and
-    # share_domestic
-    if any(
-        [
-            c not in feed_to_crop_products.columns
-            for c in ["feed_to_prod", "share_domestic"]
-        ]
+    # Ensure that feed_to_crop_products has the expected columns
+    if (
+        "feed_to_prod" not in feed_to_crop_products.columns
+        or "share_domestic" not in feed_to_crop_products.columns
     ):
         raise ValueError(
-            "Expected feed_to_crop_products dataframe to have columns named feed_to_prod and share_domestic."
+            "Expected feed_to_crop_products dataframe to have columns feed_to_prod and share_domestic."
         )
 
     # Put the data in a long format so we can merge it
@@ -60,6 +49,7 @@ def feed_demands_to_crop_demands(
         level=["prod_system", "animal", "feed"], future_stack=True
     ).reset_index()
 
+    # Keep only the relevant columns
     feed_demands_long.columns = [
         "region",
         "prod_system",
@@ -68,15 +58,18 @@ def feed_demands_to_crop_demands(
         "base_demand",
     ]
 
+    feed_to_cp = dict(map(lambda x: x[1:3], feed_to_crop_products.index.values))
+    feed_to_crop_products = feed_to_crop_products.reset_index()
+
     # Bring in the two other columns that we need, so that we can multiply with the
     # demand
     merged = feed_demands_long.merge(
-        feed_to_crop_products[["feed_to_prod", "share_domestic"]], on="feed"
+        feed_to_crop_products,
+        on=["prod_system", "feed"],
     )
+
     # Map each feed -> crop_product
-    merged["feed"] = merged["feed"].replace(dict(feed_to_crop_products.index.values))
-    # Rename 'feed' as it now contains crop_products
-    merged = merged.rename(columns={"feed": "crop_prod"})
+    merged["crop_prod"] = merged["feed"].replace(feed_to_cp).drop(columns=["feed"])
     # Calculate the new values by multiplying demand with import shares
     merged["demand_imported"] = (
         merged["base_demand"] * merged["feed_to_prod"] * (1 - merged["share_domestic"])
