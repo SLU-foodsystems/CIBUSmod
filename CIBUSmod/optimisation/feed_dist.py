@@ -2343,6 +2343,7 @@ class FeedDistributor:
         data = loss_factors.merge(
             feed_compositions_long,
             on=[
+                "feed",
                 "animal",
                 "species",
                 "breed",
