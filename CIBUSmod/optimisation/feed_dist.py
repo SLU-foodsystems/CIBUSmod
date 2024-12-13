@@ -2222,6 +2222,8 @@ class FeedDistributor:
         """
         Ensure the production of by-products meets the demand required by feeds.
         """
+
+        raise Exception("Warning! C10 does not work at the time, as it is not compatible with the data.")
         # Fetch the demand of byproducts as calculated in the DemandsAndConversions-module
         D_byprod = self.demand.data_attr.get("by_products")
 
