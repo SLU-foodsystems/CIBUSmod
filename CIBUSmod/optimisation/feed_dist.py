@@ -548,7 +548,7 @@ class FeedDistributor:
             self.crops.par.get_unique("crop_prod", qry='parameter == "seed"')
         )
         # ... and the prod_systems in the crop-demand vector
-        pss = self.D["crp"].index.get_level_values("prod_system").unique()
+        pss = self.D["crp"].index.unique("prod_system")
 
         share_domestic = self.feed_mgmt.par.get_from_frame(
             "share_domestic",
@@ -755,9 +755,9 @@ class FeedDistributor:
         factors_with_reg_share = factors[factors["share_regional"] > 0]
         row_idx = pd.MultiIndex.from_product(
             [
-                self.x_idx["fds"].get_level_values("prod_system").unique(),
-                factors_with_reg_share.index.get_level_values("crop_prod").unique(),
-                self.x_idx["fds"].get_level_values("region").unique(),
+                self.x_idx["fds"].unique("prod_system"),
+                factors_with_reg_share.index.unique("crop_prod"),
+                self.x_idx["fds"].unique("region"),
             ],
             names=["prod_system", "crop_prod", "region"],
         )
@@ -872,8 +872,8 @@ class FeedDistributor:
             [
                 (cp, cg, ps, re)
                 for cp, cg in cps_cgs.values
-                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
-                for re in self.x_idx["ani"].get_level_values("region").unique()
+                for ps in self.x_idx["ani"].unique("prod_system")
+                for re in self.x_idx["ani"].unique("region")
             ],
             names=["crop_prod", "crop_group", "prod_system", "region"],
         )
@@ -1012,9 +1012,7 @@ class FeedDistributor:
 
                 # Get regions where herd has a regional demand
                 # for a feed that can't be grown.
-                nsel_re = (
-                    nsel_cp.intersection(nsel_cp2).get_level_values("region").unique()
-                )
+                nsel_re = nsel_cp.intersection(nsel_cp2).unique("region")
 
                 # Get regions where herd CAN be present
                 sel_re = h.index.difference(nsel_re)
@@ -1639,16 +1637,10 @@ class FeedDistributor:
             ss = herd.sub_system
 
             # Go through animal products
-            for ap in (
-                herd.data_attr.get("production")
-                .columns.get_level_values("animal_prod")
-                .unique()
-            ):
+            for ap in herd.data_attr.get("production").columns.unique("animal_prod"):
                 # Go through output production systems
-                for ops in (
-                    herd.data_attr.get("production")
-                    .columns.get_level_values("prod_system")
-                    .unique()
+                for ops in herd.data_attr.get("production").columns.unique(
+                    "prod_system"
                 ):
                     if (ops, sp, ap) in row_idx:
                         # Get production of animal product (ap) from output production system (ops) per head
@@ -1754,7 +1746,7 @@ class FeedDistributor:
         # (crop_prod)
         crop_production: pd.DataFrame = self.crops.data_attr.get("production")
         # Get the crop_products in the index - anything else we can ignore
-        crop_products: pd.Index = row_idx.get_level_values("crop_prod").unique()
+        crop_products: pd.Index = row_idx.unique("crop_prod")
 
         # Filter crop production to only produced crops (cp, ps)
         produced_crops = crop_production.index[
@@ -1810,7 +1802,7 @@ class FeedDistributor:
         land_uses = self.regions.data_attr.get("max_land_use").columns
         # Get row index from land uses and regions (lu,re)
         row_idx = pd.MultiIndex.from_product(
-            [land_uses, self.x_idx["crp"].get_level_values("region").unique()],
+            [land_uses, self.x_idx["crp"].unique("region")],
             names=["land_use", "region"],
         )
         # Get col index from crops (cr,ps,re)
@@ -1979,14 +1971,14 @@ class FeedDistributor:
         )
 
         # All regions
-        regions = self.x_idx["ani"].get_level_values("region").unique()
+        regions = self.x_idx["ani"].unique("region")
 
         # Create the row index (cp,cg,ps,re)
         row_idx = pd.MultiIndex.from_tuples(
             [
                 (cp, cg, ps, re)
                 for cp, cg in cps_cgs.values
-                for ps in self.x_idx["ani"].get_level_values("prod_system").unique()
+                for ps in self.x_idx["ani"].unique("prod_system")
                 for re in regions
             ],
             names=["crop_prod", "crop_group", "prod_system", "region"],
@@ -2068,8 +2060,8 @@ class FeedDistributor:
         cgs = self.crops.par.get_unique(
             "crop_group", qry=f'parameter == "{minmax}_in_rot"'
         )
-        pss = self.x_idx["crp"].get_level_values("prod_system").unique()
-        res = self.x_idx["crp"].get_level_values("region").unique()
+        pss = self.x_idx["crp"].unique("prod_system")
+        res = self.x_idx["crp"].unique("region")
 
         # Get row index from (cg,ps,re)
         row_idx = pd.MultiIndex.from_tuples(
@@ -2454,7 +2446,7 @@ class FeedDistributor:
 
         par = "max_total_imported"
 
-        pss = self.x_idx["crp"].get_level_values("prod_system").unique()
+        pss = self.x_idx["crp"].unique("prod_system")
         cps = self.feed_mgmt.par.get_unique(prod_type, qry=f'parameter=="{par}"')
 
         data = self.feed_mgmt.par.get_from_frame(
@@ -2523,7 +2515,7 @@ class FeedDistributor:
             if data.empty:
                 continue
             # Keep track of which
-            feed_pars.update(data.columns.get_level_values("feed_par").unique())
+            feed_pars.update(data.columns.unique("feed_par"))
             # prod_system already in data attribute, hence not here.
             herd_dfs[(herd.species, herd.breed, herd.sub_system)] = data.T.stack(
                 "region"
@@ -2727,7 +2719,7 @@ class FeedDistributor:
 
         # Get all losses
         losses_retrieve_df = pd.DataFrame(
-            columns=self.x_idx["fds"].get_level_values("feed").unique(),
+            columns=self.x_idx["fds"].unique("feed"),
             index=self.x_idx["fds"].droplevel(["region", "feed"]).unique(),
         )
 
@@ -2957,7 +2949,7 @@ class FeedDistributor:
 
         # Get crop products with a max
         # feed from crop_groups constraints
-        cps = max_feed_from_crop.index.get_level_values("crop_prod").unique()
+        cps = max_feed_from_crop.index.unique("crop_prod")
 
         for cp in cps:
             # Get total demand for crop_prod per animal herd
@@ -2974,9 +2966,7 @@ class FeedDistributor:
             ).rename("demand")
 
             # Get constrained crop groups
-            cgs = (
-                max_feed_from_crop.loc[cp].index.get_level_values("crop_group").unique()
-            )
+            cgs = max_feed_from_crop.loc[cp].index.unique("crop_group")
 
             # Get constrained and unconstrained crops
             crs_cons = [cr for cg in cgs for cr in map_cg_cr[cg]]
