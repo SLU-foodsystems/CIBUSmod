@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from CIBUSmod.utils.retriever import ParameterRetriever
+from CIBUSmod.main_modules.regions import Regions
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
@@ -18,13 +19,15 @@ class CropProduction(object):
 
     module_name = 'CropProduction'
 
-    def __init__(self, par: ParameterRetriever, index: pd.Index | pd.MultiIndex):
+    def __init__(self, regions: Regions, par: ParameterRetriever):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
 
         self.par = par
-        self.index = index
+
+        self.regions = regions
+        self.index = regions.data_attr.get('x0_crops').index
 
     def calculate(self,verbose=False):
         '''Calculates crop production based on a vector ('x') of crop areas.
@@ -41,6 +44,9 @@ class CropProduction(object):
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='CropProduction')
+
+        # Update index
+        self.index = self.regions.data_attr.get('x0_crops').index
 
         # Set areas to ones
         self.data_attr.add(
