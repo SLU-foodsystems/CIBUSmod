@@ -419,6 +419,8 @@ def marimekko(
 
     xlim_pad = 0.01,
     ylim_pad = 0.01,
+    xlim = None,
+    ylim = None,
     
     xlabel = '',
     xlabel_fontsize = 11,
@@ -487,8 +489,12 @@ def marimekko(
     
 
     # Set axes ranges
-    ax.set_xlim(-x_sum*0.01, x_sum*(1+xlim_pad))
-    ax.set_ylim(-y_sum*0.01, y_sum*(1+ylim_pad))
+    if not xlim:
+        xlim = (-x_sum*0.01, x_sum*(1+xlim_pad))
+    ax.set_xlim(xlim[0],xlim[1])
+    if not ylim:
+        ylim = (-y_sum*0.01, y_sum*(1+ylim_pad))
+    ax.set_ylim(ylim[0],ylim[1])
 
     # Style axes and spines
     ax.tick_params(axis='x', which='major', labelsize = ticklabels_fontsize,
@@ -497,8 +503,8 @@ def marimekko(
                    length=5, width=0.8,
                    bottom=True, top=False, labelbottom=True, labeltop=False)
     ax.spines[['left','top']].set_position(('outward', axis_padding))
-    xticks = [t for t in ax.get_xticks() if t <= x_sum*(1+xlim_pad) and t >= 0]
-    yticks = [t for t in ax.get_yticks() if t <= y_sum*(1+ylim_pad) and t >= 0]
+    xticks = [t for t in ax.get_xticks() if t <= xlim[1] and t >= 0]
+    yticks = [t for t in ax.get_yticks() if t <= ylim[1] and t >= 0]
     ax.spines['top'].set_bounds((min(xticks), max(xticks)))
     ax.spines['left'].set_bounds((min(yticks), max(yticks)))
     ax.spines[['bottom','right']].set_visible(False)
