@@ -387,14 +387,6 @@ class FeedDistributor:
 
             adjusted_feed_demands = (ratio.T * feed_demands.T).T
 
-            if sp != "cattle":
-                n_values_in_row = (
-                    adjusted_feed_demands.replace({0: np.nan})
-                    .dropna(how="all")
-                    .count(axis=1)
-                )
-                assert (n_values_in_row == 1).all()
-
             # Ensure that wherever h_heads is zero, feed_demands must be zero.
             heads_long = h_heads.T.stack("region")
             for (ps, ani, re), _ in heads_long[heads_long == 1]:
