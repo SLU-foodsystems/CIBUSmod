@@ -2,7 +2,7 @@ import functools
 from itertools import product
 
 import pandas as pd
-from itertools import product
+import numpy as np
 
 from typing import TYPE_CHECKING, Literal, Iterable, Sequence, Hashable
 
