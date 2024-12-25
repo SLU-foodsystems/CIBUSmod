@@ -900,11 +900,13 @@ class FeedDistributor:
     def make_C6(self):
         """Creates C6: A6 @ x <= 0
 
-        Constrain the minimum and/or maximum share of cropland devoted to a given crop group in a given
-        region in a given production system. The maximum share is set on 'crop_group' level via the parameters
-        'min_in_rot' and 'max_in_rot' in the 'CropProduction' module.
+        Constrain the minimum and/or maximum share of cropland devoted to a given crop
+        group in a given region in a given production system. The maximum share is set
+        on 'crop_group' level via the parameters 'min_in_rot' and 'max_in_rot' in the
+        'CropProduction' module.
 
-        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the relation tables.
+        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the
+        relation tables.
         """
 
         # Note to future:
@@ -946,8 +948,9 @@ class FeedDistributor:
         crops that can't be grown in a region.
         """
 
-        # This constraint is not implemented as a constraint in the solver but instead drops
-        # variables representing crops or animals that can't be present in a region.
+        # This constraint is not implemented as a constraint in the solver but instead
+        # drops variables representing crops or animals that can't be present in a
+        # region.
         # IMPORTANT: This must be run after all other constraints have been defined!
 
         # Index of crops
