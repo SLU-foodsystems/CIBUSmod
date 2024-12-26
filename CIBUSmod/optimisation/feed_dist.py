@@ -355,9 +355,7 @@ class FeedDistributor:
             h_heads = herd.data_attr.get("heads")
 
             matching_zeroes = h_heads[h_total == 0].replace({np.nan: 0}) == 0
-            assert (
-                matching_zeroes.all().all()
-            ), "Any location where total is zero should imply that herd.heads is zero"
+            assert matching_zeroes.all().all(), f"Total number of heads is recorded as zero, despite non-zero heads in herd: (sp={sp}, br={br}, ss={ss}, ps={ps}) "
 
             # Compute the ratio between the two, where we (thanks to the assertion above) can safely replace 0 with 1 in the denominator to avoid division by zero
             ratio = (h_heads / h_total.replace({0: 1})).sort_index(axis=1).sort_index()
@@ -2219,14 +2217,16 @@ class FeedDistributor:
                 D_byprod.index
             ).fillna(0)
 
+        # Union of byproducts used as feed and those originally in D_byprod
+        all_byprods = set(
+            self.feed_mgmt.par.get_unique("by_prod", qry="parameter == 'feed_to_prod'")
+        ) | set(
+            D_byprod.index.unique("by_prod"),
+        )
         # Make sure any byproducts used as feed but not in D_byprod are included
-        complete_idx = pd.MultiIndex.from_tuples(
-            [(ps,bp) for ps in D_byprod.index.unique('prod_system')
-            for bp in set.union(  # Union of byproducts used as feed and those originally in D_byprod
-                set(self.feed_mgmt.par.get_unique('by_prod', qry="parameter == 'feed_to_prod'")),
-                set(D_byprod.index.unique('by_prod'))
-            )],
-            names = ['prod_system', 'by_prod']
+        complete_idx = pd.MultiIndex.from_product(
+            [D_byprod.index.unique("prod_system"), all_byprods],
+            names=["prod_system", "by_prod"],
         )
         D_byprod = D_byprod.reindex(complete_idx, fill_value=0)
 
