@@ -1,7 +1,8 @@
 import unittest
 import pandas as pd
+import numpy as np
 
-from .misc import extend_index
+from .misc import extend_index, aggregate_data_coords_pair
 
 # Assuming the function `extend_index` has been imported correctly
 
@@ -107,6 +108,64 @@ class TestExtendIndex(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             extend_index(new_levels, new_names, self.initial_index, mode="invalid")
+
+
+class TestAggregateDataCoordsPair(unittest.TestCase):
+    def test_empty_input(self):
+        values = []
+        rows = []
+        cols = []
+        expected_output = ([], ([], []))
+        result = aggregate_data_coords_pair(values, rows, cols)
+        self.assertEqual(result, expected_output)
+
+    def test_no_duplicates(self):
+        values = [1, 2, 3]
+        rows = [0, 1, 2]
+        cols = [0, 1, 2]
+        expected_values = np.array([1, 2, 3])
+        expected_rows = np.array([0, 1, 2])
+        expected_cols = np.array([0, 1, 2])
+        result_values, (result_rows, result_cols) = aggregate_data_coords_pair(
+            values, rows, cols
+        )
+        np.testing.assert_array_equal(result_values, expected_values)
+        np.testing.assert_array_equal(result_rows, expected_rows)
+        np.testing.assert_array_equal(result_cols, expected_cols)
+
+    def test_with_duplicates(self):
+        values = [1, 2, 3, 4]
+        rows = [0, 1, 1, 0]
+        cols = [1, 2, 2, 1]
+        expected_values = np.array([5, 5])  # Aggregate (0, 1): 1+4, (1, 2): 2+3
+        expected_rows = np.array([0, 1])
+        expected_cols = np.array([1, 2])
+        result_values, (result_rows, result_cols) = aggregate_data_coords_pair(
+            values, rows, cols
+        )
+        np.testing.assert_array_equal(result_values, expected_values)
+        np.testing.assert_array_equal(result_rows, expected_rows)
+        np.testing.assert_array_equal(result_cols, expected_cols)
+
+    def test_length_mismatch_error(self):
+        values = [1, 2]
+        rows = [0, 1]
+        cols = [0]
+        with self.assertRaises(ValueError):
+            aggregate_data_coords_pair(values, rows, cols)
+
+    def test_large_data(self):
+        values = np.random.randint(1, 10, size=1000)
+        rows = np.random.randint(0, 100, size=1000)
+        cols = np.random.randint(0, 100, size=1000)
+        # Check if the function runs without errors and returns the expected shape
+        result_values, (result_rows, result_cols) = aggregate_data_coords_pair(
+            values, rows, cols
+        )
+        self.assertEqual(len(result_values), len(result_rows))
+        self.assertEqual(len(result_rows), len(result_cols))
+        self.assertEqual(sum(values), sum(result_values))
+
 
 if __name__ == "__main__":
     unittest.main()

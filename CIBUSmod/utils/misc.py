@@ -130,3 +130,25 @@ def extend_index(
         [combine(tup, new_els) for tup in index.values for new_els in product(*levels)],
         names=combine(index.names, names),
     )
+
+def aggregate_data_coords_pair(values, row_i, col_i):
+    if (len(values) != len(row_i)) or (len(values) != len(col_i)):
+        raise ValueError(
+            "Length mismatch. Lists values, row_i and col_i did not all have the same length."
+        )
+
+    if len(values) == 0:
+        return ([], ([], []))
+
+    # Combine rows, cols, and values into a single array for aggregation
+    data = np.vstack((row_i, col_i, values)).T
+
+    # Aggregate using numpy
+    unique_coords, indices = np.unique(data[:, :2], axis=0, return_inverse=True)
+    aggregated_values = np.zeros(len(unique_coords))
+    np.add.at(aggregated_values, indices, data[:, 2])
+
+    # Split unique coordinates back into rows and cols
+    unique_rows, unique_cols = unique_coords.T
+
+    return (aggregated_values, (unique_rows, unique_cols))
