@@ -949,10 +949,12 @@ class FeedDistributor:
         # This constraint is not implemented as a constraint in the solver but instead
         # drops variables representing crops or animals that can't be present in a
         # region.
+
         # IMPORTANT: This must be run after all other constraints have been defined!
 
-        # Index of crops
+        ani_idx = self.x_idx["ani"]
         crp_idx = self.x_idx["crp"]
+        fds_idx = self.x_idx["fds"]
 
         # Get allowed crop-region combinations (i.e. region GDD5 >= min_GDD5 for crop)
         self.crops.par.clear()
@@ -962,81 +964,24 @@ class FeedDistributor:
             >= self.crops.par.get("min_GDD5", **crp_idx.to_frame().to_dict("list"))
         ]
 
-        # Index of animal herds
-        ani_idx = self.x_idx["ani"]
-
-        # Get crop products that CAN be produced in region
-        sel_cp = (
-            self.crops.data_attr.get("production")
-            .loc[sel_crp]
-            .stack()
-            .groupby(["crop_prod", "prod_system", "region"])
-            .sum()
-            .replace({0: np.nan})
-            .dropna()
-            .index
-        )
-
-        # Index of crop products
-        cp_idx = (
-            self.crops.data_attr.get("production")
-            .stack()
-            .droplevel("crop")
-            .reorder_levels(["crop_prod", "prod_system", "region"])
-            .index.unique()
-        )
-        # Get crop products that CAN'T be produced in region
-        nsel_cp = cp_idx.difference(sel_cp)
-
-        # List to populate with herds that can be in region
-        # (i.e. with no regional demand for feeds that can't be
-        # produced in the region)
-        sel_ani = []
-
-        for h in self.herds:
-            if h.data_attr.get("feed.regional_crop_product_demand").shape[1] > 0:
-                # Get crop products with a regional feed demand
-                nsel_cp2 = (
-                    h.data_attr.get("feed.regional_crop_product_demand")
-                    .stack(["prod_system", "crop_prod"])
-                    .reorder_levels(["crop_prod", "prod_system", "region"])
-                    .index
-                )
-
-                # Get regions where herd has a regional demand
-                # for a feed that can't be grown.
-                nsel_re = nsel_cp.intersection(nsel_cp2).unique("region")
-
-                # Get regions where herd CAN be present
-                sel_re = h.index.difference(nsel_re)
-            else:
-                sel_re = h.index
-
-            # Add herds allowed to animal selection
-            sp = h.species
-            br = h.breed
-            ps = h.prod_system
-            ss = h.sub_system
-            sel_ani += [(sp, br, ps, ss, re) for re in sel_re]
-        # To pandas MultiIndex
-        sel_ani = pd.MultiIndex.from_tuples(
-            sel_ani, names=["species", "breed", "prod_system", "sub_system", "region"]
-        )
-
-        # Get variable positions not to drop
-        isel_ani = [ani_idx.get_loc(s) for s in sel_ani]
-        isel_crp = [crp_idx.get_loc(s) + len(ani_idx) for s in sel_crp]
-        isel = isel_ani + isel_crp
+        # Get positions of variables to keep for
+        n_ani = len(ani_idx)
+        n_crp = len(crp_idx)
+        isel_ani = list(range(0, n_ani))
+        isel_crp = [crp_idx.get_loc(s) + n_ani for s in sel_crp]
+        isel_fds = list(range(n_ani + n_crp, n_ani + n_crp + len(fds_idx)))
+        isel = isel_ani + isel_crp + isel_fds
 
         # Store short index (i.e. index of variables after dropping)
-        self.x_idx_short = {"ani": sel_ani, "crp": sel_crp}
+        self.x_idx_short = {"ani": ani_idx, "crp": sel_crp, "fds": fds_idx}
 
         # Drop variables from objective and constraint matrices
         for mat in self.matrices().values():
             if mat.M.shape[1] > len(isel):
                 mat.M = mat.M[:, isel]
-                mat.cols["ani"] = sel_ani.copy()
+                mat.cols["ani"] = ani_idx.copy()
                 mat.cols["crp"] = sel_crp.copy()
+                mat.cols["fds"] = fds_idx.copy()
 
         return None
 
