@@ -928,7 +928,7 @@ class FeedDistributor:
                             "left": lambda x, A6: A6.M @ x,
                             "right": lambda A6: 0,
                             "rel": sign,
-                            "pars": {f"A6": A6},
+                            "pars": {"A6": A6},
                         }
                     }
                 )

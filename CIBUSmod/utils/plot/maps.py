@@ -39,7 +39,7 @@ def map_from_series(ser, reg='sko', cmap_zero_midpoint = False, **kwargs):
         Defines what 'region' refers to ('sko', 'po8', 'kommun' or 'län')
     cmap_zero_midpoint : 'shrink', 'shift' or False (default)
         Puts the middle of the color map range on zero
-        If 'shirk' the color map's range is shurnk on the postive or negative side
+        If 'shrink' the color map's range is shrunk on the postive or negative side
         If 'shift' the colormap's center is shifted but the full range is used on
         both the positive and negative side
     **kwargs
