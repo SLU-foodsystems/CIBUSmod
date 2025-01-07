@@ -19,15 +19,23 @@ class CropProduction(object):
 
     module_name = 'CropProduction'
 
-    def __init__(self, regions: Regions, par: ParameterRetriever):
+    def __init__(self, par: ParameterRetriever, regions: Regions = None, index: pd.MultiIndex = None):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
 
         self.par = par
 
-        self.regions = regions
-        self.index = regions.data_attr.get('x0_crops').index
+        if index is not None and regions is not None:
+            raise ValueError("Provide only one of index or regions")
+        if index is not None:
+            self.regions = None
+            self.index = index
+        elif regions is not None:
+            self.regions = regions
+            self.index = regions.data_attr.get('x0_crops').index
+        else:
+            raise ValueError("One of regions or index must be proveided")
 
     def calculate(self,verbose=False):
         '''Calculates crop production based on a vector ('x') of crop areas.
@@ -46,7 +54,8 @@ class CropProduction(object):
         vprint = verbose_init(verbose, id_str='CropProduction')
 
         # Update index
-        self.index = self.regions.data_attr.get('x0_crops').index
+        if self.regions is not None:
+            self.index = self.regions.data_attr.get('x0_crops').index
 
         # Set areas to ones
         self.data_attr.add(
