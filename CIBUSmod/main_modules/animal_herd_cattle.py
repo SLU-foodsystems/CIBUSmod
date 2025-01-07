@@ -495,6 +495,12 @@ class CattleHerd(AnimalHerd):
                 self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
                 incl_pars.add('DM')
 
+            # Get minimum share of DM intake from roughage feeds
+            if 'min_rough' in pars:
+                rough_min = p('min_rough')
+                self.data_attr.get('feed_req_of_DM_min').loc[:,(ps,ani,'rough')] = rough_min
+                incl_pars.add('rough')
+
             # Get maximum fat [g fat/kg DM]
             if 'max_fat' in pars:
                 fat_max = p('max_fat')
