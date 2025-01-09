@@ -679,13 +679,13 @@ class FeedDistributor:
                 scipy.sparse.hstack(
                     [
                         A1_1.M,  # Animal heads to animal products
-                        scipy.sparse.csc_matrix((A1_1.M.shape[0], A1_2.M.shape[1])),
-                        scipy.sparse.csc_matrix((A1_1.M.shape[0], A1_3.M.shape[1])),
+                        scipy.sparse.csc_array((A1_1.M.shape[0], A1_2.M.shape[1])),
+                        scipy.sparse.csc_array((A1_1.M.shape[0], A1_3.M.shape[1])),
                     ]
                 ),
                 scipy.sparse.hstack(
                     [
-                        scipy.sparse.csc_matrix((A1_2.M.shape[0], A1_1.M.shape[1])),
+                        scipy.sparse.csc_array((A1_2.M.shape[0], A1_1.M.shape[1])),
                         A1_2.M,  # Crops to crop products
                         A1_3.M,  # Feeds to (negative) crop products
                     ]
@@ -734,7 +734,7 @@ class FeedDistributor:
         )
 
         # We do not need the x_animal part for this
-        Z_ani = scipy.sparse.csc_matrix((len(row_idx), len(self.x_idx["ani"])))
+        Z_ani = scipy.sparse.csc_array((len(row_idx), len(self.x_idx["ani"])))
         # Production of crop products
         A2_1 = self.make_A2_1(row_idx)
         # Regional feed demand for crop products
@@ -853,7 +853,7 @@ class FeedDistributor:
         A5_1 = self.make_A5_1(row_idx)
         # Maximum supply of crop product(s) for a given feed
         A5_2 = self.make_A5_2(row_idx)
-        Z_ani = scipy.sparse.csc_matrix((A5_1.M.shape[0], len(self.x_idx["ani"])))
+        Z_ani = scipy.sparse.csc_array((A5_1.M.shape[0], len(self.x_idx["ani"])))
 
         # Stack matrices
         A5 = scipy.sparse.hstack([Z_ani, A5_1.M, A5_2.M], format="csc")
@@ -1282,12 +1282,12 @@ class FeedDistributor:
                 return A11_min
 
             if mul_factor <= 1:
-                M = scipy.sparse.csc_matrix.maximum(
+                M = scipy.sparse.csc_array.maximum(
                     A11_minmax.M,
                     A11_eq.M.multiply(mul_factor),
                 )
             else:
-                M = scipy.sparse.csc_matrix.minimum(
+                M = scipy.sparse.csc_array.minimum(
                     A11_minmax.M,
                     A11_eq.M.multiply(mul_factor),
                 )
@@ -1362,7 +1362,7 @@ class FeedDistributor:
             # Create an A12_2 which only contains the rows for which we have data for
             # the given herd, animal and feed_par.
             A12_2 = IndexedMatrix.align_rows(A12_2_complete, A12_1)
-            Z_crp = scipy.sparse.csc_matrix((len(A12_1.rows), len(self.x_idx["crp"])))
+            Z_crp = scipy.sparse.csc_array((len(A12_1.rows), len(self.x_idx["crp"])))
 
             if A12_1.shape[0] == 0:
                 return None
@@ -1428,8 +1428,8 @@ class FeedDistributor:
         n_rows = A13_cp.shape[0] + A13_by.shape[0]
         A13 = scipy.sparse.hstack(
             [
-                scipy.sparse.csc_matrix((n_rows, len(self.x_idx["ani"]))),
-                scipy.sparse.csc_matrix((n_rows, len(self.x_idx["crp"]))),
+                scipy.sparse.csc_array((n_rows, len(self.x_idx["ani"]))),
+                scipy.sparse.csc_array((n_rows, len(self.x_idx["crp"]))),
                 scipy.sparse.vstack([A13_cp.M, A13_by.M], format="csc"),
             ],
             format="csc",
@@ -1460,8 +1460,8 @@ class FeedDistributor:
         def _A14(A14_fds: IndexedMatrix):
             M = scipy.sparse.hstack(
                 [
-                    scipy.sparse.csc_matrix((A14_fds.shape[0], n_cols_ani)),
-                    scipy.sparse.csc_matrix((A14_fds.shape[0], n_cols_crp)),
+                    scipy.sparse.csc_array((A14_fds.shape[0], n_cols_ani)),
+                    scipy.sparse.csc_array((A14_fds.shape[0], n_cols_crp)),
                     A14_fds.M,
                 ],
                 format="csc",
@@ -1509,21 +1509,21 @@ class FeedDistributor:
                 scipy.sparse.hstack(
                     [
                         P1_1.M,
-                        scipy.sparse.csc_matrix((P1_1.M.shape[0], P1_2.M.shape[1])),
-                        scipy.sparse.csc_matrix((P1_1.M.shape[0], P1_3.M.shape[1])),
+                        scipy.sparse.csc_array((P1_1.M.shape[0], P1_2.M.shape[1])),
+                        scipy.sparse.csc_array((P1_1.M.shape[0], P1_3.M.shape[1])),
                     ]
                 ),
                 scipy.sparse.hstack(
                     [
-                        scipy.sparse.csc_matrix((P1_2.M.shape[0], P1_1.M.shape[1])),
+                        scipy.sparse.csc_array((P1_2.M.shape[0], P1_1.M.shape[1])),
                         P1_2.M,
-                        scipy.sparse.csc_matrix((P1_2.M.shape[0], P1_3.M.shape[1])),
+                        scipy.sparse.csc_array((P1_2.M.shape[0], P1_3.M.shape[1])),
                     ]
                 ),
                 scipy.sparse.hstack(
                     [
-                        scipy.sparse.csc_matrix((P1_3.M.shape[0], P1_1.M.shape[1])),
-                        scipy.sparse.csc_matrix((P1_3.M.shape[0], P1_2.M.shape[1])),
+                        scipy.sparse.csc_array((P1_3.M.shape[0], P1_1.M.shape[1])),
+                        scipy.sparse.csc_array((P1_3.M.shape[0], P1_2.M.shape[1])),
                         P1_3.M,
                     ]
                 ),
@@ -1739,8 +1739,8 @@ class FeedDistributor:
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
         # Zero matrix
-        Z_ani = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["ani"])))
-        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
+        Z_ani = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["ani"])))
+        Z_fds = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
@@ -1814,8 +1814,8 @@ class FeedDistributor:
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
         # Zero matrices for crops and feeds
-        Z_crp = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["crp"])))
-        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
+        Z_crp = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["crp"])))
+        Z_fds = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
         return IndexedMatrix(
@@ -2027,8 +2027,8 @@ class FeedDistributor:
         M = scipy.sparse.coo_array(
             (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
         ).tocsc()
-        Z_ani = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["ani"])))
-        Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(self.x_idx["fds"])))
+        Z_ani = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["ani"])))
+        Z_fds = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["fds"])))
 
         # Create Compressed Sparse Column matrix
         return IndexedMatrix(
@@ -2056,9 +2056,9 @@ class FeedDistributor:
             sel_rows = [col_idx[label].get_loc(i) for i in row_idx[label]]
             M = M[sel_rows, :]
             # Create zero matrix and hstack
-            Z_ani = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["ani"])))
-            Z_crp = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["crp"])))
-            Z_fds = scipy.sparse.csc_matrix((M.shape[0], len(col_idx["fds"])))
+            Z_ani = scipy.sparse.csc_array((M.shape[0], len(col_idx["ani"])))
+            Z_crp = scipy.sparse.csc_array((M.shape[0], len(col_idx["crp"])))
+            Z_fds = scipy.sparse.csc_array((M.shape[0], len(col_idx["fds"])))
             # Extend M with zeroes
             if label == "ani":
                 M = scipy.sparse.hstack([M, Z_crp, Z_fds], format="csc")
@@ -2085,13 +2085,13 @@ class FeedDistributor:
             if A is not None:
                 # Create a 1-by-len(col_idx) matrix and set cols corresponding to
                 # index to 1
-                M = scipy.sparse.lil_matrix((1, len(col_idx[label])))
+                M = scipy.sparse.lil_array((1, len(col_idx[label])))
                 sel_cols = [col_idx[label].get_loc(i) for i in A.index]
                 M[:, sel_cols] = 1
                 MS.append(M)
             else:
                 # Append zero matrix
-                Z = scipy.sparse.csc_matrix((1, len(col_idx[label])))
+                Z = scipy.sparse.csc_array((1, len(col_idx[label])))
                 MS.append(Z)
 
         # Create Compressed Sparse Column matrix
@@ -2160,8 +2160,8 @@ class FeedDistributor:
         A10_fds = self.make_A10_1(D_byprod.index)
 
         # Zero matrices
-        Z_ani = scipy.sparse.csc_matrix((A10_fds.M.shape[0], len(self.x_idx["ani"])))
-        Z_crp = scipy.sparse.csc_matrix((A10_fds.M.shape[0], len(self.x_idx["crp"])))
+        Z_ani = scipy.sparse.csc_array((A10_fds.M.shape[0], len(self.x_idx["ani"])))
+        Z_crp = scipy.sparse.csc_array((A10_fds.M.shape[0], len(self.x_idx["crp"])))
 
         M = IndexedMatrix(
             scipy.sparse.hstack([Z_ani, Z_crp, A10_fds.M], format="csc"),
@@ -2466,7 +2466,7 @@ class FeedDistributor:
                 ],
             )
             return IndexedMatrix(
-                scipy.sparse.csc_matrix((0, len(col_idx))), row_idx, col_idx
+                scipy.sparse.csc_array((0, len(col_idx))), row_idx, col_idx
             )
 
         herds_df = (
@@ -2593,7 +2593,7 @@ class FeedDistributor:
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.csc_matrix((len(row_idx), len(col_idx))),
+            scipy.sparse.csc_array((len(row_idx), len(col_idx))),
             row_idx,
             col_idx,
         )

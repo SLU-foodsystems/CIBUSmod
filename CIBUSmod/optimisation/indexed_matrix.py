@@ -8,7 +8,7 @@ class IndexedMatrix:
     """Class to store pandas.Index/MultiIndex alongside a sparse
     matrix to keep track of things"""
 
-    def __init__(self, matrix: scipy.sparse.csc_matrix, row_idx, col_idx):
+    def __init__(self, matrix: scipy.sparse.csc_array, row_idx, col_idx):
         self.M = matrix
         self.rows = row_idx
         self.cols = col_idx
@@ -46,13 +46,14 @@ class IndexedMatrix:
             raise ValueError("IndexedMatrix.prune_rows only works with flat indices.")
 
         # Convert to CSR format for efficient row-based operations
-        csr_mat = scipy.sparse.csr_matrix(self.M)
+        csr_arr = scipy.sparse.csr_array(self.M)
 
         # Identify rows that contain non-zero entries
-        non_empty_rows = np.flatnonzero(csr_mat.getnnz(axis=1))
+        ## Note that np.diff(.indptr) is the same as .getnnz(axis=1) (was deprecated).
+        non_empty_rows = np.flatnonzero(np.diff(csr_arr.indptr))
 
         # Slice the CSR matrix to keep only non-empty rows
-        pruned_csr = csr_mat[non_empty_rows, :]
+        pruned_csr = csr_arr[non_empty_rows, :]
 
         # Convert back to CSC format
         self.M = pruned_csr.tocsc()
