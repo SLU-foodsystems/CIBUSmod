@@ -1021,7 +1021,7 @@ class FeedDistributor:
                 else:
                     pars[p] = [pars[p]] * pars_len_max
 
-        if all([pars[k].isnull.all() for k in ["C8_crp", "C8_ani", "C8_fds"]]):
+        if all([v is None for k in ["C8_crp", "C8_ani", "C8_fds"] for v in pars[k]]):
             raise ValueError(
                 "At least one of 'C8_crp' or 'C8_ani' must be given to use constraint C8"
             )
