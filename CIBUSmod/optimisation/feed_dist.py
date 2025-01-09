@@ -1163,7 +1163,7 @@ class FeedDistributor:
 
         if all([v is None for k in ["C9_ani", "C9_crp", "C9_fds"] for v in pars[k]]):
             raise ValueError(
-                "At least one of 'C9_crp' or 'C9_ani' must be given to use constraint C9"
+                "At least one of 'C9_crp', 'C9_ani' or 'C9_fds' must be given to use constraint C9"
             )
         if any([v not in ["==", ">=", "<="] for v in pars["C9_rel"]]):
             raise ValueError("All 'C9_rel' must be one of '==', '>=' or '<='")
