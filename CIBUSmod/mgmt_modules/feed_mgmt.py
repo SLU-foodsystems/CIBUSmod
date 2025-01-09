@@ -169,7 +169,7 @@ class FeedMgmt():
 
         if len(self.par.get_unique("crop_resid", 'parameter == "share_domestic"')) > 0:
             warnings.warn(
-                f"FeedMgmt: Spicified import shares for 'crop_resid' will have no effect! For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
+                f"FeedMgmt: Specified import shares for 'crop_resid' will have no effect! For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
             )
 
         for herd in self.herds:
