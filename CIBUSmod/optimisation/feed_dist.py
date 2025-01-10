@@ -384,6 +384,10 @@ class FeedDistributor:
             )
 
             adjusted_feed_demands = (ratio.T * feed_demands.T).T
+            # Drop cols where feed is nan, which may arise when multiplying with ratio
+            adjusted_feed_demands = adjusted_feed_demands.loc[
+                :, adjusted_feed_demands.columns.get_level_values("feed").notna()
+            ]
 
             # Ensure that wherever h_heads is zero, feed_demands must be zero.
             heads_long = h_heads.T.stack("region")
