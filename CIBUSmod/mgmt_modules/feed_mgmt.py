@@ -64,6 +64,7 @@ class FeedMgmt:
         """Calculates ration characteristics"""
         for herd in self.herds:
             # Set species and breed filters for ParameterRetriever
+            self.par.clear()
             self.par.set(species=herd.species, breed=herd.breed)
 
             feed_DM = herd.data_attr.get("feed.consumption")
