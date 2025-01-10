@@ -166,10 +166,10 @@ class FeedMgmt:
         prs = self.par.get_unique(["feed", prod_type]).set_index("feed")[prod_type]
 
         if (prod_type != "crop_prod") and (
-            len(self.par.get_unique(prod_type, 'parameter == "share_imported"')) > 0
+            len(self.par.get_unique(prod_type, 'parameter == "share_domestic"')) > 0
         ):
             warnings.warn(
-                f"FeedMgmt: Specified import shares for '{prod_type}' will have no effect!"
+                f"FeedMgmt: Specified domestic shares for '{prod_type}' will have no effect!"
                 + "For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
             )
 
@@ -203,7 +203,7 @@ class FeedMgmt:
                     # Get import shares
                     feed_to_imp_prod = (
                         feed_to_prod
-                        * self.par.get_from_frame("share_imported", retrieve_df)
+                        * (100 - self.par.get_from_frame("share_domestic", retrieve_df))
                         / 100
                     )
                     feed_to_dom_prod = feed_to_prod - feed_to_imp_prod
@@ -286,9 +286,9 @@ class FeedMgmt:
             # Add data attributes (drop zero cols)
             result_df = result_df.loc[:, result_df.sum() > 0]
             data_attr_demand_key = (
-                "feed.residue_demand"
-                if prod_type == "crop_resid"
-                else f"feed.{prod_type}uct_demand"
+                f"feed.{prod_type}uct_demand"
+                if prod_type != "crop_resid"
+                else "feed.residue_demand"
             )
             herd.data_attr.add(
                 result_df,
