@@ -169,7 +169,7 @@ class FeedMgmt:
             len(self.par.get_unique(prod_type, 'parameter == "share_domestic"')) > 0
         ):
             warnings.warn(
-                f"FeedMgmt: Specified domestic shares for '{prod_type}' will have no effect!"
+                f"FeedMgmt: Specified domestic shares for '{prod_type}' will have no effect! \n"
                 + "For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
             )
 
