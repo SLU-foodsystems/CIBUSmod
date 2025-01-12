@@ -286,14 +286,14 @@ class FeedMgmt:
 
             # Add data attributes (drop zero cols)
             result_df = result_df.loc[:, result_df.sum() > 0]
-            data_attr_demand_key = (
-                f"feed.{prod_type}uct_demand"
-                if prod_type != "crop_resid"
-                else "feed.residue_demand"
-            )
+            prod_demand_key = {
+                "crop_prod": "feed.crop_product_demand",
+                "crop_resid": "feed.crop_residue_demand",
+                "by_prod": "feed.by_product_demand",
+            }[prod_type]
             herd.data_attr.add(
                 result_df,
-                name=data_attr_demand_key,
+                name=prod_demand_key,
                 unit="kg DM/year" if prod_type == "crop_resid" else "kg/year",
                 orig="FeedMgmt",
                 desc=f'Demand for {"crop products" if prod_type == "crop_prod" else "by-products" if prod_type=="by_prod" else "crop residues"} for feed',
