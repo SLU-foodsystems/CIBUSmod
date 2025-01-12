@@ -1061,7 +1061,7 @@ class FeedDistributor:
                 [
                     pars[k][i].values
                     for k in ["C8_ani", "C8_crp", "C8_fds"]
-                    if pars[k][k] is not None
+                    if pars[k][i] is not None
                 ]
             )
 
