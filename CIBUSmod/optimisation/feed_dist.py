@@ -986,7 +986,7 @@ class FeedDistributor:
             .merge(sel_fds.to_frame(index=False), on=fds_idx.names)["idx"]
             .values
             + i_fds_offset
-        )
+        ).tolist()
 
         isel = isel_ani + isel_crp + isel_fds
 
