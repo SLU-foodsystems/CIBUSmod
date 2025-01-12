@@ -289,7 +289,7 @@ class ManureMgmt():
                 return (
                     DM.mul(
                         self.feed_mgmt.par.get_from_frame(
-                            "feed_par", df, feed_composition=par
+                            "feed_composition", df, feed_par=par
                         )
                         / 100
                     )
