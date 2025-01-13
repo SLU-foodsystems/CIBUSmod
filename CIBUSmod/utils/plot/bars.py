@@ -379,7 +379,7 @@ def waterfall(
             if ~np.isnan(data_chg.iloc[i,2]):
                 y = data_chg.iloc[i,1] + data_chg.iloc[i,2] + y_adj
                 s='+'+lab+('%' if label == 'percent' else '')
-                plt.text(
+                ax.text(
                     x,y,s,
                     ha = 'center',
                     va = 'bottom',
@@ -388,7 +388,7 @@ def waterfall(
             elif ~np.isnan(data_chg.iloc[i,3]):
                 y = data_chg.iloc[i,1] - y_adj
                 s=lab+('%' if label == 'percent' else '')
-                plt.text(
+                ax.text(
                     x,y,s,
                     ha = 'center',
                     va = 'top',
