@@ -89,7 +89,9 @@ class PlantNutrientMgmt():
         self.calculate_N_soil_losses(of='manure_N')
         self.calculate_N_soil_losses(of='organic_N')
         self.calculate_N_soil_losses(of='crop_residues_N')
-        self.calculate_organic_soil_N_losses()
+
+        vprint('Calculating losses from organic soils...')
+        self.calculate_organic_soil_losses()
 
         vprint('Calculating N leaching ...')
         self.calculate_leaching_N()
@@ -907,7 +909,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             desc = f'Soil losses of nitrogen (N) from {"applied mineral fertilisers" if "mineral" in of else "applied and deposited manure" if "manure" in of else "crop residues"}'
         )
 
-    def calculate_organic_soil_N_losses(self):
+    def calculate_organic_soil_losses(self):
 
         self.par.clear()
         self.regions.par.clear()
@@ -918,6 +920,14 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         areas['land_use'] = [rel[c] for c in areas.index.get_level_values('crop')]
         areas = areas.set_index('land_use', append=True)['area']
 
+        # Calculate areas of organic soils
+        areas_organic_soil = areas.mul(
+            self.regions.par.get(
+                'share_org_soil',
+                **areas.index.to_frame().to_dict('list')
+            )/100
+        )
+
         # Get compounds lost
         compounds = \
         self.par.get_unique(
@@ -926,23 +936,32 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         )
 
         # Construct dataframe
-        organic_soil_N_loss = pd.DataFrame(
-            index = areas.index,
+        organic_soil_loss = pd.DataFrame(
+            index = areas_organic_soil.index,
             columns = pd.Index(compounds, name='compound')
         )
 
         # Calculate emissions
-        organic_soil_N_loss = (
-            self.regions.par.get_from_frame('share_org_soil', organic_soil_N_loss)/100 *
-            self.par.get_from_frame('soil_losses_organic_soils', organic_soil_N_loss)
-        ).mul(areas, axis=0).droplevel('land_use')
+        organic_soil_loss = (
+            self.par.get_from_frame('soil_losses_organic_soils', organic_soil_loss)
+        ).mul(areas_organic_soil, axis=0)
 
+        # Store organic soil losses
         self.crops.data_attr.add(
-            organic_soil_N_loss,
-            name = 'fertiliser.organic_soil_N_loss',
-            unit = 'kg N/year',
+            organic_soil_loss.droplevel('land_use'),
+            name = 'organic_soil_losses',
+            unit = 'kg/year',
             orig = 'PlantNutrientMgmt',
-            desc = 'Soil losses of nitrogen (N) from organic soils'
+            desc = 'Losses of nitrogen (N) and carbon (C) from organic soils'
+        )
+
+        # Store area of organic soil
+        self.crops.data_attr.add(
+            areas_organic_soil.droplevel('land_use'),
+            name = 'organic_soil_area',
+            unit = 'ha or m2',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Crop areas on organic soils in ha (or m2 for greenhouse crops)'
         )
 
     def calculate_leaching_N(self):
