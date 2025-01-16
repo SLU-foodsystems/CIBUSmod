@@ -50,8 +50,8 @@ def do_run(
         # Instantiate CropProduction
         crops = cm.CropProduction(
             par = cm.ParameterRetriever('CropProduction'),
-            index = regions.data_attr.get('x0_crops').index
-        )    
+            regions = regions
+        )      
         
         # Instantiate AnimalHerds
         # Each AnimalHerd object is stored in an indexed pandas.Series
