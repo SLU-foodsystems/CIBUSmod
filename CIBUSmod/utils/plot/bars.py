@@ -255,7 +255,7 @@ def bar(
        
     # Apply axis padding and adjust spine ranges
     ax.spines[['left','bottom']].set_position(('outward', axis_padding))
-    yticks = [t for t in ax.get_yticks() if t <= ymax*1.1 and t >= ymin*1.1]
+    yticks = [t for t in ax.get_yticks() if t <= ymax and t >= ymin]
     ax.set_yticks(yticks)
     ax.spines['left'].set_bounds((min(yticks), max(yticks)))
     
