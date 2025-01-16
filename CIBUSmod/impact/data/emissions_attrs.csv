@@ -26,8 +26,9 @@ CropProduction,fertiliser.manure_N_soil_loss,agricultural soils,nitrification an
 CropProduction,fertiliser.organic_N_soil_loss,agricultural soils,nitrification and denitrification
 CropProduction,fertiliser.mineral_N_soil_loss,agricultural soils,nitrification and denitrification
 CropProduction,fertiliser.crop_residues_N_soil_loss,agricultural soils,nitrification and denitrification
-CropProduction,fertiliser.organic_soil_N_loss,agricultural soils,organic soils
 CropProduction,fertiliser.leaching_N,agricultural soils,leaching
+
+CropProduction,organic_soil_losses,agricultural soils,organic soils
 
 CropProduction,fertiliser.liming_emissions,liming,liming
 

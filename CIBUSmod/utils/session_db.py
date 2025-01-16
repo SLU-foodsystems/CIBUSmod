@@ -346,6 +346,8 @@ class Session(object):
             scenarios_path=self.data_path_scenarios
         )
 
+        self.cache = CacheDict()
+
         return None
     
     def scenarios(self, subset='all'):
@@ -1420,6 +1422,11 @@ class CacheDict(dict):
             diff = len(self) - max_size 
             for k in list(self)[:diff]:
                 del self[k]
+
+    def __reduce__(self):
+        # Used in pickling/unpickling
+        # Content of dict is dropped
+        return (self.__class__, (), self.__dict__.copy())
 
 def _isiterable(obj):
     try:

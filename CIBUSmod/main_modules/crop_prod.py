@@ -13,8 +13,14 @@ class CropProduction(object):
     Parameters
     ----------
     par : ParameterRetriever object
-    index : pandas.Index or pandas.MultiIndex
-        Index for the rows. This is also passed on to the ParameterRetriever
+    regions : Regions object, default None
+        Regions object used to build Index for rows based on 'x0_crops'
+    index : pandas.Index or pandas.MultiIndex, default None
+        Index for the rows. Should have levels ('crop', 'prod_system', 'region')
+
+    Only one of regions or index should be passed. If a Regions object is passed
+    the index is built based on 'x0_crops' and is rebuilt on .calculate() to include
+    any additional crops added in a scenario.
     '''
 
     module_name = 'CropProduction'
