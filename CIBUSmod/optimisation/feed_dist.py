@@ -2080,11 +2080,13 @@ class FeedDistributor:
         )
 
     def make_A8(self, C8_ani, C8_crp, C8_fds):
-        # Get row index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,sp,br,ps,ss,re)
+        # Store the row_index for ani, crp and fds
         row_idx = {}
-        # Get col index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,sp,br,ps,ss,re)
+        # Get col indexes from x_idx for ani, crp and fds
         col_idx = {k: v.copy() for k, v in self.x_idx.items()}
 
+        # Vertically stack identity matrices for each of the categories that are not
+        # None, and fill horizontally with zeroes.
         MS = []
         for label, A in [("ani", C8_ani), ("crp", C8_crp), ("fds", C8_fds)]:
             if A is None:
@@ -2106,7 +2108,7 @@ class FeedDistributor:
                 M = scipy.sparse.hstack([M, Z_crp, Z_fds], format="csc")
             elif label == "crp":
                 M = scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc")
-            else:  # ac == fds
+            else:  # label == "fds"
                 M = scipy.sparse.hstack([Z_ani, Z_crp, M], format="csc")
 
             MS.append(M)
