@@ -1094,7 +1094,6 @@ class FeedDistributor:
             )
 
             # Make right hand vector (b8)
-            # TODO: Should we not fill with zeroes otherwise?
             b8 = np.concatenate(
                 [
                     pars[k][i].values
