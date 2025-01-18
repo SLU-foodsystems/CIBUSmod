@@ -2227,6 +2227,89 @@ class FeedDistributor:
             }
         )
 
+    def make_A11(self, param: str) -> None | IndexedMatrix:
+        row_idx = self.x_idx["fds"]
+        col_idx = self.x_idx["fds"]
+
+        herd_dfs = []
+        for herd in self.herds:
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+
+            p = herd.par
+            p.clear()
+
+            feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
+
+            # Where there are no 'constraints' for this parameter- and herd combo, we
+            # do not need to add anything to the df.
+            if len(feeds) == 0:
+                continue
+
+            retrieve_df = pd.DataFrame(
+                index=pd.MultiIndex.from_tuples(
+                    [(ani, sp, br, ps, ss) for ani in herd.animals],
+                    names=["animal", "species", "breed", "prod_system", "sub_system"],
+                ),
+                columns=pd.Index(feeds, name="feed"),
+            )
+            df = p.get_from_frame(param, retrieve_df, warn_if_nan=False).stack("feed")
+
+            herd_dfs.append(df)
+
+        # No values for the given parameter defined, in which case we can return a None
+        if len(herd_dfs) == 0:
+            return None
+
+        shares_df = (
+            (
+                pd.concat(herd_dfs).reorder_levels(
+                    [n for n in self.x_idx["fds"].names if n != "region"]
+                )
+                / 100
+            )
+            .to_frame(name="share")
+            .reset_index()
+        )
+
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+
+        # Get loss factors which we want to multiply with every (non-zero) element.
+        # This, because we in x_fds have feed demand, whereas the constraint regards
+        # the feed consumption.
+        losses = self._get_losses_factors(shape="long").reset_index()
+
+        # Note: ca 85% of execution time for this function spent here
+        merged_df = (
+            row_idx_df.merge(
+                col_idx_df,
+                on=[cname for cname in row_idx.names if cname != "feed"],
+                suffixes=("", "_c"),
+            )
+            .merge(
+                shares_df,
+                on=[cname for cname in shares_df.columns if cname != "share"],
+            )
+            .merge(
+                losses,
+                on=[cname for cname in losses.columns if cname != "losses_factor"],
+            )
+        )
+
+        merged_df["values"] = (
+            np.where(
+                merged_df["feed"] == merged_df["feed_c"],
+                1 - merged_df["share"],
+                -merged_df["share"],
+            )
+            * merged_df["losses_factor"]
+        )
+
+        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
+
     def make_A12_1(self, row_idx: pd.MultiIndex, rel: Literal["min", "eq", "max"]):
         """
         Map animals to their respective feed requirements
@@ -2326,89 +2409,6 @@ class FeedDistributor:
             row_idx_df,
             on=["feed_par", "animal", "species", "breed", "prod_system", "sub_system"],
         ).merge(col_idx_df, on=col_idx.names)
-
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
-
-    def make_A11(self, param: str) -> None | IndexedMatrix:
-        row_idx = self.x_idx["fds"]
-        col_idx = self.x_idx["fds"]
-
-        herd_dfs = []
-        for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-
-            p = herd.par
-            p.clear()
-
-            feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
-
-            # Where there are no 'constraints' for this parameter- and herd combo, we
-            # do not need to add anything to the df.
-            if len(feeds) == 0:
-                continue
-
-            retrieve_df = pd.DataFrame(
-                index=pd.MultiIndex.from_tuples(
-                    [(ani, sp, br, ps, ss) for ani in herd.animals],
-                    names=["animal", "species", "breed", "prod_system", "sub_system"],
-                ),
-                columns=pd.Index(feeds, name="feed"),
-            )
-            df = p.get_from_frame(param, retrieve_df, warn_if_nan=False).stack("feed")
-
-            herd_dfs.append(df)
-
-        # No values for the given parameter defined, in which case we can return a None
-        if len(herd_dfs) == 0:
-            return None
-
-        shares_df = (
-            (
-                pd.concat(herd_dfs).reorder_levels(
-                    [n for n in self.x_idx["fds"].names if n != "region"]
-                )
-                / 100
-            )
-            .to_frame(name="share")
-            .reset_index()
-        )
-
-        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
-        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
-
-        # Get loss factors which we want to multiply with every (non-zero) element.
-        # This, because we in x_fds have feed demand, whereas the constraint regards
-        # the feed consumption.
-        losses = self._get_losses_factors(shape="long").reset_index()
-
-        # Note: ca 85% of execution time for this function spent here
-        merged_df = (
-            row_idx_df.merge(
-                col_idx_df,
-                on=[cname for cname in row_idx.names if cname != "feed"],
-                suffixes=("", "_c"),
-            )
-            .merge(
-                shares_df,
-                on=[cname for cname in shares_df.columns if cname != "share"],
-            )
-            .merge(
-                losses,
-                on=[cname for cname in losses.columns if cname != "losses_factor"],
-            )
-        )
-
-        merged_df["values"] = (
-            np.where(
-                merged_df["feed"] == merged_df["feed_c"],
-                1 - merged_df["share"],
-                -merged_df["share"],
-            )
-            * merged_df["losses_factor"]
-        )
 
         return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
 
