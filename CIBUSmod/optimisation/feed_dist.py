@@ -1065,6 +1065,11 @@ class FeedDistributor:
         if any([v not in ["==", ">=", "<="] for v in pars["C8_rel"]]):
             raise ValueError("All 'C8_rel' must be one of '==', '>=' or '<='")
 
+        if "==" in pars["C8_rel"] and pars["C8_tol"] is None:
+            raise ValueError(
+                "The C8_tol parameter was missing, but is required for C8 equality constraints."
+            )
+
         # Get number of previously defined C8 constraints
         try:
             n_def = (
