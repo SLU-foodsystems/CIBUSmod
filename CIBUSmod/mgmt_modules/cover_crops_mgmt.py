@@ -26,24 +26,67 @@ class CoverCropsMgmt(object):
         self.par = par
         self.crops = crops
 
-    def calculate(self):
+    def calculate(self, verbose=False):
+
+        # Define functions to print progress messages if verbose==True
+        vprint = verbose_init(verbose, id_str='CoverCropsMgmt')
+
+        vprint('Calculating cover crops area ...')
+        self.calculate_cover_crops_area()
+
+        vprint('Calculating above and below ground cover crop residues ...')
+        self.calculate_cover_crop_residues()
+
+        vprint(type='end')
+        
         return None
 
-    def get_cover_crops_area(self):
+    def calculate_cover_crops_area(self):
         self.par.clear()
         # Get cover crops
         ccs = self.par.get_unique('cover_crop')
         # Get crop areas
         areas = self.crops.data_attr.get('area')
         # Create data frame for cover crop areas
-        cover_crop_areas = pd.DataFrame(
+        CC_area = pd.DataFrame(
             index = areas.index,
             columns = pd.Index(ccs, name = 'cover_crop')
         )
         # Calculate cover crop areas
-        cover_crop_areas = (self.par.get_from_frame(
+        CC_area = (self.par.get_from_frame(
             'share_preceded_by_cover_crop',
-            cover_crop_areas
+            CC_area
         )/100).mul(areas, axis=0)
 
-        return cover_crop_areas
+        # Store data attribute
+        self.crops.data_attr.add(
+            CC_area,
+            name = 'cover_crops.area',
+            unit = 'ha',
+            orig = "CoverCropsMgmt",
+            desc = "Area of cover crops"
+        )
+
+    def calculate_cover_crop_residues(self):
+        self.par.clear()
+
+        # Get cover crop area
+        CC_area = self.crops.data_attr.get('cover_crops.area')
+
+        # Calculate above and below ground residues from cover crops
+        ag_residues = CC_area * self.par.get_from_frame('ag_biomass', CC_area)
+        bg_residues = CC_area * self.par.get_from_frame('bg_biomass', CC_area)
+
+        CC_residues = pd.concat([
+            pd.concat({'above ground': ag_residues}, names=['residue'], axis=1),
+            pd.concat({'below ground': bg_residues}, names=['residue'], axis=1)
+        ], axis=1)
+
+        # Store data attributes
+        self.crops.data_attr.add(
+            CC_residues,
+            name = 'cover_crops.residues',
+            unit = 'kg DM/year',
+            orig = "CoverCropsMgmt",
+            desc = "Above and below ground residues from cover crops"
+        )
