@@ -168,6 +168,10 @@ class PlantNutrientMgmt():
             self.par.get('N_resid_crop', **self.crops.index.to_frame().to_dict('list'))
         ).groupby(['prod_system','region']).sum()
 
+        if self.cover_crops_mgmt is not None:
+            # Get residual N from cover crops and add to dataframe
+            residual_N += self.cover_crops_mgmt.get_residual_N()
+
         # Allocate residual N from crops to crops in 'crop_groups' based on
         # TAN requirements
         crop_groups = ['Cereals, winter', 'Cereals, spring', 'Ley', 'Fodder crops']
@@ -1044,6 +1048,14 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
 
         # Drop 'land_use' from index
         leaching_N = leaching_N.droplevel('land_use')
+
+        if self.cover_crops_mgmt is not None:
+            # Get cover crop leaching adjustment factors
+            # and adjust final N leaching
+            leaching_N = leaching_N.mul(
+                self.cover_crops_mgmt.get_leach_adjust(),
+                axis = 0
+            ).sum().sum()
 
         # Add data attribute
         self.crops.data_attr.add(
