@@ -90,3 +90,40 @@ class CoverCropsMgmt(object):
             orig = "CoverCropsMgmt",
             desc = "Above and below ground residues from cover crops"
         )
+
+    def get_residual_N(self):
+        '''Method to return the leaching adjustment factors due to cover crops.
+        Returns a pd.Series with (crop, prod_system, region) as index'''
+        self.par.clear()
+        
+        # Get cover crop areas
+        CC_area = self.crops.data_attr.get('cover_crops.area')
+        
+        # Calculate residual nitrogen from cover crops per production system and region
+        CC_N_resid = (
+            (CC_area * self.par.get_from_frame('resid_N', CC_area))
+            .sum(axis=1)
+            .groupby(['prod_system', 'region']).sum()
+        )
+
+        return CC_N_resid
+    
+    def get_leach_adjust(self):
+        '''Method to return the residual nitrogen (N) from cover crops [kg N].
+        Returns a pd.Series with (prod_system, region) as index'''
+        self.par.clear()
+
+        # Get crop and cover crop areas
+        crop_area = self.crops.data_attr.get('area')
+        CC_area = self.crops.data_attr.get('cover_crops.area')
+
+        # Calculate total leaching adjustment factors
+        leach_adjust = (
+            1 - (
+                CC_area * (
+                    1 - self.par.get_from_frame('leach_adjust', CC_area)
+                )
+            ).div(crop_area, axis=0).sum(axis=1)
+        )
+
+        return leach_adjust
