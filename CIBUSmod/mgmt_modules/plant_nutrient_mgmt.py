@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..main_modules.regions import Regions
     from ..main_modules.crop_prod import CropProduction
     from ..main_modules.waste_and_circularity import WasteAndCircularity
+    from .cover_crops_mgmt import CoverCropsMgmt
     from ..utils.retriever import ParameterRetriever
 
 class PlantNutrientMgmt():
@@ -20,10 +21,13 @@ class PlantNutrientMgmt():
 
     Parameters
     ----------
-    crops : CropProduction object
-    herds : (pandas.Series of) AnimalHerd object(s)
     demand : DemandAndConversions object
+    regions : regions object
+    crops : CropProduction object
+    waste : WasteAndCircularity object
+    herds : (pandas.Series of) AnimalHerd object(s)
     par : ParameterRetriever object
+    cover_crops_mgmt : CoverCropsMgmt object (optional)
     '''
 
     def __init__(
@@ -33,7 +37,8 @@ class PlantNutrientMgmt():
             crops: "CropProduction",
             waste: "WasteAndCircularity",
             herds: pd.Series,
-            par: "ParameterRetriever"
+            par: "ParameterRetriever",
+            cover_crops_mgmt: "CoverCropsMgmt" = None
         ):
 
         self.par = par
@@ -41,6 +46,7 @@ class PlantNutrientMgmt():
         self.regions = regions
         self.crops = crops
         self.waste = waste
+        self.cover_crops_mgmt = cover_crops_mgmt
 
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -78,6 +84,8 @@ class PlantNutrientMgmt():
 
         vprint('Calculating N in crop residues ...')
         self.calculate_N_in_crop_residues()
+        if self.cover_crops_mgmt is not None:
+            self.calculate_N_in_cover_crop_residues()
 
         vprint('Calculating N application losses ...') # Only NH3 YES?
         self.calculate_N_application_losses(of='mineral_N')
@@ -89,6 +97,8 @@ class PlantNutrientMgmt():
         self.calculate_N_soil_losses(of='manure_N')
         self.calculate_N_soil_losses(of='organic_N')
         self.calculate_N_soil_losses(of='crop_residues_N')
+        if self.cover_crops_mgmt is not None:
+            self.calculate_N_soil_losses(of='cover_crop_residues_N')
 
         vprint('Calculating losses from organic soils...')
         self.calculate_organic_soil_losses()
@@ -769,6 +779,29 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
         )
 
+    def calculate_N_in_cover_crop_residues(self):
+
+        self.cover_crops_mgmt.par.clear()
+
+        # Get cover crop residues
+        CC_residues = self.crops.data_attr.get('cover_crops.residues')
+
+        # Calculate N in above and below ground cover crop residues
+        CC_residues_N = CC_residues.copy()
+        CC_residues_N.loc[:,['above ground']] *= \
+            self.cover_crops_mgmt.par.get_from_frame('ag_N', CC_residues_N.loc[:,['above ground']])
+        CC_residues_N.loc[:,['below ground']] *= \
+            self.cover_crops_mgmt.par.get_from_frame('bg_N', CC_residues_N.loc[:,['below ground']])
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            CC_residues_N,
+            name = 'fertiliser.cover_crop_residues_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Nitrogen (N) in above and below ground cover crop residues'
+        )
+
     def calculate_N_application_losses(self, of):
         # Application losses of NH3-N calculated according to
         # Tier 2 method described in 'Informative Inventory
@@ -980,6 +1013,14 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             self.crops.data_attr.get('fertiliser.crop_residues_N')
             .sum(axis=1).rename('crop residues')
         ], axis=1).rename_axis(columns = 'source')
+
+        if self.cover_crops_mgmt is not None:
+            # Add N in cover crop residues
+            N_add = pd.concat([
+                N_add,
+                self.crops.data_attr.get('fertiliser.cover_crop_residues_N')
+                .sum(axis=1).rename('cover crop residues')
+                ], axis=1).rename_axis(columns = 'source')
 
         # Create output dataframe
         df = pd.DataFrame(
