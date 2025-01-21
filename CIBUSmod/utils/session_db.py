@@ -830,6 +830,7 @@ class Session(object):
                     """, data)
 
                 for attr in data_attr_dict:
+                    print(attr)
 
                     data_to_write = _get_check_and_clean_data(arg, module, attr)
 
@@ -1508,6 +1509,15 @@ def _level_names_to_integer_key(data, db_path, timeout):
         if isinstance(data, pd.DataFrame):
             # Stack to series (take shortest way)
             data = data.dropna(axis=1, how='all')
+            if data.shape[1] == 0:
+                # If no columns remain (i.e. all values in dataframe were NaN)
+                # return an empty pd.Series with the correct levels
+                return pd.Series(
+                        index = pd.MultiIndex.from_tuples(
+                            [],
+                            names = lvl_keys
+                        )
+                    )
             if data.columns.nlevels > data.index.nlevels:
                 data = (
                     data.unstack(data.index.names)
