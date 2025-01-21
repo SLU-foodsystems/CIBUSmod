@@ -92,8 +92,8 @@ class CoverCropsMgmt(object):
         )
 
     def get_residual_N(self):
-        '''Method to return the leaching adjustment factors due to cover crops.
-        Returns a pd.Series with (crop, prod_system, region) as index'''
+        '''Method to return the residual nitrogen (N) from cover crops [kg N].
+        Returns a pd.DataFrame of the same form as df with (prod_system, region) as index'''
         self.par.clear()
         
         # Get cover crop areas
@@ -108,22 +108,35 @@ class CoverCropsMgmt(object):
 
         return CC_N_resid
     
-    def get_leach_adjust(self):
-        '''Method to return the residual nitrogen (N) from cover crops [kg N].
-        Returns a pd.Series with (prod_system, region) as index'''
-        self.par.clear()
+    def get_soil_loss_adjust(self, df):
+        '''Method to return the adjustment factors for soil losses due to cover crops.
+        Returns a pd.DataFrame of the same form as df'''
+        return self._get_adjust_factors('soil_loss_adjust', df)
 
+    def get_leach_adjust(self, df):
+        '''Method to return the adjustment factors for leaching due to cover crops.
+        Returns a pd.DataFrame of the same form as df'''
+        return self._get_adjust_factors('leach_adjust', df)
+    
+    def _get_adjust_factors(self, of, df):
+        self.par.clear()
+        
         # Get crop and cover crop areas
         crop_area = self.crops.data_attr.get('area')
         CC_area = self.crops.data_attr.get('cover_crops.area')
-
-        # Calculate total leaching adjustment factors
-        leach_adjust = (
-            1 - (
-                CC_area * (
-                    1 - self.par.get_from_frame('leach_adjust', CC_area)
-                )
-            ).div(crop_area, axis=0).sum(axis=1)
+        
+        # Calculate leaching adjustment factors
+        adjust_factors = pd.DataFrame(
+            0.0,
+            index = df.index,
+            columns = df.columns
         )
-
-        return leach_adjust
+        for cc in CC_area.columns:
+            self.par.set(cover_crop = cc)
+            # Add inverse of leach adjust factor times cover crop area
+            adjust_factors += (1-self.par.get_from_frame(of, df)).mul(CC_area.loc[:,cc], axis=0)
+        # Divide by total crop area and invert (Set NaN to 1 for cases where crop area is 0)
+        adjust_factors = (1 - adjust_factors.div(crop_area, axis=0)).fillna(1)
+        
+        return adjust_factors
+    

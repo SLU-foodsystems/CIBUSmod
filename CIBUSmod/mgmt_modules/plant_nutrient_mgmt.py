@@ -936,6 +936,11 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         # Apply emission factors
         N_loss = N_appl * EF
 
+        if self.cover_crops_mgmt is not None:
+            # Get adjustment factors for soil losses due to cover crops
+            # and adjust final soil losses
+            N_loss *= self.cover_crops_mgmt.get_soil_loss_adjust(N_loss)
+
         # Store resulting N soil losses [kg N]
         attr_name = 'fertiliser.' + of + '_soil_loss'
         self.crops.data_attr.add(
@@ -1052,10 +1057,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         if self.cover_crops_mgmt is not None:
             # Get cover crop leaching adjustment factors
             # and adjust final N leaching
-            leaching_N = leaching_N.mul(
-                self.cover_crops_mgmt.get_leach_adjust(),
-                axis = 0
-            )
+            leaching_N *= self.cover_crops_mgmt.get_leach_adjust(leaching_N)
 
         # Add data attribute
         self.crops.data_attr.add(
