@@ -22,10 +22,13 @@ CropProduction,fertiliser.liming_supply_chain_emissions,input production,lime pr
 CropProduction,fertiliser.manure_N_application_loss,agricultural soils,fertiliser application
 CropProduction,fertiliser.organic_N_application_loss,agricultural soils,fertiliser application
 CropProduction,fertiliser.mineral_N_application_loss,agricultural soils,fertiliser application
+
 CropProduction,fertiliser.manure_N_soil_loss,agricultural soils,nitrification and denitrification
 CropProduction,fertiliser.organic_N_soil_loss,agricultural soils,nitrification and denitrification
 CropProduction,fertiliser.mineral_N_soil_loss,agricultural soils,nitrification and denitrification
+
 CropProduction,fertiliser.crop_residues_N_soil_loss,agricultural soils,nitrification and denitrification
+CropProduction,fertiliser.cover_crop_residues_N_soil_loss,agricultural soils,nitrification and denitrification
 CropProduction,fertiliser.leaching_N,agricultural soils,leaching
 
 CropProduction,organic_soil_losses,agricultural soils,organic soils
