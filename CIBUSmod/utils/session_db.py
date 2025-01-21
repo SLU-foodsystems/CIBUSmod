@@ -830,7 +830,6 @@ class Session(object):
                     """, data)
 
                 for attr in data_attr_dict:
-                    print(attr)
 
                     data_to_write = _get_check_and_clean_data(arg, module, attr)
 
