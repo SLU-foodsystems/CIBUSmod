@@ -95,6 +95,12 @@ def do_run(
             herds = herds,
             par = cm.ParameterRetriever('CropResidueMgmt')
         )
+
+        # Instantiate cover crops management
+        cover_crops_mgmt = cm.CoverCropsMgmt(
+            crops = crops,
+            par = cm.ParameterRetriever('CoverCropsMgmt')
+        )
         
         # Instantiate plant nutrient management
         plant_nutrient_mgmt = cm.PlantNutrientMgmt(
@@ -103,6 +109,7 @@ def do_run(
             crops = crops,
             waste = waste,
             herds = herds,
+            cover_crops_mgmt = cover_crops_mgmt,
             par = cm.ParameterRetriever('PlantNutrientMgmt')
         )
         
@@ -190,6 +197,9 @@ def do_run(
         
         # Calculate harvest of crop residues
         crop_residue_mgmt.calculate(verbose=True)
+
+        # Calculate cover crop areas
+        cover_crops_mgmt.calculate(verbose=True)
     
         # Calculate treatment of wastes and other feedstocks
         waste.calculate()
