@@ -1055,7 +1055,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             leaching_N = leaching_N.mul(
                 self.cover_crops_mgmt.get_leach_adjust(),
                 axis = 0
-            ).sum().sum()
+            )
 
         # Add data attribute
         self.crops.data_attr.add(
