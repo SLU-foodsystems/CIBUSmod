@@ -32,45 +32,55 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
     d = []
 
     for md,at,pr,spr in emissions_attrs.values:
-        if md == 'CropProduction':
-            df = session.get_attr(
-                module = 'CropProduction',
-                attr = at,
-                groupby = {'prod_system':None, 'crop':'crop_group2',
-                            'region':None, 'compound':None},
-                scn = scn,
-                years = years,
-                interpolate = interpolate
-            )
-            df = df.rename_axis(columns = {'crop_group2' : 'item'})
-        elif md == 'WasteAndCircularity':
-            df = session.get_attr(
-                module = 'WasteAndCircularity',
-                attr = at,
-                groupby = {'treatment':None,
-                            'region':None, 'compound':None},
-                scn = scn,
-                years = years,
-                interpolate = interpolate
-            )
-            df = df.rename_axis(columns = {'treatment' : 'item'})
-            # Add 'prod_system' to column level as not applicable (n/a)
-            df = pd.concat({'n/a': df}, names=['prod_system'], axis=1)
-        elif md == 'AnimalHerd':
-            df = session.get_attr(
-                module = 'AnimalHerd',
-                attr = at,
-                groupby = ['prod_system','species',
-                            'breed','region','compound'],
-                scn = scn,
-                years = years,
-                interpolate = interpolate
-            )
-            df.columns = pd.MultiIndex.from_tuples(
-                [(ps,f'{sp}, {br}',re,cp) for ps,sp,br,re,cp in df.columns],
-                names = ['prod_system', 'item',
-                            'region', 'compound']
-            )
+        try:
+            if md == 'CropProduction':
+                df = session.get_attr(
+                    module = 'CropProduction',
+                    attr = at,
+                    groupby = {'prod_system':None, 'crop':'crop_group2',
+                                'region':None, 'compound':None},
+                    scn = scn,
+                    years = years,
+                    interpolate = interpolate
+                )
+                df = df.rename_axis(columns = {'crop_group2' : 'item'})
+            elif md == 'WasteAndCircularity':
+                df = session.get_attr(
+                    module = 'WasteAndCircularity',
+                    attr = at,
+                    groupby = {'treatment':None,
+                                'region':None, 'compound':None},
+                    scn = scn,
+                    years = years,
+                    interpolate = interpolate
+                )
+                df = df.rename_axis(columns = {'treatment' : 'item'})
+                # Add 'prod_system' to column level as not applicable (n/a)
+                df = pd.concat({'n/a': df}, names=['prod_system'], axis=1)
+            elif md == 'AnimalHerd':
+                df = session.get_attr(
+                    module = 'AnimalHerd',
+                    attr = at,
+                    groupby = ['prod_system','species',
+                                'breed','region','compound'],
+                    scn = scn,
+                    years = years,
+                    interpolate = interpolate
+                )
+                df.columns = pd.MultiIndex.from_tuples(
+                    [(ps,f'{sp}, {br}',re,cp) for ps,sp,br,re,cp in df.columns],
+                    names = ['prod_system', 'item',
+                                'region', 'compound']
+                )
+        except ValueError as e:
+            if 'No match for module' in str(e):
+                # If Session.get_attr() raises ValueError due to module and data attribute not found
+                # silently continue. This occurs if e.g. not all Mgmt modules have been included in
+                # the model run.
+                continue
+            else:
+                # If some other ValueError is raised re-raise it.
+                raise
 
         df = pd.concat([df], keys=[spr], names=['sub-process'], axis=1)
         df = pd.concat([df], keys=[pr], names=['process'], axis=1)
