@@ -937,12 +937,10 @@ class FeedDistributor:
 
         # IMPORTANT: This must be run after all other constraints have been defined!
 
-        # Collect the long indices
         ani_idx = self.x_idx["ani"]
         crp_idx = self.x_idx["crp"]
         fds_idx = self.x_idx["fds"]
 
-        # Step 1:
         # Get allowed crop-region combinations (i.e. region GDD5 >= min_GDD5 for crop)
         self.crops.par.clear()
         self.regions.par.clear()
@@ -951,47 +949,16 @@ class FeedDistributor:
             >= self.crops.par.get("min_GDD5", **crp_idx.to_frame().to_dict("list"))
         ]
 
-        # Step 2:
-        # From the selected crops, remove all feeds that are now impossible.
-
-        ## Get mappings from factors to crop_prod, and select where share_regional > 0
-        factors = self._get_feed_to_prod_factors()
-        reg_factors = factors[factors["share_regional"] > 0]
-        ## Get a map of crop_products to crops (one-to-many or many-to-many)
-        cp_cr_map = self.crops.par.get_unique(["crop_prod", "crop"])
-        ## Finally, get the crop products that were removed
-        inv_crp = crp_idx.difference(sel_crp)
-        fds_to_drop = (
-            reg_factors.merge(cp_cr_map, on="crop_prod", how="left")
-            .merge(inv_crp.to_frame(index=False), on=["crop", "prod_system"])
-            .set_index(fds_idx.names)
-            .index.unique()
-        )
-        sel_fds = fds_idx.difference(fds_to_drop)
-
-        # TODO: Add step 3, where we create sel_ani such that we drop all animals with a
-        # min_share_in_ration or share_in_ration and regional supply from a dropped feed
-
-        # Step 4:
-        # Get positions of variables to keep in the short index
+        # Get positions of variables to keep for
         n_ani = len(ani_idx)
         n_crp = len(crp_idx)
         isel_ani = list(range(0, n_ani))
         isel_crp = [crp_idx.get_loc(s) + n_ani for s in sel_crp]
-        ## Note: Use a merge instead of for-loop for performance
-        i_fds_offset = n_ani + n_crp
-        isel_fds = (
-            fds_idx.to_frame(index=False)
-            .reset_index(names="idx")
-            .merge(sel_fds.to_frame(index=False), on=fds_idx.names)["idx"]
-            .values
-            + i_fds_offset
-        ).tolist()
-
+        isel_fds = list(range(n_ani + n_crp, n_ani + n_crp + len(fds_idx)))
         isel = isel_ani + isel_crp + isel_fds
 
         # Store short index (i.e. index of variables after dropping)
-        self.x_idx_short = {"ani": ani_idx, "crp": sel_crp, "fds": sel_fds}
+        self.x_idx_short = {"ani": ani_idx, "crp": sel_crp, "fds": fds_idx}
 
         # Drop variables from objective and constraint matrices
         for mat in self.matrices().values():
@@ -999,7 +966,7 @@ class FeedDistributor:
                 mat.M = mat.M[:, isel]
                 mat.cols["ani"] = ani_idx.copy()
                 mat.cols["crp"] = sel_crp.copy()
-                mat.cols["fds"] = sel_fds.copy()
+                mat.cols["fds"] = fds_idx.copy()
 
         return None
 
