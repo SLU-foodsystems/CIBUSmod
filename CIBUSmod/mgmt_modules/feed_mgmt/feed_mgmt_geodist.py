@@ -3,8 +3,8 @@ import warnings
 import pandas as pd
 import numpy as np
 
-from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned
+from ...utils.verbose_print import verbose_init
+from ...utils.misc import multiply_aligned
 
 from .feed_mgmt import FeedMgmt
 
