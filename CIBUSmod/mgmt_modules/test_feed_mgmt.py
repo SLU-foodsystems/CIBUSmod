@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 import pandas as pd
 
-from .feed_mgmt import FeedMgmt
+from .feed_mgmt_feeddist import FeedDistFeedMgmt as FeedMgmt
 
 
 class TestFeedMgmt(unittest.TestCase):

@@ -1,3 +1,6 @@
+from abc import ABC, abstractmethod
+
+from typing import Literal
 import warnings
 import pandas as pd
 import numpy as np
@@ -5,22 +8,25 @@ import numpy as np
 from CIBUSmod.main_modules.animal_herd import AnimalHerd
 from CIBUSmod.utils.retriever import ParameterRetriever
 
-from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, fix_herds
 
-from typing import Literal
 
-
-class FeedMgmt:
+class FeedMgmt(ABC):
     """
-    Class that that calculates amount of 'crop products' or 'by-products' needed for a
-    certain demand of 'feed' accounting far all losses between harvest/prouction and
-    final consumption by the animals.
+    Abstract base-class for calculating the amount of 'crop products' or 'by-products'
+    needed for a certain demand of 'feed' accounting far all losses between
+    harvest/prouction and final consumption by the animals.
+
+    NOTE: This is the _abstract_ base class, i.e. it cannot be instantiated. Instead,
+    use one of the concrete sub-classes, e.g. feed_mgmt_feeddist or feed_mgmt_geodist.
+
+    Sub-classes must implement their own calculate-class, defining in which order they
+    run the methods as well as any additional steps, such as losses and consumption
 
     Parameters
     ----------
-    herds: (pandas.Series of) AnimalHerd object(s)
-    par: ParameterRetriever object
+    herds : (pandas.Series of) AnimalHerd object(s)
+    par : ParameterRetriever object
     """
 
     def __init__(self, herds: AnimalHerd | list | pd.Series, par: ParameterRetriever):
@@ -29,36 +35,14 @@ class FeedMgmt:
         self.index = list(self.herds)[0].index
 
     def check_index(self):
-        if len(self.herds) == 0:
-            return
-        for n in range(len(self.herds) - 1):
-            if (self.herds[n].index != self.herds[n + 1].index).any():
-                raise Exception("Indexes does not match across herds!")
+        if len(self.herds) > 0:
+            for n in range(len(self.herds) - 1):
+                if (self.herds[n].index != self.herds[n + 1].index).any():
+                    raise Exception("Indexes does not match across herds!")
 
+    @abstractmethod
     def calculate(self, verbose=False):
-        # Define functions to print progress messages if verbose==True
-        vprint = verbose_init(verbose, id_str="FeedMgmt")
-
-        vprint("Calculating feed consumption and losses ...")
-        self.calculate_consumption_and_losses()
-
-        vprint("Calculating demand for crop products ...")
-        self.calculate_product_demand(prod_type="crop_prod")
-        self.calculate_max_crop_in_crop_prod()
-
-        vprint("Calculating demand for by-products ...")
-        self.calculate_product_demand(prod_type="by_prod")
-
-        vprint("Calculating demand for crop residues ...")
-        self.calculate_product_demand(prod_type="crop_resid")
-
-        vprint("Calculating feed ration characteristics ...")
-        self.calculate_ration_characteristics()
-
-        vprint("Calculating enteric methane emissions ...")
-        self.calculate_enteric_methane()
-
-        vprint(type="end")
+        pass
 
     def calculate_ration_characteristics(self):
         """Calculates ration characteristics"""
@@ -107,58 +91,6 @@ class FeedMgmt:
                     desc="Ration " + par + " content",
                     scalable=False,
                 )
-
-    def calculate_consumption_and_losses(self):
-        """
-        Calculate feeds lost during storage and feeding, as well consumption of feed
-        products from feed demand, assigning it to the herd objects
-        """
-
-        for herd in self.herds:
-            # Set species and breed filters for ParameterRetriever
-            self.par.set(species=herd.species, breed=herd.breed)
-
-            # Get the base demand, i.e. the net feed amount, before losses are made
-            feed_demand = herd.data_attr.get("feed.demand")
-
-            # Percentage points feeding-losses for each feed, e.g. 5 %
-            pp_feeding_losses = (
-                self.par.get_from_frame("feeding_losses", feed_demand) / 100
-            )
-            # Percentage points storage-losses for each feed, e.g. 10 %
-            pp_storage_losses = (
-                self.par.get_from_frame("storage_losses", feed_demand) / 100
-            )
-
-            # Compute the amounts of losses, as well as the total consumption
-            storage_losses = feed_demand * pp_storage_losses
-            feeding_losses = (feed_demand - storage_losses) * pp_feeding_losses
-
-            # total consumption = demand * (1-pp_feeding) * (1-pp_storage)
-            feed_consumption = feed_demand - feeding_losses - storage_losses
-
-            # Add data attributes
-            herd.data_attr.add(
-                feed_consumption,
-                name="feed.consumption",
-                unit="kg DM/year",
-                orig="FeedMgmt",
-                desc="Demand for feed after accounting for storage and feeding losses",
-            )
-            herd.data_attr.add(
-                storage_losses,
-                name="feed.storage_losses",
-                unit="kg DM/year",
-                orig="FeedMgmt",
-                desc="Losses of feed during storage",
-            )
-            herd.data_attr.add(
-                feeding_losses,
-                name="feed.feeding_losses",
-                unit="kg DM/year",
-                orig="FeedMgmt",
-                desc="Losses of feed during feeding",
-            )
 
     def calculate_product_demand(
         self, prod_type: Literal["crop_prod", "crop_resid", "by_prod"]
@@ -310,8 +242,6 @@ class FeedMgmt:
                 )
 
     def calculate_max_crop_in_crop_prod(self):
-        idx = pd.IndexSlice
-
         # Get crop_groups to handle
         cgs = self.par.get_unique(
             ["crop_group", "crop_prod"], qry='parameter == "max_crop_in_crop_prod"'
@@ -343,7 +273,7 @@ class FeedMgmt:
 
             # Get crop product demand supplied by crops in crs
             df = herd.data_attr.get("feed.crop_product_demand").loc[
-                :, idx["domestic", :, :, cgs.index]
+                :, pd.IndexSlice["domestic", :, :, cgs.index]
             ]
 
             # Append crops to column index
@@ -372,6 +302,12 @@ class FeedMgmt:
                 orig="FeedMgmt",
                 desc="Maximum supply of feed from crop_group. Used in GeoDistributor constraint",
             )
+
+    def redistribute_feeds(self):
+        # IMPLEMENT METHOD TO REDISTRIBUTE FEEDS
+        # IN ORDER TO ALIGN WITH GENERATED/IMPORTED
+        # BY-PRODUCTS
+        pass
 
     def calculate_enteric_methane(self):
         idx = pd.IndexSlice

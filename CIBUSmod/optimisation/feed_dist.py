@@ -219,7 +219,7 @@ class FeedDistributor:
 
         if self.problem is None:
             vprint("Defining problem ...")
-            self.problem = self.get_cvx_problem()
+            self.make_cvx_problem()
 
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
@@ -261,6 +261,7 @@ class FeedDistributor:
             vprint("Retrieving solution ...")
 
             # Get and store optimal value for variable
+            assert self.problem is not None, "Could not access problem after solving"
             x = self.problem.variables()[0].value
             assert x is not None, "Could not fetch optimal value from problem."
 
@@ -618,7 +619,7 @@ class FeedDistributor:
         scale_f["fds"].iloc[:] = 0
         self.scale_f = scale_f
 
-    def get_cvx_problem(self):
+    def make_cvx_problem(self):
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
             np.concatenate(
@@ -660,7 +661,7 @@ class FeedDistributor:
         ]
 
         # Define problem
-        return cvxpy.Problem(objective=objective, constraints=constraints)
+        self.problem = cvxpy.Problem(objective=objective, constraints=constraints)
 
     def make_C1(self):
         """Creates C1: A1 @ x == b1

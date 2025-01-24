@@ -1,3 +1,5 @@
+import sys
+
 import warnings
 import pandas as pd
 import numpy as np
@@ -32,6 +34,12 @@ class GeoDistributor:
 
     module_name = 'GeoDistributor'
 
+    success: bool
+    constraints: dict[str, dict]
+    objective: dict
+    problem: None | cvxpy.Problem
+    x: None | dict[str, pd.Series]
+
     def __init__(
             self,
             regions:Regions,
@@ -49,6 +57,13 @@ class GeoDistributor:
         self.crops = crops
         self.herds = herds
         self.feed_mgmt = feed_mgmt
+
+    def reset(self):
+        self.x = None
+        self.success = False
+        self.constraints = dict()
+        self.objective = dict()
+        self.problem = None
 
     def make(
             self,
@@ -88,12 +103,7 @@ class GeoDistributor:
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
 
         # Reset problem definitions and solution
-        self.success = None
-        self.constraints = dict()
-        self.objective = dict()
-        for attr in ['problem','x']:
-            if hasattr(self, attr):
-                delattr(self, attr)
+        self.reset()
 
         if not isinstance(use_cons,list):
             use_cons = [use_cons]
@@ -103,10 +113,10 @@ class GeoDistributor:
             use_cons.append(use_cons.pop(use_cons.index('7')))
 
         vprint('Getting x0 and making indexes ...')
-        self.get_x0()
+        self.make_x0()
 
         vprint('Creating demand vector ...')
-        self.get_demand()
+        self.make_demand()
 
         vprint('Calculating scaling factors ...')
         # Calculate scaling factors
@@ -117,15 +127,19 @@ class GeoDistributor:
 
         # Make objective function(s)
         vprint('Making objective O1 ...')
-        self.make_O1()
+        self.make_P1()
 
         # Make constraints
         for nr in use_cons:
             fun = getattr(self,'make_C'+nr)
             vprint(f'Making constraint C{nr} ...')
-            fun(
-                **{k:v for k,v in kwargs.items() if 'C'+nr in k}
-            )
+            try:
+                fun(**{k: v for k, v in kwargs.items() if f"C{nr}" in k})
+            except Exception as e:
+                print(
+                    f"Exception raised when making constraint C{nr}.", file=sys.stderr
+                )
+                raise e
 
         # If C7 not included no variables are dropped
         if '7' not in use_cons:
@@ -190,9 +204,9 @@ class GeoDistributor:
         if not isinstance(solver_settings, list):
             solver_settings = [solver_settings]
 
-        if not hasattr(self, 'problem'):
+        if self.problem is None:
             vprint('Defining problem ...')
-            self.define_cvx_problem()
+            self.make_cvx_problem()
 
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
@@ -262,8 +276,7 @@ class GeoDistributor:
                 self.apply_solution()
 
         else:
-            if hasattr(self, 'x'):
-                delattr(self, 'x')
+            self.x = None
             raise RuntimeError('No solution found!')
 
         vprint(type='end')
@@ -305,7 +318,7 @@ class GeoDistributor:
         if 'A5' in self.matrices():
             self.adjust_crop_allocation()
 
-    def get_x0(self):
+    def make_x0(self):
         # Get x0
         self.x0 = {
             'ani' : self.regions.data_attr.get('x0_animals').copy(),
@@ -330,9 +343,10 @@ class GeoDistributor:
             'crp' : self.x0['crp'].index
         }
 
-    def get_demand(self):
-        '''
-        '''
+    def make_demand(self):
+        """
+        Calculates and sets the demand-matrix (D) and its index (D_idx).
+        """
         self.D = {
             'ani' : self.demand.data_attr.get('animal_prod_demand').sum(axis=1),
             'crp' : self.demand.data_attr.get('crop_prod_demand').sum(axis=1)
@@ -392,7 +406,7 @@ class GeoDistributor:
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
         self.scale_f = scale_f
 
-    def define_cvx_problem(self):
+    def make_cvx_problem(self):
 
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
@@ -936,7 +950,7 @@ class GeoDistributor:
 
         return None
 
-    def make_O1(self):
+    def make_P1(self):
 
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
