@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..main_modules.regions import Regions
     from ..main_modules.crop_prod import CropProduction
     from ..main_modules.waste_and_circularity import WasteAndCircularity
+    from .cover_crops_mgmt import CoverCropsMgmt
     from ..utils.retriever import ParameterRetriever
 
 class PlantNutrientMgmt():
@@ -20,10 +21,13 @@ class PlantNutrientMgmt():
 
     Parameters
     ----------
-    crops : CropProduction object
-    herds : (pandas.Series of) AnimalHerd object(s)
     demand : DemandAndConversions object
+    regions : regions object
+    crops : CropProduction object
+    waste : WasteAndCircularity object
+    herds : (pandas.Series of) AnimalHerd object(s)
     par : ParameterRetriever object
+    cover_crops_mgmt : CoverCropsMgmt object (optional)
     '''
 
     def __init__(
@@ -33,7 +37,8 @@ class PlantNutrientMgmt():
             crops: "CropProduction",
             waste: "WasteAndCircularity",
             herds: pd.Series,
-            par: "ParameterRetriever"
+            par: "ParameterRetriever",
+            cover_crops_mgmt: "CoverCropsMgmt" = None
         ):
 
         self.par = par
@@ -41,6 +46,7 @@ class PlantNutrientMgmt():
         self.regions = regions
         self.crops = crops
         self.waste = waste
+        self.cover_crops_mgmt = cover_crops_mgmt
 
         if isinstance(herds, pd.Series):
             self.herds = herds
@@ -78,6 +84,8 @@ class PlantNutrientMgmt():
 
         vprint('Calculating N in crop residues ...')
         self.calculate_N_in_crop_residues()
+        if self.cover_crops_mgmt is not None:
+            self.calculate_N_in_cover_crop_residues()
 
         vprint('Calculating N application losses ...') # Only NH3 YES?
         self.calculate_N_application_losses(of='mineral_N')
@@ -89,7 +97,11 @@ class PlantNutrientMgmt():
         self.calculate_N_soil_losses(of='manure_N')
         self.calculate_N_soil_losses(of='organic_N')
         self.calculate_N_soil_losses(of='crop_residues_N')
-        self.calculate_organic_soil_N_losses()
+        if self.cover_crops_mgmt is not None:
+            self.calculate_N_soil_losses(of='cover_crop_residues_N')
+
+        vprint('Calculating losses from organic soils...')
+        self.calculate_organic_soil_losses()
 
         vprint('Calculating N leaching ...')
         self.calculate_leaching_N()
@@ -155,6 +167,10 @@ class PlantNutrientMgmt():
             self.crops.data_attr.get('area') *
             self.par.get('N_resid_crop', **self.crops.index.to_frame().to_dict('list'))
         ).groupby(['prod_system','region']).sum()
+
+        if self.cover_crops_mgmt is not None:
+            # Get residual N from cover crops and add to dataframe
+            residual_N += self.cover_crops_mgmt.get_residual_N()
 
         # Allocate residual N from crops to crops in 'crop_groups' based on
         # TAN requirements
@@ -767,6 +783,29 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
         )
 
+    def calculate_N_in_cover_crop_residues(self):
+
+        self.cover_crops_mgmt.par.clear()
+
+        # Get cover crop residues
+        CC_residues = self.crops.data_attr.get('cover_crops.residues')
+
+        # Calculate N in above and below ground cover crop residues
+        CC_residues_N = CC_residues.copy()
+        CC_residues_N.loc[:,['above ground']] *= \
+            self.cover_crops_mgmt.par.get_from_frame('ag_N', CC_residues_N.loc[:,['above ground']])
+        CC_residues_N.loc[:,['below ground']] *= \
+            self.cover_crops_mgmt.par.get_from_frame('bg_N', CC_residues_N.loc[:,['below ground']])
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            CC_residues_N,
+            name = 'fertiliser.cover_crop_residues_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Nitrogen (N) in above and below ground cover crop residues'
+        )
+
     def calculate_N_application_losses(self, of):
         # Application losses of NH3-N calculated according to
         # Tier 2 method described in 'Informative Inventory
@@ -897,6 +936,11 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         # Apply emission factors
         N_loss = N_appl * EF
 
+        if self.cover_crops_mgmt is not None:
+            # Get adjustment factors for soil losses due to cover crops
+            # and adjust final soil losses
+            N_loss *= self.cover_crops_mgmt.get_soil_loss_adjust(N_loss)
+
         # Store resulting N soil losses [kg N]
         attr_name = 'fertiliser.' + of + '_soil_loss'
         self.crops.data_attr.add(
@@ -907,7 +951,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             desc = f'Soil losses of nitrogen (N) from {"applied mineral fertilisers" if "mineral" in of else "applied and deposited manure" if "manure" in of else "crop residues"}'
         )
 
-    def calculate_organic_soil_N_losses(self):
+    def calculate_organic_soil_losses(self):
 
         self.par.clear()
         self.regions.par.clear()
@@ -918,6 +962,14 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         areas['land_use'] = [rel[c] for c in areas.index.get_level_values('crop')]
         areas = areas.set_index('land_use', append=True)['area']
 
+        # Calculate areas of organic soils
+        areas_organic_soil = areas.mul(
+            self.regions.par.get(
+                'share_org_soil',
+                **areas.index.to_frame().to_dict('list')
+            )/100
+        )
+
         # Get compounds lost
         compounds = \
         self.par.get_unique(
@@ -926,23 +978,32 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         )
 
         # Construct dataframe
-        organic_soil_N_loss = pd.DataFrame(
-            index = areas.index,
+        organic_soil_loss = pd.DataFrame(
+            index = areas_organic_soil.index,
             columns = pd.Index(compounds, name='compound')
         )
 
         # Calculate emissions
-        organic_soil_N_loss = (
-            self.regions.par.get_from_frame('share_org_soil', organic_soil_N_loss)/100 *
-            self.par.get_from_frame('soil_losses_organic_soils', organic_soil_N_loss)
-        ).mul(areas, axis=0).droplevel('land_use')
+        organic_soil_loss = (
+            self.par.get_from_frame('soil_losses_organic_soils', organic_soil_loss)
+        ).mul(areas_organic_soil, axis=0)
 
+        # Store organic soil losses
         self.crops.data_attr.add(
-            organic_soil_N_loss,
-            name = 'fertiliser.organic_soil_N_loss',
-            unit = 'kg N/year',
+            organic_soil_loss.droplevel('land_use'),
+            name = 'organic_soil_losses',
+            unit = 'kg/year',
             orig = 'PlantNutrientMgmt',
-            desc = 'Soil losses of nitrogen (N) from organic soils'
+            desc = 'Losses of nitrogen (N) and carbon (C) from organic soils'
+        )
+
+        # Store area of organic soil
+        self.crops.data_attr.add(
+            areas_organic_soil.droplevel('land_use'),
+            name = 'organic_soil_area',
+            unit = 'ha or m2',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Crop areas on organic soils in ha (or m2 for greenhouse crops)'
         )
 
     def calculate_leaching_N(self):
@@ -961,6 +1022,14 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             self.crops.data_attr.get('fertiliser.crop_residues_N')
             .sum(axis=1).rename('crop residues')
         ], axis=1).rename_axis(columns = 'source')
+
+        if self.cover_crops_mgmt is not None:
+            # Add N in cover crop residues
+            N_add = pd.concat([
+                N_add,
+                self.crops.data_attr.get('fertiliser.cover_crop_residues_N')
+                .sum(axis=1).rename('cover crop residues')
+                ], axis=1).rename_axis(columns = 'source')
 
         # Create output dataframe
         df = pd.DataFrame(
@@ -984,6 +1053,11 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
 
         # Drop 'land_use' from index
         leaching_N = leaching_N.droplevel('land_use')
+
+        if self.cover_crops_mgmt is not None:
+            # Get cover crop leaching adjustment factors
+            # and adjust final N leaching
+            leaching_N *= self.cover_crops_mgmt.get_leach_adjust(leaching_N)
 
         # Add data attribute
         self.crops.data_attr.add(

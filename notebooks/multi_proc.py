@@ -7,7 +7,11 @@ from contextlib import redirect_stdout, redirect_stderr
 sys.path.insert(0, os.path.join(os.getcwd(),'..'))
 import CIBUSmod as cm
 
-def do_run(session, scn_year):
+def do_run(
+        session : cm.Session,
+        scn_year : tuple,
+        geodist_kwargs : dict = {}
+        ):
 
     # Activate session in environment
     session.activate()
@@ -46,8 +50,8 @@ def do_run(session, scn_year):
         # Instantiate CropProduction
         crops = cm.CropProduction(
             par = cm.ParameterRetriever('CropProduction'),
-            index = regions.data_attr.get('x0_crops').index
-        )    
+            regions = regions
+        )      
         
         # Instantiate AnimalHerds
         # Each AnimalHerd object is stored in an indexed pandas.Series
@@ -91,6 +95,12 @@ def do_run(session, scn_year):
             herds = herds,
             par = cm.ParameterRetriever('CropResidueMgmt')
         )
+
+        # Instantiate cover crops management
+        cover_crops_mgmt = cm.CoverCropsMgmt(
+            crops = crops,
+            par = cm.ParameterRetriever('CoverCropsMgmt')
+        )
         
         # Instantiate plant nutrient management
         plant_nutrient_mgmt = cm.PlantNutrientMgmt(
@@ -99,6 +109,7 @@ def do_run(session, scn_year):
             crops = crops,
             waste = waste,
             herds = herds,
+            cover_crops_mgmt = cover_crops_mgmt,
             par = cm.ParameterRetriever('PlantNutrientMgmt')
         )
         
@@ -166,7 +177,12 @@ def do_run(session, scn_year):
         
         # Distribute animals and crops
         # Make optimisation problem
-        geodist.make(use_cons=[1,2,3,4,5,6,7])
+        kwargs = {
+            'use_cons' : [1,2,3,4,5,6,7],
+            'verbose' : True
+        }
+        kwargs.update(geodist_kwargs)
+        geodist.make(**kwargs)
         # Solve optimisation problem
         geodist.solve(verbose=True)
         
@@ -181,6 +197,9 @@ def do_run(session, scn_year):
         
         # Calculate harvest of crop residues
         crop_residue_mgmt.calculate(verbose=True)
+
+        # Calculate cover crop areas
+        cover_crops_mgmt.calculate(verbose=True)
     
         # Calculate treatment of wastes and other feedstocks
         waste.calculate()
@@ -202,12 +221,12 @@ def do_run(session, scn_year):
         try:
             session.store(
                 scn, year,
-                demand, regions, crops, waste, herds
+                demand, regions, crops, waste, herds, geodist
             )
         except:
             session.store(
                 scn, year,
-                demand, regions, crops, waste, herds
+                demand, regions, crops, waste, herds, geodist
             )
     
         t = time.time() - tic

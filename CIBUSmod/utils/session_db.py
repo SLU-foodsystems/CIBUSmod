@@ -346,6 +346,8 @@ class Session(object):
             scenarios_path=self.data_path_scenarios
         )
 
+        self.cache = CacheDict()
+
         return None
     
     def scenarios(self, subset='all'):
@@ -1421,6 +1423,11 @@ class CacheDict(dict):
             for k in list(self)[:diff]:
                 del self[k]
 
+    def __reduce__(self):
+        # Used in pickling/unpickling
+        # Content of dict is dropped
+        return (self.__class__, (), self.__dict__.copy())
+
 def _isiterable(obj):
     try:
         iter(obj)
@@ -1501,6 +1508,15 @@ def _level_names_to_integer_key(data, db_path, timeout):
         if isinstance(data, pd.DataFrame):
             # Stack to series (take shortest way)
             data = data.dropna(axis=1, how='all')
+            if data.shape[1] == 0:
+                # If no columns remain (i.e. all values in dataframe were NaN)
+                # return an empty pd.Series with the correct levels
+                return pd.Series(
+                        index = pd.MultiIndex.from_tuples(
+                            [],
+                            names = lvl_keys
+                        )
+                    )
             if data.columns.nlevels > data.index.nlevels:
                 data = (
                     data.unstack(data.index.names)

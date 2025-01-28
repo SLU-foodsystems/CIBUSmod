@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from CIBUSmod.utils.retriever import ParameterRetriever
+from CIBUSmod.main_modules.regions import Regions
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
@@ -12,19 +13,35 @@ class CropProduction(object):
     Parameters
     ----------
     par : ParameterRetriever object
-    index : pandas.Index or pandas.MultiIndex
-        Index for the rows. This is also passed on to the ParameterRetriever
+    regions : Regions object, default None
+        Regions object used to build Index for rows based on 'x0_crops'
+    index : pandas.Index or pandas.MultiIndex, default None
+        Index for the rows. Should have levels ('crop', 'prod_system', 'region')
+
+    Only one of regions or index should be passed. If a Regions object is passed
+    the index is built based on 'x0_crops' and is rebuilt on .calculate() to include
+    any additional crops added in a scenario.
     '''
 
     module_name = 'CropProduction'
 
-    def __init__(self, par: ParameterRetriever, index: pd.Index | pd.MultiIndex):
+    def __init__(self, par: ParameterRetriever, regions: Regions = None, index: pd.MultiIndex = None):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
 
         self.par = par
-        self.index = index
+
+        if index is not None and regions is not None:
+            raise ValueError("Provide only one of index or regions")
+        if index is not None:
+            self.regions = None
+            self.index = index
+        elif regions is not None:
+            self.regions = regions
+            self.index = regions.data_attr.get('x0_crops').index
+        else:
+            raise ValueError("One of regions or index must be proveided")
 
     def calculate(self,verbose=False):
         '''Calculates crop production based on a vector ('x') of crop areas.
@@ -41,6 +58,10 @@ class CropProduction(object):
 
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='CropProduction')
+
+        # Update index
+        if self.regions is not None:
+            self.index = self.regions.data_attr.get('x0_crops').index
 
         # Set areas to ones
         self.data_attr.add(
