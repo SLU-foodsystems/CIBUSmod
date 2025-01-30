@@ -2231,40 +2231,30 @@ class FeedDistributor:
         if len(herd_dfs) == 0:
             return None
 
-        shares_df = (
-            (
-                pd.concat(herd_dfs).reorder_levels(
-                    [n for n in self.x_idx["fds"].names if n != "region"]
-                )
-                / 100
-            )
-            .to_frame(name="share")
-            .reset_index()
-        )
-
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        # Get loss factors which we want to multiply with every (non-zero) element.
-        # This, because we in x_fds have feed demand, whereas the constraint regards
-        # the feed consumption.
-        losses = self._get_losses_factors(shape="long").reset_index()
+        shares = (
+            pd.concat(herd_dfs).reorder_levels(
+                [n for n in self.x_idx["fds"].names if n != "region"]
+            )
+            / 100
+        ).to_frame(name="share")
 
-        # Note: ca 85% of execution time for this function spent here
-        merged_df = (
-            row_idx_df.merge(
-                col_idx_df,
-                on=[cname for cname in row_idx.names if cname != "feed"],
-                suffixes=("", "_c"),
-            )
-            .merge(
-                shares_df,
-                on=[cname for cname in shares_df.columns if cname != "share"],
-            )
-            .merge(
-                losses,
-                on=[cname for cname in losses.columns if cname != "losses_factor"],
-            )
+        # Get loss factors which we want to multiply with every (non-zero) element.
+        # Loss factors are needed here because x_fds concerns feed _demand_, whereas
+        # the constraint concerns feed _consumption_.
+        losses = self._get_losses_factors(shape="long")
+        # Join losses and shares on their indexes
+        factors = shares.join(losses)
+
+        # Note: Join first on factors, then on col_idx for a significantly faster merge
+        merged_df = row_idx_df.merge(
+            factors.reset_index(), on=factors.index.names
+        ).merge(
+            col_idx_df,
+            on=[cname for cname in row_idx.names if cname != "feed"],
+            suffixes=("", "_c"),
         )
 
         merged_df["values"] = (
