@@ -16,6 +16,8 @@ from ..utils.misc import multiply_aligned, inv_dict
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
+from .indexed_matrix import IndexedMatrix
+
 class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given
     demand and a number of constraints by minimising deviation from an initial distribution
@@ -1839,23 +1841,3 @@ class GeoDistributor:
             desc = 'Total crop production distributed across different uses (unreliable)'
         )
 
-
-class IndexedMatrix():
-    '''Class to store pandas.Index/MultiIndex alongside a sparse
-    matrix to keep track of things'''
-
-    def __init__(self,matrix,row_idx,col_idx):
-        self.M = matrix
-
-        if isinstance(row_idx,list):
-            levels = list(row_idx[0].names)
-            for idx in row_idx:
-                add = [l for l in idx.names if l not in levels]
-                levels.extend(add)
-            print(levels)
-
-        self.rows = row_idx
-        self.cols = col_idx
-
-    def eval(self, x):
-        return pd.Series(self.M @ x, index=self.rows)
