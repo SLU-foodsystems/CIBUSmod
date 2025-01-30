@@ -125,7 +125,7 @@ class GeoDistributor:
             use_cons.append(use_cons.pop(use_cons.index('7')))
 
         vprint('Getting x0 and making indexes ...')
-        self.make_x0()
+        self.get_x0()
 
         vprint('Creating demand vector ...')
         self.make_demand()
@@ -218,7 +218,7 @@ class GeoDistributor:
 
         if self.problem is None:
             vprint('Defining problem ...')
-            self.make_cvx_problem()
+            self.define_cvx_problem()
 
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
@@ -330,7 +330,7 @@ class GeoDistributor:
         if 'A5' in self.matrices():
             self.adjust_crop_allocation()
 
-    def make_x0(self):
+    def get_x0(self):
         # Get x0
         self.x0 = {
             'ani' : self.regions.data_attr.get('x0_animals').copy(),
@@ -418,7 +418,7 @@ class GeoDistributor:
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
         self.scale_f = scale_f
 
-    def make_cvx_problem(self):
+    def define_cvx_problem(self):
 
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
