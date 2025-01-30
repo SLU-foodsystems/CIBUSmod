@@ -7,8 +7,7 @@ import numpy as np
 
 from CIBUSmod.main_modules.animal_herd import AnimalHerd
 from CIBUSmod.utils.retriever import ParameterRetriever
-
-from ..utils.misc import multiply_aligned, fix_herds
+from CIBUSmod.utils.misc import multiply_aligned, fix_herds
 
 
 class FeedMgmt(ABC):
