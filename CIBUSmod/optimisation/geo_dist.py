@@ -255,7 +255,9 @@ class GeoDistributor:
             vprint('Retrieving solution ...')
 
             # Get and store optimal value for variable
+            assert self.problem is not None, "Could not access problem after solving"
             x = self.problem.variables()[0].value
+            assert x is not None, "Could not fetch optimal value from problem."
             # Put xs on short index (!= index if C7 is used) and reindex
             self.x = {
                 'ani' : pd.Series(
@@ -308,6 +310,8 @@ class GeoDistributor:
         '''Update CropProduction and AnimalHerds according to found solution'''
 
         if x is None:
+            if self.x is None:
+                raise Exception("Cannot apply_solution as x is not defined")
             x = self.x
 
         # Update CropProduction
