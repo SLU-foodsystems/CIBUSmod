@@ -2339,36 +2339,24 @@ class FeedDistributor:
         adjusted for storage- and feeding losses
         """
         col_idx = self.x_idx["fds"]
+        row_idx_df = pd.DataFrame(range(len(row_idx)), index=row_idx, columns=["row_i"])
+        col_idx_df = pd.DataFrame(range(len(col_idx)), index=col_idx, columns=["col_i"])
 
-        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
-        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+        loss_factors = self._get_losses_factors(shape="long")
+        feed_compositions = self._get_feed_compositions(shape="long").dropna()
 
-        loss_factors = self._get_losses_factors(shape="long").reset_index()
-
-        feed_compositions_long = (
-            self._get_feed_compositions(shape="long").reset_index().dropna()
+        values = feed_compositions.join(loss_factors)
+        values = (values["losses_factor"] * values["feed_to_par_factor"]).to_frame(
+            name="values"
         )
 
-        data = loss_factors.merge(
-            feed_compositions_long,
-            on=[
-                "feed",
-                "animal",
-                "species",
-                "breed",
-                "prod_system",
-                "sub_system",
-            ],
-        )
-        data["values"] = data["losses_factor"] * data["feed_to_par_factor"]
-        data = data.drop(columns=["losses_factor", "feed_to_par_factor"])
+        joined_df = values.join(row_idx_df).join(col_idx_df)
+        # Drop all levels in the index except "row_i". This is significantly (10x)
+        # faster than doing reset_index() directly, for some reason.
+        cols_to_drop = [x for x in joined_df.index.names if x != "row_i"]
+        joined_df = joined_df.reset_index(cols_to_drop, drop=True)
 
-        merged_df = data.merge(
-            row_idx_df,
-            on=["feed_par", "animal", "species", "breed", "prod_system", "sub_system"],
-        ).merge(col_idx_df, on=col_idx.names)
-
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
+        return IndexedMatrix.from_frame(joined_df, row_idx, col_idx)
 
     def make_b13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
         """
