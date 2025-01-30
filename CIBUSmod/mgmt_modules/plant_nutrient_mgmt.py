@@ -441,23 +441,13 @@ class PlantNutrientMgmt():
 
         # FINALIZE ----------------------------------------------->
 
-        # Calculate share of manure applied per crop
-        share_manure_per_crop = (
-            manure_TAN_application
-            .div(manure_TAN_application.groupby('region').sum().replace({0:np.nan}), axis=0)  # 0 -> NaN to avoid div by 0 error
-            .fillna(0)
-        )
+        # Calculate manure application as shares of total
+        application_shares = manure_TAN_application / manure_TAN_application.sum().sum()
 
         # Apply shares to manure dataframes and add data attributes
-        res = (
-            manure_TAN_application
-            .rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
-        )
-
         for element in ['N', 'TAN', 'P', 'K', 'C']:
             res = (
-                herds.data_attr.get(f'manure.{element}_to_spread')
-                .multiply(share_manure_per_crop)
+                (herds.data_attr.get(f'manure.{element}_to_spread').sum().sum() * application_shares)
                 .rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
             )
             self.crops.data_attr.add(
@@ -475,11 +465,11 @@ class PlantNutrientMgmt():
         # 1.    Organic fertiliser generated in a given region is distributed to organic crops
         #       in that region based on TAN requirements minus TAN in applied manure.
         #
-        # 2.    Any remaining organic fertiliser in a region is distributed to conventional crops
-        #       in that region based on TAN requirements minus TAN in applied manure.
-        #
-        # 3.    Organic fertiliser remaining after 1 and 2 is distributed based on remaining TAN
+        # 2.    Organic fertiliser remaining after 1 and 2 is distributed based on remaining TAN
         #       requirements in organic crops nationally.
+        #
+        # 3.    Any remaining organic fertiliser in a region is distributed to conventional crops
+        #       in that region based on TAN requirements minus TAN in applied manure.
         #
         # 4.    Organic fertiliser remaining after 3 is distributed based on remaining TAN requirements
         #       in conventional crops nationally.
@@ -535,56 +525,37 @@ class PlantNutrientMgmt():
         TAN_req_remaining = TAN_req.copy()
         org_TAN_remaining = org_TAN.copy()
 
-        # 1. ORGANIC FERTILISERS TO ORGANIC AREAS IN REGION -------------------------->
-        TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
+        # DO STEPS --------------------------------------------------->
+        # 1. ORGANIC FERTILISERS TO ORGANIC AREAS IN REGION
+        # 2. ORGANIC FERTILISERS TO ORGANIC AREAS ACROSS REGIONS
+        # 3. ORGANIC FERTILISERS TO CONVENTIONAL AREAS IN REGION
+        # 4. ORGANIC FERTILISERS TO CONVENTIONAL AREAS ACROSS REGIONS
+        for do_step in [1,2,3,4]:
 
-        org_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, org_TAN_remaining)
-
-        org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
-        _update_manure_TAN_frames(
-            org_TAN_to_spread,
-            org_TAN_remaining,
-            TAN_req_remaining, org_TAN_application
-        )
-
-        # 2. ORGANIC FERTILISERS TO CONVENTIONAL AREAS IN REGION --------------------->
-        TAN_to_cover = TAN_req_remaining
-
-        org_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, org_TAN_remaining)
-
-        org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
-        _update_manure_TAN_frames(
-            org_TAN_to_spread,
-            org_TAN_remaining,
-            TAN_req_remaining, org_TAN_application
-        )
-
-        # 3. ORGANIC FERTILISERS TO ORGANIC AREAS ACROSS REGIONS --------------------->
-        # AND
-        # 4. ORGANIC FERTILISERS TO CONVENTIONAL AREAS ACROSS REGIONS ---------------->
-        for do_step in [3,4]:
-
-            if do_step == 3:
+            if do_step in [1,2]:
                 TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
             else:
                 TAN_to_cover = TAN_req_remaining
 
-            # No no TAN to cover, skip step
+            # If no TAN to cover, skip step
             if TAN_to_cover.sum() == 0:
                 continue
+            
+            if do_step in [2,4]:
+                share_to_use = 1 if TAN_to_cover.sum() > org_TAN_remaining.sum().sum() else TAN_to_cover.sum()/org_TAN_remaining.sum().sum()
 
-            share_to_use = 1 if TAN_to_cover.sum() > org_TAN_remaining.sum().sum() else TAN_to_cover.sum()/org_TAN_remaining.sum().sum()
+                dist_key = (
+                    TAN_to_cover /
+                    TAN_to_cover.sum()
+                )
 
-            dist_key = (
-                TAN_to_cover /
-                TAN_to_cover.sum()
-            )
-
-            org_TAN_to_spread = pd.DataFrame(
-                np.atleast_2d(dist_key.values).T @ np.atleast_2d(org_TAN_remaining.sum().values * share_to_use),
-                index = dist_key.index,
-                columns = org_TAN_remaining.columns
-            )
+                org_TAN_to_spread = pd.DataFrame(
+                    np.atleast_2d(dist_key.values).T @ np.atleast_2d(org_TAN_remaining.sum().values * share_to_use),
+                    index = dist_key.index,
+                    columns = org_TAN_remaining.columns
+                )
+            else:
+                org_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, org_TAN_remaining)
 
             org_TAN_remaining, TAN_req_remaining, org_TAN_application = \
             _update_manure_TAN_frames(
@@ -595,19 +566,12 @@ class PlantNutrientMgmt():
 
         # FINALIZE -------------------------------------------------------------------->
 
-        # Calculate share of organic fertiliser applied per crop
-        share_per_crop = (
-            org_TAN_application
-            .div(org_TAN_application.groupby('region').sum().replace({0:np.nan}), axis=0)  # 0 -> NaN to avoid div by 0 error
-            .fillna(0)
-        )
+        # Calculate application as share of total
+        application_shares = application_shares = org_TAN_application / org_TAN_application.sum().sum()
 
         for element in ['N', 'TAN', 'P', 'K', 'C']:
-            res = (
-                self.waste.data_attr.get(f'organic_fertiliser_{element}')
-                .T.groupby('treatment').sum().T
-                .multiply(share_per_crop)
-            )
+            res = self.waste.data_attr.get(f'organic_fertiliser_{element}').sum().sum() * application_shares
+
             self.crops.data_attr.add(
                 res,
                 name = f'fertiliser.organic_{element}',
@@ -1199,22 +1163,43 @@ def _update_manure_TAN_frames(
         TAN_req_remaining,
         manure_TAN_application):
 
-    return (
-        # Update manure TAN remaining
-        manure_TAN_remaining.subtract(
-            manure_TAN_to_spread.groupby('region').sum(),
-            fill_value = 0
-        ),
-
-        # Update TAN requirements remaining
-        TAN_req_remaining.subtract(
-            manure_TAN_to_spread.sum(axis=1),
-            fill_value = 0
-        ),
-
-        # Update applied manure
-        manure_TAN_application.add(
-            manure_TAN_to_spread,
-            fill_value = 0
+    # Update manure TAN remaining
+    manure_TAN_remaining_updated = manure_TAN_remaining.subtract(
+        manure_TAN_to_spread.groupby('region').sum(),
+        fill_value = 0
+    )
+    
+    # Check if there are regional shortages (i.e. if there is a need for
+    # regional redistribution)
+    if (manure_TAN_remaining_updated<0).any().any():
+        # Get total shortage
+        total_shortage = -(manure_TAN_remaining_updated * (manure_TAN_remaining_updated<0)).sum().sum()
+        
+        # Remove shortages
+        manure_TAN_remaining_updated = manure_TAN_remaining_updated.clip(lower=0)
+        
+        # Subtract total shortage from remaining
+        manure_TAN_remaining_updated = (
+            manure_TAN_remaining_updated -
+            manure_TAN_remaining_updated
+            .div(manure_TAN_remaining_updated.sum().sum())
+            .mul(total_shortage, axis=1)
         )
+
+    # Update TAN requirements remaining
+    TAN_req_remaining_updated = TAN_req_remaining.subtract(
+        manure_TAN_to_spread.sum(axis=1),
+        fill_value = 0
+    )
+
+    # Update applied manure
+    manure_TAN_application_updated = manure_TAN_application.add(
+        manure_TAN_to_spread,
+        fill_value = 0
+    )
+
+    return (
+        manure_TAN_remaining_updated,
+        TAN_req_remaining_updated,
+        manure_TAN_application_updated
     )
