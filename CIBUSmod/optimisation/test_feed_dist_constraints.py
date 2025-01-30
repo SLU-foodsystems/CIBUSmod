@@ -62,23 +62,10 @@ class TestMakeA2(unittest.TestCase):
         crops = MagicMock()
         crops.data_attr = {"production": self.mock_crop_production}
 
-        # Factors for `make_A2_2`
-        self.factors_with_reg_share = pd.DataFrame(
-            {
-                "feed": ["feed1", "feed2"],
-                "crop_prod": ["product1", "product2"],
-                "feed_to_prod": [0.5, 0.8],
-                "share_domestic": [0.9, 0.8],
-                "share_regional": [0.9, 0.7],
-            },
-        ).set_index(["feed", "crop_prod"])
-
         self.row_idx = pd.MultiIndex.from_product(
             [
                 self.mock_x_idx["fds"].get_level_values("prod_system").unique(),
-                self.factors_with_reg_share.index.get_level_values(
-                    "crop_prod"
-                ).unique(),
+                ["product1", "product2"],
                 self.mock_x_idx["fds"].get_level_values("region").unique(),
             ],
             names=["prod_system", "crop_prod", "region"],
@@ -132,7 +119,34 @@ class TestMakeA2(unittest.TestCase):
         )
 
     def test_make_A2_2(self):
-        result = self.feed_dist.make_A2_2(self.row_idx, self.factors_with_reg_share)
+        # Factors for `make_A2_2`
+        factors_with_reg_share = pd.DataFrame(
+            {
+                "feed": ["feed1", "feed2"],
+                "animal": ["cows", "cows"],
+                "species": ["cattle", "cattle"],
+                "breed": ["dairy", "dairy"],
+                "prod_system": ["conventional", "conventional"],
+                "sub_system": ["none", "none"],
+                "crop_prod": ["product1", "product2"],
+
+                "feed_to_prod": [0.5, 0.8],
+                "share_domestic": [0.9, 0.8],
+                "share_regional": [0.9, 0.7],
+            },
+        ).set_index(
+            [
+                "feed",
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "crop_prod",
+            ]
+        )
+
+        result = self.feed_dist.make_A2_2(self.row_idx, factors_with_reg_share)
 
         # Check the type of result
         self.assertIsInstance(result, IndexedMatrix)
