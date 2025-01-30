@@ -9,24 +9,14 @@ import scipy
 
 import re as regex
 
+from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
+
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .utils import Constraint
-    from .. import (
-        Regions,
-        DemandAndConversions,
-        CropProduction,
-        FeedMgmt,
-        ParameterRetriever,
-    )
 
 class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given
@@ -47,7 +37,7 @@ class GeoDistributor:
     module_name = 'GeoDistributor'
 
     success: bool
-    constraints: dict[str, Constraint]
+    constraints: dict[str, dict]
     objective: dict
     problem: None | cvxpy.Problem
     x: None | dict[str, pd.Series]

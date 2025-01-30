@@ -9,26 +9,23 @@ import numpy as np
 import cvxpy
 import scipy
 
+from .. import (
+    Regions,
+    DemandAndConversions,
+    CropProduction,
+    FeedMgmt,
+    ParameterRetriever,
+)
+
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict, extend_index
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
-from .utils import make_cvxpy_constraint, feed_demands_to_crop_demands
+from .utils import Constraint, make_cvxpy_constraint, feed_demands_to_crop_demands
 
-from typing import Literal, TYPE_CHECKING
-
-# Only register the following imports wen type-checking, i.e. not at runtime
-if TYPE_CHECKING:
-    from .utils import Constraint
-    from .. import (
-        Regions,
-        DemandAndConversions,
-        CropProduction,
-        FeedMgmt,
-        ParameterRetriever,
-    )
+from typing import Literal
 
 
 class FeedDistributor:
