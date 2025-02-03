@@ -470,12 +470,16 @@ def make_herds(
     return herds
 
 
-def concat_herds(herds):
+def concat_herds(herds, attrs=None):
     '''Combines multiple AnimalHerd objects
 
     Parameters
     ----------
     herds : itterable of AnimalHerd objects
+    attrs : list of str or None, default None
+        List of data attributes to include in concatenated herd object
+        If None, all data attributes present in all animal herd objects
+        are included
 
     Returns
     -------
@@ -488,19 +492,22 @@ def concat_herds(herds):
 
     res_herd.data_attr = DataAttr(res_herd)
 
-    # Check presence of data attributes in AnimalHerd objects
-    # Only attributes present in all AnimalHerd objects are
-    # retained in the combined StaticAnimalHerd object
-    data_attr_union = set.union(*[set(h.data_attr) for h in herds])
-    data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
-    data_attr_in_some = data_attr_union - data_attr_in_all
-    if len(data_attr_in_some) > 0:
-        pass
-        # Should a warning be printed here?
-        # warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
+    if attrs is None:
+        # Check presence of data attributes in AnimalHerd objects
+        # Only attributes present in all AnimalHerd objects are
+        # retained in the combined StaticAnimalHerd object
+        data_attr_union = set.union(*[set(h.data_attr) for h in herds])
+        data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
+        data_attr_in_some = data_attr_union - data_attr_in_all
+        if len(data_attr_in_some) > 0:
+            pass
+            # Should a warning be printed here?
+            # warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
+
+        attrs = data_attr_in_all
 
     # Go through data attributes and concatenate
-    for attr in data_attr_in_all:
+    for attr in attrs:
         scalable = herds.iloc[0].data_attr[attr]['scalable']
         # Only include scalable data attributes for now...
         # Potentially rethink aggregation to be
