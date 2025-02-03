@@ -270,7 +270,10 @@ class PlantNutrientMgmt():
         # 5.    Distribute any remaining manure after (3) to conventional areas
         #       in the region based on TAN requirements.
 
-        herds = concat_herds(self.herds)
+        # Elements included
+        elements = ['N', 'TAN', 'P', 'K', 'C']
+
+        herds = concat_herds(self.herds, [f'manure.{e}_to_spread' for e in elements])
 
         # Create dataframe for results
         manure_TAN_application = pd.DataFrame(
@@ -441,15 +444,16 @@ class PlantNutrientMgmt():
 
         # FINALIZE ----------------------------------------------->
 
-        # Calculate manure application as shares of total
-        application_shares = manure_TAN_application / manure_TAN_application.sum().sum()
+        # Calculate manure application as shares of total per column
+        application_shares = manure_TAN_application.div(manure_TAN_application.sum(), axis=1).fillna(0)
 
         # Apply shares to manure dataframes and add data attributes
-        for element in ['N', 'TAN', 'P', 'K', 'C']:
-            res = (
-                (herds.data_attr.get(f'manure.{element}_to_spread').sum().sum() * application_shares)
-                .rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
-            )
+        for element in elements:
+            res = application_shares.mul(
+                herds.data_attr.get(f'manure.{element}_to_spread').sum(),
+                axis=1
+            ).rename_axis(columns={'prod_system':'animal_prod_system'}) # Rename to avoid 'prod_system' in both index and column levels
+
             self.crops.data_attr.add(
                 res,
                 name = f'fertiliser.manure_{element}',
@@ -473,6 +477,9 @@ class PlantNutrientMgmt():
         #
         # 4.    Organic fertiliser remaining after 3 is distributed based on remaining TAN requirements
         #       in conventional crops nationally.
+
+        # Elements included
+        elements = ['N', 'TAN', 'P', 'K', 'C']
 
         # Get TAN requirements remaining after manure application
         # (including long-term effects).
@@ -566,11 +573,15 @@ class PlantNutrientMgmt():
 
         # FINALIZE -------------------------------------------------------------------->
 
-        # Calculate application as share of total
-        application_shares = application_shares = org_TAN_application / org_TAN_application.sum().sum()
+        # Calculate organic fertiliser application as share of total per column
+        application_shares = org_TAN_application.div(org_TAN_application.sum(), axis=1).fillna(0)
 
-        for element in ['N', 'TAN', 'P', 'K', 'C']:
-            res = self.waste.data_attr.get(f'organic_fertiliser_{element}').sum().sum() * application_shares
+        for element in elements:
+            res = application_shares.mul(
+                self.waste.data_attr.get(f'organic_fertiliser_{element}').sum()
+                .groupby('treatment').sum(),
+                axis=1
+            )
 
             self.crops.data_attr.add(
                 res,
