@@ -319,7 +319,7 @@ class FeedDistributor:
         mats = {"OBJ.P1": self.P1}
         mats.update(
             {
-                f'{cn[:cn.index(":")]}.{mn}': m
+                f"{cn[: cn.index(':')]}.{mn}": m
                 for cn, c in self.constraints.items()
                 for mn, m in c["pars"].items()
                 if isinstance(m, IndexedMatrix)
@@ -356,7 +356,9 @@ class FeedDistributor:
             h_heads = herd.data_attr.get("heads")
 
             matching_zeroes = h_heads[h_total == 0].replace({np.nan: 0}) == 0
-            assert matching_zeroes.all().all(), f"Total number of heads is recorded as zero, despite non-zero heads in herd: (sp={sp}, br={br}, ss={ss}, ps={ps}) "
+            assert matching_zeroes.all().all(), (
+                f"Total number of heads is recorded as zero, despite non-zero heads in herd: (sp={sp}, br={br}, ss={ss}, ps={ps}) "
+            )
 
             # Compute the ratio between the two, where we (thanks to the assertion above) can safely replace 0 with 1 in the denominator to avoid division by zero
             ratio = (h_heads / h_total.replace({0: 1})).sort_index(axis=1).sort_index()
@@ -366,9 +368,9 @@ class FeedDistributor:
                 all_ratio_one_or_zero = (
                     (non_zero_ratio.replace({np.nan: 1}) == 1).all().all()
                 )
-                assert (
-                    all_ratio_one_or_zero
-                ), "All ratios for non-cattle should be either 0 or 1"
+                assert all_ratio_one_or_zero, (
+                    "All ratios for non-cattle should be either 0 or 1"
+                )
 
             feed_demands = (
                 self.x["fds"]
@@ -394,9 +396,9 @@ class FeedDistributor:
             heads_long = h_heads.T.stack("region")
             for (ps, ani, re), _ in heads_long[heads_long == 1]:
                 feed_demands_slice = feed_demands.loc[re, (ps, ani, slice(None))]
-                assert (
-                    feed_demands_slice == 0
-                ).all(), "Wherever we have zero animals, we should also have 0 feed"
+                assert (feed_demands_slice == 0).all(), (
+                    "Wherever we have zero animals, we should also have 0 feed"
+                )
 
             herd.data_attr.add(
                 adjusted_feed_demands,
@@ -1079,7 +1081,7 @@ class FeedDistributor:
                 # Lower bound
                 self.constraints.update(
                     {
-                        f"C8_{str(i+n_def)}(low): A8 @ x >= b8 * (1-tol)": {
+                        f"C8_{str(i + n_def)}(low): A8 @ x >= b8 * (1-tol)": {
                             "left": lambda x, A8, b8, tol: A8.M @ x,
                             "right": lambda A8, b8, tol: b8 * (1 - tol),
                             "rel": ">=",
@@ -1090,7 +1092,7 @@ class FeedDistributor:
                 # Upper bound
                 self.constraints.update(
                     {
-                        f"C8_{str(i+n_def)}(upp): A8 @ x <= b8 * (1+tol)": {
+                        f"C8_{str(i + n_def)}(upp): A8 @ x <= b8 * (1+tol)": {
                             "left": lambda x, A8, b8, tol: A8.M @ x,
                             "right": lambda A8, b8, tol: b8 * (1 + tol),
                             "rel": "<=",
@@ -1102,7 +1104,7 @@ class FeedDistributor:
             else:
                 self.constraints.update(
                     {
-                        f"C8_{str(i+n_def)}: A8 @ x {rel} b8": {
+                        f"C8_{str(i + n_def)}: A8 @ x {rel} b8": {
                             "left": lambda x, A8, b8: A8.M @ x,
                             "right": lambda A8, b8: b8,
                             "rel": rel,
@@ -1222,7 +1224,7 @@ class FeedDistributor:
                 # Lower bound
                 self.constraints.update(
                     {
-                        f"C9_{str(i+n_def)}(low): A9 @ x >= b9 * (1-tol)": {
+                        f"C9_{str(i + n_def)}(low): A9 @ x >= b9 * (1-tol)": {
                             "left": lambda x, A9, b9, tol: A9.M @ x,
                             "right": lambda A9, b9, tol: b9 * (1 - tol),
                             "rel": ">=",
@@ -1233,7 +1235,7 @@ class FeedDistributor:
                 # Upper bound
                 self.constraints.update(
                     {
-                        f"C9_{str(i+n_def)}(upp): A9 @ x <= b9 * (1+tol)": {
+                        f"C9_{str(i + n_def)}(upp): A9 @ x <= b9 * (1+tol)": {
                             "left": lambda x, A9, b9, tol: A9.M @ x,
                             "right": lambda A9, b9, tol: b9 * (1 + tol),
                             "rel": "<=",
@@ -1244,7 +1246,7 @@ class FeedDistributor:
             else:
                 self.constraints.update(
                     {
-                        f"C9_{str(i+n_def)}: A9 @ x {rel} b9": {
+                        f"C9_{str(i + n_def)}: A9 @ x {rel} b9": {
                             "left": lambda x, A9, b9: A9.M @ x,
                             "right": lambda A9, b9: b9,
                             "rel": rel,
