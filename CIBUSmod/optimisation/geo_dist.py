@@ -118,7 +118,7 @@ class GeoDistributor:
         self.get_x0()
 
         vprint('Creating demand vector ...')
-        self.make_demand()
+        self.get_demand()
 
         vprint('Calculating scaling factors ...')
         # Calculate scaling factors
@@ -349,7 +349,7 @@ class GeoDistributor:
             'crp' : self.x0['crp'].index
         }
 
-    def make_demand(self):
+    def get_demand(self):
         """
         Calculates and sets the demand-matrix (D) and its index (D_idx).
         """
