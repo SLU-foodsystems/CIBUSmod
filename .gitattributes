@@ -3,3 +3,8 @@
 # 1) https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings
 # 2) https://www.aleksandrhovhannisyan.com/blog/crlf-vs-lf-normalizing-line-endings-in-git/
 * text=auto
+
+# Treat .ipynb as binary and hide from language stats
+*.ipynb linguist-vendored
+*.ipynb linguist-generated=true
+*.ipynb -diff -merge
