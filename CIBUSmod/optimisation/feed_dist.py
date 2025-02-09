@@ -1469,70 +1469,28 @@ class FeedDistributor:
 
     def make_C13(self):
         """
-        Ensure that the imports of feed do not exceed the max_total_imported parameter.
-
-        The A-matrix maps feeds to their import-shares, so that we get the volume we
-        import, while the B matrix contains the ceiling of max imported volume. This is
-        done per prod_sys and feed product, for both main- and by-products.
+        Constrain feed parameters in as a share of dry matter (DM), using the parameter
+        'feed_req_of_DM_min' and 'feed_req_of_DM_max' on herds.
         """
-        try:
-            b13_cp = self.make_b13("crop_prod")
-            b13_by = self.make_b13("by_prod")
-        except ValueError:
-            warnings.warn(
-                "C13 enabled, but b13 could not be built. This is likely because no feeds had max_total_import defined. Thus, C13 was ignored."
-            )
-            return
-
-        b13 = np.concatenate([np.array(b13_cp.values), np.array(b13_by.values)])
-
-        A13_cp = self.make_A13("crop_prod", b13_cp.index)
-        A13_by = self.make_A13("by_prod", b13_by.index)
-
-        n_rows = A13_cp.shape[0] + A13_by.shape[0]
-        A13 = scipy.sparse.hstack(
-            [
-                scipy.sparse.csc_array((n_rows, len(self.x_idx["ani"]))),
-                scipy.sparse.csc_array((n_rows, len(self.x_idx["crp"]))),
-                scipy.sparse.vstack([A13_cp.M, A13_by.M], format="csc"),
-            ],
-            format="csc",
-        )
-
-        self.constraints.update(
-            {
-                "C13: A13 @ x >= 0": {
-                    "left": lambda x, A13, b13: A13 @ x - b13,
-                    "right": lambda **kwargs: 0,
-                    "rel": "<=",
-                    "pars": {"A13": A13, "b13": b13},
-                }
-            }
-        )
-
-    def make_C14(self):
-        """
-        Constrain feed parameters in relation to DM through the data_attr
-        "feed_req_of_DM_{min,max}" set on herds.
-        """
-        A14_fds_min = self.make_A14("min")
-        A14_fds_max = self.make_A14("max")
+        A13_fds_min = self.make_A13("min")
+        A13_fds_max = self.make_A13("max")
 
         n_cols_ani = len(self.x_idx["ani"])
         n_cols_crp = len(self.x_idx["crp"])
 
-        def _A14(A14_fds: IndexedMatrix):
+        def _A13(A13_fds: IndexedMatrix):
+            """Helper function to fill the remaining matrix with zeroes."""
             M = scipy.sparse.hstack(
                 [
-                    scipy.sparse.csc_array((A14_fds.shape[0], n_cols_ani)),
-                    scipy.sparse.csc_array((A14_fds.shape[0], n_cols_crp)),
-                    A14_fds.M,
+                    scipy.sparse.csc_array((A13_fds.shape[0], n_cols_ani)),
+                    scipy.sparse.csc_array((A13_fds.shape[0], n_cols_crp)),
+                    A13_fds.M,
                 ],
                 format="csc",
             )
             return IndexedMatrix(
                 M,
-                row_idx=A14_fds.rows,
+                row_idx=A13_fds.rows,
                 col_idx={
                     "crp": self.x_idx["crp"],
                     "ani": self.x_idx["ani"],
@@ -1540,24 +1498,67 @@ class FeedDistributor:
                 },
             )
 
-        A14_min = _A14(A14_fds_min)
-        A14_max = _A14(A14_fds_max)
+        A13_min = _A13(A13_fds_min)
+        A13_max = _A13(A13_fds_max)
 
-        if A14_min.shape[0] > 0:
-            self.constraints["C14 (min): A14 @ x >= 0"] = {
-                "left": lambda x, A14: A14.M @ x,
-                "right": lambda A14: 0,
+        if A13_min.shape[0] > 0:
+            self.constraints["C13 (min): A13 @ x >= 0"] = {
+                "left": lambda x, A13: A13.M @ x,
+                "right": lambda A13: 0,
                 "rel": ">=",
-                "pars": {"A14": A14_min},
+                "pars": {"A13": A13_min},
             }
 
-        if A14_max.shape[0] > 0:
-            self.constraints["C14 (max): A14 @ x <= 0"] = {
-                "left": lambda x, A14: A14.M @ x,
-                "right": lambda A14: 0,
+        if A13_max.shape[0] > 0:
+            self.constraints["C13 (max): A13 @ x <= 0"] = {
+                "left": lambda x, A13: A13.M @ x,
+                "right": lambda A13: 0,
                 "rel": "<=",
-                "pars": {"A14": A14_max},
+                "pars": {"A13": A13_max},
             }
+
+    def make_C14(self):
+        """
+        Ensure that the imports of feed do not exceed the max_total_imported parameter.
+
+        The A-matrix maps feeds to their import-shares, so that we get the volume we
+        import, while the B matrix contains the ceiling of max imported volume. This is
+        done per prod_sys and feed product, for both main- and by-products.
+        """
+        try:
+            b14_cp = self.make_b14("crop_prod")
+            b14_by = self.make_b14("by_prod")
+        except ValueError:
+            warnings.warn(
+                "C14 enabled, but b14 could not be built. This is likely because no feeds had max_total_import defined. Thus, C14 was ignored."
+            )
+            return
+
+        b14 = np.concatenate([np.array(b14_cp.values), np.array(b14_by.values)])
+
+        A14_cp = self.make_A14("crop_prod", b14_cp.index)
+        A14_by = self.make_A14("by_prod", b14_by.index)
+
+        n_rows = A14_cp.shape[0] + A14_by.shape[0]
+        A14 = scipy.sparse.hstack(
+            [
+                scipy.sparse.csc_array((n_rows, len(self.x_idx["ani"]))),
+                scipy.sparse.csc_array((n_rows, len(self.x_idx["crp"]))),
+                scipy.sparse.vstack([A14_cp.M, A14_by.M], format="csc"),
+            ],
+            format="csc",
+        )
+
+        self.constraints.update(
+            {
+                "C14: A14 @ x >= 0": {
+                    "left": lambda x, A14, b14: A14 @ x - b14,
+                    "right": lambda **kwargs: 0,
+                    "rel": "<=",
+                    "pars": {"A14": A14, "b14": b14},
+                }
+            }
+        )
 
     def make_P1(self):
         # x['ani'] --> x0['ani']
@@ -2358,7 +2359,7 @@ class FeedDistributor:
 
         return IndexedMatrix.from_frame(joined_df, row_idx, col_idx)
 
-    def make_b13(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
+    def make_b14(self, prod_type: Literal["crop_prod", "by_prod"]) -> pd.Series:
         """
         Demand vector of the max total import values for each feed
         """
@@ -2380,36 +2381,9 @@ class FeedDistributor:
         assert isinstance(data, pd.Series)
         return data
 
-    def make_A13(
-        self, prod_type: Literal["crop_prod", "by_prod"], row_idx: pd.Index
-    ) -> IndexedMatrix:
+    def make_A13(self, rel_type: Literal["min", "max"]):
         """
-        Make a matrix mapping the feeds to their total imported amounts of crop
-        products. The row-index is ["prod_system", prod_type].
-        """
-        self.feed_mgmt.par.clear()
-        col_idx = self.x_idx["fds"]
-
-        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
-        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
-
-        feed_to_prod = self._get_feed_to_prod_factors(prod_type, index=True)
-        feed_to_prod = (
-            feed_to_prod["feed_to_prod"] * (1 - feed_to_prod["share_domestic"])
-        ).reset_index(name="feed_to_imp_prod")
-
-        merged = feed_to_prod.merge(row_idx_df, on=["prod_system", prod_type]).merge(
-            col_idx_df,
-            on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
-        )
-
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_imp_prod"
-        )
-
-    def make_A14(self, rel_type: Literal["min", "max"]):
-        """
-        Maps x_fds to values ensuring that feed_req_of_DM_{min/max} are met.
+        Maps x_fds to values ensuring that feed_req_of_DM_{min,max} are met.
 
         Each row maps to one feed_parameter constraint (e.g. min 5% fat of DM) in one
         animal system (ani, sp, br, ps, ss, re). Each value in that row maps the feed
@@ -2521,6 +2495,33 @@ class FeedDistributor:
             - merged["feed_req_of_DM"]
         )
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
+
+    def make_A14(
+        self, prod_type: Literal["crop_prod", "by_prod"], row_idx: pd.Index
+    ) -> IndexedMatrix:
+        """
+        Make a matrix mapping the feeds to their total imported amounts of crop
+        products. The row-index is ["prod_system", prod_type].
+        """
+        self.feed_mgmt.par.clear()
+        col_idx = self.x_idx["fds"]
+
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+
+        feed_to_prod = self._get_feed_to_prod_factors(prod_type, index=True)
+        feed_to_prod = (
+            feed_to_prod["feed_to_prod"] * (1 - feed_to_prod["share_domestic"])
+        ).reset_index(name="feed_to_imp_prod")
+
+        merged = feed_to_prod.merge(row_idx_df, on=["prod_system", prod_type]).merge(
+            col_idx_df,
+            on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
+        )
+
+        return IndexedMatrix.from_frame(
+            merged, row_idx, col_idx, values_name="feed_to_imp_prod"
+        )
 
     def make_P1_1(self):
         """
