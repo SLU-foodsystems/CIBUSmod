@@ -1315,8 +1315,6 @@ class FeedDistributor:
         Ensure that the feed amounts comply with the feed rations.
         """
 
-        MERGE_EQ_AS_MIN_MAX = False
-
         def with_zeroes(A11: None | IndexedMatrix):
             """Helper function to add 0s for the animal- and crop parts"""
             if A11 is None:
@@ -1334,45 +1332,10 @@ class FeedDistributor:
             )
 
         # Create A-matrices for each of the parameters. If there is no data for any
-        # given parameter, we will not add that constraint.
-        A11_eq = self.make_A11("share_in_ration")
-        A11_min = self.make_A11("min_share_in_ration")
-        A11_max = self.make_A11("max_share_in_ration")
-
-        def combine_A11s(
-            A11_eq: IndexedMatrix, A11_minmax: None | IndexedMatrix, mul_factor: float
-        ):
-            if A11_minmax is None:
-                A11_min = A11_eq.copy()
-                A11_min.M = A11_min.M.multiply(mul_factor)
-                return A11_min
-
-            if mul_factor <= 1:
-                M = scipy.sparse.csc_array.maximum(
-                    A11_minmax.M,
-                    A11_eq.M.multiply(mul_factor),
-                )
-            else:
-                M = scipy.sparse.csc_array.minimum(
-                    A11_minmax.M,
-                    A11_eq.M.multiply(mul_factor),
-                )
-
-            return IndexedMatrix(
-                M,
-                A11_minmax.rows,
-                A11_minmax.cols,
-            )
-
-        if MERGE_EQ_AS_MIN_MAX and A11_eq is not None:
-            tol = 0.01
-            A11_min = combine_A11s(A11_eq, A11_min, 1 - tol)
-            A11_max = combine_A11s(A11_eq, A11_max, 1 + tol)
-            A11_eq = None
-
-        A11_eq = with_zeroes(A11_eq)
-        A11_min = with_zeroes(A11_min)
-        A11_max = with_zeroes(A11_max)
+        # given parameter, it will be ignored
+        A11_eq = with_zeroes(self.make_A11("share_in_ration"))
+        A11_min = with_zeroes(self.make_A11("min_share_in_ration"))
+        A11_max = with_zeroes(self.make_A11("max_share_in_ration"))
 
         C11s: dict[str, Constraint] = {}
 
