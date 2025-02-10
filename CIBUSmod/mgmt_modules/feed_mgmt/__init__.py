@@ -6,7 +6,20 @@ from .feed_mgmt_geodist import GeoDistFeedMgmt
 
 class FeedMgmt(FeedMgmtABC):
     """
-    Factory-class to instantiate a concrete implementation of FeedMgmt. mainly added to
+    Class that that calculates amount of 'crop products' or 'by-products' needed for a
+    certain demand of 'feed' accounting far all losses between harvest/production and
+    final consumption by the animals.
+
+    Parameters
+    ----------
+    herds : (pandas.Series of) AnimalHerd object(s)
+    par : ParameterRetriever object
+    type : str, default 'GeoDist'
+        Should match the optimisation module used
+        'GeoDist' for GeoDistributor or
+        'FeedDist' for FeedDistributor
+    
+    This is a factory-class to instantiate a concrete implementation of FeedMgmt. mainly added to
     maintain backwards compatibility after splitting feed_mgmt into two classes.
 
     This is a bit 'hacky', one option is for this to raise a warning so that we can

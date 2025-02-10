@@ -17,6 +17,8 @@ from .. import (
     ParameterRetriever,
 )
 
+from ..mgmt_modules.feed_mgmt.feed_mgmt_feeddist import FeedDistFeedMgmt
+
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict, extend_index
 from ..utils.data_attr import DataAttr
@@ -69,6 +71,10 @@ class FeedDistributor:
         self.crops = crops
         self.herds = herds
         self.feed_mgmt = feed_mgmt
+
+        # Check FeedMgmt type
+        if not isinstance(feed_mgmt, FeedDistFeedMgmt):
+            raise TypeError("FeedMgmt object had the wrong type. Use type='FeedDist' when instantiating FeedMgmt")
 
     def reset(self):
         self.x = None

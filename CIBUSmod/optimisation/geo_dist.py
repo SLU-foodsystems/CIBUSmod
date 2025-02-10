@@ -16,6 +16,8 @@ from ..utils.misc import multiply_aligned, inv_dict
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
+from ..mgmt_modules.feed_mgmt.feed_mgmt_geodist import GeoDistFeedMgmt
+
 from .indexed_matrix import IndexedMatrix
 
 class GeoDistributor:
@@ -59,6 +61,10 @@ class GeoDistributor:
         self.crops = crops
         self.herds = herds
         self.feed_mgmt = feed_mgmt
+
+        # Check FeedMgmt type
+        if not isinstance(feed_mgmt, GeoDistFeedMgmt):
+            raise TypeError("FeedMgmt object had the wrong type. Use type='GeoDist' when instantiating FeedMgmt")
 
     def reset(self):
         self.x = None
