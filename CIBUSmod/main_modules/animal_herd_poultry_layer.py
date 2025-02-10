@@ -252,3 +252,4 @@ class LayerHerd(AnimalHerd):
         feed_req = p('feed_per_head')
 
         return feed_req
+

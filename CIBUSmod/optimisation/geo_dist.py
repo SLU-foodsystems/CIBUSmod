@@ -1,3 +1,5 @@
+import sys
+
 import warnings
 import pandas as pd
 import numpy as np
@@ -13,6 +15,10 @@ from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
+
+from ..mgmt_modules.feed_mgmt.feed_mgmt_geodist import GeoDistFeedMgmt
+
+from .indexed_matrix import IndexedMatrix
 
 class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given
@@ -32,6 +38,12 @@ class GeoDistributor:
 
     module_name = 'GeoDistributor'
 
+    success: bool
+    constraints: dict[str, dict]
+    objective: dict
+    problem: None | cvxpy.Problem
+    x: None | dict[str, pd.Series]
+
     def __init__(
             self,
             regions:Regions,
@@ -49,6 +61,17 @@ class GeoDistributor:
         self.crops = crops
         self.herds = herds
         self.feed_mgmt = feed_mgmt
+
+        # Check FeedMgmt type
+        if not isinstance(feed_mgmt, GeoDistFeedMgmt):
+            raise TypeError("FeedMgmt object had the wrong type. Use type='GeoDist' when instantiating FeedMgmt")
+
+    def reset(self):
+        self.x = None
+        self.success = False
+        self.constraints = dict()
+        self.objective = dict()
+        self.problem = None
 
     def make(
             self,
@@ -88,12 +111,7 @@ class GeoDistributor:
         vprint = verbose_init(verbose, id_str='GeoDistributor.make')
 
         # Reset problem definitions and solution
-        self.success = None
-        self.constraints = dict()
-        self.objective = dict()
-        for attr in ['problem','x']:
-            if hasattr(self, attr):
-                delattr(self, attr)
+        self.reset()
 
         if not isinstance(use_cons,list):
             use_cons = [use_cons]
@@ -117,15 +135,19 @@ class GeoDistributor:
 
         # Make objective function(s)
         vprint('Making objective O1 ...')
-        self.make_O1()
+        self.make_P1()
 
         # Make constraints
         for nr in use_cons:
             fun = getattr(self,'make_C'+nr)
             vprint(f'Making constraint C{nr} ...')
-            fun(
-                **{k:v for k,v in kwargs.items() if 'C'+nr in k}
-            )
+            try:
+                fun(**{k: v for k, v in kwargs.items() if f"C{nr}" in k})
+            except Exception as e:
+                print(
+                    f"Exception raised when making constraint C{nr}.", file=sys.stderr
+                )
+                raise e
 
         # If C7 not included no variables are dropped
         if '7' not in use_cons:
@@ -190,7 +212,7 @@ class GeoDistributor:
         if not isinstance(solver_settings, list):
             solver_settings = [solver_settings]
 
-        if not hasattr(self, 'problem'):
+        if self.problem is None:
             vprint('Defining problem ...')
             self.define_cvx_problem()
 
@@ -229,7 +251,9 @@ class GeoDistributor:
             vprint('Retrieving solution ...')
 
             # Get and store optimal value for variable
+            assert self.problem is not None, "Could not access problem after solving"
             x = self.problem.variables()[0].value
+            assert x is not None, "Could not fetch optimal value from problem."
             # Put xs on short index (!= index if C7 is used) and reindex
             self.x = {
                 'ani' : pd.Series(
@@ -262,8 +286,7 @@ class GeoDistributor:
                 self.apply_solution()
 
         else:
-            if hasattr(self, 'x'):
-                delattr(self, 'x')
+            self.x = None
             raise RuntimeError('No solution found!')
 
         vprint(type='end')
@@ -283,6 +306,8 @@ class GeoDistributor:
         '''Update CropProduction and AnimalHerds according to found solution'''
 
         if x is None:
+            if self.x is None:
+                raise Exception("Cannot apply_solution as x is not defined")
             x = self.x
 
         # Update CropProduction
@@ -331,8 +356,9 @@ class GeoDistributor:
         }
 
     def get_demand(self):
-        '''
-        '''
+        """
+        Calculates and sets the demand-matrix (D) and its index (D_idx).
+        """
         self.D = {
             'ani' : self.demand.data_attr.get('animal_prod_demand').sum(axis=1),
             'crp' : self.demand.data_attr.get('crop_prod_demand').sum(axis=1)
@@ -343,7 +369,7 @@ class GeoDistributor:
         for cp in set(self.feed_mgmt.par.get_unique('crop_prod')) | set(self.crops.par.get_unique('crop_prod', qry='parameter == "seed"')):
             for ps in self.D['crp'].index.get_level_values('prod_system').unique():
                 idx = (ps,cp)
-                if (self.feed_mgmt.par.get('share_imported', crop_prod=cp, prod_system=ps) != 100).any() & (idx not in self.D['crp'].index):
+                if (self.feed_mgmt.par.get('share_domestic', crop_prod=cp, prod_system=ps) != 0).any() & (idx not in self.D['crp'].index):
                     self.D['crp'][idx] = 0
 
         # Store indexes
@@ -936,7 +962,7 @@ class GeoDistributor:
 
         return None
 
-    def make_O1(self):
+    def make_P1(self):
 
         # x['ani'] --> x0['ani']
         P1_1 = self.make_P1_1()
@@ -1825,23 +1851,3 @@ class GeoDistributor:
             desc = 'Total crop production distributed across different uses (unreliable)'
         )
 
-
-class IndexedMatrix():
-    '''Class to store pandas.Index/MultiIndex alongside a sparse
-    matrix to keep track of things'''
-
-    def __init__(self,matrix,row_idx,col_idx):
-        self.M = matrix
-
-        if isinstance(row_idx,list):
-            levels = list(row_idx[0].names)
-            for idx in row_idx:
-                add = [l for l in idx.names if l not in levels]
-                levels.extend(add)
-            print(levels)
-
-        self.rows = row_idx
-        self.cols = col_idx
-
-    def eval(self, x):
-        return pd.Series(self.M @ x, index=self.rows)

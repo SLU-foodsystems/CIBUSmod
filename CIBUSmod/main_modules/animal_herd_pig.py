@@ -212,7 +212,7 @@ class PigHerd(AnimalHerd):
         )
 
     def _calculate_feed_req(self):
-        
+
         # Get production systems and animals present
         pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
         anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
@@ -289,3 +289,4 @@ class PigHerd(AnimalHerd):
         E_req = np.nan_to_num(E_req)
 
         return E_req
+

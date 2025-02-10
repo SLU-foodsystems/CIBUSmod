@@ -282,25 +282,26 @@ class ManureMgmt():
                 herd.data_attr.get('heads')
             )
             # Set bedding material use during grazing to zero
-            if 'grazing' in DM.columns.get_level_values('MMS'):
-                DM.loc[:,(slice(None),slice(None),['grazing'],slice(None))] *= 0
+            if "grazing" in DM.columns.get_level_values("MMS"):
+                DM.loc[:, (slice(None), slice(None), ["grazing"], slice(None))] *= 0
+
+            def get_par(par: str):
+                return (
+                    DM.mul(
+                        self.feed_mgmt.par.get_from_frame(
+                            "feed_composition", df, feed_par=par
+                        )
+                        / 100
+                    )
+                    .T.groupby(["prod_system", "animal", "MMS"])
+                    .sum()
+                    .T
+                )
 
             # Calculate nitrogen,phosphorous and potassium in bedding materials
-            N = ( # [kg N/year]
-                DM
-                .mul(self.feed_mgmt.par.get_from_frame('feed_par_N', df)/100)
-                .T.groupby(['prod_system','animal','MMS']).sum().T
-            )
-            P = ( # [kg P/year]
-                DM
-                .mul(self.feed_mgmt.par.get_from_frame('feed_par_P', df)/100)
-                .T.groupby(['prod_system','animal','MMS']).sum().T
-            )
-            K = ( # [kg K/year]
-                DM
-                .mul(self.feed_mgmt.par.get_from_frame('feed_par_K', df)/100)
-                .T.groupby(['prod_system','animal','MMS']).sum().T
-            )
+            N = get_par("N")  # [kg N/year]
+            P = get_par("P")  # [kg P/year]
+            K = get_par("K")  # [kg K/year]
 
             # Add data attributes
             for df, element in zip([DM,N,P,K], ['DM','N','P','K']):

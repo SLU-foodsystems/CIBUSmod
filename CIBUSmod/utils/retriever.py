@@ -310,7 +310,7 @@ Parameters
 
         self.set()
 
-    def get(self, parameter, **kwargs):
+    def get(self, parameter, warn_if_nan = True, **kwargs):
         '''Method to get values of a parameter under the set filters.
 
         Parameters
@@ -336,7 +336,7 @@ Parameters
         result = _get_parameter_values(self.data, self.selection, parameter)
 
         # If NaNs are return print warning and some useful information
-        if np.isnan(result).any():
+        if warn_if_nan and np.isnan(result).any():
             if self.selection is None:
                 warnings.warn(f"NaN returned! No filters supplied and could not find a default value for '{parameter}' in {self.name}.xlsx.")
             elif np.isnan(result).all():

@@ -1,6 +1,10 @@
 import functools
+from itertools import product
+
 import pandas as pd
-from typing import TYPE_CHECKING
+import numpy as np
+
+from typing import TYPE_CHECKING, Literal, Iterable, Sequence, Hashable
 
 if TYPE_CHECKING:
     from ..main_modules.animal_herd import AnimalHerd
@@ -81,16 +85,49 @@ def fix_herds(herds : "AnimalHerd | list | pd.Series") -> pd.Series:
         herds = pd.Series(
             data=herds,
             index=pd.MultiIndex.from_tuples(
-                [(h.species,h.breed,h.prod_system,h.sub_system) for h in herds],
-                names=['species','breed','prod_system','sub_system']
-            )
+                [(h.species, h.breed, h.prod_system, h.sub_system) for h in herds],
+                names=["species", "breed", "prod_system", "sub_system"],
+            ),
         )
     check_index(herds)
     return herds
 
-def check_index(herds : pd.Series) -> None:
-    '''Raises Exception if all AnimalHerd indexes are not the same'''
-    if len(herds)>0:
-        for n in range(len(herds)-1):
-            if (herds.iloc[n].index != herds.iloc[n+1].index).any():
-                raise Exception('Indexes does not match across herds!')
+
+def check_index(herds: pd.Series) -> None:
+    """Raises Exception if all AnimalHerd indexes are not the same"""
+    if len(herds) > 0:
+        for n in range(len(herds) - 1):
+            if (herds.iloc[n].index != herds.iloc[n + 1].index).any():
+                raise Exception("Indexes does not match across herds!")
+
+
+def extend_index(
+    levels: Sequence[Iterable[Hashable]],
+    names: Iterable[str],
+    index: pd.MultiIndex,
+    mode: Literal["append", "prepend"] = "append",
+) -> pd.MultiIndex:
+    """
+    Extend index with new values
+    """
+    # Return existing index if user does provide new levels/names
+    if len([*levels]) == 0 or len([*names]) == 0:
+        return index
+
+    # Return new index if the original had no values
+    if any(map(lambda lvl: len(lvl) == 0, index.levels)):
+        return pd.MultiIndex.from_product(levels, names=names)
+
+    if mode == "append":
+        combine = lambda xs, ys: xs + ys
+    elif mode == "prepend":
+        combine = lambda xs, ys: ys + xs
+    else:
+        msg = f"Unexpected mode: {mode}."
+        raise ValueError(msg)
+
+    return pd.MultiIndex.from_tuples(
+        [combine(tup, new_els) for tup in index.values for new_els in product(*levels)],
+        names=combine(index.names, names),
+    )
+

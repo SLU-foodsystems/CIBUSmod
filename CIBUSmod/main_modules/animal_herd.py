@@ -7,8 +7,6 @@ from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 from ..utils.retriever import ParameterRetriever
 
-from typing import Literal, Any
-
 class AnimalHerd(ABC):
     '''Class that handels animal herd structure, feed requirements, production etc.
 
