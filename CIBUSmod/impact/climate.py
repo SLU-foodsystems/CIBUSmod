@@ -52,11 +52,8 @@ def get_GHG(
     )
 
     if CO2eq:
-        # Get conversion factors
-        to_CO2eq = pd.read_csv(os.path.join(IMPACT_DATA_PATH, 'ghg_to_CO2eq.csv'), index_col=['ghg','method'])['factor']
 
-        # Select method
-        to_CO2eq = to_CO2eq.xs(CO2eq, level='method').to_dict()
+        to_CO2eq = _get_CO2eq_dict(CO2eq)
 
         # Calculate CO2 equivalents
         res = (
@@ -65,6 +62,15 @@ def get_GHG(
         )
 
     return res
+
+def _get_CO2eq_dict(method):
+    # Get conversion factors
+    to_CO2eq = pd.read_csv(os.path.join(IMPACT_DATA_PATH, 'ghg_to_CO2eq.csv'), index_col=['ghg','method'])['factor']
+
+    # Select method
+    to_CO2eq = to_CO2eq.xs(method, level='method').to_dict()
+
+    return to_CO2eq
 
 def get_deltaT(
     session : None|Session = None,
