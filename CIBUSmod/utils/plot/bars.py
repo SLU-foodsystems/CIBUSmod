@@ -220,7 +220,7 @@ def bar(
         axg.set_xlim(xg.min() - 0.5, xg.max() + 0.5)
         if has_groups:
 
-            group_label = ', '.join(group) if isinstance(group, tuple) else group
+            group_label = ', '.join([i for i in group if len(i)>0]) if isinstance(group, tuple) else group
 
             axg.tick_params(axis='x', which='major', labelsize = grouplabels_fontsize, labelrotation = 90 if grouplabels_vertical else 0, bottom=False, top=False, labelbottom=False, labeltop=True)
             axg.tick_params(axis='x', which='minor', direction='in', width=0.8, bottom=False, top=True)
