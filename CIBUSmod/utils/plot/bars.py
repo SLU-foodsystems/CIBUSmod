@@ -199,10 +199,10 @@ def bar(
     else:
         if stacked:
             ymax = y.sum(axis=1).max() * 1.01
-            ymin = y_neg.sum(axis=1).min() * 1.01 if has_neg else -ymax * 0.01
+            ymin = y_neg.sum(axis=1).min() * 1.02 if has_neg else -ymax * 0.01
         else:
             ymax = y.max(axis=1).max() * 1.01
-            ymin = y_neg.min(axis=1).min() * 1.01 if has_neg else -ymax * 0.01
+            ymin = y_neg.min(axis=1).min() * 1.02 if has_neg else -ymax * 0.01
     ax.set_ylim(ymin, ymax)
 
     group_axs = []
