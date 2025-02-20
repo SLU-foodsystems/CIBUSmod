@@ -1250,13 +1250,9 @@ class Session(object):
             """
 
             if qry in self.cache:
-
                 # Read from cache
                 df = self.cache[qry]
-                
             else:
-                
-                # print(qry)  
                 try:
                     res = pd.read_sql_query(
                         con = con,
@@ -1270,13 +1266,13 @@ class Session(object):
                         raise ValueError(f"Group by level(s) not in data table: {group_lvls_not_in_table}")
                     else:
                         raise Exception("Something went wrong getting data from database file")
-                    
+
                 df = (
                     res
                     .set_index(list(res.columns)[0:-1])
                     ['value']
                 )
-                    
+
                 if df.index.nlevels > 2:
                     df = (
                         df
@@ -1305,7 +1301,7 @@ class Session(object):
 
                 # Add to cache
                 self.cache[qry] = df
-            
+
         if all_region_levels and 'region' in groupby:
             with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
                 closing(con.cursor()) as cur:
@@ -1394,7 +1390,7 @@ class Session(object):
         
         # print('Retrieved data from', '.'.join([module, attr]))
         
-        return df
+        return df.copy()
 
 class CacheDict(dict):
     # Implementation slightly modified from
