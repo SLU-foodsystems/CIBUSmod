@@ -1549,7 +1549,7 @@ def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
         # Set zeros to NaN
         data = data.where(data >= zero_tol, np.nan)
         
-    elif isinstance(data, np.float_):
+    elif isinstance(data, float) or isinstance(data, np.float64):
         
         if np.isnan(data):
             warnings.warn(f'NaNs in {module.par.name}.{attr}.')
