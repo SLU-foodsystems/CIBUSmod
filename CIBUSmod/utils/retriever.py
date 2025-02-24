@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import itertools
 from openpyxl import load_workbook
+import inspect
 
 from .misc import inv_dict
 
@@ -190,6 +191,7 @@ Missing breed(s): '{"', '".join(dif_br)}'
             for att in pr.qry_log:
                 if '.'.join([pr.name,att]) in qry_log_all:
                     qry_log_all['.'.join([pr.name,att])]['lvls'].update(pr.qry_log[att]['lvls'])
+                    qry_log_all['.'.join([pr.name,att])]['caller'].update(pr.qry_log[att]['caller'])
                     qry_log_all['.'.join([pr.name,att])]['n'] += pr.qry_log[att]['n']
                     qry_log_all['.'.join([pr.name,att])]['time'] += pr.qry_log[att]['time']
                 else:
@@ -327,11 +329,29 @@ Parameters
         self.set(**kwargs)
 
         t0 = time.process_time()
+
+        # Get class and method or function calling get()
+        frame = inspect.currentframe() # Get the current stack frame
+        while True:
+            frame = frame.f_back
+            if frame.f_code.co_name in ['get_from_frame', '<listcomp>']:
+                continue
+            else:
+                break
+        caller_name = frame.f_code.co_name  # Method/function name
+        caller_self = frame.f_locals.get("self", None)
+        if caller_self:
+            caller_class = caller_self.__class__.__name__ # Class name
+            caller_str = '.'.join([caller_class, caller_name])
+        else:
+            caller_str = caller_name
+
         if parameter in self.qry_log:
             self.qry_log[parameter]['lvls'].update(set(self.filters))
+            self.qry_log[parameter]['caller'].update({caller_str,})
             self.qry_log[parameter]['n'] += 1
         else:
-            self.qry_log.update({parameter : {'lvls' : set(self.filters), 'n' : 1, 'time' : 0}})
+            self.qry_log.update({parameter : {'lvls' : set(self.filters), 'caller':{caller_str,}, 'n' : 1, 'time' : 0}})
 
         result = _get_parameter_values(self.data, self.selection, parameter)
 
