@@ -82,11 +82,6 @@ class PlantNutrientMgmt():
 
         self.calculate_manure_application_area()
 
-        vprint('Calculating N in crop residues ...')
-        self.calculate_N_in_crop_residues()
-        if self.cover_crops_mgmt is not None:
-            self.calculate_N_in_cover_crop_residues()
-
         vprint('Calculating N application losses ...') # Only NH3 YES?
         self.calculate_N_application_losses(of='mineral_N')
         self.calculate_N_application_losses(of='manure_TAN')
@@ -745,66 +740,6 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         )
 
         return None
-
-    def calculate_N_in_crop_residues(self):
-        # Calculate N in crop residues
-        self.crops.par.clear()
-        self.crops.par.set(**self.crops.index.to_frame().to_dict('list'))
-        p = self.crops.par.get
-
-        # Get crop residues
-        crop_residues = self.crops.data_attr.get('crop_residues').copy()
-
-        # Subtract harvested crop residues
-        crop_residues.loc[:,['above ground']] = (
-            crop_residues.loc[:,['above ground']]
-            .sub(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
-        )
-
-        # Get N in crop residue DM and multiply by total crop residues left in field
-        crop_residues_N = (
-            pd.DataFrame(
-                np.array([
-                    p('ag_resid_N'),
-                    p('bg_resid_N'),
-                ]).T,
-                index = self.crops.index,
-                columns = pd.Index(['above ground','below ground'], name='residue')
-            )
-            .mul(crop_residues)
-        )
-
-        # Add data attribute
-        self.crops.data_attr.add(
-            crop_residues_N,
-            name = 'fertiliser.crop_residues_N',
-            unit = 'kg N/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
-        )
-
-    def calculate_N_in_cover_crop_residues(self):
-
-        self.cover_crops_mgmt.par.clear()
-
-        # Get cover crop residues
-        CC_residues = self.crops.data_attr.get('cover_crops.residues')
-
-        # Calculate N in above and below ground cover crop residues
-        CC_residues_N = CC_residues.copy()
-        CC_residues_N.loc[:,['above ground']] *= \
-            self.cover_crops_mgmt.par.get_from_frame('ag_N', CC_residues_N.loc[:,['above ground']])
-        CC_residues_N.loc[:,['below ground']] *= \
-            self.cover_crops_mgmt.par.get_from_frame('bg_N', CC_residues_N.loc[:,['below ground']])
-
-        # Add data attribute
-        self.crops.data_attr.add(
-            CC_residues_N,
-            name = 'fertiliser.cover_crop_residues_N',
-            unit = 'kg N/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Nitrogen (N) in above and below ground cover crop residues'
-        )
 
     def calculate_N_application_losses(self, of):
         # Application losses of NH3-N calculated according to

@@ -46,6 +46,9 @@ class CropResidueMgmt():
         vprint('Allocating harvestable crop residues to uses ...')
         self.allocate_crop_residues_to_uses()
 
+        vprint('Calculating N and C in above and below ground crop residues ...')
+        self.calculate_residues_NC()
+
         vprint(type='end')
 
         return None
@@ -160,3 +163,40 @@ class CropResidueMgmt():
         )
 
         return None
+    
+    def calculate_residues_NC(self):
+        # Calculate N in crop residues
+        self.crops.par.clear()
+        self.crops.par.set(**self.crops.index.to_frame().to_dict('list'))
+        p = self.crops.par.get
+
+        # Get crop residues
+        crop_residues = self.crops.data_attr.get('crop_residues').copy()
+
+        # Subtract harvested crop residues
+        crop_residues.loc[:,['above ground']] = (
+            crop_residues.loc[:,['above ground']]
+            .sub(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
+        )
+
+        # Get N in crop residue DM and multiply by total crop residues left in field
+        crop_residues_N = (
+            pd.DataFrame(
+                np.array([
+                    p('ag_resid_N'),
+                    p('bg_resid_N'),
+                ]).T,
+                index = self.crops.index,
+                columns = pd.Index(['above ground','below ground'], name='residue')
+            )
+            .mul(crop_residues)
+        )
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            crop_residues_N,
+            name = 'fertiliser.crop_residues_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
+        )

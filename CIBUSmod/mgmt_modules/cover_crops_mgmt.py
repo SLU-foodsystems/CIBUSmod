@@ -37,6 +37,9 @@ class CoverCropsMgmt(object):
         vprint('Calculating above and below ground cover crop residues ...')
         self.calculate_cover_crop_residues()
 
+        vprint('Calculating N and C in above and below ground cover crop residues ...')
+        self.calculate_residues_NC()
+
         vprint(type='end')
         
         return None
@@ -89,6 +92,29 @@ class CoverCropsMgmt(object):
             unit = 'kg DM/year',
             orig = "CoverCropsMgmt",
             desc = "Above and below ground residues from cover crops"
+        )
+
+    def calculate_residues_NC(self):
+
+        self.par.clear()
+
+        # Get cover crop residues
+        CC_residues = self.crops.data_attr.get('cover_crops.residues')
+
+        # Calculate N in above and below ground cover crop residues
+        CC_residues_N = CC_residues.copy()
+        CC_residues_N.loc[:,['above ground']] *= \
+            self.par.get_from_frame('ag_N', CC_residues_N.loc[:,['above ground']])
+        CC_residues_N.loc[:,['below ground']] *= \
+            self.par.get_from_frame('bg_N', CC_residues_N.loc[:,['below ground']])
+
+        # Add data attribute
+        self.crops.data_attr.add(
+            CC_residues_N,
+            name = 'fertiliser.cover_crop_residues_N',
+            unit = 'kg N/year',
+            orig = 'PlantNutrientMgmt',
+            desc = 'Nitrogen (N) in above and below ground cover crop residues'
         )
 
     def get_residual_N(self):
