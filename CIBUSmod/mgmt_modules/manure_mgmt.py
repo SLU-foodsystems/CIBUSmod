@@ -4,7 +4,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, fix_herds
+from ..utils.misc import multiply_aligned, fix_herds, elem_to_name
 
 if TYPE_CHECKING:
     from ..utils.retriever import ParameterRetriever
@@ -573,7 +573,7 @@ class ManureMgmt():
                 name = f'manure.{element}_excr',
                 unit = f'kg {element}/year',
                 orig = 'ManureMgmt',
-                desc = f'Manure {_elem_to_name[element]} excretion'
+                desc = f'Manure {elem_to_name[element]} excretion'
             )
 
         return None
@@ -660,14 +660,14 @@ class ManureMgmt():
                     name = f'manure.{element}_to_spread',
                     unit = f'kg {element}/year',
                     orig = 'ManureMgmt',
-                    desc = f'Total {_elem_to_name[element]} in manure available to spread after stable and storage losses'
+                    desc = f'Total {elem_to_name[element]} in manure available to spread after stable and storage losses'
             )
             herd.data_attr.add(
                     to_treatment,
                     name = f'manure.{element}_to_treatment',
                     unit = f'kg {element}/year',
                     orig = 'ManureMgmt',
-                    desc = f'Total {_elem_to_name[element]} in manure to off-farm treatment'
+                    desc = f'Total {elem_to_name[element]} in manure to off-farm treatment'
             )
 
             if element=='N':
@@ -698,9 +698,3 @@ class ManureMgmt():
                 )
 
         return None
-
-_elem_to_name = {
-    'N' : 'nitrogen (N)',
-    'P' : 'phosphorous (P)',
-    'K' : 'potassium (P)'
-}

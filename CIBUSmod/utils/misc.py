@@ -131,3 +131,11 @@ def extend_index(
         names=combine(index.names, names),
     )
 
+# Chemical elements to names
+elem_to_name = {
+    'C' : 'carbon (C)',
+    'N' : 'nitrogen (N)',
+    'TAN' : 'total ammoniacal nitrogen (TAN)',
+    'P' : 'phosphorous (P)',
+    'K' : 'potassium (K)'
+}

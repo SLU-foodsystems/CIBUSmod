@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict, index_to_multi
+from ..utils.misc import multiply_aligned, inv_dict, index_to_multi, elem_to_name
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -236,7 +236,7 @@ class PlantNutrientMgmt():
             name = f'fertiliser.{element}_req',
             unit = f'kg {element}/year',
             orig = 'PlantNutrientMgmt',
-            desc = f'{_elem_to_name[element].capitalize()} requirements to be covered by fertiliser/manure application'
+            desc = f'{elem_to_name[element].capitalize()} requirements to be covered by fertiliser/manure application'
         )
 
         return None
@@ -465,7 +465,7 @@ class PlantNutrientMgmt():
                 name = f'fertiliser.manure_{element}',
                 unit = f'kg {element}/year',
                 orig = 'PlantNutrientMgmt',
-                desc = f'{_elem_to_name[element].capitalize()} in applied manure'
+                desc = f'{elem_to_name[element].capitalize()} in applied manure'
             )
 
     def distribute_organic_fertilisers(self):
@@ -613,7 +613,7 @@ class PlantNutrientMgmt():
                 name = f'fertiliser.organic_{element}',
                 unit = f'kg {element}/year',
                 orig = 'PlantNutrientMgmt',
-                desc = f'{_elem_to_name[element].capitalize()} in applied non-manure organic fertilisers'
+                desc = f'{elem_to_name[element].capitalize()} in applied non-manure organic fertilisers'
             )
 
     def calculate_mineral_NPK_application(self, element):
@@ -703,7 +703,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             name = f'fertiliser.mineral_{element}',
             unit = f'kg {element}/year',
             orig = 'PlantNutrientMgmt',
-            desc = f'{_elem_to_name[element].capitalize()} in applied fertilisers'
+            desc = f'{elem_to_name[element].capitalize()} in applied fertilisers'
         )
 
     def calculate_manure_application_area(self):
@@ -1160,14 +1160,6 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             orig = 'PlantNutrientMgmt',
             desc = 'CO2 emissions from lime application'
         )
-
-_elem_to_name = {
-    'C' : 'carbon (C)',
-    'N' : 'nitrogen (N)',
-    'TAN' : 'plant available nitrogen (TAN)',
-    'P' : 'phosphorous (P)',
-    'K' : 'potassium (K)'
-}
 
 def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
 
