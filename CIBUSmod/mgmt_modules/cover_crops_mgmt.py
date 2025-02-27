@@ -2,6 +2,7 @@ import pandas as pd
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
+from ..utils.misc import elem_to_name
 
 if TYPE_CHECKING:
     from CIBUSmod.main_modules.crop_prod import CropProduction
@@ -36,6 +37,9 @@ class CoverCropsMgmt(object):
 
         vprint('Calculating above and below ground cover crop residues ...')
         self.calculate_cover_crop_residues()
+
+        vprint('Calculating N and C in above and below ground cover crop residues ...')
+        self.calculate_residues_NC()
 
         vprint(type='end')
         
@@ -90,6 +94,30 @@ class CoverCropsMgmt(object):
             orig = "CoverCropsMgmt",
             desc = "Above and below ground residues from cover crops"
         )
+
+    def calculate_residues_NC(self):
+
+        self.par.clear()
+
+        # Get cover crop residues
+        CC_residues = self.crops.data_attr.get('cover_crops.residues')
+
+        for element in ['N','C']:
+            # Calculate N in above and below ground cover crop residues
+            df = CC_residues.copy()
+            df.loc[:,['above ground']] *= \
+                self.par.get_from_frame('ag_'+element, df.loc[:,['above ground']])
+            df.loc[:,['below ground']] *= \
+                self.par.get_from_frame('bg_'+element, df.loc[:,['below ground']])
+            
+            # Add data attribute
+            self.crops.data_attr.add(
+                df,
+                name = 'fertiliser.cover_crop_residues_'+element,
+                unit = f'kg {element}/year',
+                orig = 'CoverCropsMgmt',
+                desc = f'{elem_to_name[element].title()} in above and below ground cover crop residues'
+            )
 
     def get_residual_N(self):
         '''Method to return the residual nitrogen (N) from cover crops [kg N].

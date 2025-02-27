@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict, index_to_multi
+from ..utils.misc import multiply_aligned, inv_dict, index_to_multi, elem_to_name
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -81,11 +81,6 @@ class PlantNutrientMgmt():
         self.calculate_mineral_NPK_application(element='K')
 
         self.calculate_manure_application_area()
-
-        vprint('Calculating N in crop residues ...')
-        self.calculate_N_in_crop_residues()
-        if self.cover_crops_mgmt is not None:
-            self.calculate_N_in_cover_crop_residues()
 
         vprint('Calculating N application losses ...') # Only NH3 YES?
         self.calculate_N_application_losses(of='mineral_N')
@@ -241,7 +236,7 @@ class PlantNutrientMgmt():
             name = f'fertiliser.{element}_req',
             unit = f'kg {element}/year',
             orig = 'PlantNutrientMgmt',
-            desc = f'{_elem_to_name[element].capitalize()} requirements to be covered by fertiliser/manure application'
+            desc = f'{elem_to_name[element].capitalize()} requirements to be covered by fertiliser/manure application'
         )
 
         return None
@@ -470,7 +465,7 @@ class PlantNutrientMgmt():
                 name = f'fertiliser.manure_{element}',
                 unit = f'kg {element}/year',
                 orig = 'PlantNutrientMgmt',
-                desc = f'{_elem_to_name[element].capitalize()} in applied manure'
+                desc = f'{elem_to_name[element].capitalize()} in applied manure'
             )
 
     def distribute_organic_fertilisers(self):
@@ -618,7 +613,7 @@ class PlantNutrientMgmt():
                 name = f'fertiliser.organic_{element}',
                 unit = f'kg {element}/year',
                 orig = 'PlantNutrientMgmt',
-                desc = f'{_elem_to_name[element].capitalize()} in applied non-manure organic fertilisers'
+                desc = f'{elem_to_name[element].capitalize()} in applied non-manure organic fertilisers'
             )
 
     def calculate_mineral_NPK_application(self, element):
@@ -708,7 +703,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             name = f'fertiliser.mineral_{element}',
             unit = f'kg {element}/year',
             orig = 'PlantNutrientMgmt',
-            desc = f'{_elem_to_name[element].capitalize()} in applied fertilisers'
+            desc = f'{elem_to_name[element].capitalize()} in applied fertilisers'
         )
 
     def calculate_manure_application_area(self):
@@ -745,66 +740,6 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         )
 
         return None
-
-    def calculate_N_in_crop_residues(self):
-        # Calculate N in crop residues
-        self.crops.par.clear()
-        self.crops.par.set(**self.crops.index.to_frame().to_dict('list'))
-        p = self.crops.par.get
-
-        # Get crop residues
-        crop_residues = self.crops.data_attr.get('crop_residues').copy()
-
-        # Subtract harvested crop residues
-        crop_residues.loc[:,['above ground']] = (
-            crop_residues.loc[:,['above ground']]
-            .sub(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
-        )
-
-        # Get N in crop residue DM and multiply by total crop residues left in field
-        crop_residues_N = (
-            pd.DataFrame(
-                np.array([
-                    p('ag_resid_N'),
-                    p('bg_resid_N'),
-                ]).T,
-                index = self.crops.index,
-                columns = pd.Index(['above ground','below ground'], name='residue')
-            )
-            .mul(crop_residues)
-        )
-
-        # Add data attribute
-        self.crops.data_attr.add(
-            crop_residues_N,
-            name = 'fertiliser.crop_residues_N',
-            unit = 'kg N/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
-        )
-
-    def calculate_N_in_cover_crop_residues(self):
-
-        self.cover_crops_mgmt.par.clear()
-
-        # Get cover crop residues
-        CC_residues = self.crops.data_attr.get('cover_crops.residues')
-
-        # Calculate N in above and below ground cover crop residues
-        CC_residues_N = CC_residues.copy()
-        CC_residues_N.loc[:,['above ground']] *= \
-            self.cover_crops_mgmt.par.get_from_frame('ag_N', CC_residues_N.loc[:,['above ground']])
-        CC_residues_N.loc[:,['below ground']] *= \
-            self.cover_crops_mgmt.par.get_from_frame('bg_N', CC_residues_N.loc[:,['below ground']])
-
-        # Add data attribute
-        self.crops.data_attr.add(
-            CC_residues_N,
-            name = 'fertiliser.cover_crop_residues_N',
-            unit = 'kg N/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Nitrogen (N) in above and below ground cover crop residues'
-        )
 
     def calculate_N_application_losses(self, of):
         # Application losses of NH3-N calculated according to
@@ -948,7 +883,11 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             name = attr_name,
             unit = 'kg N/year',
             orig = 'PlantNutrientMgmt',
-            desc = f'Soil losses of nitrogen (N) from {"applied mineral fertilisers" if "mineral" in of else "applied and deposited manure" if "manure" in of else "crop residues"}'
+            desc = 'Soil losses of nitrogen (N) from ' + (
+                "applied mineral fertilisers" if "mineral" in of else
+                "applied and deposited manure" if "manure" in of else
+                of.replace("_N","").replace("_"," ")
+            )
         )
 
     def calculate_organic_soil_losses(self):
@@ -1225,14 +1164,6 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             orig = 'PlantNutrientMgmt',
             desc = 'CO2 emissions from lime application'
         )
-
-_elem_to_name = {
-    'C' : 'carbon (C)',
-    'N' : 'nitrogen (N)',
-    'TAN' : 'plant available nitrogen (TAN)',
-    'P' : 'phosphorous (P)',
-    'K' : 'potassium (K)'
-}
 
 def _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use):
 
