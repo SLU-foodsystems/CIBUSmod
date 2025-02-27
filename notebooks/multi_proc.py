@@ -202,7 +202,7 @@ def do_run(
         cover_crops_mgmt.calculate(verbose=True)
     
         # Calculate treatment of wastes and other feedstocks
-        waste.calculate()
+        waste.calculate(verbose=True)
         
         # Calculate plant nutrient management
         plant_nutrient_mgmt.calculate(verbose=True)

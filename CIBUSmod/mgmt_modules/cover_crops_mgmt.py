@@ -153,7 +153,7 @@ class CoverCropsMgmt(object):
         crop_area = self.crops.data_attr.get('area')
         CC_area = self.crops.data_attr.get('cover_crops.area')
         
-        # Calculate leaching adjustment factors
+        # Calculate adjustment factors
         adjust_factors = pd.DataFrame(
             0.0,
             index = df.index,
@@ -161,8 +161,14 @@ class CoverCropsMgmt(object):
         )
         for cc in CC_area.columns:
             self.par.set(cover_crop = cc)
-            # Add inverse of leach adjust factor times cover crop area
-            adjust_factors += (1-self.par.get_from_frame(of, df)).mul(CC_area.loc[:,cc], axis=0)
+            # Add inverse of adjust factor times cover crop area
+            adjust_factors = adjust_factors.add(
+                CC_area.loc[:,cc].mul(
+                    1-self.par.get(of, **df.index.to_frame().to_dict('list')),
+                    axis=0
+                ),
+                axis=0
+            )
         # Divide by total crop area and invert (Set NaN to 1 for cases where crop area is 0)
         adjust_factors = (1 - adjust_factors.div(crop_area, axis=0)).fillna(1)
         
