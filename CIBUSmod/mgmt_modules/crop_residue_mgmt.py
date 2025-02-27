@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import fix_herds, index_to_multi
+from ..utils.misc import fix_herds, index_to_multi, elem_to_name
 
 if TYPE_CHECKING:
     from ..main_modules.demand_and_conversions import DemandAndConversions
@@ -179,24 +179,25 @@ class CropResidueMgmt():
             .sub(self.crops.data_attr.get('crop_residues_harvest').sum(axis=1), axis=0)
         )
 
-        # Get N in crop residue DM and multiply by total crop residues left in field
-        crop_residues_N = (
-            pd.DataFrame(
-                np.array([
-                    p('ag_resid_N'),
-                    p('bg_resid_N'),
-                ]).T,
-                index = self.crops.index,
-                columns = pd.Index(['above ground','below ground'], name='residue')
+        for element in ['N','C']:
+            # Get N/C in crop residue DM and multiply by total crop residues left in field
+            df = (
+                pd.DataFrame(
+                    np.array([
+                        p('ag_resid_'+element),
+                        p('bg_resid_'+element),
+                    ]).T,
+                    index = self.crops.index,
+                    columns = pd.Index(['above ground','below ground'], name='residue')
+                )
+                .mul(crop_residues)
             )
-            .mul(crop_residues)
-        )
-
-        # Add data attribute
-        self.crops.data_attr.add(
-            crop_residues_N,
-            name = 'fertiliser.crop_residues_N',
-            unit = 'kg N/year',
-            orig = 'PlantNutrientMgmt',
-            desc = 'Nitrogen (N) in above and below ground crop residues left in the field (i.e. not harvested)'
-        )
+            
+            # Add data attribute
+            self.crops.data_attr.add(
+                df,
+                name = 'fertiliser.crop_residues_'+element,
+                unit = f'kg {element}/year',
+                orig = 'CropResidueMgmt',
+                desc = f'{elem_to_name[element].title()} in above and below ground crop residues left in the field (i.e. not harvested)'
+            )

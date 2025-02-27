@@ -883,7 +883,11 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             name = attr_name,
             unit = 'kg N/year',
             orig = 'PlantNutrientMgmt',
-            desc = f'Soil losses of nitrogen (N) from {"applied mineral fertilisers" if "mineral" in of else "applied and deposited manure" if "manure" in of else "crop residues"}'
+            desc = 'Soil losses of nitrogen (N) from ' + (
+                "applied mineral fertilisers" if "mineral" in of else
+                "applied and deposited manure" if "manure" in of else
+                of.replace("_N","").replace("_"," ")
+            )
         )
 
     def calculate_organic_soil_losses(self):
