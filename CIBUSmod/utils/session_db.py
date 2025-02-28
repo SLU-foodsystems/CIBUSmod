@@ -346,8 +346,6 @@ class Session(object):
             scenarios_path=self.data_path_scenarios
         )
 
-        self.cache = CacheDict()
-
         return None
     
     def scenarios(self, subset='all'):
