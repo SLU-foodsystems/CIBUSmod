@@ -537,13 +537,14 @@ def anaerobic_digestion(waste:WasteAndCircularity):
             waste.data_attr.get('organic_fertiliser_TAN').loc[:, digestate_to_spread.columns] = \
                 digestate_to_spread * (waste.par.get_from_frame('digestate_TAN_share', digestate_to_spread)/100)
 
+    return None
+
 
 def composting(waste:WasteAndCircularity):
     print('NOT IMPLEMENTED!', end=' ')
+    return None
 
 def incineration(waste:WasteAndCircularity):
-
-    idx = pd.IndexSlice
 
     # Get feedstock VS
     feedstock_VS = (
@@ -588,8 +589,38 @@ def incineration(waste:WasteAndCircularity):
         )
 
     # No organic fertilisers generated, set to zero
+    idx = pd.IndexSlice
     for element in ['C','N','P','K','TAN']:
         waste.data_attr.get(f'organic_fertiliser_{element}').loc[:,idx[:,:,:,'incineration']] = 0.0
 
+    return None
+
 def landfill(waste:WasteAndCircularity):
-    print('NOT IMPLEMENTED!', end=' ')
+
+    # Get feedstock VS
+    feedstock_VS = (
+        waste.data_attr.get('feedstock_VS')
+        .xs('landfill', level='treatment', axis=1, drop_level=False)
+    )
+
+    for element in ['VS','N','P','K']:
+        # Get emission factors
+        waste.par.clear()
+        EFs = waste.par.get_from_frame(
+            'landfill_emissions',
+            waste.data_attr.get(f'losses_{element}')
+            .xs('landfill', level='treatment', axis=1, drop_level=False),
+            element = element
+        )
+
+        # Calculate emissions
+        waste.data_attr.get(f'losses_{element}').update(
+            multiply_aligned(EFs, feedstock_VS)
+        )
+
+    # No organic fertilisers generated, set to zero
+    idx = pd.IndexSlice
+    for element in ['C','N','P','K','TAN']:
+        waste.data_attr.get(f'organic_fertiliser_{element}').loc[:,idx[:,:,:,'landfill']] = 0.0
+
+    return None
