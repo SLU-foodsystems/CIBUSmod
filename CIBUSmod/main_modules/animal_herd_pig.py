@@ -47,7 +47,10 @@ class PigHerd(AnimalHerd):
         tmp_piglets_weaned = tmp_piglets_born * (1 - p('mortality_0towean')/100)
         tmp_piglets_delivered = tmp_piglets_weaned * (1 - p('mortality_weantodelivery')/100)
 
-        piglets_lost = (sows * p('litters_per_sow') * p('dead_per_litter')) + (tmp_piglets_born - tmp_piglets_delivered)
+        tmp_piglets_lost_stillborn = sows * p('litters_per_sow') * p('dead_per_litter')
+        tmp_piglets_lost_0towean = tmp_piglets_born - tmp_piglets_weaned
+        tmp_piglets_lost_weantodelivery = tmp_piglets_weaned - tmp_piglets_delivered
+        piglets_lost = tmp_piglets_lost_stillborn + tmp_piglets_lost_0towean + tmp_piglets_lost_weantodelivery
 
         # Calculate avg. number of live piglets assuming a 50% weight on lost animals
         piglets = (
@@ -77,8 +80,8 @@ class PigHerd(AnimalHerd):
         gilts_to_slaughter = np.zeros(len(sows))
         growers_to_slaughter = np.zeros(len(sows))
 
-        boars_lost = np.zeros(len(sows))
-        gilts_lost = np.zeros(len(sows))
+        boars_lost = np.zeros(len(sows)) # No losses
+        gilts_lost = np.zeros(len(sows)) # No losses
 
         # CALCULATE LIVE WEIGHT GAINS
         # These are in terms of total weight gain in the herd
@@ -94,7 +97,7 @@ class PigHerd(AnimalHerd):
             growth_rate_growers_and_finishers * p('growing_period')
         ) # kg/head
 
-        lwg_piglets = (p('live_weight_delivery') - p('birth_weight')) / (p('weaning_age') + p('post_weaning_nursing_period')) * 365.25
+        lwg_piglets = (p('live_weight_delivery') - p('birth_weight')) / (p('weaning_age') + p('post_weaning_nursing_period')) * piglets * 365.25
         lwg_growers = growth_rate_growers_and_finishers * growers * 365.25
         lwg_finishers = growth_rate_growers_and_finishers * finishers * 365.25
         lwg_gilts = (
@@ -107,6 +110,40 @@ class PigHerd(AnimalHerd):
         lwg_sows = p('litters_per_sow') * (p('live_per_litter') + p('dead_per_litter')) * p('birth_weight') * sows
         lwg_boars = np.zeros(len(sows))
 
+        # CALCULATE LIVE WEIGHTS FOR LOST ANIMALS
+        # Animals are assumed to be lost half way through each stage
+
+        tmp_lw_piglets_lost_stillborn = (
+            p('birth_weight') # kg/head
+        ) * tmp_piglets_lost_stillborn # --> kg
+        tmp_lw_piglets_lost_0towean = (
+            p('birth_weight') + # kg/head
+            (p('weaning_age')/2) * # days
+            (lwg_piglets / piglets / 365.25) # kg/head/day
+        ) * tmp_piglets_lost_0towean # --> kg
+        tmp_lw_piglets_lost_weantodelivery = (
+            p('live_weight_weaning') + # kg/head
+            (p('post_weaning_nursing_period')/2) * # days
+            (lwg_piglets / piglets / 365.25) # kg/head/day
+        ) * tmp_piglets_lost_weantodelivery # --> kg
+        lw_piglets_lost = tmp_lw_piglets_lost_stillborn + tmp_lw_piglets_lost_0towean + tmp_lw_piglets_lost_weantodelivery
+
+        lw_growers_lost = (
+            p('live_weight_delivery') + # kg/head
+            (p('growing_period')/2) * # days
+            growth_rate_growers_and_finishers # kg/head/day
+        ) * growers_lost
+
+        lw_finishers_lost = (
+            live_weight_after_growing_period + # kg/head
+            (p('finishing_period')/2) * # days
+            growth_rate_growers_and_finishers # kg/head/day
+        ) * finishers_lost
+
+        lw_gilts_lost = np.zeros(len(sows)) # No losses
+        lw_sows_lost = p('live_weight', animal='sows') * sows_lost
+        lw_boars_lost = np.zeros(len(sows)) # No losses
+
         # Create output DataFrames
         pss = [self.prod_system] # Output production systems (==[self.prod_system] as no redistribution of animals in this class)
 
@@ -115,7 +152,7 @@ class PigHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, lwg, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(5)]
+        heads, lwg, inserted_n, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(6)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
@@ -172,6 +209,16 @@ class PigHerd(AnimalHerd):
                     finishers_lost[sel]
                 ]).T
 
+            lost_lw.loc[:,(ps,slice(None))] = \
+                np.array([
+                    lw_sows_lost[sel],
+                    lw_boars_lost[sel],
+                    lw_piglets_lost[sel],
+                    lw_gilts_lost[sel],
+                    lw_growers_lost[sel],
+                    lw_finishers_lost[sel]
+                ]).T
+
             n += 1
 
         # Add data attributes
@@ -209,6 +256,13 @@ class PigHerd(AnimalHerd):
             unit = 'heads/year',
             orig = 'PigHerd',
             desc = 'Total number of heads lost'
+        )
+        self.data_attr.add(
+            lost_lw,
+            name = 'lost_lw',
+            unit = 'kg/year',
+            orig = 'PigHerd',
+            desc = 'Total live weight of lost animals'
         )
 
     def _calculate_feed_req(self):
