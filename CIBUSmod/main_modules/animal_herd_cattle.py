@@ -69,12 +69,15 @@ class CattleHerd(AnimalHerd):
         recruitment_rate = p('recruitment_rate')/100
 
         # Calves born per year per cow
-        tmp_calves_per_year = \
-            ( 12/p('calving_interval') * (1-recruitment_rate) + recruitment_rate ) \
-            * ( 1*(1-p('twin_birth')/100) + 2*(p('twin_birth')/100) ) * (1-p('stillborn_calf')/100)
+        tmp_calvings_per_year = 12/p('calving_interval') * (1-recruitment_rate) + recruitment_rate
+        tmp_calves_per_year = (
+            tmp_calvings_per_year *
+            ( 1*(1-p('twin_birth')/100) + 2*(p('twin_birth')/100) ) * (1-p('stillborn_calf')/100)
+        )
 
-        # Total no. of calves born per year
+        # Total no. of calves born and stillborn per year
         tmp_calves_born = cows * tmp_calves_per_year
+        tmp_calves_stillborn = cows * tmp_calvings_per_year * (p('stillborn_calf')/100)
         # ... of which male
         tmp_male_calves_born = tmp_calves_born * p('ratio_male_calf')/100
         # ... of which female
@@ -151,7 +154,7 @@ class CattleHerd(AnimalHerd):
         # CALCULATE LOST ANIMALS PER CATEGORY
         cows2lost = cows * p('mortality',animal='cows')/100
         breeding_bulls2lost = np.zeros(len(cows)) # No losses assumed for breeding bulls for now...
-        calves_suckling2lost = tmp_male2lost + tmp_female2lost
+        calves_suckling2lost = tmp_male2lost + tmp_female2lost + tmp_calves_stillborn
         tmp_calves_slaughter2lost_male = np.nan_to_num(
             tmp_male2lost_after_weaning * (
                 tmp_male_calves2slaughter /
@@ -188,7 +191,7 @@ class CattleHerd(AnimalHerd):
         bulls2lost = np.zeros(len(cows)) # No losses
 
         assert np.isclose(
-            tmp_male_calves_born + tmp_female_calves_born - calves_suckling2lost,
+            tmp_male_calves_born + tmp_female_calves_born + tmp_calves_stillborn - calves_suckling2lost,
             tmp_male2weaned_before_redist + tmp_female2weaned_before_redist
         ).all(), "Born calves - Lost calves != Weaned calves"
 
@@ -338,8 +341,11 @@ class CattleHerd(AnimalHerd):
 
         # CALCULATE LIVE WEIGHTS FOR LOST ANIMALS       
         lw_calves_suckling2lost = (
+            # Stillborn calves
+            p('birth_weight') * tmp_calves_stillborn # --> kg
+            +
+            # Male calves
             np.nan_to_num(
-                # Male calves
                 lw_calves_start + # kg
                 p('mortality_male_0towean_age') * # days
                 (tmp_lwg_calves_suckling_male / _np_zero_to_nan(tmp_calves_suckling_male) / 365.25) # kg/head/day
