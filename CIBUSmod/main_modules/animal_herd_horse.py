@@ -56,6 +56,7 @@ class HorseHerd(AnimalHerd):
         # Assume no slaughter and losses for now...
         slaughtered_n = heads * 0
         lost_n = heads * 0
+        lost_lw = heads * 0
 
         # Add data attributes
         self.data_attr.add(
@@ -78,6 +79,13 @@ class HorseHerd(AnimalHerd):
             unit = 'heads/year',
             orig = 'HorseHerd',
             desc = 'Total number of heads lost'
+        )
+        self.data_attr.add(
+            lost_lw,
+            name = 'lost_lw',
+            unit = 'kg/year',
+            orig = 'HorseHerd',
+            desc = 'Total live weight of lost animals'
         )
 
     def _calculate_feed_req(self):
