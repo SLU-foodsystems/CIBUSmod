@@ -71,32 +71,32 @@ class BroilerHerd(AnimalHerd):
         breeding_hens = inserted_breeding_hens * p('slaughter_age', animal='breeding hens')/365.25
         breeding_roosters = inserted_breeding_roosters * p('slaughter_age', animal='breeding hens')/365.25
 
-        # Calculate lost animals
+        # Calculate number and live weight of lost animals
         self.par.set(animal='broilers')
-        lost_broilers = (
-            inserted_broilers *
-            (
-                (p('mortality')/100) +
-                (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
-            )
+        lost_broilers_mort = inserted_broilers * (p('mortality')/100)
+        lost_broilers_reject = inserted_broilers * (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
+        lost_broilers = lost_broilers_mort + lost_broilers_reject
+        lw_lost_broilers = (
+            lost_broilers_mort * (p('slaughter_weight')*p('live_weight_per_CW') + p('start_weight'))/2 +
+            lost_broilers_reject * p('slaughter_weight')*p('live_weight_per_CW')
         )
 
         self.par.set(animal='breeding hens')
-        lost_breeding_hens = (
-            inserted_breeding_hens *
-            (
-                (p('mortality')/100) +
-                (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
-            )
+        lost_breeding_hens_mort = inserted_breeding_hens * (p('mortality')/100)
+        lost_breeding_hens_reject = inserted_breeding_hens * (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
+        lost_breeding_hens = lost_breeding_hens_mort + lost_breeding_hens_reject
+        lw_lost_breeding_hens = (
+            lost_breeding_hens_mort * (p('slaughter_weight')*p('live_weight_per_CW') + p('start_weight'))/2 +
+            lost_breeding_hens_reject * p('slaughter_weight')*p('live_weight_per_CW')
         )
 
         self.par.set(animal='breeding roosters')
-        lost_breeding_roosters = (
-            inserted_breeding_roosters *
-            (
-                (p('mortality')/100) +
-                (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
-            )
+        lost_breeding_roosters_mort = inserted_breeding_roosters * (p('mortality')/100)
+        lost_breeding_roosters_reject = inserted_breeding_roosters * (1-p('mortality')/100)*(p('rejections_at_slaughter')/100)
+        lost_breeding_roosters = lost_breeding_roosters_mort + lost_breeding_roosters_reject
+        lw_lost_breeding_roosters = (
+            lost_breeding_roosters_mort * (p('slaughter_weight')*p('live_weight_per_CW') + p('start_weight'))/2 +
+            lost_breeding_roosters_reject * p('slaughter_weight')*p('live_weight_per_CW')
         )
 
         # Calculate number of slaughtered animals
@@ -112,7 +112,7 @@ class BroilerHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
+        heads, inserted_n, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(5)]
 
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
@@ -147,6 +147,13 @@ class BroilerHerd(AnimalHerd):
                     lost_breeding_roosters[sel]
                 ]).T
 
+            lost_lw.loc[:,(ps,slice(None))] = \
+                np.array([
+                    lw_lost_broilers[sel],
+                    lw_lost_breeding_hens[sel],
+                    lw_lost_breeding_roosters[sel]
+                ]).T
+
             n += 1
 
         # Add data attributes
@@ -177,6 +184,13 @@ class BroilerHerd(AnimalHerd):
             unit = 'heads/year',
             orig = 'BroilerHerd',
             desc = 'Total number of heads lost'
+        )
+        self.data_attr.add(
+            lost_lw,
+            name = 'lost_lw',
+            unit = 'kg/year',
+            orig = 'BroilerHerd',
+            desc = 'Total live weight of lost animals'
         )
 
     def _calculate_feed_req(self):
