@@ -82,6 +82,7 @@ class LayerHerd(AnimalHerd):
             (1+0.5*p('mortality')/100)
         )
         lost_laying_hens_16_28 = inserted_laying_hens_16_28 * p('mortality')/100
+        lw_lost_laying_hens_16_28 = lost_laying_hens_16_28 * p('average_live_weight')
 
         s(animal='laying hens (29-59 weeks)')
         inserted_laying_hens_29_59 = (
@@ -90,6 +91,7 @@ class LayerHerd(AnimalHerd):
             (1+0.5*p('mortality')/100)
         )
         lost_laying_hens_29_59 = inserted_laying_hens_29_59 * p('mortality')/100
+        lw_lost_laying_hens_29_59 = lost_laying_hens_29_59 * p('average_live_weight')
 
         s(animal='laying hens (>59 weeks)')
         inserted_laying_hens_60 = (
@@ -105,6 +107,7 @@ class LayerHerd(AnimalHerd):
                 p('rejections_at_slaughter')/100
             )
         )
+        lw_lost_laying_hens_60 = lost_laying_hens_60 * p('average_live_weight')
         slaughtered_laying_hens_60 = inserted_laying_hens_60 - lost_laying_hens_60
 
         s(animal='laying chicks')
@@ -118,6 +121,7 @@ class LayerHerd(AnimalHerd):
             (p('weeks_in_stage') / 52)
         )
         lost_chicks = inserted_chicks * p('mortality')/100
+        lw_lost_chicks = lost_chicks * p('average_live_weight')
 
         # Calculate number of parent animals needed
         self.par.remove('animal')
@@ -130,6 +134,7 @@ class LayerHerd(AnimalHerd):
         slaughtered_laying_hens_29_59 = zeros
         slaughtered_parents = zeros
         lost_parents = zeros
+        lw_lost_parents = zeros
         inserted_parents = zeros
 
         # Create output DataFrames
@@ -140,7 +145,7 @@ class LayerHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
+        heads, inserted_n, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(5)]
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
         for ps in pss:
@@ -182,6 +187,15 @@ class LayerHerd(AnimalHerd):
                     lost_parents[sel]
                 ]).T
 
+            lost_lw.loc[:,(ps,slice(None))] = \
+                np.array([
+                    lw_lost_chicks[sel],
+                    lw_lost_laying_hens_16_28[sel],
+                    lw_lost_laying_hens_29_59[sel],
+                    lw_lost_laying_hens_60[sel],
+                    lw_lost_parents[sel]
+                ]).T
+
             n += 1
 
         # Adjust to include parents in total hens (i.e. x = 1 --> parents + laying hens = 1)
@@ -219,6 +233,13 @@ class LayerHerd(AnimalHerd):
             unit = 'heads/year',
             orig = 'LayerHerd',
             desc = 'Total number of heads lost'
+        )
+        self.data_attr.add(
+            lost_lw,
+            name = 'lost_lw',
+            unit = 'kg/year',
+            orig = 'LayerHerd',
+            desc = 'Total live weight of lost animals'
         )
 
     def _calculate_feed_req(self):
