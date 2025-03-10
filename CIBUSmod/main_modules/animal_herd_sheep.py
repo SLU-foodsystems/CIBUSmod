@@ -50,8 +50,13 @@ class SheepHerd(AnimalHerd):
         lambs_to_recruitment_rams = rams * (p('recruitment_rate_rams')/100)
 
         ewes_lost = ewes * (p('mortality', animal='ewes')/100)
+        lw_ewes_lost = ewes_lost * p('slaughter_weight') * p('live_weight_per_CW')
+
         rams_lost = rams * (p('mortality', animal='rams')/100)
+        lw_rams_lost = rams_lost * p('slaughter_weight') * p('live_weight_per_CW')
+
         lambs_lost = lambs_born * (p('mortality', animal='lambs')/100)
+        lw_lambs_lost = lambs_lost * ((p('birth_weight') + p('slaughter_weight'))/2) * p('live_weight_per_CW')
 
         ewes_to_slaughter = lambs_to_recruitment - ewes_lost
         rams_to_slaughter = lambs_to_recruitment_rams - rams_lost
@@ -72,7 +77,7 @@ class SheepHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughtered_n, lost_n  = [empty_df.copy() for i in range(4)]
+        heads, inserted_n, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(5)]
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
         for ps in pss:
@@ -106,6 +111,13 @@ class SheepHerd(AnimalHerd):
                         lambs_lost[sel]
                     ]).T
 
+            lost_lw.loc[:,(ps,slice(None))] = \
+                    np.array([
+                        lw_ewes_lost[sel],
+                        lw_rams_lost[sel],
+                        lw_lambs_lost[sel]
+                    ]).T
+
         # Add data attributes
         self.data_attr.add(
             heads,
@@ -134,6 +146,13 @@ class SheepHerd(AnimalHerd):
             unit = 'heads/year',
             orig = 'SheepHerd',
             desc = 'Total number of heads lost'
+        )
+        self.data_attr.add(
+            lost_lw,
+            name = 'lost_lw',
+            unit = 'kg/year',
+            orig = 'SheepHerd',
+            desc = 'Total live weight of lost animals'
         )
 
         return None
