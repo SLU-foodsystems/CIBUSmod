@@ -713,6 +713,7 @@ def _read_csv(path,parameter):
         df = (
             df
             .set_index(f_cols)
+            .loc[:,lambda x: ['Unnamed' not in c for c in x.columns]] # Drop columns without header before stacking
             .stack()
             .rename(parameter)
             .to_frame()
