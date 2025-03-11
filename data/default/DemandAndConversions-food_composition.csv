@@ -1,0 +1,156 @@
+cols_as_filter: f_nutrient,,,,,
+f_food,DM,N,fat,fibre,kcal
+,,,,,
+CEREALS (EXCL. BEER),,,,,
+"Wheat and products, refined",0.868,0.0136,0.0188,0.036,3520
+"Wheat and products, whole grain",0.895,0.01712,0.02,0.138,3360
+"Rice and products, refined",0.868,0.01072,0.0128,0.012,3580
+"Rice and products, whole grain",0.895,0.01072,0.0128,0.012,3580
+"Barley and products, refined",0.868,0.01472,0.03,0.076,3410
+"Barley and products, whole grain",0.895,0.01472,0.03,0.076,3410
+Maize and products,0.868,0.0096,0.0343,0.047,3540
+"Rye and products, refined",0.868,0.01296,0.017,0.188,3250
+"Rye and products, whole grain",0.895,0.01296,0.017,0.188,3250
+"Oats and products, refined",0.895,0.0208,0.07,0.1,3700
+"Oats and products, whole grain",0.895,0.0208,0.07,0.1,3700
+"Other cereals and products, refined",0.868,0.01376,0.022,0.1,3393
+"Other cereals and products, whole grain",0.895,0.01376,0.022,0.1,3393
+Quinoa,0.868,0.0192,0.073,0.078,3700
+,,,,,
+TUBERS OR STARCHY VEGETABLES,,,,,
+"Potatoes, fresh",0.161,0.00288,0.001,0.031,740
+"Potatoes, frozen",0.161,0.00288,0.001,0.031,740
+Potato flour,0.85,0,0.004,0,3460
+Starch of potatoes,0.85,0,0.001,0,3460
+,,,,,
+VEGETABLES,,,,,
+Sweet potatoes,0.205,0.00208,0.004,0.027,820
+Carrots and turnips,0.105,0.00112,0.0024,0.024,360
+Beetroot,0.105,0.00192,0.001,0.026,510
+"Onions, dry",0.109,0.00192,0.001,0.019,390
+Cabbages (and cauliflower & broccoli),0.092,0.00176,0.001,0.026,300
+Lettuce and spinach,0.038,0.00128,0.0012,0,140
+"Pumpkins, squash and gourds",0.08,0.0016,0.001,0.017,260
+"Peas, green",0.196,0.00832,0.004,0.044,690
+Tomatoes and products,0.053,0.00128,0.0013,0.013,180
+Cucumbers and gherkins,0.035,0.00128,0.0005,0,130
+Mushrooms and truffles,0.064,0.00384,0.0023,0.024,270
+Other vegetables,0.1,0.00128,0.0013,0.013,180
+,,,,,
+FRUITS AND BERRIES (EXCL. WINE),,,,,
+Apples,0.129,0,0.0005,0.022,460
+Apple juice,0.102,0.00048,0,0,400
+Apple juice concentrate,0.409,0.00208,0,0,2000
+Pears,0.148,0.00048,0.001,0.027,540
+Other fruit,0.12,0.00144,0.0005,0.018,470
+Strawberries,0.113,0.0008,0.0021,0.019,410
+Currants,0.14,0.00192,0.002,0.034,480
+Other berries,0.14,0.00192,0.006,0.037,340
+,0.129,0.00176,0.001,0.014,950
+DAIRY FOODS,,,,,
+Milk and products less than 1% fat,0.097,0.00576,0.005,0,390
+Milk and products 1-2% fat,0.106,0.00512,0.015,0,470
+Milk and products more than 2% fat,0.12,0.00512,0.035,0,600
+Cheese,0.598,0.04192,0.271,0,3580
+Icecream,0.368,0.00528,0.0967,0,1930
+Sourcream,0.202,0.00496,0.12,0,1370
+Cream low fat,0.206,0.0048,0.15,0,1620
+Cream high fat,0.456,0.00336,0.4,0,3740
+Butter,0.841,0,1,0,8840
+Milk powder,0.968,0.05792,0.008,0,1360
+,,,,,
+"MEAT, OFFALS AND ANIMAL FATS",,,,,
+Pig meat and products,0.329,0.02688,0.15,0,2020
+Bovine meat and products,0.336,0.03104,0.15,0,2110
+Mutton/goat meat,0.384,0.02784,0.197,0,2470
+Poultry meat and products,0.256,0.0344,0.031,0,1150
+Offals,0.37,0.0208,0.145,0.006,2110
+Blood in food,0.49,0.0176,0.14,0.023,2540
+,,,,,
+EGGS,,,,,
+Eggs,0.237,0.01968,0.0973,0,1370
+Eggs novel foods,0.237,0.01968,0.0973,0,1370
+,,,,,
+FISH,,,,,
+Wild caught freshwater arctic char,0.22,0.03168,0.0061,0,860
+Coldwater farmed fish carp,0.22,0.02672,0.04,0,1030
+Warmwater farmed fish tilapia,0.2,0.02864,0.016,0,870
+Cod,0.19,0.02912,0.005,0,780
+Herring,0.29,0.02672,0.09,0,1480
+Tuna,0.26,0.03856,0.01,0,1060
+Wild caught Salmon,0.35,0.032,0.134,0,2030
+Farmed Salmon,0.35,0.032,0.134,0,2030
+Sea bass,0.22,0.03168,0.0061,0,860
+Shrimp and crayfish,0.21,0.02784,0.0064,0,770
+Mackerel,0.45,0.0272,0.25,0,2900
+Mussels and oysters,0.26,0.02704,0.023,0,1080
+Crustaceans,0.22,0.02704,0.019,0,860
+,,,,,
+PULSES AND OIL SEEDS,,,,,
+"Peas, dry",0.85,0.0352,0.01,0.11,3200
+"Broad beans and horse beans, dry",0.85,0.04,0.017,0.164,3180
+"Beans, dry",0.85,0.0368,0.01,0.15,3370
+"Chick peas, dry",0.85,0.0328,0.048,0.1,3520
+Sweet lupin,0.85,0.05792,0.097,0.189,3710
+Grey pea,0.85,0.03968,0.02,0.26,3360
+"Lentils, dry",0.85,0.0336,0.015,0.18,3060
+,,,,,
+TREENUTS,,,,,
+Hazelnuts,0.968,0.02128,0.646,0.161,6580
+Walnuts,0.977,0.0117024,0.648,0.09,3604
+Other nuts,0.968,0.02128,0.532,0.187,5920
+,,,,,
+SEEDS,,,,,
+Sunflower seeds,0.9956,0.03296,0.561,0.115,6180
+Groundnuts,0.983,0.03584,0.513,0.116,6050
+Soybeans,0.85,0.0544,0.177,0.153,3980
+Soybeans in soy protein products and tofu,0.85,0.0544,0.177,0.153,3980
+Olives,0.226,0.00128,0.141,0.035,1420
+Coconuts,0.978,0.01008,0.672,0.092,6900
+,,,,,
+VEGETABLE OILS,,,,,
+Rape and mustard oil and products,1,0,1,0,8840
+Rapeseed oil novel foods,1,0,1,0,8840
+Sunflowerseed oil and products,1,0,1,0,8840
+Olive oil and products,1,0,1,0,8840
+Other vegetable oils,1,0,1,0,8840
+,,,,,
+SWEETENERS,,,,,
+Sugar and products,0.996,0,0,0,4050
+Other sweeteners,0.996,0,0,0,3230
+Honey,0.82,0.00048,0,0,3230
+Wine and products,0.12,0,0,0,790
+,,,,,
+ALCOHOLIC BEVERAGES,,,,,
+Wine and products,,,,,
+Barley beer,0.08,0.00064,0,0,400
+"Beverages, fermented and products",0.102,0,0,0,470
+"Beverages, alcoholic",0.32,0,0,0,2220
+,,,,,
+STIMULANTS,,,,,
+"Coffee, tea and cacoa",0.85,0,0,0,3940
+,,,,,
+SPICES,,,,,
+,,,,,
+WILD FOOD,,,,,
+Moose and deer,0.25,0.03616,0.016,0,1060
+Wild boar,0.26,0.0368,0.015,0,1070
+Reindeer,0.26,0.03456,0.045,0,1270
+Berries,0.14,0.00112,0.008,0.031,530
+Mushrooms,0.08,0.00272,0.0033,0.032,240
+,,,,,
+NOVEL FOODS,,,,,
+Pea protein product,0.43,0.04256,0.062,0.025,1900
+Soy protein product,0.43,0.02432,0.086,0.053,1670
+Wheat protein product,0.5,0.04256,0.062,0.025,1900
+Oat drink,0.108,0.0016,0.016,0.008,480
+Cellbased meat,0.256,0.0344,0.031,0,1150
+Cellbased dairy,0.108,0.0344,0.016,0.008,480
+Quorn,0.43,0.02512,0.018,0.055,990
+Tofu soy,0.132,0.016,0.05,0.01,900
+Tempeh faba bean,0.404,0.0256,0.003,0.03,2000
+Tofu faba beans,0.132,0.016,0.05,0.01,900
+Cellbased fish,0.214,0.03168,0.0061,0,860
+Microbial fats (yeast),1,0,1,0,8840
+Microbial fats (algae),1,0,1,0,8840
+Microbial eggs,0.237,0.0104,0.027,0,610
