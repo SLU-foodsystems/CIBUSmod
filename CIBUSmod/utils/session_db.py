@@ -1541,7 +1541,7 @@ def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
             
         if data.isna().any().any():
             warnings.warn(f'NaNs in {module.par.name}.{attr}.')
-        if (data < -zero_tol).any().any():
+        if (data < -zero_tol).any().any() and not module.data_attr[attr]["allow_neg"]:
             warnings.warn(f'Negative values of down to {data.min().min()} {module.data_attr[attr]["unit"]} in {module_name}.{attr}.')
         
         # Set zeros to NaN
@@ -1552,7 +1552,7 @@ def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
         if np.isnan(data):
             warnings.warn(f'NaNs in {module.par.name}.{attr}.')
             data = 0
-        if data < -zero_tol:
+        if (data < -zero_tol) and not module.data_attr[attr]["allow_neg"]:
             warnings.warn(f'Negative value of {data} {module.data_attr[attr]["unit"]} in {module_name}.{attr}.')
         if data < zero_tol:
             data = 0

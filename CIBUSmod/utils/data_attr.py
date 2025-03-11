@@ -73,7 +73,8 @@ class DataAttr(object):
         unit:str = '',
         orig:str = '',
         desc:str = '',
-        scalable:bool = True
+        scalable:bool = True,
+        allow_neg:bool = False
     ):
         '''Sets data attribute on main module (parent) and stores meta-data.
 
@@ -91,6 +92,8 @@ class DataAttr(object):
             Short description of data
         scalable : Bool, default True
             If scalable is True data is scaled in .scale() methods otherwise not
+        allow_neg : Bool, default True
+            If allow_neg is True warnings are not issued for negative values
 
         Returns
         -------
@@ -104,7 +107,8 @@ class DataAttr(object):
                 'unit' : unit,
                 'orig' : orig,
                 'desc' : desc,
-                'scalable' : scalable
+                'scalable' : scalable,
+                'allow_neg' : allow_neg
             }
         })
 

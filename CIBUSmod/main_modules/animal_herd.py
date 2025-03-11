@@ -249,6 +249,7 @@ animals              {self.animals}
             unit="*/year",
             orig="AnimalHerd",
             desc="Feed requirements that represents minimum constraints. *differ by 'feed_par'",
+            allow_neg=True
         )
         self.data_attr.add(
             df_req.copy(),
