@@ -165,7 +165,7 @@ animals              {self.animals}
                 raise TypeError('Index of x does not match herd\'s index!')
 
         if x_is == 'sows+gilts':
-            new_x = new_x / (1+ (p('recruitment_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
+            new_x = new_x / (1+ (p('replacement_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
             x_is = 'sows'
 
         # Get 'old_x'

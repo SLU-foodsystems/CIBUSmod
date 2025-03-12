@@ -46,8 +46,8 @@ class SheepHerd(AnimalHerd):
             p('lambs_per_ewe')
         )
 
-        lambs_to_recruitment = ewes * (p('recruitment_rate')/100)
-        lambs_to_recruitment_rams = rams * (p('recruitment_rate_rams')/100)
+        lambs_to_replacement = ewes * (p('replacement_rate')/100)
+        lambs_to_replacement_rams = rams * (p('replacement_rate_rams')/100)
 
         ewes_lost = ewes * (p('mortality', animal='ewes')/100)
         lw_ewes_lost = ewes_lost * p('slaughter_weight') * p('live_weight_per_CW')
@@ -58,15 +58,15 @@ class SheepHerd(AnimalHerd):
         lambs_lost = lambs_born * (p('mortality', animal='lambs')/100)
         lw_lambs_lost = lambs_lost * ((p('birth_weight') + p('slaughter_weight'))/2) * p('live_weight_per_CW')
 
-        ewes_to_slaughter = lambs_to_recruitment - ewes_lost
-        rams_to_slaughter = lambs_to_recruitment_rams - rams_lost
-        lambs_to_slaughter = lambs_born - lambs_to_recruitment - lambs_lost
+        ewes_to_slaughter = lambs_to_replacement - ewes_lost
+        rams_to_slaughter = lambs_to_replacement_rams - rams_lost
+        lambs_to_slaughter = lambs_born - lambs_to_replacement - lambs_lost
 
         # Calculate average number of live lambs over the year
         lambs = (
             # Lost lambs are assumed to live to half their slaughter age
             (lambs_lost/2 + lambs_to_slaughter) * p('slaughter_age', animal='lambs') / 365.25 +
-            lambs_to_recruitment * p('age_at_first_lambing') / 12
+            lambs_to_replacement * p('age_at_first_lambing') / 12
         )
 
         # Create output DataFrames
@@ -92,8 +92,8 @@ class SheepHerd(AnimalHerd):
 
             inserted_n.loc[:,(ps,slice(None))] = \
                 np.array([
-                    lambs_to_recruitment[sel],
-                    lambs_to_recruitment_rams[sel],
+                    lambs_to_replacement[sel],
+                    lambs_to_replacement_rams[sel],
                     lambs_born[sel]
                 ]).T
 

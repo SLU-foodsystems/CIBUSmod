@@ -41,7 +41,7 @@ class PigHerd(AnimalHerd):
         p = self.par.get
 
         idx_len = len(self.index)
-        sows = self.x / (1+ (p('recruitment_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
+        sows = self.x / (1+ (p('replacement_rate')/100 * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25))
 
         tmp_piglets_born = sows * p('litters_per_sow') * p('live_per_litter')
         tmp_piglets_weaned = tmp_piglets_born * (1 - p('mortality_0towean')/100)
@@ -60,18 +60,18 @@ class PigHerd(AnimalHerd):
 
 
 
-        tmp_growers_to_recruitment = sows * p('recruitment_rate')/100
+        tmp_growers_to_replacement = sows * p('replacement_rate')/100
         growers_lost = tmp_piglets_delivered * p('mortality',animal='growing pigs')/100
-        tmp_growers_to_finishing = tmp_piglets_delivered - growers_lost - tmp_growers_to_recruitment
-        growers = (tmp_growers_to_finishing + tmp_growers_to_recruitment + growers_lost*0.5) * p('growing_period') / 365.25
-        gilts = tmp_growers_to_recruitment * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25
+        tmp_growers_to_finishing = tmp_piglets_delivered - growers_lost - tmp_growers_to_replacement
+        growers = (tmp_growers_to_finishing + tmp_growers_to_replacement + growers_lost*0.5) * p('growing_period') / 365.25
+        gilts = tmp_growers_to_replacement * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age')) / 365.25
 
         finishers_lost = tmp_growers_to_finishing * p('mortality',animal='finishing pigs')/100
         finishers_to_slaughter = tmp_growers_to_finishing - finishers_lost
         finishers = (finishers_to_slaughter + finishers_lost*0.5) * p('finishing_period') / 365.25
 
         sows_lost = sows * p('mortality',animal='sows')/100
-        sows_to_slaughter = tmp_growers_to_recruitment - sows_lost
+        sows_to_slaughter = tmp_growers_to_replacement - sows_lost
 
         boars = (sows + gilts) * p('boars_per_sows+gilts')
 
@@ -184,7 +184,7 @@ class PigHerd(AnimalHerd):
                     (sows_to_slaughter+sows_lost)[sel],
                     (boars_to_slaughter+boars_lost)[sel],
                     tmp_piglets_born[sel],
-                    tmp_growers_to_recruitment[sel],
+                    tmp_growers_to_replacement[sel],
                     tmp_piglets_delivered[sel],
                     tmp_growers_to_finishing[sel]
                 ]).T
