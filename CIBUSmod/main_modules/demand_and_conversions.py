@@ -600,7 +600,7 @@ def _empty_demand(demand, of):
     )
     return (prod_demand, by_prod)
 
-def _fix_cream_balance(self, animal_prod_demand, animal_by_products, by_prod_demand, induce_export_of = 'Milk and products 1-2% fat'):
+def _fix_cream_balance(self, animal_prod_demand, animal_by_products, by_prod_demand, induce_export_of = 'Milk powder'):
     # Handle dairy "cream balance". As consumption of high fat dairy products and associated demand for cream exceeds
     # the ammount of cream generated from consumption of low fat dairy products this induces an export of low fat
     # dairy products.
@@ -655,7 +655,7 @@ def _fix_cream_balance(self, animal_prod_demand, animal_by_products, by_prod_dem
             induced_skim_milk_exports[induced_skim_milk_exports < 0] = 0
         else:
             warnings.warn(
-                'DemandAndConversions: Adjusting the "cream balance" resulted in a negative export of skim milk, which \
+                f'DemandAndConversions: Adjusting the "cream balance" resulted in a negative export of {induce_export_of}, which \
 will result in the GeoDistributor failing. This is because demand for low-fat dairy products generates \
 more cream than demanded by high-fat dairy products. This situation can`t be handled currently and demand \
 data need to be adjusted manually to avoid this situation.'
