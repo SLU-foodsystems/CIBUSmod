@@ -334,7 +334,7 @@ animals              {self.animals}
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
                     pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
-                    (p('milk_prod', prod_system=ps) - self.data_attr.get('milk_to_calves')).values.clip(0) * (1 - p('milk_loss')/100) *
+                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get('milk_to_calves')).values.clip(0) *
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
                     axis = 0
                 )
