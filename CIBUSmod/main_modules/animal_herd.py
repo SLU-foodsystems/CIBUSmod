@@ -334,7 +334,7 @@ animals              {self.animals}
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
                     pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
-                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get('milk_to_calves')).values.clip(0) *
+                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get('milk_to_calves').sum(axis=1)).values.clip(0) *
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
                     axis = 0
                 )
@@ -494,22 +494,20 @@ def concat_herds(herds, attrs=None):
     res_herd.data_attr = DataAttr(res_herd)
 
     if attrs is None:
-        # Check presence of data attributes in AnimalHerd objects
-        # Only attributes present in all AnimalHerd objects are
-        # retained in the combined StaticAnimalHerd object
-        data_attr_union = set.union(*[set(h.data_attr) for h in herds])
-        data_attr_in_all = set.intersection(*[set(h.data_attr) for h in herds])
-        data_attr_in_some = data_attr_union - data_attr_in_all
-        if len(data_attr_in_some) > 0:
-            pass
-            # Should a warning be printed here?
-            # warnings.warn(f'Data attributes {data_attr_in_some} not pressent in all AnimalHerds and therfore not retained.')
-
-        attrs = data_attr_in_all
+        # Get available data attributes from union of all herds
+        attrs = set.union(*[set(h.data_attr) for h in herds])
 
     # Go through data attributes and concatenate
     for attr in attrs:
-        scalable = herds.iloc[0].data_attr[attr]['scalable']
+        # Get scalable flag and metadata from first herd with attr
+        for herd in herds:
+            try:
+                scalable = herd.data_attr[attr]['scalable']
+                metadata = herd.data_attr[attr]
+            except:
+                continue
+            else:
+                break
         # Only include scalable data attributes for now...
         # Potentially rethink aggregation to be
         # able to include also non-scalable data
@@ -523,7 +521,7 @@ def concat_herds(herds, attrs=None):
                                 names=['sub_system'],axis=1)},
                             names=['breed'],axis=1)},
                         names=['species'],axis=1)
-                    if herd.data_attr.get(attr) is not None else pd.DataFrame() for herd in herds
+                    if attr in herd.data_attr and herd.data_attr.get(attr) is not None else pd.DataFrame() for herd in herds
                 ],
                 axis=1
             )
@@ -532,7 +530,6 @@ def concat_herds(herds, attrs=None):
             df = df.T.groupby(df.columns.names).sum().T
 
             # Add data attribute
-            metadata = herds.iloc[0].data_attr[attr]
             if 'Herd' in metadata['orig'] and metadata['orig'] != 'AnimalHerd':
                 # Replace specific herd module name
                 metadata['orig'] = '<Spec.>Herd'

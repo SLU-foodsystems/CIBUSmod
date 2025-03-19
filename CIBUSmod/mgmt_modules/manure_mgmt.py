@@ -525,7 +525,7 @@ class ManureMgmt():
                 if 'milk_to_calves' in herd.data_attr:
                     # Get milk from cows to suckling calves
                     df = (
-                        herd.data_attr.get('milk_to_calves')
+                        herd.data_attr.get('milk_to_calves').sum(axis=1)
                         .rename('milk')
                         .to_frame()
                         .rename_axis('animal_prod', axis=1)

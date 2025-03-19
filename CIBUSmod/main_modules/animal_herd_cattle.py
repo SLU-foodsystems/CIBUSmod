@@ -641,9 +641,10 @@ class CattleHerd(AnimalHerd):
             E_from_milk = E_req_tot * (p('energy_share_before_weaning_from_milk')/100)
 
             # Calculate milk to calves and store data attribute
-            milk_to_calves = pd.Series(
-                (E_from_milk * self.data_attr.get('heads').loc[:,(ps, ani)] * 365.25) / p('energy_in_milk_to_calves'),
-                index = self.index, name='milk_to_calves'
+            milk_to_calves = pd.DataFrame(
+                ((E_from_milk * self.data_attr.get('heads').loc[:,(ps, ani)] * 365.25) / p('energy_in_milk_to_calves')).values,
+                index = self.index,
+                columns = pd.Index([ps], name='prod_system')
             )
             self.data_attr.add(
                 milk_to_calves,
@@ -675,7 +676,7 @@ class CattleHerd(AnimalHerd):
             # Milk in kg ECM: milk kg x 0,25 + fat kg x 12,2 + protein kg x 7,7 = kg ECM
             milk_prod = np.maximum(
                 p('milk_prod'),
-                self.data_attr.get('milk_to_calves').values
+                self.data_attr.get('milk_to_calves').sum(axis=1).values
             )
             milk = milk_prod * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7) / 365.25
             E_lactation = p('lactation_energy_factor') * milk
