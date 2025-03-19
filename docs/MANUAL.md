@@ -3,28 +3,43 @@
 # Users guide
 
 1. [Introduction](#introduction)
+1. [Importing CIBUSmod](#importing-cibusmod)
 1. [Data structure](#data-structure)
     - [Setting data folder path](#setting-data-folder-path)
     - [Default data workbooks](#default-data-workbooks)
     - [Scenario data workbooks](#scenario-data-workbooks)
 1. [Defining and running scenarios](#defining-and-running-scenarios)
-1. [Retrieving model outputs](#retrieving-model-outputs)
-1. Main modules
-    - Regions
-    - DemandAndConversions
-    - CropProduction
-    - AnimalHerd
-1. Management (Mgmt) modules
-    - FeedMgmt
-    - ManureMgmt
-    - PlantNutrientMgmt
-    - MachineryAndEnergyMgmt
-    - InputsMgmt
-1. GeoDistributor
-    - Constraints
+    - [Adding scenarios to a `Session`](#adding-scenarios-to-a-session)
+    - [Initialising `CIBUSmod` modules](#initialising-cibusmod-modules)
+    - [Performing the calculations](#performing-the-calculations)
+    - [Storing model output](#storing-model-output)
+1. [Retrieving model output](#retrieving-model-output)
 
 # Introduction
 Intro here
+
+This users guide assumes that `CIBUSmod` is run in a Jupyter notebook (i.e. a *.ipynb* file).
+
+# Importing CIBUSmod
+To be able to import `CIBUSmod` it first needs to be added to the system path. This is done via Python's `sys` module:
+
+```Python
+import sys
+sys.path.insert(0, 'C:\path\to\CIBUSmod')
+import CIBUSmod as cm
+```
+
+or using a path relative to the current working directory (i.e. the directory of the present notebook)
+
+```Python
+import sys
+import os
+sys.path.insert(0, os.path.join(os.getcwd(),'..'))
+import CIBUSmod as cm
+```
+
+The above code assumes that the notebook is located in a folder contained in the main `CIBUSmod` folder.
+
 
 # Data structure
 All data used to run the model and outputs produced are stored in a data folder with the folder structure shown below. The `default` and `scenarios` folders stores all default input data and data used to define different scenarios in the form of Excel workbooks. The `output` folder stores model outputs in SQLite database files and the `ecoinvent` folder stores ecoinvent activity data use by the `InputsMgmt` module.
@@ -48,7 +63,6 @@ All data used to run the model and outputs produced are stored in a data folder 
 The path to the datafolder is set by initialising a new `Session` object with a `name` and a `data_path`. This also sets the `ParameterRetriever.data_path` class attribute which is used by all modules when accessing default and scenario data workbooks.
 
 ```python
-import CIBUSmod as cm
 my_session = cm.Session(
     name = 'name_of_session',
     data_path = '../path/to/data'
@@ -106,14 +120,18 @@ The second structure (i.e. *filter values as columns*) is invoked by writing `co
 *Example of .csv-file with **filter values as columns** structure*
 
 ## Scenario data workbooks
-Scenarios are defined in Excel workbooks located in `data/scenarios/`. When defining scenarios only parameters that are to be changed compared to the default values need to be specified. Any parameters not defined in a scenario data workbook are retained with their default values. The scenario data workbooks should contain one sheet per module with where parameters are to be changed in the scenario (see example below). Sheet names need to match the filenames of corresponding default data workbooks (without the .xlsx file extension). Each sheet needs to include the column headings `parameter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`).
+Scenarios are defined in Excel workbooks located in `data/scenarios/`. When defining scenarios only parameters that are to be changed compared to the default values need to be specified. Any parameters not defined in a scenario data workbook are retained with their default values. The scenario data workbooks should contain one sheet per module where parameters are to be changed in the scenario (see example below). Sheet names need to match the filenames of corresponding default data workbooks (without the .xlsx file extension). Each sheet needs to include the column headings `parameter` and `val_is` as well as at least one defined year (column headings starting with `y_`). They may also include column headings for filter levels (starting with `f_`).
 
 <img src="figs/manual/scenario_data_example1.png"> \
 *Example of scenario Excel data sheet*
 
-Changes in parameter values can be specified in absolute or relative terms by writing `abs` or `rel` in the `val_is` column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value is specified. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if `crop` equals `'Ley for fodder'` in which case the yield is increased by 30% (factor 1.3). When specifying scenario parameter values in absolute terms these will directly replace the corresponding default parameter values.
+Changes in parameter values can be specified in absolute or relative terms by writing `'abs'` or `'rel'` in the `val_is` column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value is specified. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if `crop` equals `'Ley for fodder'` in which case the yield is increased by 30% (factor 1.3). When specifying scenario parameter values in absolute terms these will directly replace the corresponding default parameter values. Values specified in absolute terms directly replace corresponding default values.
 
-When the model updates parameter values it goes through all default parameter values and tries to find the one scenario parameter value with the largest number of matching filter levels analogously with how parameter values are located when running the model (as described above). This means that parameter values to change in a scenario can only be defined in more general terms than default parameter values (i.e. applying to several default parameter values, such as in the case of yield above) but never more precise. So, if the default value for the parameter `seed` from the earlier example is defined for the filter levels `crop`, `crop_prod` and `prod_system` a scenario can't change this parameter independently on the `region` level without first explicitly specifying this filter level in the default data workbook.
+When the model updates parameter values it goes through all default parameter values and tries to find the one scenario parameter value with the largest number of matching filter levels analogously with how parameter values are located when running the model (as described above). This means that parameter values to change in a scenario can only be defined at the same level of specificity or in more general terms than default parameter values (i.e. applying to one or several default parameter values, such as in the case of yield above) but never more precise. So, if the default value for the parameter `seed` from the earlier example is defined for the filter levels `crop`, `crop_prod` and `prod_system` a scenario can't change this parameter independently on the `region` level using `'abs'` or `'rel'` in the `val_is` column.
+
+To add more precise definitions to parameters (or e.g. define a new crop) in a scenario the keword `'new'` is used in the `val_is` column. These values are allways supplied in absolute terms and will be appended to the data exactly as specified in the scenario data workbook (i.e. with the same filter levels and values).
+
+In some cases it may also be desirable to drop parameter values from the default data in a scenario. This can be achieved by using the keyword `'drop'` in the `val_is` column. To identify parameters in default data to be dropped each row with the `'drop'` keword is matched to parameters in the default data in the same way as when using the `'abs'` or `'rel'` keywords. In order for parameters to be dropped a number (preferably 1) must be specified under the `y_` column. 
 
 > [!CAUTION]
 > When using the `abs` keyword in the `val_is` columns it is important to make sure that the scenario parameter value corresponds to only the desired default parameter value (i.e. by using the exact same filter levels and values in the scenario data workbook as in the default data workbook) to avoid replacing unintended parameter values.
@@ -136,18 +154,28 @@ my_session.add_scenario(
 )
 ```
 
-The `name` argument gives the scenario a name which is what will be printed in output tables etc. and the `years` argument specifies the years to be run. The `scenario_workbooks` argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks change the same parameter only the last one in the list will have an effect. The arguments `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. `pars` can also take a `dict` with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword `'all'` means that all modules and/or parameters included in the scenario data workbooks will be updated.
+The `name` argument gives the scenario a name which is what will be printed in output tables etc. and the `years` argument specifies the years to be run. The `scenario_workbooks` argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks **modify** the same default parameter only the last one in the list will have an effect. The arguments `modules` and `pars` controls for which modules parameter values should be updated and which parameters to update, respectively. `pars` can also take a `dict` with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword `'all'` means that all modules and/or parameters included in the scenario data workbooks will be updated. 
+
+Displaying a `Session` object (i.e. calling it in a code block) will give an overview of the `Session` including name, path defined scenarios and available output data attributes. 
+
+```Python
+my_session
+```
+
+<img src="figs/manual/session_repr_example1.png">
+
+The overview is interactive and clicking the items under *Scenarios* and *Data attributes* will show additional information. In the example above the details for 'my_scenario' has been expanded and the `Session` object does not contain any stored output data.
 
 > [!TIP]
 > Additional `Session` methods for working with scenario definitions are `.remove_scenario()`, `.update_scenario()` and `.reorder_scenarios()`.
 
-> [!NOTE]
-> The database files grows quite large in size (~120 MB per scenario $\times$ year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the `.clean()` method will tidy up the database file and potentially save som space.
-
-## Instantiating CIBUSmod modules
+## Initialising `CIBUSmod` modules
 
 ## Performing the calculations
 
 ## Storing model output
+
+> [!NOTE]
+> The database files grows quite large in size (~120 MB per scenario $\times$ year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the `.clean()` method will tidy up the database file and potentially save som space.
 
 # Retrieving model output
