@@ -3,6 +3,7 @@
 # Users guide
 
 1. [Introduction](#introduction)
+1. [Installation](#installation)
 1. [Importing CIBUSmod](#importing-cibusmod)
 1. [Data structure](#data-structure)
     - [Setting data folder path](#setting-data-folder-path)
@@ -20,8 +21,61 @@ Intro here
 
 This users guide assumes that `CIBUSmod` is run in a Jupyter notebook (i.e. a *.ipynb* file).
 
+# Installation
+Here step-by-step instructions for installing CIBUSmod and other required software are provided for Windows users. For other operating systems it should be possible to use a similar procedure.
+
+## Installing Python and Git
+CIBUSmod requires working installations of Python and Git. So, if these are not already installed, do so first.
+
+### Python
+- Download python from here: https://www.python.org/downloads/windows/
+- CIBUSmod has been tested on version ´3.11.6´, so use that version to be safe
+- Run the installer. In the installer check “Add python.exe to PATH”
+
+### Git
+- Download Git from here: https://git-scm.com/download/win
+- Latest version should be fine
+- Run the installer and leave all settings at default values, except changing default branch name to “main” if you want.
+
+## Installing CIBUSmod
+Open a new `Command Prompt` and `cd` to the directory where you want to place CIBUSmod and download the CIBUSmod code from github.
+
+```
+git clone https://github.com/SLU-foodsystems/CIBUSmod
+cd CIBUSmod
+```
+Next, create and activate a new virtual environment to keep Python packages needed for CIBUSmod separate from your base Python installation.
+```
+python -m venv .venv --clear --upgrade-deps --prompt 'CIBUSmod-venv'
+.venv\Scripts\activate
+```
+After activating the virtual environment, make sure that you see `('CIBUSmod-venv')` at the beginning of the command line, which indicates that the virtual environment is active. Now it´s time to install all python packages needed to run CIBUSmod and start jupyter lab.
+```
+pip install --upgrade pip
+pip install --require-virtualenv -r requirements.txt
+ipython kernel install --user --name="CIBUSmod-venv"
+jupyter lab
+```
+Once jupyter lab is started, navigate to the `notebooks` folder and open one of the notebooks. Make sure that the `CIBUSmod-venv` kernel is selected via `Kernel > Change kernel > CIBUSmod-venv`. Run the notebook. That's it!
+
+After quitting jupyter lab and returning to the `Command Prompt`, type `deactivate`, or simply close the `Command Prompt`, to exit the virtual environment,
+
+Next time, you open a new `Command Prompt`, `cd` to the `CIBUSmod` directory and activate the virtual invironment before starting `jupyter lab`.
+```
+.venv\Scripts\activate
+jupyter lab
+```
+
+## Adding licence for Gurobi
+Gurobi is the back-end solver used in CIBUSmod to solve the convex optimisation problem involved in regionally distributing crops and animals. This is a comercial softwarde and therefore require a licence to run, but free academic licences are provided. 
+- Create an account at https://www.gurobi.com using your university e-mail
+- Go to: https://portal.gurobi.com/iam/licenses/request/?type=academic
+  and generate a “Named-User Academic” licence. You must be connected to the internet via your university (VPN should work). Copy the grbgetkey line you receive and keep it.
+- Get the licence manager “grbgetkey” from here: https://support.gurobi.com/hc/en-us/articles/360059842732-How-do-I-set-up-a-license-without-installing-the-full-Gurobi-package
+- Unpack the “grbgetkey.exe” file in any folder. Open the command prompt and go to that folder. Copy and run the grbgetkey command you got earlier. You should now see some messages and get to decide where to put the licence file.
+
 # Importing CIBUSmod
-To be able to import `CIBUSmod` it first needs to be added to the system path. This is done via Python's `sys` module:
+To be able to import `CIBUSmod` in a Jupyter notebook, it first needs to be added to the system path. This is done via Python's `sys` module:
 
 ```Python
 import sys
