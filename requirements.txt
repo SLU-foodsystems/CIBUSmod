@@ -34,6 +34,7 @@ fiona==1.9.5
 fonttools==4.47.2
 fqdn==1.5.1
 geopandas
+gurobipy==11.0.3
 idna==3.6
 inflate64==1.0.0
 ipykernel==6.29.0
