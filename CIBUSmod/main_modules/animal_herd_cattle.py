@@ -63,9 +63,11 @@ class CattleHerd(AnimalHerd):
         else:
             redist = False
 
+        breeding_bulls = cows * p('breeding_bulls_per_cow')
+
         self.par.set(animal='cows')
 
-        # Calculate recrutiment rate
+        # Calculate replacement rate
         replacement_rate = p('replacement_rate')/100
 
         # Calves born per year per cow
@@ -148,8 +150,16 @@ class CattleHerd(AnimalHerd):
         tmp_calves2heifer = tmp_female2end - tmp_calves2replacement - tmp_female_calves2slaughter
         # No. calves --> steers for slaughter
         tmp_calves2steer = (tmp_male2end - tmp_male_calves2slaughter) * p('slaughter_share_male_as_steers')/100
+        # No. calves --> breeding bulls
+        tmp_calves2breeding_bulls = breeding_bulls * p('replacement_rate_bulls')/100
+        # Adjust number of steers for cases where male calves aren't enough
+        np.where(
+            tmp_calves2steer + tmp_male_calves2slaughter + tmp_calves2breeding_bulls > tmp_male2end,
+            tmp_male2end - tmp_male_calves2slaughter - tmp_calves2breeding_bulls,
+            tmp_calves2steer
+        )
         # No. calves --> bulls for slaughter
-        tmp_calves2bull = tmp_male2end - tmp_male_calves2slaughter - tmp_calves2steer
+        tmp_calves2bull = tmp_male2end - tmp_male_calves2slaughter - tmp_calves2steer - tmp_calves2breeding_bulls
 
         # CALCULATE LOST ANIMALS PER CATEGORY
         cows2lost = cows * p('mortality',animal='cows')/100
@@ -197,11 +207,10 @@ class CattleHerd(AnimalHerd):
 
         assert np.isclose(
             tmp_male2weaned + tmp_female2weaned - calves_slaughter2lost - calves_heifer2lost - calves_steer2lost - calves_bull2lost,
-            tmp_calves2slaughter + tmp_calves2replacement + tmp_calves2heifer + tmp_calves2steer + tmp_calves2bull
-        ).all(), "Weaned calves - Lost calves != Calves to slaughter + heifers + steers + bulls"
+            tmp_calves2slaughter + tmp_calves2replacement + tmp_calves2heifer + tmp_calves2steer + tmp_calves2bull + tmp_calves2breeding_bulls
+        ).all(), "Weaned calves - Lost calves != Calves to slaughter + heifers + steers + bulls + breeding bulls"
 
         # CALCULATE AVERAGE ANNUAL NUMBER OF ANIMALS
-        breeding_bulls = cows * p('breeding_bulls_per_cow')
 
         tmp_calves_suckling_male = (
             tmp_male2lost * p('mortality_male_0towean_age') +
@@ -248,7 +257,7 @@ class CattleHerd(AnimalHerd):
 
         # GET FINAL NUMBER OF ANIMALS TO SLAUGHTER
         cows2slaughter = cows * p('replacement_rate')/100 - cows2lost
-        breeding_bulls2slaughter = np.zeros(len(cows)) # No slaughter assumed for breeding bulls for now...
+        breeding_bulls2slaughter = tmp_calves2breeding_bulls
         calves_suckling2slaughter = np.zeros(len(cows)) # No slaughter
         calves_slaughter2slaughter = tmp_calves2slaughter
         calves_heifer2slaughter = np.zeros(len(cows)) # No slaughter
@@ -265,7 +274,7 @@ class CattleHerd(AnimalHerd):
         lw_calves_start = p('birth_weight')
         lw_calves_weaning_male = p('live_weight_weaning_male') # kg/head
         lw_calves_weaning_female = p('live_weight_weaning_female') # kg/head
-        weaning_age = p('weaning_age')
+        weaning_age = p('weaning_age') # days
 
         tmp_lwg_calves_suckling_male = (
             # Male calves
@@ -337,7 +346,15 @@ class CattleHerd(AnimalHerd):
             (1/replacement_rate) # -> kg/year
         )
         lwg_cows = lwg_cows_fetus + lwg_cows_growth
-        lwg_breeding_bulls = np.zeros(len(cows)) # No growth assumed
+
+        lwg_breeding_bulls = (
+            (
+                p('live_weight_slaughter', animal='breeding bulls') -
+                (lw_calves_weaning_male + tmp_lwg_bulls * (365.25 - weaning_age)) # -> kg/Head
+            ) / ((p('slaughter_age') - 12) * 30.4) # -> kg/head/day
+            * 365.25 # -> kg/head/year
+            * breeding_bulls # -> kg/year
+        )
 
         # CALCULATE LIVE WEIGHTS FOR LOST ANIMALS       
         lw_calves_suckling2lost = (
@@ -400,7 +417,7 @@ class CattleHerd(AnimalHerd):
         lw_bulls2lost = np.zeros(len(cows)) # No losses
 
         lw_cows2lost = cows2lost * p('live_weight', animal='cows')
-        lw_breeding_bulls2lost = breeding_bulls2lost * p('live_weight', animal='breeding bulls')
+        lw_breeding_bulls2lost = np.zeros(len(cows)) # No losses
 
         # Create output DataFrames
         pss = [self.prod_system]+list(to_ps) if redist else [self.prod_system] # Output production systems (==[self.prod_system] if no redistribution of animals)
@@ -616,7 +633,7 @@ class CattleHerd(AnimalHerd):
 
         # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
         growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
-        if ani in ['cows','breeding bulls']:
+        if ani in ['cows']:
             live_weight = p('live_weight')
             if ani == 'cows':
                 # Subtract fetus growth
