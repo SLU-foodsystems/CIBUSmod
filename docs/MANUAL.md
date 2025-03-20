@@ -19,6 +19,8 @@
 # Introduction
 Intro here
 
+<img src="figs/CIBUSmod overview.png">
+
 This users guide assumes that `CIBUSmod` is run in a Jupyter notebook (i.e. a *.ipynb* file).
 
 # Installation
@@ -223,9 +225,15 @@ The overview is interactive and clicking the items under *Scenarios* and *Data a
 > [!TIP]
 > Additional `Session` methods for working with scenario definitions are `.remove_scenario()`, `.update_scenario()` and `.reorder_scenarios()`.
 
-## Initialising `CIBUSmod` modules
+## Initialising CIBUSmod modules and performing the calculations
 
-## Performing the calculations
+As previously indicated CIBUSmod is built up of several modules responsible for performing different parts of the calculations. The modules are subdivided into *main modules* and *management (mgmt) modules*, where the main modules store all output and mgmt modules perform specific calculations and add/adjust data stored on the main modules. All modules take a `ParameterRetriever` object as an input. In addition, many modules require other modules as input and some modules also take additional settings as input.
+
+The figure below shows all modules currently included in CIBUSmod. The order from top to bottom (1-14), is the order in which modules should be run and the numbers to the right indicate which other module that module require as input. 
+
+<img src="figs/manual/calc_order.png">
+
+## Settings for the `GeoDistributor`
 
 ## Storing model output
 
