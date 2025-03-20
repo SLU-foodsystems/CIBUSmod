@@ -192,8 +192,17 @@ class CropProduction(object):
         crop_residues = (
             pd.DataFrame(
                 np.array([
+                    # Note: frac_renew is applied to both above and below ground
+                    # residues in Sweden's national inventory calculations, but only
+                    # to below ground residues in IPCC guidelines
                     p('ag_resid') * p('frac_renew'),
-                    p('bg_resid') * p('frac_renew'),
+                    # Note: Equation in Sweden's national inventory indicates that
+                    # bg_resid should be applied to dry matter yield. But description
+                    # in table for R_BG-BIO states "Ratio of below-ground residues to
+                    # above-ground biomass" which indicates that factors apply to all
+                    # above ground biomass, which also produces results more in line
+                    # with what is reported in NIR.
+                    (1 + p('ag_resid')) * p('bg_resid') * p('frac_renew'),
                 ]).T,
                 index = self.index,
                 columns = pd.Index(['above ground','below ground'], name='residue')
