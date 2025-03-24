@@ -4,7 +4,7 @@ import numpy as np
 
 from . import  IMPACT_DATA_PATH
 from .general import get_emissions
-from ..temp_calc.temp_utils import ghg_to_temp
+from .temp_funcs import generate_temp_responses
 from ..utils.session_db import Session
 
 def get_GHG(
@@ -73,19 +73,23 @@ def _get_CO2eq_dict(method):
     return to_CO2eq
 
 def get_deltaT(
-    session : None|Session = None,
-    ghg_data : None|pd.DataFrame = None,
+    session : Session|pd.DataFrame,
     groupby : list[str]|str = 'all',
     scn : str = 'all',
     years : str = 'all',
     extend : int = 0,
-    extend_emissions : bool = True
+    extend_emissions : bool = True,
+    temp_resp_model : str = 'C2012',
+    temp_resp_version : str = 'AR5'
 ) -> pd.DataFrame:
     '''Function to get the temperature response from greenhouse gas emissions
     
     Paramters
     ---------
     session : Session object
+        Alternatively a pandas.DataFrame can be supplyed,
+        should be a DataFrame of greenhouse gas emissions
+        as returned by impact.get_GHG(CO2eq=None, interpolate=True)
     ghg_data : pandas.DataFrame, default None
         Alternative to supplying a session object, should be a
         DataFrame of greenhouse gas emissions as returned by
@@ -103,17 +107,28 @@ def get_deltaT(
         If True emissions are assumed to remain constant
         after last year in scenario, if False emissions
         are assumed to be zero after last year
-
+    temp_resp_model : str, default 'C2012'
+        Temperature response model to use. One of:
+            - 'C2012' (Collins et al. 2012, AGTP formulation)
+            - 'E2013' (Ericsson et al. 2013, convolution method)
+            - 'E2014' (Ericsson et al. 2014, empirical constants)
+    temp_resp_version : str, default 'AR5
+        IPCC version for constants. One of:
+            - 'AR5'
+            - 'AR4'
+    
     Returns
     -------
     pandas.DataFrame'''
 
     # Get greenhouse gas emissions
     print('Getting GHG emissions ...')
-    if ghg_data is not None:
-        ghg = ghg_data
-    else:
+    if isinstance(session, Session):
         ghg = get_GHG(session, scn, years, CO2eq=None, interpolate=True)
+    elif isinstance(session, pd.DataFrame):
+        ghg = session
+    else:
+        raise ValueError('')
 
     if groupby == 'all':
         groupby = ['process', 'sub-process', 'prod_system', 'item', 'region', 'compound']
@@ -127,7 +142,7 @@ def get_deltaT(
     # Make sure 'compound' is first in groupby
     try:
         groupby.insert(0,groupby.pop(groupby.index('compound')))
-    except IndexError:
+    except (IndexError, ValueError):
         groupby.insert(0,'compound')
 
     rename_ghg = {
@@ -166,16 +181,18 @@ def get_deltaT(
         else:
             ext = extend
 
+        # Pre-compute temp response curves
+        temp_curves = generate_temp_responses(n=end_year+ext-start_year)
+
         for cmp in deltaT.loc[scn].columns.unique('compound'):
             # Get GHG time-series for col
             ghg_data = ghg_scn.loc[scn,cmp]
-            # Pre-compute temp response curve
+
+            # Get temp curve
             temp_curve = np.atleast_2d(
-                ghg_to_temp(
-                    ghg = rename_ghg[cmp],
-                    time_horizon=end_year+ext-start_year
-                )
+                temp_curves[rename_ghg[cmp]],
             ).T
+
             # Calculate temperature response
             temp_resp = sum([
                 np.pad(temp_curve[0:end_year+ext-y+1],[(y-start_year,0),(0,0)]) @ np.atleast_2d(ghg_data.loc[str(y)])
@@ -192,8 +209,6 @@ def get_deltaT(
     if groupby != groupby_orig:
         if len(groupby_orig)>0:
             deltaT_combined = deltaT_combined.T.groupby(groupby_orig).sum().T
-        else:
-            deltaT_combined = deltaT_combined.sum(axis=1)
 
     return deltaT_combined
 
