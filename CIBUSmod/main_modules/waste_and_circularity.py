@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
 from ..utils.misc import multiply_aligned
+from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
     from .demand_and_conversions import DemandAndConversions
@@ -166,7 +167,14 @@ class WasteAndCircularity(object):
         )
 
         # COLLECT ANIMAL CARCASSES -----------------------------------------------------------|
-        # TO BE DONE...
+        animals_reg = (
+            concat_herds(self.herds, ['lost_lw']).data_attr.get('lost_lw')
+            .T.groupby(['species','animal']).sum().T
+            .rename(lambda x: 'carcasses, ' + x, level='species', axis=1)
+            .rename_axis(columns=['feedstock_group','feedstock'])
+        )
+        animals_reg = pd.concat({'animal carcasses': animals_reg}, names=['feedstock_type'], axis=1)
+        animals_reg = animals_reg.reorder_levels(['feedstock', 'feedstock_group', 'feedstock_type'], axis=1)
 
         # COLLECT SURPLUSS BY-PRODUCTS ------------------------------------------|
         # Get surpluss by-product to waste treatment and add 'feedstock_group' and 'feedstock_type' to index
@@ -245,7 +253,7 @@ class WasteAndCircularity(object):
 
         # COMBINE --------------------------------------------------------------------------|
 
-        feedstock = pd.concat([food_waste_reg, byprod_reg, crops_reg], axis=1).fillna(0)
+        feedstock = pd.concat([food_waste_reg, byprod_reg, crops_reg, animals_reg], axis=1).fillna(0)
 
         # CALCULATE FEEDSTOCK COMPOSITION AND GET MANURE FOR CENTRALISED TREATMENT ---------|
 
