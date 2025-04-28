@@ -17,8 +17,9 @@ if TYPE_CHECKING:
 
 class InputsMgmt(object):
     '''
-    Class that handles the calculation of emissions in the supply chain of inputs.
-    Emissions are either manually specified or retrieved from ecoinvent.
+    Management mondule that handles the calculation of emissions in the supply
+    chain of inputs. Emissions are either manually specified or retrieved from
+    Ecoinvent.
 
     Parameters
     ----------
