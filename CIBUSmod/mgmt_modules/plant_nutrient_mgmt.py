@@ -16,8 +16,11 @@ if TYPE_CHECKING:
     from ..utils.retriever import ParameterRetriever
 
 class PlantNutrientMgmt():
-    '''Class that that calculates ammount of plant nutrients needed for crop production
-    and balances this with manure generation, etc.
+    '''Class that that calculates ammount of plant nutrients needed for crop production,
+    distributes manure and other organic fertilisers and calculates requirements for
+    mineral fertilisers.
+    It also calculates lime requirements and emissions associated with fertiliser and
+    lime application and N-emissions from soil preocesses and leaching.
 
     Parameters
     ----------

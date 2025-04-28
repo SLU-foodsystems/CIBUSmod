@@ -20,7 +20,8 @@ class CropProduction(object):
 
     Only one of regions or index should be passed. If a Regions object is passed
     the index is built based on 'x0_crops' and is rebuilt on .calculate() to include
-    any additional crops added in a scenario.
+    any additional crops added in a scenario. So, it is recomended to pass a Regions
+    object rather than an Index.
     '''
 
     module_name = 'CropProduction'

@@ -17,14 +17,26 @@ if TYPE_CHECKING:
 
 class InputsMgmt(object):
     '''
+    Class that handles the calculation of emissions in the supply chain of inputs.
+    Emissions are either manually specified or retrieved from ecoinvent.
 
     Parameters
     ----------
     demand : DemandAndConverions object
     crops : CropProduction object
     herds : (pandas.Series of) AnimalHerd object(s)
-    par : ParameterRetriever
-
+    par : ParameterRetriever object
+    ecoinvent_settings : dict
+        Dict with <setting name> : <value>
+        Allowed settings are:
+            'version' : str, default '3.7.1'
+            'system_model' : str, default 'cutoff'
+    ecoinvent_compounds_dict : dict
+        Dict with <ecoinvent compound name> : <compound name>
+        Used to translate the names of the elementary flows
+        in Ecoinvent to the names used in CIBUSmod.
+        Only compounds specified as keys in this dict will
+        be retrieved from Ecoinvent.
 
     '''
 

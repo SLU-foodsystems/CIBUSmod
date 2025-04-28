@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ..utils.retriever import ParameterRetriever
 
 class CropResidueMgmt():
-    '''Management module that handles the allocation of crop residues to different uses
+    '''Management module that handles the allocation of crop residues to different uses.
 
     Parameters
     ----------

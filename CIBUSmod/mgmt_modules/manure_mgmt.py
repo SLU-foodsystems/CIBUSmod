@@ -24,13 +24,18 @@ class ManureMgmt():
             'MMS_grazing_from_feed' : bool, default False
                 If True, use share of dry matter in ration
                 from grazing to estimate the share of manure
-                deposited on pasture
-            'NPK_excretion_from_balance' : bool, default False
+                deposited on pasture.
+                If False, share of manure deposited on pastures are
+                estimated from the parameters 'grazing_period' and
+                'indoors_during_grazing'.
+                Warning! Setting this to True may yield unreliable
+                results.
+            'NPK_excretion_from_balance' : bool, default True
                 If True, calculate N, P and K excretion from nutrients
                 in feed minus nutrients incorporated in live weight gain
                 and animal products. Only applies to AnimalHerds where
-                the data attribute 'lwg' is calculated and relise on
-                parameters '<N/P/K>_in_WL' and '<N/P/K>_in_prod'.
+                the data attribute 'lwg' is calculated and relies on
+                parameters '<N/P/K>_in_LW' and '<N/P/K>_in_prod'.
                 If False, and for AnimalHerds where 'lwg' is not calculated
                 N, P and K excretion is calculated from the parameter
                 'manure_excr_<N/P/K>'
@@ -49,7 +54,7 @@ class ManureMgmt():
         # Default settings
         self.settings = {
             'MMS_grazing_from_feed' : False,
-            'NPK_excretion_from_balance' : False
+            'NPK_excretion_from_balance' : True
         }
         # Update settings if valid input
         for k,v in settings.items():

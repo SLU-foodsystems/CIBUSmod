@@ -14,7 +14,8 @@ class AnimalHerd(ABC):
     ----------
     par : ParameterRetriever object
     index : pandas.Index or pandas.MultiIndex
-        Index for the rows. This is also passed on to the ParameterRetriever
+        Index for the rows. This is also passed on to the ParameterRetriever.
+        Should have one level 'region'
     **kwargs : str or list
         Keyword arguments to be passed on as filters to the ParameterRetriever, along with
         the index, self.species. Special cases are 'breed', 'prod_system' and 'sub_system'

@@ -19,7 +19,7 @@ class MachineryAndEnergyMgmt(object):
     ----------
     regions : Regions object
     crops : CropProduction object
-    herds : (pandas.Series of) AnimalHerd object(s)
+    herds : pandas.Series of AnimalHerd object(s)
     par : ParameterRetriever object
     '''
 

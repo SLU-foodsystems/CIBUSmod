@@ -10,7 +10,10 @@ if TYPE_CHECKING:
 
 class CoverCropsMgmt(object):
 
-    '''Management module that handles cover crops.
+    '''Management module that calculates cover crop areas and
+    generated residues that represent input of N and C to soils.
+    It also handles parameters for the effect of cover crops on
+    N2O emissions and leaching.
 
     Parameters
     ----------
