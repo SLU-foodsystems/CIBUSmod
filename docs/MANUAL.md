@@ -11,8 +11,7 @@
     - [Scenario data workbooks](#scenario-data-workbooks)
 1. [Defining and running scenarios](#defining-and-running-scenarios)
     - [Adding scenarios to a `Session`](#adding-scenarios-to-a-session)
-    - [Initialising `CIBUSmod` modules](#initialising-cibusmod-modules)
-    - [Performing the calculations](#performing-the-calculations)
+    - [Initialising CIBUSmod modules and performing the calculations](#initialising-cibusmod-modules-and-performing-the-calculations)
     - [Storing model output](#storing-model-output)
 1. [Retrieving model output](#retrieving-model-output)
 
@@ -227,17 +226,54 @@ The overview is interactive and clicking the items under *Scenarios* and *Data a
 
 ## Initialising CIBUSmod modules and performing the calculations
 
+This section gives a breif overview of running the model. See the example notebooks for a more hands-on guide.
+
 As previously indicated CIBUSmod is built up of several modules responsible for performing different parts of the calculations. The modules are subdivided into *main modules* and *management (mgmt) modules*, where the main modules store all output and mgmt modules perform specific calculations and add/adjust data stored on the main modules. All modules take a `ParameterRetriever` object as an input. In addition, many modules require other modules as input and some modules also take additional settings as input.
 
 The figure below shows all modules currently included in CIBUSmod. The order from top to bottom (1-14), is the order in which modules should be run and the numbers to the right indicate which other module that module require as input. 
 
 <img src="figs/manual/calc_order.png">
 
-## Settings for the `GeoDistributor`
+To get more information on a module write the module name followed by a questionmark in a Jupyter notebook cell.
+
+```python
+cm.ManureMgmt?
+```
+
+After initialising all modules, the first step in a model run is usually to update all parameters according to a specific scenario an year. This can be done for all initialised `ParameterRetriever` objects via the class method `ParameterRetriever.update_all_parameter_values`.
+
+```python
+cm.ParameterRetriever.update_all_parameter_values(
+    **my_session['my_scneario'],
+    year = '2030'
+)
+```
+
+This will access the scenario definition in the `Session` object (via `**my_session['my_scneario']`) and update all modules and parameters according to the scenario workbooks specified.
+
+After updating parameters, running the model involves executing the `.calculate()` method for all modules in consecutive oreder.
+
+A special case is the `GeoDistributor` module which is the core module that solves the optimisation problem that distributes crop areas and animal numbers regionally. This module is run by first executing its `.make()` method followed by the `.solve()` method. See `cm.GeoDistributor.make?` and `cm.GeoDistributor.make?` for details.
 
 ## Storing model output
 
+After running all modules for a specific scenario and year, results are stored by calling `my_session.store()`. This method requires the arguments `scn` and `year` which specifies under which scenario and year results should be stored. These are followed by all main modules to be included in the data (usually all of them).
+
 > [!NOTE]
-> The database files grows quite large in size (~120 MB per scenario $\times$ year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the `.clean()` method will tidy up the database file and potentially save som space.
+> The database files grows quite large in size (~120 MB per scenario $\times$ year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the `.clean()` method will tidy up the database file and potentially save som space (but it's quite slow).
 
 # Retrieving model output
+
+The main method for accessing model output is `cm.Session.get_attr()`. It requires the arguments `module` and `attr` which is the module name (e.g. 'CropProduction') and attribute table (e.g. 'area') to get data from, respectively. Both are case-insensitive and allows just writing the first letters that can uniquely identify a module.
+
+It also takes a `groupby` argument that allows to group outputs by selected "levels". The levels may be supplied as a list or a dict with level name as keys and aggregated level names (as specified in 'relation_tables.xlsx') as values. For example the below code will access crop areas grouped by production system and crop group.
+
+```Python
+session.get_attr(
+    'C',                                       # 'C' uniquely identifies the 'CropProduction' module
+    'area',                                    # Get the 'area' attribute table
+    {'crop':'crop_group', 'prod_system':None}  # Group by 'crop' (translated to 'crop_group') and 'prod_system'
+)
+```
+
+This returns a `pandas.DataFrame` with scenario and year as index and the group by levels as columns.
