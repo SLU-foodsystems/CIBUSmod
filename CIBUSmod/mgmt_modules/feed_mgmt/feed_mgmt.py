@@ -100,10 +100,12 @@ class FeedMgmt(ABC):
         if (prod_type != "crop_prod") and (
             len(self.par.get_unique(prod_type, 'parameter == "share_domestic"')) > 0
         ):
-            warnings.warn(
-                f"FeedMgmt: Specified domestic shares for '{prod_type}' will have no effect! \n"
-                + "For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
-            )
+            from .feed_mgmt_feeddist import FeedDistFeedMgmt
+            if not isinstance(self, FeedDistFeedMgmt):
+                warnings.warn(
+                    f"FeedMgmt: Specified domestic shares for '{prod_type}' will have no effect! \n"
+                    + "For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
+                )
 
         for herd in self.herds:
             # Set species and breed filters for ParameterRetriever
