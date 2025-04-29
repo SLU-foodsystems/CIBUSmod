@@ -1520,11 +1520,21 @@ class FeedDistributor:
             format="csc",
         )
 
+        A14 = IndexedMatrix(
+            A14,
+            row_idx=A14_cp.rows.append(A14_by.rows),
+            col_idx={
+                "crp": self.x_idx["crp"],
+                "ani": self.x_idx["ani"],
+                "fds": self.x_idx["fds"],
+            },
+        )
+
         self.constraints.update(
             {
                 "C14: A14 @ x >= 0": {
-                    "left": lambda x, A14, b14: A14 @ x - b14,
-                    "right": lambda **kwargs: 0,
+                    "left": lambda x, A14, b14: A14.M @ x - b14,
+                    "right": lambda A14, b14: 0,
                     "rel": "<=",
                     "pars": {"A14": A14, "b14": b14},
                 }
@@ -2338,18 +2348,13 @@ class FeedDistributor:
 
         par = "max_total_imported"
 
-        pss = self.x_idx["crp"].unique("prod_system")
-        cps = self.feed_mgmt.par.get_unique(prod_type, qry=f'parameter=="{par}"')
+        pss_cps = self.feed_mgmt.par.get_unique(['prod_system',prod_type], qry=f'parameter=="{par}"')
 
-        data = self.feed_mgmt.par.get_from_frame(
-            par,
-            pd.DataFrame(
-                columns=pd.Index(pss, name="prod_system"),
-                index=pd.Index(cps, name=prod_type),
-            ),
-        ).unstack()
+        data = pd.Series(
+            self.feed_mgmt.par.get(par, **pss_cps.to_dict('list')),
+            index = pss_cps.set_index(['prod_system',prod_type]).index
+        ) * 1_000 # tonnes --> kg
 
-        assert isinstance(data, pd.Series)
         return data
 
     def make_A13(self, rel_type: Literal["min", "max"]):
