@@ -136,6 +136,6 @@ elem_to_name = {
     'C' : 'carbon (C)',
     'N' : 'nitrogen (N)',
     'TAN' : 'total ammoniacal nitrogen (TAN)',
-    'P' : 'phosphorous (P)',
+    'P' : 'phosphorus (P)',
     'K' : 'potassium (K)'
 }

@@ -276,7 +276,7 @@ class Regions(object):
             },
         }
 
-        element_to_name = {"P": "phosphorous", "K": "potassium"}
+        element_to_name = {"P": "phosphorus", "K": "potassium"}
 
         classes = classes_def[element]
 

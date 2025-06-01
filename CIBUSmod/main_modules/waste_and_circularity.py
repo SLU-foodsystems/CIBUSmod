@@ -78,11 +78,11 @@ class WasteAndCircularity(object):
         dfs = {
             'losses_VS' : ('kg', 'Losses of volatile solids (VS) during waste treatment'),
             'losses_N' : ('kg N', 'Losses of nitrogen (N) during waste treatment'),
-            'losses_P' : ('kg P', 'Losses of phosphorous (P) during waste treatment'),
+            'losses_P' : ('kg P', 'Losses of phosphorus (P) during waste treatment'),
             'losses_K' : ('kg K', 'Losses of potassium (K) during waste treatment'),
             'organic_fertiliser_C' : ('kg C', 'Carbon (C) in organic fertilisers available to spread'),
             'organic_fertiliser_N' : ('kg N', 'Nitrogen (N) in organic fertilisers available to spread'),
-            'organic_fertiliser_P' : ('kg P', 'Phosphorous (P) in organic fertilisers available to spread'),
+            'organic_fertiliser_P' : ('kg P', 'Phosphorus (P) in organic fertilisers available to spread'),
             'organic_fertiliser_K' : ('kg K', 'Potassium (K) in organic fertilisers available to spread'),
             'organic_fertiliser_TAN' : ('kg TAN', 'Total plant available nitrogen (TAN) in organic fertilisers available to spread'),
             'energy_prod' : ('kWh', 'Total energy production'),
@@ -263,13 +263,13 @@ class WasteAndCircularity(object):
         # Calculate dry matter
         feedstock_DM = feedstock.mul(self.par.get('feedstock_DM'), axis=1)
 
-        # Calculate volatile solids (VS), methane production potential (B0), nitrogen (N), phosphorous (P) and potassium (K)
+        # Calculate volatile solids (VS), methane production potential (B0), nitrogen (N), phosphorus (P) and potassium (K)
         items = {
             'VS' : 'volatile solids (VS)',
             'B0' : 'methane production potential (B0)',
             'C' : 'carbon (C)',
             'N' : 'nitrogen (N)',
-            'P' : 'phosphorous (P)',
+            'P' : 'phosphorus (P)',
             'K' : 'potassium (K)'
         }
 

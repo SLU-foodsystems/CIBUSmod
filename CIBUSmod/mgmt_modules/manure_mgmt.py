@@ -85,7 +85,7 @@ class ManureMgmt():
         Returns
         -------
         Nothing. Stores output in pandas.DataFrames in the attrubutes: '<element>_excr', '<element>_loss' and '<element>_to_spread'.
-        <element> is VS (volatile solids), N (nitrogen), P (phosphorous) and K (potassium).
+        <element> is VS (volatile solids), N (nitrogen), P (phosphorus) and K (potassium).
         '''
 
         # Define function to print progress messages if verbose==True
@@ -105,7 +105,7 @@ class ManureMgmt():
         vprint('Calculating VS losses ...')
         self.calculate_VS_losses()
 
-        # Nitrogen (N), Phosphorous (P) and Potassioum (K)
+        # Nitrogen (N), Phosphorus (P) and Potassioum (K)
         vprint('Calculating manure excretion ...')
         self.calculate_NPK_excretion(element = 'N')
         self.calculate_NPK_excretion(element = 'P')
@@ -303,7 +303,7 @@ class ManureMgmt():
                     .T
                 )
 
-            # Calculate nitrogen,phosphorous and potassium in bedding materials
+            # Calculate nitrogen,phosphorus and potassium in bedding materials
             N = get_par("N")  # [kg N/year]
             P = get_par("P")  # [kg P/year]
             K = get_par("K")  # [kg K/year]
