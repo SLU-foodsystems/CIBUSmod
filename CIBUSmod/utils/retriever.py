@@ -811,7 +811,8 @@ def _read_xl(path,sheet):
                     orient = 'index'
                 )
                 new_df.index = pd.MultiIndex.from_tuples(new_df.index, names = df.index.names)
-                new_df.columns = value_cols if isinstance(value_cols, list) else [value_cols]
+                if new_df.shape[1] > 0: # To avoid failing if filter column with ':' has no values
+                    new_df.columns = value_cols if isinstance(value_cols, list) else [value_cols]
 
                 # Remove any rows with identical filters as rows in the big df
                 sel = [
