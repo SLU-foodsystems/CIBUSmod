@@ -14,7 +14,8 @@ def get_GHG(
         CO2eq : str|None = 'GWP100 AR4',
         interpolate : bool = False
         ) -> pd.DataFrame:
-    '''Function to get greenhouse gas emissions from Session
+    '''Function to get greenhouse gas emissions from Session. Emissions are expressed in kg or kg CO2-eq
+    depending on 'CO2eq' setting.
     
     Parameters
     ----------
@@ -30,7 +31,7 @@ def get_GHG(
         
     Returns
     -------
-    pandas.DataFrame'''
+    pandas.DataFrame of greenhouse gas emissions in kg or kg CO2-eq'''
 
     # Get conversion factors, compound --> GHG
     emi_to_ghg = pd.read_csv(os.path.join(IMPACT_DATA_PATH, 'emi_to_ghg.csv'), index_col='compound')
@@ -82,7 +83,7 @@ def get_deltaT(
     temp_resp_model : str = 'C2012',
     temp_resp_version : str = 'AR5'
 ) -> pd.DataFrame:
-    '''Function to get the temperature response from greenhouse gas emissions
+    '''Function to calculate the temperature response measured in Kelvin (K) from time-series of greenhouse gas emissions.
     
     Paramters
     ---------
@@ -119,7 +120,7 @@ def get_deltaT(
     
     Returns
     -------
-    pandas.DataFrame'''
+    pandas.DataFrame of temperature response in Kelvin (K)'''
 
     # Get greenhouse gas emissions
     print('Getting GHG emissions ...')
@@ -182,7 +183,7 @@ def get_deltaT(
             ext = extend
 
         # Pre-compute temp response curves
-        temp_curves = generate_temp_responses(n=end_year+ext-start_year)
+        temp_curves = generate_temp_responses(n=end_year+ext-start_year, model=temp_resp_model, vers=temp_resp_version)
 
         for cmp in deltaT.loc[scn].columns.unique('compound'):
             # Get GHG time-series for col
@@ -212,89 +213,87 @@ def get_deltaT(
 
     return deltaT_combined
 
-def get_rewetting_emissions(
-        session : Session,
-        year0 : str = '2020',
-        CO2eq : str|None = 'GWP100 AR4',
-        interpolate : bool = False,
-        return_area : bool = False,
-        EF_CO2 : float = 0.5*(44/12)*1000, # kg CO2/ha
-        EF_CH4 : float = 123 # kg CH4/ha
-    ) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
-    '''Function to calculate emissions of CO2 and CH4 from rewetted organic soils. Any
-    reduction in the area of organic soils in year0 is assumed to result in an equivalent
-    area of rewetted wetlands.
-
-    This will likely be replaced by a more comprehensive framework for handling land use
-    change and associated emissions in the future.
+def get_GWPstar(
+    session : Session|pd.DataFrame,
+    scn : list[str]|str = 'all',
+    years : list[str]|str = 'all',
+    CO2eq : str = 'GWP100 AR4',
+    r : float = 0.75,
+    s : float = 0.25,
+    dt : int = 20,
+    interpolate : bool = False
+) -> pd.DataFrame:
+    '''Function to get greenhouse gas emissions from Session expressed as kg CO2-w.e.
+    according to GWP* (Lynch et.al. 2020), an alternative application of GWPs where
+    the CO2-equivalence of short-lived climate pollutant (SLCP) emissions is predominantly
+    determined by changes in their emission rate.
     
     Parameters
     ----------
     session : Session object
-    year0 : str
+    scn : (list of) str, default 'all'
+        Scenarios to include
+    years : (list of) str, default 'all'
+        Years to include
     CO2eq : str or None, default 'GWP100 AR4'
-        Method for translating GHGs to CO2-eq, if None emissions are not translated to CO2-eq
+        Method for translating GHGs to CO2-eq Should be one of the GWP methods
+        available in impact.get_GHG()
+    r : float, default 0.75 (as in Lynch et.al. 2020)
+        Weight given changes in rate of SLCP emissions
+    s : float, default 0.25 (as in Lynch et.al. 2020)
+        Weight given to SLCP emissions
+    dt : int, default 20 (as in Lynch et.al. 2020)
+        Number of years to average changes in SLCP emissions rate over (Δt)
     interpolate : Bool, default False
         Interpolate between defined years
-    return_area : Bool, default False
-        If True, returns area tuple of (rewetted area, emissions)
-    EF_CO2 : float, default from Lindgren & Lundblad (2014)
-        Emission factor for CO2 emissions in kg CO2/ha
-    EF_CH4 : float, default from Lindgren & Lundblad (2014)
-        Emission factor for CH4 emissions in kg CH4/ha
-
+        
     Returns
     -------
-    pandas.DataFrame
-    of the same structure as returned by impact.get_GHG()
+    pandas.DataFrame of greenhouse gas emissions in kg CO2-w.e.
+
+        
+    
+    The GWP* calculations are implemented as described in Lynch et.al. (2020). Emissions before the start
+    of the scenarios are assumed equal to emissions in the first year in calculating GWP* for the years up
+    unitil 'dt' years after the start year. Only methane is considered a SLCP in the calculations implemented
+    in this function.
+    
+    Lynch, J., Cain, M., Pierrehumbert, R. & Allen, M. (2020).
+    Demonstrating GWP*: a means of reporting warming-equivalent emissions that
+    captures the contrasting impacts of short- and long-lived climate pollutants.
+    Environmental Research Letters, 15(4), 044023. 10.1088/1748-9326/ab6d7e
     '''
 
-    from CIBUSmod.impact import IMPACT_DATA_PATH
-
-    # Get area of organic soils
-    area_org_soil = session.get_attr('c', 'organic_soil_area', 'region', interpolate=interpolate)
-
-    # Get scenarios in data 
-    scns = area_org_soil.index.unique('scn')
-
-    # Calculate area of rewetted organic soils per year
-    part_dfs = []
-    for scn in scns:
-        df_scn = area_org_soil.loc[[scn],:]
-        part_dfs.append(
-            -area_org_soil.loc[[scn],:].sub(
-                area_org_soil.loc[(scn,year0),:],
-                axis=1
-            # If org_soils @ year <= org_soils @ year0 --> No wetlands
-            # There are many other ways to think here...
-            ).clip(upper=0)
-        )
-    # Combine areas for all scenarios
-    area_rewetted = pd.concat(part_dfs)
-
-    # Calculate CO2 and CH4 emissions
-    CO2_rewetted = area_rewetted * EF_CO2
-    CH4_rewetted = area_rewetted * EF_CH4
-    # Add compound to column index
-    CO2_rewetted = pd.concat({'CO2': CO2_rewetted}, names=['compound'], axis=1)
-    CH4_rewetted = pd.concat({'CH4bio': CH4_rewetted}, names=['compound'], axis=1)
-
-    if CO2eq:
-        # Convert to CO2eq
-        CF_CH4 = pd.read_csv(os.path.join(IMPACT_DATA_PATH, 'ghg_to_CO2eq.csv'), index_col=['ghg','method'])['factor'].loc[('CH4bio',CO2eq)]
-        CH4_rewetted *= CF_CH4
-
-    # Combine CO2 and CH4 emissions
-    rewetting_emissions = pd.concat([CO2_rewetted, CH4_rewetted], axis=1)
-
-    # Fix column index to match df returned by impact.get_GHG()
-    rewetting_emissions = pd.concat({'rewetting': rewetting_emissions}, names=['process'], axis=1)
-    rewetting_emissions = pd.concat({'rewetting': rewetting_emissions}, names=['sub-process'], axis=1)
-    rewetting_emissions = pd.concat({'n/a': rewetting_emissions}, names=['prod_system'], axis=1)
-    rewetting_emissions = pd.concat({'wetlands': rewetting_emissions}, names=['item'], axis=1)
-    rewetting_emissions = rewetting_emissions.reorder_levels(['process', 'sub-process', 'prod_system', 'item', 'region', 'compound'], axis=1)
-
-    if return_area:
-        return (area_rewetted, rewetting_emissions)
+    import re
+    if match := re.search(r'GWP(\d+)', CO2eq):
+        H = int(match.group(1))
     else:
-        return rewetting_emissions
+        raise ValueError("'CO2eq' must be one of the GWP methods")
+    
+    SLCPs = ['CH4bio', 'CH4fos']
+    if isinstance(session, Session):
+        ghg = get_GHG(session, scn, years, CO2eq, interpolate)
+    elif isinstance(session, pd.DataFrame):
+        ghg = session
+    else:
+        raise ValueError('')
+    
+    SLCP_E = ghg.loc[:,(slice(None),slice(None),slice(None),slice(None),slice(None),SLCPs)]
+
+    # Create df of SLCP emissions at t - Δt
+    # Emissions before t0 area assumed equalt to emissions at t0
+    SLCP_E_sub = SLCP_E.reindex(
+        pd.MultiIndex.from_tuples(
+            [(s,str(int(y)-dt)) for s,y in SLCP_E.index],
+            names = SLCP_E.index.names
+        )
+    ).interpolate(limit_direction='both')
+    SLCP_E_sub.index = SLCP_E.index
+
+    # Calculate GWP*
+    GWPstar = (r * ((SLCP_E-SLCP_E_sub)/dt) * H) + (s * SLCP_E)
+
+    # Re-insert GWP* to main df
+    ghg.loc[:,(slice(None),slice(None),slice(None),slice(None),slice(None),SLCPs)] = GWPstar
+    
+    return ghg
