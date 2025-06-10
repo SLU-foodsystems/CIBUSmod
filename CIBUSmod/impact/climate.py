@@ -83,7 +83,8 @@ def get_deltaT(
     temp_resp_model : str = 'C2012',
     temp_resp_version : str = 'AR5'
 ) -> pd.DataFrame:
-    '''Function to calculate the temperature response measured in Kelvin (K) from time-series of greenhouse gas emissions.
+    '''Function to calculate the temperature response measured in Kelvin (K) from time-series of
+    greenhouse gas emissions.
     
     Paramters
     ---------
@@ -132,7 +133,7 @@ def get_deltaT(
         raise ValueError('')
 
     if groupby == 'all':
-        groupby = ['process', 'sub-process', 'prod_system', 'item', 'region', 'compound']
+        groupby = list(ghg.columns.names)
     elif groupby == 'none':
         groupby = []
     elif isinstance(groupby, str):
@@ -150,6 +151,7 @@ def get_deltaT(
         'CO2' : 'co2',
         'CH4bio' : 'ch4',
         'CH4fos' : 'ch4',
+        'CH4' : 'ch4',
         'N2O' : 'n2o',
         'N2Oind' : 'n2o'
     }
