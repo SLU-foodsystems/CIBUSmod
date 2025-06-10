@@ -5,21 +5,55 @@ import numpy as np
 from . import IMPACT_DATA_PATH
 from ..utils.session_db import Session
 
-class ForestParcel():
-    def __init__(self, t, At, Ct, Cmax, T50):
+class LUCParcel():
+    '''Class to keep track of areas and carbon stocks in land use parcels. Carbon stocks
+    are assumed to change over time according to a first-order growth/decay function
+    given by:
+    
+    Ct+1 = Ct + α(Cmax - Ct), where
+    α = 1 - exp(-ln(2)/T50),
+    
+    Ct is the carbon stock (kg C/ha) at year t, Cmax is the maximum carbon stock,
+    and T50 is the number of years it takes to reach exactly half way from Ct to Cmax
+    (i.e. the half-time).
+    
+    Parameters
+    ----------
+    t : int
+        Start year for land use parcel [year]
+    At : float
+        Area of land use parcel at time t [ha]
+    Ct : float
+        Carbon stock in land use parcel at time t [kg C/ha]
+    Cmax : float
+        Maximum carbon stock in land use parcel [kg C/ha]
+    T50 : float
+        Half-time for growth first-order growth/decay function [years]
+    '''
+    
+    def __init__(
+        self,
+        t : int,
+        At : float,
+        Ct : float,
+        Cmax : float,
+        T50 : float
+    ):
         self.Cmax = Cmax
         self.T50 = T50
 
+        # Set initial time, area and carbon stock
         self.t = t
         self.At = At
         self.Ct = Ct
-        
-        self.C = [Ct]
-        self.A = [At]
-        self.T = [t]
+
+        # Create lists for time, area and carbon stock time series
+        self.T = []
+        self.A = []
+        self.C = []
 
     def time_step(self):
-        self.t += 1
+        '''Do one time-step'''
         alpha = 1 - np.exp(-np.log(2)/self.T50)
         self.Ct = self.Ct + alpha * (self.Cmax - self.Ct)
 
@@ -27,86 +61,128 @@ class ForestParcel():
         self.A += [self.At]
         self.T += [self.t]
 
-    def stock_time_series(self):
+        self.t += 1
+
+    def stock_time_series(self) -> pd.Series:
+        '''Get time series of carbon stocks [kg C]'''
         return pd.Series(
             np.array(self.C) * np.array(self.A),
             index = self.T
         )
 
-    def CO2_emissions(self):
-        stock = self.stock_time_series()
-        return -stock.diff().fillna(0) * 3.67
-    
-if False:
-    Ct = 0 # kg C/ha, initial forest carbon stock
-    At = 0 # ha, Area where forest is regenerating
-    Cin = 2 # kg C/ha, carbon stock in land converted to forest
-    Cmax = 20 # kg C/ha, maximum carbon stock of forest
-    T50 = 20 # years, time to reach half Cmax
+class LUCTimeSeries():
+    '''Class that handles land use changes between a 'target' land  use and an 'alternative'
+    land use. Land use changes are always assumed to affect the most recently converted land
+    use parcels.
 
-    forest_parcels = []
-    inactive_parcels = []
-    old_forest_parcels = []
+    Parameters
+    ----------
+    Ach : pd.Series
+        Time-series of land use changes between 'target' and 'aternative' land use (negative
+        values should represent reduced areas of the target land use). Index should represent
+        years and have int dtype.
+    Cmax : (float, float)
+        Maximum carbon stock [kg C / ha] in target land use (first element) and
+        alternative land use (second element)
+    T50 : (float, float)
+        Half-time for  first-order growth/decay function for target land use (first
+        element) and alternative land use (second element)
+    extend : int
+        Number of years to extend time-series by. No land use changes are assumed after
+        the final year in Ach time-series but carbon stock are assumed to continue to 
+        develop during the extended years.
+    '''
+    def __init__(
+        self,
+        Ach : pd.Series,
+        Cmax : tuple[float, float],
+        T50 : tuple[float, float],
+        extend : int = 0
+    ):
+        # Make sure index is integer
+        Ach.index = Ach.index.astype(int)
+        # Make sure all years are included
+        if list(range(Ach.index[0],Ach.index[-1]+1)) != list(Ach.index):
+            raise ValueError('Ach.index must include all years from first to last year.')
+        
+        if extend > 0:
+            Ach = Ach.reindex(
+                pd.Index(
+                    list(range(Ach.index[0],Ach.index[-1]+extend+1)),
+                    name = Ach.index.name
+                ),
+                fill_value = 0
+            )
+            
+        self.Ach = Ach
+        self.Cmax = Cmax
+        self.T50 = T50
 
-    At = 0
-    A = []
+    def calculate_parcels(self) -> None:
+        ''''''
+        init_target_parcel = LUCParcel(self.Ach.index[0], -self.Ach.where(self.Ach<0).sum()+1, self.Cmax[0], self.Cmax[0], self.T50[0])
+        init_alt_parcel = LUCParcel(self.Ach.index[0], self.Ach.where(self.Ach>0).sum()+1, self.Cmax[1], self.Cmax[1], self.T50[1])
+        
+        self.target_LU_parcels = [init_target_parcel]
+        self.alt_LU_parcels = [init_alt_parcel]
+        self.inactive_LU_parcels = []
 
-    for t in range(200):
-        if t < 100:
-            if t < 20:
-                Ain = 5 + np.random.randn()*10
-            elif t < 50:
-                Ain = -5 + np.random.randn()*10
+        for t, Ach in zip(self.Ach.index, self.Ach):
+            
+            if Ach < 0:
+                from_parcels = self.target_LU_parcels
+                to_parcels = self.alt_LU_parcels
+                Cmax = self.Cmax[1]
+                T50 = self.T50[1]
+            elif Ach > 0:
+                from_parcels = self.alt_LU_parcels
+                to_parcels = self.target_LU_parcels
+                Cmax = self.Cmax[0]
+                T50 = self.T50[0]
             else:
-                Ain = np.random.randn()*10
-        else:
-            Ain = 0
+                from_parcels = None
+                to_parcels = None
+                Cmax = None
+                T50 = None
 
-        A += [At]
-        At += -Ain
+            Ach_abs = abs(Ach)
 
-        if Ain > 0:
-            forest_parcels.append(ForestParcel(t, Ain, Cin, Cmax, T50))
-        elif Ain < 0:
-            while True:
-                try:
-                    last_parcel = forest_parcels.pop()
-                except IndexError:
-                    old_forest_parcel = ForestParcel(t-1, -Ain, Cmax, Cmax, T50)
-                    old_forest_parcel.At += Ain
-                    old_forest_parcel.time_step()
-                    old_forest_parcels.append(old_forest_parcel)
-                    break
-                if last_parcel.At > -Ain:
-                    last_parcel.At += Ain
-                    break
-                else:
-                    Ain += last_parcel.At
-                    last_parcel.At = 0
-                    inactive_parcels += [last_parcel]
-                    
-            forest_parcels.append(last_parcel)
+            if from_parcels is not None:
+                while True:
+                    last_from_parcel = from_parcels.pop()
+                    if last_from_parcel.At > Ach_abs:
+                        last_from_parcel.At -= Ach_abs
+                        from_parcels.append(last_from_parcel)
+                        to_parcels.append(
+                            LUCParcel(t, Ach_abs, last_from_parcel.Ct, Cmax, T50)
+                        )
+                        break
+                    else:
+                        to_parcels.append(
+                            LUCParcel(t, last_from_parcel.At, last_from_parcel.Ct, Cmax, T50)
+                        )
+                        Ach_abs -= last_from_parcel.At
+                        last_from_parcel.At = 0
+                        self.inactive_LU_parcels.append(last_from_parcel)                      
+                
+            for p in self.target_LU_parcels + self.alt_LU_parcels:
+                p.time_step()
 
-        for p in forest_parcels:
-            p.time_step()
+        return None
 
-    stocks = []
-    CO2 = []
-    for p in forest_parcels + inactive_parcels + old_forest_parcels:
-        stocks += [p.stock_time_series()]
-        CO2 += [p.CO2_emissions()]
-
-    d0 = pd.Series(A)
-    d0.sort_index().plot(ylabel='Agri. area change')
-    plt.show()
-
-    d1 = pd.concat(stocks,axis=1).fillna(0).sum(axis=1)
-    d1.sort_index().plot(ylabel='Regrowth forest carbon stocks')
-    plt.show()
-
-    d2 = pd.concat(CO2,axis=1).fillna(0).sum(axis=1)
-    d2.sort_index().plot(ylabel='CO2 emissions')
-    plt.show()
+    def get_stocks(self) -> pd.Series:
+        '''Get yearly total carbon stocks [kg C]. Stocks allways start at zero in the first year'''
+        stocks = []
+        for p in self.target_LU_parcels + self.alt_LU_parcels + self.inactive_LU_parcels:
+            stocks += [p.stock_time_series()]
+        df = pd.concat(stocks,axis=1).reindex(self.Ach.index).fillna(0).sum(axis=1)
+        # Subtract initial carbon stocks
+        df -= df.iloc[0]
+        return df
+    
+    def get_CO2(self) -> pd.Series:
+        '''Get yearly CO2 emissions [kg CO2] due to carbon stock changes'''
+        return -self.get_stocks().diff().fillna(0) * 3.67 # C -> CO2
 
 def get_rewetting_emissions(
         session : Session,
