@@ -25,27 +25,27 @@ class LUParcel():
         # Create lists for time, area and carbon stocks time series
         self.T = []
         self.A = []
-        self.C = {s : [] for s in self.Ct.keys()}
+        self.C = {s : [] for s in self.pool_names}
     
     def spin_up(self, n=1_000):
-        for i in range(n+1):
+        for _ in range(n+1):
             self.time_step()
         # Set t to t0
         self.t = self.T[0]
         # Set carbon stocks to those of last iteration
-        for s in self.Ct.keys():
+        for s in self.pool_names:
             self.Ct[s] = self.C[s][-1]
         # Reset lists
         self.T = []
         self.A = []
-        self.C = {s : [] for s in self.C.keys()}
+        self.C = {s : [] for s in self.pool_names}
 
     def stock_time_series(self) -> pd.Series:
         '''Get time series of carbon stocks [kg C]'''
         return pd.DataFrame(
             np.array([c for c in self.C.values()]).T * np.atleast_2d(np.array(self.A)).T,
             index = pd.Index(self.T, name='year'),
-            columns = pd.Index([s for s in self.C.keys()], name='stock')
+            columns = pd.Index([s for s in self.pool_names], name='pool')
         )
 
 class LUParcel1(LUParcel):
@@ -78,7 +78,8 @@ class LUParcel1(LUParcel):
     )
     '''
 
-    stock_names = ['C']
+    # Carbon pools
+    pool_names = ['C']
 
     def time_step(self):
         '''Do one time-step'''
@@ -139,7 +140,8 @@ class LUParcel2(LUParcel):
     )
     '''
 
-    stock_names = ['CL','CD','CS']
+    # Carbon pools
+    pool_names = ['CL','CD','CS']
 
     def time_step(self):
         '''Do one time-step'''
@@ -152,7 +154,7 @@ class LUParcel2(LUParcel):
         
         self.T += [self.t]
         self.A += [self.At]
-        for s in self.C.keys():
+        for s in self.pool_names:
             self.C[s] += [self.Ct[s]]
 
         self.t += 1
@@ -171,12 +173,12 @@ class LUCTimeSeries():
     parcel_class : LUCParcel object
         The LUCParcel object to use
     taget_lu_pars : dict
-        Dict with parameters for target land use to pass to LUCParcel
+        Dict with parameters for 'target land use' to pass to LUCParcel
     alt_lu_pars : dict
-        Dict with parameters for alternative land use to pass to LUCParcel
+        Dict with parameters for 'alternative land use' to pass to LUCParcel
     extend : int
         Number of years to extend time-series by. No land use changes are assumed after
-        the final year in Ach time-series but carbon stock are assumed to continue to 
+        the final year in Ach time-series but carbon stocks are assumed to continue to 
         develop during the extended years.
     '''
     def __init__(
@@ -215,13 +217,13 @@ class LUCTimeSeries():
         init_target_parcel = self.LUCParcel(
             t0 = self.Ach.index[0],
             A0 = -self.Ach.where(self.Ach<0).sum()+1,
-            C0 = {s:0 for s in self.LUCParcel.stock_names},
+            C0 = {s:0 for s in self.LUCParcel.pool_names},
             pars = self.pars['target']
         )
         init_alt_parcel = self.LUCParcel(
             t0 = self.Ach.index[0],
             A0 = self.Ach.where(self.Ach>0).sum()+1,
-            C0 = {s:0 for s in self.LUCParcel.stock_names},
+            C0 = {s:0 for s in self.LUCParcel.pool_names},
             pars = self.pars['alt']
         )
         # Do spin-up
