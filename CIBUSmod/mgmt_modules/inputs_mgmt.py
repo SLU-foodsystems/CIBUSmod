@@ -59,7 +59,26 @@ class InputsMgmt(object):
             'Carbon dioxide, fossil' : 'CO2',
             'Methane, non-fossil' : 'CH4bio',
             'Methane, fossil' : 'CH4fos',
+
+            'Carbon monoxide, fossil' : 'CO',
+            'Carbon monoxide, non-fossil' : 'CO',
+            'Carbon monoxide, from soil or biomass stock' : 'CO',
+
             'Dinitrogen monoxide' : 'N2O',
+            'Ammonia' : 'NH3',
+            'Ammonium' : 'NO3',
+            'Ammonium, ion' : 'NO3',
+            'Nitrogen oxides' : 'NOx',
+
+            'Phosphate' : 'PO4',
+
+            'Sulfur dioxide' : 'SO2',
+
+            'NMVOC, non-methane volatile organic compounds' : 'NMVOC',
+
+            'Particulate Matter, > 10 um' : 'PM',
+            'Particulate Matter, < 2.5 um' : 'PM',
+            'Particulate Matter, > 2.5 um and < 10um' : 'PM',
         }
     ):
 
@@ -152,9 +171,8 @@ class InputsMgmt(object):
             .rename(self.ei_compounds, axis=1)
             # Drop all index levels except 'input'
             .droplevel(self.ecoinvent_data.index.names[1:])
-            # Group and sum by compund. For compounds used now all emissions
-            # are to 'air'. Different compartments will need to ba handled
-            # later on
+            # Group and sum by compound. All compartments are aggregated.
+            # Do we need to handle different compartments?
             .T.groupby('compound').sum().T
             .stack()
         )
