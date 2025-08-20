@@ -541,7 +541,17 @@ Parameters
             # Select year
             scn_data = scn_data[year].rename('value')
 
-            val_iss = scn_data.index.get_level_values('val_is').unique()
+            # Create series to keep track of the value of val_is
+            # coded to integers; rel=1, abs=2, drop=3, new=4
+            scn_data_val_is = pd.Series(
+                scn_data.index.get_level_values('val_is'),
+                index=scn_data.index
+            ).replace({
+                'rel' : 1,
+                'abs' : 2,
+                'drop' : 3,
+                'new' : 4
+            })
 
             # Create series to keep track of accessed rows in scenario data workbook
             scn_data_rows = pd.Series(
@@ -550,72 +560,81 @@ Parameters
             )
             accessed_rows = []
 
-            # Go through parameters defined in relative (rel) and absolute (abs) terms
-            # and parameters to be dropped (drop)
-            for val_is in [v for v in ['drop','rel','abs'] if v in val_iss]:
-
-                scn_data_ = scn_data.xs(val_is, level='val_is')
-                scn_data_rows_ = scn_data_rows.xs(val_is, level='val_is')
-
-                # Go through parameters in scenario and update values
-                for parameter in scn_data_.index.get_level_values('parameter').unique():
-
-                    # Create selection
-                    try:
-                        selection = data.xs(parameter, level='parameter', drop_level=False).index
-                    except KeyError:
-                        continue
-                    scn_selection = selection.droplevel('parameter')
-
-                    # If no filter columns in scenarios sheet (i.e. values to update parameters apply universaly)
-                    # then make sure that only one value is found and update accordingly
-                    if len(scn_data_.index.names)==1:
-                        assert np.isscalar(scn_data_.xs(parameter))
-                        values = pd.Series(
-                            scn_data_.xs(parameter),
-                            index=selection
-                        )
-                        # Get accessed rows
-                        accessed_rows.append(
-                            np.atleast_1d(scn_data_rows_.xs(parameter))
-                        )
-                    else:
-                        # Drop selection levels not in scenario filter columns
-                        for lvl in (set(selection.names) - set(scn_data_.index.names)):
-                            scn_selection = scn_selection.droplevel(lvl)
-
-                        # Get scenario values
-                        values = pd.Series(
-                            _get_parameter_values(scn_data_, scn_selection, parameter),
-                            index=selection
-                        )
-                        # Get accessed rows
-                        accessed_rows.append(
-                            np.unique(_get_parameter_values(scn_data_rows_, scn_selection, parameter))
-                        )
-
-                    if val_is=='drop':
-                        # Drop rows from updated data corresponding to those
-                        # that returned av value from the scenario data
-                        updated_data = updated_data.loc[~updated_data.index.isin(values.dropna().index)]
-                        continue
-
-                    # If in relative terms multiply with original value
-                    if val_is=='rel':
-                        values = data.loc[selection] * values
-
-                    # Update values
-                    updated_data.update(values)
-
-            if 'new' in val_iss:
-                # Get data with val_is='new'
-                new_data.append(
-                    scn_data.xs('new', level='val_is')
-                )
-                # Get accessed rows
-                accessed_rows.append(
-                    np.atleast_1d(scn_data_rows.xs('new', level='val_is'))
-                )
+            # Drop scenario data rows with val_is='new' (4) (handled later)
+            # and drop the val_is index level
+            scn_data_ = scn_data.drop(4, level='val_is', errors='ignore').droplevel(level='val_is')
+            scn_data_val_is_ = scn_data_val_is.drop(4, level='val_is', errors='ignore').droplevel(level='val_is')
+            scn_data_rows_ = scn_data_rows.drop(4, level='val_is', errors='ignore').droplevel(level='val_is')
+            
+            # Go through parameters in scenario and update values
+            for parameter in scn_data_.index.get_level_values('parameter').unique():
+            
+                # Create selection
+                try:
+                    selection = data.xs(parameter, level='parameter', drop_level=False).index
+                except KeyError:
+                    continue
+                scn_selection = selection.droplevel('parameter')
+            
+                # If no filter columns in scenarios sheet (i.e. values to update parameters apply universaly)
+                # then make sure that only one value is found and update accordingly
+                if len(scn_data_.index.names)==1:
+                    assert np.isscalar(scn_data_.xs(parameter))
+                    values = pd.Series(
+                        scn_data_.xs(parameter),
+                        index=selection
+                    )
+                    val_is = pd.Series(
+                        scn_data_val_is_.xs(parameter),
+                        index=selection
+                    )
+                    # Get accessed rows
+                    accessed_rows.append(
+                        np.atleast_1d(scn_data_rows_.xs(parameter))
+                    )
+                else:
+                    # Check for rows with identical filter columns
+                    scn_data_.index[scn_data_.index.duplicated()]
+                    # Drop selection levels not in scenario filter columns
+                    for lvl in (set(selection.names) - set(scn_data_.index.names)):
+                        scn_selection = scn_selection.droplevel(lvl)
+            
+                    # Get scenario values
+                    values = pd.Series(
+                        _get_parameter_values(scn_data_, scn_selection, parameter),
+                        index=selection
+                    )
+                    # Get corresponding val_is
+                    val_is = pd.Series(
+                        _get_parameter_values(scn_data_val_is_, scn_selection, parameter),
+                        index=selection
+                    )
+                    # Get accessed rows
+                    accessed_rows.append(
+                        np.unique(_get_parameter_values(scn_data_rows_, scn_selection, parameter))
+                    )
+            
+                # If in relative terms (i.e. val_is='rel' (1)), multiply
+                # with original value. If not, retain scenario data as is
+                values = values.where(val_is!=1, data.loc[selection] * values)
+            
+                # Drop rows from updated data corresponding to those
+                # that returned av value from the scenario data and
+                # val_is='drop' (3)
+                updated_data = updated_data.loc[~updated_data.index.isin(values.loc[val_is==3].dropna().index)]
+            
+                updated_data.update(values)
+            
+            
+                if 'new' in scn_data.index.get_level_values('val_is'):
+                    # Get data with val_is='new' (4)
+                    new_data.append(
+                        scn_data.xs('new', level='val_is')
+                    )
+                    # Get accessed rows
+                    accessed_rows.append(
+                        np.atleast_1d(scn_data_rows.xs('new', level='val_is'))
+                    )
                     
             # Check for data in scenario data workbook that was not accessed
             not_accessed_data = scn_data_raw.loc[scn_data_rows.index[~scn_data_rows.isin(np.concatenate(accessed_rows))], :]
@@ -839,8 +858,11 @@ def _read_xl(path,sheet):
                 df = df[value_cols]
 
         # Raise error if duplicates found and print some usefull info
-        if df.index.duplicated().any():
+        if 'val_is' in df.index.names:
+            dup = df.droplevel('val_is').index[df.droplevel('val_is').index.duplicated()].get_level_values("parameter")
+        else:
             dup = df.index[df.index.duplicated()].get_level_values("parameter")
+        if len(dup)>0:
             n = min(len(dup),5)
             str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
             str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")

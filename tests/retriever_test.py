@@ -227,7 +227,8 @@ test.clear()
 assert test.get('three', A='a2', C='c2') == 31
 
 # %% Wrong scenario name
-test.update_parameter_values(['retriever_test_scn3','retriever_test_scn4'],10)
+# Should raise a warning indicating scenario data workbook not found
+test.update_parameter_values(['retriever_test_scn3','wrong_name'],10)
 print(test.data)
 
 # %% Translated filter columns
@@ -296,6 +297,43 @@ except KeyError as e:
 else:
     assert False, 'Unexpected exception raised'
 
-# Two rows shoul have bropped from data
+# Two rows shoul have dropped from data
 assert data_len - len(test.data) == 2, 'Unexpected number of rows dropped'
+
+# %% Conflicts between val_is = rel/abs/drop
+test.update_parameter_values()
+
+# Trying to update parameter 'one' should raise ValueError
+# as there are multiple rows with identical filter column
+# even though they differ in val_is
+try:
+    test.update_parameter_values('retriever_test_error_identical_filter', 1)
+except ValueError as e:
+    assert "One or more parameter(s)" in e.args[0], 'Unexpected KeyError raised'
+else:
+    assert False, 'Unexpected exception raised'
+
+# f_C = c2 should not match any value --> Warning
+# f_A = a2 should match f_A=a2,f_D=d2 but not f_A=a2,f_C=c2
+# due to conflict with f_C = c2
+test.update_parameter_values('retriever_test_scn5', 1, pars='three')
+test.clear()
+assert test.get('three', A='a2',D='d2') == 100
+test.clear()
+assert test.get('three', A='a2',C='c2') == 3.1
+
+# rel, abs and drop on same parameter
+test.update_parameter_values('retriever_test_scn5', 1, pars='one')
+
+# Two rows should remain
+assert len(test.data.xs('one', level='parameter')) == 2
+
+# This is updated in absolute terms to 100
+test.clear()
+assert test.get('one', A='a1', B='b1') == 100
+
+# This is updated in relative terms to 14
+test.clear()
+assert test.get('one', A='a1', B='b1', C='c1') == 14
+
 # %% END
