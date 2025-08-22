@@ -625,16 +625,15 @@ Parameters
             
                 updated_data.update(values)
             
-            
-                if 'new' in scn_data.index.get_level_values('val_is'):
-                    # Get data with val_is='new' (4)
-                    new_data.append(
-                        scn_data.xs('new', level='val_is')
-                    )
-                    # Get accessed rows
-                    accessed_rows.append(
-                        np.atleast_1d(scn_data_rows.xs('new', level='val_is'))
-                    )
+            if 'new' in scn_data.index.get_level_values('val_is'):
+                # Get data with val_is='new' (4)
+                new_data.append(
+                    scn_data.xs('new', level='val_is')
+                )
+                # Get accessed rows
+                accessed_rows.append(
+                    np.atleast_1d(scn_data_rows.xs('new', level='val_is'))
+                )
                     
             # Check for data in scenario data workbook that was not accessed
             not_accessed_data = scn_data_raw.loc[scn_data_rows.index[~scn_data_rows.isin(np.concatenate(accessed_rows))], :]
