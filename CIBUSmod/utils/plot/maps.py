@@ -24,7 +24,7 @@ kommun = gpd.read_file(map_file, layer='kommun').drop(columns=['KnKod','KnNamn']
 lan = gpd.read_file(map_file, layer='län').drop(columns=['LnKod','LnNamn']).set_index("Län").rename_axis('region')
 MAP = {
     'sko' : sko,
-    # 'po8' : po8,
+    'po8' : po8,
     'kommun' : kommun,
     'län' : lan
 }
