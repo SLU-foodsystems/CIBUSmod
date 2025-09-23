@@ -29,6 +29,21 @@ MAP = {
     'län' : lan
 }
 
+def add_map_layer(name:str, gdf:gpd.GeoDataFrame):
+    '''
+    Add map layer to be available in 'map_from_series' plot function
+
+    Parameters
+    ----------
+    name : str
+        Name of layer
+    gdf : geopandas.GeoDataFrame
+        Map layer as GeoDataFrame. Index should be named 'region' and
+        have dtype str.
+    '''
+    MAP[name] = gdf
+    return None
+
 def map_from_series(ser, reg='sko', cmap_zero_midpoint = False, **kwargs):
     '''
     Parameters
