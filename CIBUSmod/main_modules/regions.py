@@ -15,11 +15,17 @@ class Regions(object):
     settings : dict
         Dict with <setting name> : <value>
         Allowed settings are:
+            'max_land_use_from_x0' : bool, default True
+                If True, calculate maximum land use per region as the sum of 'x0_crops'
+                belonging to each land use class multiplied by the value specified through
+                the parameter 'max_land_use_factor'.
+                If False, use values specified with the 'max_land_use' parameter.
             'max_land_use_from_scenario_x0' : bool, default False
                 If True, use 'x0_crops' (i.e. baseline crop areas) as updated in scenarios
                 to calculate maximum land use per region. Otherwise maximum land use is
                 calculated from 'x0_crops' as defined in default parameters irrespective
                 of scenario.
+                Note: Only applies if 'max_land_use_from_x0' is True
     """
 
     module_name = "Regions"
@@ -31,7 +37,10 @@ class Regions(object):
         self.par = par
 
         # Default settings
-        self.settings = {"max_land_use_from_scenario_x0": False}
+        self.settings = {
+            "max_land_use_from_x0": True,
+            "max_land_use_from_scenario_x0": False
+        }
         # Update settings if valid input
         for k, v in settings.items():
             if k in self.settings:
@@ -301,28 +310,46 @@ class Regions(object):
         )
 
     def calculate_max_land_use(self):
-        # Get land uses with a maximum land use
-        land_uses = self.par.get_unique(
-            "land_use", qry='parameter == "max_land_use_factor"'
-        )
 
-        if self.settings["max_land_use_from_scenario_x0"]:
-            x0_crops = self.data_attr.get("x0_crops").copy()
+        if self.settings["max_land_use_from_x0"]:
+            # Get land uses with a maximum land use
+            land_uses = self.par.get_unique(
+                "land_use", qry='parameter == "max_land_use_factor"'
+            )
+
+            if self.settings["max_land_use_from_scenario_x0"]:
+                x0_crops = self.data_attr.get("x0_crops").copy()
+            else:
+                x0_crops = self.data_attr.get("x0_crops_init").copy()
+
+            # Calculate land use in x0
+            lu = (
+                x0_crops.rename(self.par.get_rel("crop", "land_use"))
+                .rename_axis(["land_use", "prod_system", "region"])
+                .groupby(["region", "land_use"])
+                .sum()
+                .unstack()
+                .loc[:, land_uses]
+            )
+
+            # Calculate maximum land use
+            max_land_use = lu * self.par.get_from_frame("max_land_use_factor", lu)
         else:
-            x0_crops = self.data_attr.get("x0_crops_init").copy()
+            # Get regions
+            regs = self.data_attr.get('x0_crops').index.unique('region')
+            # Get land uses with a maximum land use
+            land_uses = self.par.get_unique(
+                "land_use", qry='parameter == "max_land_use"'
+            )
 
-        # Calculate land use in x0
-        lu = (
-            x0_crops.rename(self.par.get_rel("crop", "land_use"))
-            .rename_axis(["land_use", "prod_system", "region"])
-            .groupby(["region", "land_use"])
-            .sum()
-            .unstack()
-            .loc[:, land_uses]
-        )
-
-        # Calculate maximum land use
-        max_land_use = lu * self.par.get_from_frame("max_land_use_factor", lu)
+            # Get maximum land use
+            max_land_use = self.par.get_from_frame(
+                "max_land_use",
+                pd.DataFrame(
+                    index = regs,
+                    columns = pd.Index(land_uses, name='land_use')
+                )
+            )
 
         # Add data attribute
         self.data_attr.add(
