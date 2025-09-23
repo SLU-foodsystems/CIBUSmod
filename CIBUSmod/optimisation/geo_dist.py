@@ -528,6 +528,14 @@ class GeoDistributor:
         # Stack matrices
         A2 = scipy.sparse.hstack([A2_1.M,A2_2.M], format='csc')
 
+        if min(A2.shape) == 0:
+            warnings.warn('''
+Creating A2 matrix for constraint C2 resulted in a zero dimension.
+This is likely due to no valid crop_prod specified with a 'share_regional' > 0%
+Constraint C2 was omitted!
+            ''')
+            return None
+
         A2 = IndexedMatrix(
             matrix=A2,
             row_idx=A2_1.rows,
