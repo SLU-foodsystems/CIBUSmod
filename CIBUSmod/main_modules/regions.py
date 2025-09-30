@@ -19,7 +19,8 @@ class Regions(object):
                 If True, calculate maximum land use per region as the sum of 'x0_crops'
                 belonging to each land use class multiplied by the value specified through
                 the parameter 'max_land_use_factor'.
-                If False, use values specified with the 'max_land_use' parameter.
+                If False, use values specified with the 'max_land_use' parameter multiplied
+                by 'max_land_use_factor.
             'max_land_use_from_scenario_x0' : bool, default False
                 If True, use 'x0_crops' (i.e. baseline crop areas) as updated in scenarios
                 to calculate maximum land use per region. Otherwise maximum land use is
@@ -332,8 +333,6 @@ class Regions(object):
                 .loc[:, land_uses]
             )
 
-            # Calculate maximum land use
-            max_land_use = lu * self.par.get_from_frame("max_land_use_factor", lu)
         else:
             # Get regions
             regs = self.data_attr.get('x0_crops').index.unique('region')
@@ -343,13 +342,16 @@ class Regions(object):
             )
 
             # Get maximum land use
-            max_land_use = self.par.get_from_frame(
+            lu = self.par.get_from_frame(
                 "max_land_use",
                 pd.DataFrame(
                     index = regs,
                     columns = pd.Index(land_uses, name='land_use')
                 )
             )
+
+        # Calculate maximum land use
+        max_land_use = lu * self.par.get_from_frame("max_land_use_factor", lu)
 
         # Add data attribute
         self.data_attr.add(
