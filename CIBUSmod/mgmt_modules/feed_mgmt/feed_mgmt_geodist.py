@@ -30,15 +30,21 @@ class GeoDistFeedMgmt(FeedMgmt):
         vprint('Calculating feed losses ...')
         self.calculate_losses()
 
+        not_linked_feeds = []
         vprint('Calculating demand for crop products ...')
-        self.calculate_product_demand(prod_type='crop_prod')
+        not_linked_feeds += [self.calculate_product_demand(prod_type='crop_prod')]
         self.calculate_max_crop_in_crop_prod()
 
         vprint('Calculating demand for by-products ...')
-        self.calculate_product_demand(prod_type='by_prod')
+        not_linked_feeds += [self.calculate_product_demand(prod_type='by_prod')]
 
         vprint('Calculating demand for crop residues ...')
-        self.calculate_product_demand(prod_type='crop_resid')
+        not_linked_feeds += [self.calculate_product_demand(prod_type='crop_resid')]
+
+        # Check for feeds not linked to any product
+        not_linked_feeds = list(set(not_linked_feeds[0]).intersection(*not_linked_feeds[1:]))
+        if len(not_linked_feeds)>0:
+            warnings.warn(f'Some feeds were not linked to any product: {not_linked_feeds}')
 
         vprint(type='end')
 

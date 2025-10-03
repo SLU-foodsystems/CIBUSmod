@@ -107,6 +107,9 @@ class FeedMgmt(ABC):
                     + "For by-products, imports are handled in the ByProductMgmt module and for crop residues, imports are not allowed."
                 )
 
+        # Create list for feeds not linked to a product
+        not_linked_feeds = []
+
         for herd in self.herds:
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -120,6 +123,8 @@ class FeedMgmt(ABC):
                 if fe in prs.index:
                     for pr in prs[fe] if not isinstance(prs[fe], str) else [prs[fe]]:
                         df_cols += [(ps, ani, pr, fe)]
+                else:
+                    not_linked_feeds += [fe]
 
             retrieve_df = pd.DataFrame(
                 index=herd.index,
@@ -241,6 +246,8 @@ class FeedMgmt(ABC):
                     orig="FeedMgmt",
                     desc="Demand for crop products for feed that must be supplied regionally",
                 )
+
+        return not_linked_feeds
 
     def calculate_max_crop_in_crop_prod(self):
         # Get crop_groups to handle
