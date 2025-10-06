@@ -23,6 +23,7 @@ class FeedDistFeedMgmt(FeedMgmt):
         vprint("Calculating feed consumption and losses ...")
         self.calculate_consumption_and_losses()
 
+        not_linked_feeds = []
         vprint("Calculating demand for crop products ...")
         not_linked_feeds += [self.calculate_product_demand(prod_type="crop_prod")]
         self.calculate_max_crop_in_crop_prod()
