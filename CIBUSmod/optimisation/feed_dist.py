@@ -500,7 +500,9 @@ class FeedDistributor:
                     (f, ani, sp, br, ps, ss, re)
                     for (sp, br, ps, ss) in self.herds.index
                     for re in self.herds[(sp, br, ps, ss)].index
-                    for f in self.herds[(sp, br, ps, ss)].par.get_unique("feed")
+                    for f in 
+                        self.herds[(sp, br, ps, ss)].par
+                        .get_unique("feed", qry = "parameter.isin(['share_in_ration','min_share_in_ration','max_share_in_ration'])")
                     for ani in self.herds[(sp, br, ps, ss)].animals
                 ],
                 names=[
@@ -566,7 +568,7 @@ class FeedDistributor:
             # Skip if already assigned
             if (ps, cp) in self.D["crp"].index:
                 continue
-            if (share_domestic.loc[ps, cp] == 0).any():
+            if (share_domestic.loc[ps, cp] != 0).any():
                 self.D["crp"][(ps, cp)] = 0
 
         # Store indexes
