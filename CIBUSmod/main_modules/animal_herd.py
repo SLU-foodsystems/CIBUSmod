@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from abc import ABC, abstractmethod
+from itertools import product
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
@@ -260,28 +261,35 @@ animals              {self.animals}
             desc="Feed requirements that represents maximum constraints. *differ by 'feed_par'",
         )
 
-        # Create data attributes for minimum and maximum requirements in terms of
-        # inclusion of feed parameters in total dry matter feed
-        self.data_attr.add(
-            df_req.copy(),
-            name="feed_req_of_DM_min",
-            unit="kg*/kg DM",
-            orig="AnimalHerd",
-            desc="Minimum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
-            scalable=False
-        )
-        self.data_attr.add(
-            df_req.copy(),
-            name="feed_req_of_DM_max",
-            unit="kg*/kg DM",
-            orig="AnimalHerd",
-            desc="Maximum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
-            scalable=False
-        )
-
         # Run AnimalHerd-module specific method
         self._calculate_feed_req()
 
+        # Get minimum and maximum requirements in terms of
+        # inclusion of feed parameters in total dry matter feed
+        # and create data attributes
+        for mm in ['max','min']:
+            res = df_req.copy()
+            if 'f_feed_par' in self.par.data.index.names:
+                fps = self.par.get_unique('feed_par', qry=f"parameter == '{mm}_feed_par_of_DM'")
+                if len(fps) > 0:
+                    res = self.par.get_from_frame(
+                        f'{mm}_feed_par_of_DM',
+                        pd.DataFrame(
+                            index = self.index,
+                            columns = pd.MultiIndex.from_tuples(
+                                [(*i,fp) for i,fp in product(self.data_attr.get('heads').columns, fps)],
+                                names = ['prod_system', 'animal', 'feed_par']
+                            )
+                        )
+                )
+            self.data_attr.add(
+                res,
+                name=f"feed_req_of_DM_{mm}",
+                unit="kg*/kg DM",
+                orig="AnimalHerd",
+                desc=f"{'Maximum' if mm=='max' else 'Minimum'} inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
+                scalable=False
+            )
 
     def calculate_production(self):
 

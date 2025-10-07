@@ -42,7 +42,7 @@ class CattleHerd(AnimalHerd):
         # Check if there is any redistribution of animals across production systems.
         # If so extend rows in 'cows' to make room for animals in production systems
         # to which animals are redistributed.
-        if self.prod_system in self.par.get_unique('from_ps'):
+        if 'f_from_ps' in self.par.data.index.names and self.prod_system in self.par.get_unique('from_ps'):
             redist = True
             to_ps = self.par.get_unique('to_ps', qry=f'f_from_ps == "{self.prod_system}"')
 
@@ -605,18 +605,6 @@ class CattleHerd(AnimalHerd):
                 DM_max = p('max_DMI') * 365.25
                 self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
                 incl_pars.add('DM')
-
-            # Get minimum share of DM intake from roughage feeds
-            if 'min_rough' in pars:
-                rough_min = p('min_rough')
-                self.data_attr.get('feed_req_of_DM_min').loc[:,(ps,ani,'rough')] = rough_min
-                incl_pars.add('rough')
-
-            # Get maximum fat [g fat/kg DM]
-            if 'max_fat' in pars:
-                fat_max = p('max_fat')
-                self.data_attr.get('feed_req_of_DM_max').loc[:,(ps,ani,'fat')] = fat_max
-                incl_pars.add('fat')
 
         print('[',', '.join(incl_pars), ']', sep='', end=' ')
 
