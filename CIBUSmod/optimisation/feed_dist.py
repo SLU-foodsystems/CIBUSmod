@@ -2227,18 +2227,18 @@ class FeedDistributor:
 
         # Get loss factors which we want to multiply with every (non-zero) element.
         # Loss factors are needed here because x_fds concerns feed _demand_, whereas
-        # the constraint concerns feed _consumption_.
-        losses = self._get_losses_factors(shape="long")
-        # Join losses and shares on their indexes
-        factors = shares.join(losses)
+        # the constraint concerns feed _consumption_. Rename feed index level for later merge
+        losses = self._get_losses_factors(shape="long").rename_axis(index={'feed':'feed_c'})
 
-        # Note: Join first on factors, then on col_idx for a significantly faster merge
+        # Note: Join first on shares, then on col_idx for a significantly faster merge
         merged_df = row_idx_df.merge(
-            factors.reset_index(), on=factors.index.names
+            shares.reset_index(), on=shares.index.names
         ).merge(
             col_idx_df,
             on=[cname for cname in row_idx.names if cname != "feed"],
             suffixes=("", "_c"),
+        ).merge(
+            losses.reset_index(), on=losses.index.names
         )
 
         merged_df["values"] = (
