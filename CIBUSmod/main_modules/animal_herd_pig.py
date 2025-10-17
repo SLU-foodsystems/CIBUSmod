@@ -267,9 +267,14 @@ class PigHerd(AnimalHerd):
 
     def _calculate_feed_req(self):
 
+        p = self.par.get
+
         # Get production systems and animals present
         pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
         anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+
+        # Get available paramters
+        pars = self.par.data.index.get_level_values('parameter')
 
         for ani, ps in zip(anis, pss):
             self.par.set(
@@ -277,17 +282,21 @@ class PigHerd(AnimalHerd):
                 animal = ani
             )
 
-            # Calculate net energy requirements
-            NE_req = self._calculate_NE_req(ps, ani)
-
             # Get number of heads of animal = ani & production system = ps
             heads = self.data_attr.get('heads').loc[:,(ps,ani)]
 
-            # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
+            # Calculate net energy requirements
+            NE_req = self._calculate_NE_req(ps, ani)
             self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'NE')] = NE_req * heads
 
-            # NOTE: THIS METHOD ONLY CALCULATES NE REQUIREMENTS AND THEREFORE RELY ON
-            # STRICTLY DEFINING FEED RATIONS WITH 'share_in_ration' PARAMETER
+            for mm in ['max','min']:
+                if 'f_feed_par' in self.par.data.index.names:
+                    if f'{mm}_feed_par_per_NE' in pars:
+                        fps = self.par.get_unique('feed_par', qry=f"parameter == '{mm}_feed_par_per_NE'")
+                        for fp in fps:
+                            self.par.set(feed_par = fp)
+                            feed_par_mm = NE_req * p(f'{mm}_feed_par_per_NE')
+                            self.data_attr.get(f'feed_req_{mm}').loc[:,(ps,ani,fp)] = feed_par_mm * heads
 
         print('[NE]', sep='', end=' ')
 
