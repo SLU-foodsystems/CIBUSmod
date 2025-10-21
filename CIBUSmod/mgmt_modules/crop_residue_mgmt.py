@@ -192,6 +192,14 @@ class CropResidueMgmt():
                 )
                 .mul(crop_residues)
             )
+
+            if element == 'C':
+                # Add rhizodeposition of C to below ground residue C
+                df.loc[:,['below ground']] = (
+                    df.loc[:,['below ground']]
+                    .mul(1 / p('frac_renew'), axis=0)
+                    .mul(p('rhizodep_C'), axis=0)
+                )
             
             # Add data attribute
             self.crops.data_attr.add(

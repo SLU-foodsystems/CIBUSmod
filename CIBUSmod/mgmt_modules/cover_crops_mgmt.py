@@ -113,6 +113,11 @@ class CoverCropsMgmt(object):
             df.loc[:,['below ground']] *= \
                 self.par.get_from_frame('bg_'+element, df.loc[:,['below ground']])
             
+            if element == 'C':
+                # Add rhizodeposition of C to below ground residue C
+                df.loc[:,['below ground']] *= \
+                    (1 + self.par.get_from_frame('rhizodep_C', df.loc[:,['below ground']]))
+
             # Add data attribute
             self.crops.data_attr.add(
                 df,
