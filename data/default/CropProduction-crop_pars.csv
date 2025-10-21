@@ -21,34 +21,34 @@ Sugar beet,0.2,0.66,0.2,,,,0.0225,0.5,,,0.014,0.5,1,NIR 2022. Table 5.24,Sugar b
 Ley for seed,0.835,0.84,0.22,,,,0.0109,0.5,,,0.009,0.5,1,NIR 2022. Table 5.24,"Lay for seed, no clover",,,,0.835,0.35,
 Ley for fodder,1,0.25,0.54,,,,0.024,0.5,,,0.016,0.5,0.2,NIR 2022. Table 5.24,Grass-clover mixtures,,,,0.835,0,
 Ley for grazing,1,0.4,0.54,,,,0.024,0.5,,,0.016,0.5,0.2,NIR 2022. Table 5.24,Pasture ground,,,,0.835,0,
-Maize for forage and silage,1,0.04,0.54,,,,0.02,0.5,,,0.007,0.5,1,NIR 2022. Table 5.24,Green fodder (maize),,,,0.3,0,
-Cereals for fodder,1,0.25,0.54,,,,0.02,0.5,,,0.012,0.5,1,NIR 2022. Table 5.24,Green fodder (cereals),,,,0.3,0,
+Maize for forage and silage,1,0.051,0.179,,,,0.02,0.5,,,0.007,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,"Silage maize, sorghum",,,,0.3,0,
+Cereals for fodder,1,0.05,0.271,,,,0.02,0.5,,,0.012,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cereal silage (whole plant),,,,0.3,0,
 Other crops for fodder,1,0.15,0.54,,,,0.02,0.5,,,0.016,0.5,1,NIR 2022. Table 5.24,Green fodder (other),,,,0.3,0,
 Semi-natural pastures,1,0.4,0.54,,,,0.024,0.5,,,0.016,0.5,0.05,NIR 2022. Table 5.24,"Pasture ground, frac_renew=0.05",,,,0.835,0,
 "Semi-natural pastures, thin soils",1,0.4,0.54,,,,0.024,0.5,,,0.016,0.5,0.05,NIR 2022. Table 5.24,"Pasture ground, frac_renew=0.05",,,,0.835,0,
 "Semi-natural pastures, wooded",1,0.4,0.54,,,,0.024,0.5,,,0.016,0.5,0.05,NIR 2022. Table 5.24,"Pasture ground, frac_renew=0.05",,,,0.835,0,
 Semi-natural meadows,1,0.4,0.54,,,,0.024,0.5,,,0.016,0.5,0.05,NIR 2022. Table 5.24,"Pasture ground, frac_renew=0.05",,,,0.835,0,
-Onions,0.13,0.213,0.045,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Onion,,,,0.2,0,??
-Carrots,0.13,0.137,0.045,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Carrot,,,,0.2,0,??
-Other root vegetables,0.13,0.244,0.045,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Beetroot,,,,0.2,0,??
-Lettuce and spinach,0.13,0.19,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,salad,,,,0.2,0,??
-"Cabbages, cauliflowers and broccoli",0.13,0.547,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,white cabbage & other,,,,0.2,0,??
-Cucumbers,0.13,0.333,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cucumber,,,,0.2,0,??
-Pumpkins and squash,0.13,0.42,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Pumpkin,,,,0.2,0,??
-Herbs,0.2,0.251,0.656,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Herbs,,,,0.2,0,??
-Other vegetables,0.13,0.547,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,white cabbage & other,,,,0.2,0,??
-Strawberries,0.1,1,0.656,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Strawberries,,,,0.2,0,??
+Onions,0.13,0.213,0.034,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Onion,,,,0.2,0,??
+Carrots,0.13,0.137,0.034,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Carrot,,,,0.2,0,??
+Other root vegetables,0.13,0.244,0.034,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Beetroot,,,,0.2,0,??
+Lettuce and spinach,0.13,0.19,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,salad,,,,0.2,0,??
+"Cabbages, cauliflowers and broccoli",0.13,0.547,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,white cabbage & other,,,,0.2,0,??
+Cucumbers,0.13,0.333,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cucumber,,,,0.2,0,??
+Pumpkins and squash,0.13,0.42,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Pumpkin,,,,0.2,0,??
+Herbs,0.2,0.251,0.5,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Herbs,,,,0.2,0,??
+Other vegetables,0.13,0.547,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,white cabbage & other,,,,0.2,0,??
+Strawberries,0.1,1,0.5,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Strawberries,,,,0.2,0,??
 Currants,0.13,,,,,,,0.5,,,,0.5,1,??,,,,,0.2,0,??
 Other berries,0.13,,,,,,,0.5,,,,0.5,1,??,,,,,0.2,0,??
 Apples,0.13,,,,,,,0.5,,,,0.5,1,??,,,,,0.2,0,??
 Pears,0.13,,,,,,,0.5,,,,0.5,1,??,,,,,0.2,0,??
 Other fruit,0.13,,,,,,,0.5,,,,0.5,1,??,,,,,0.2,0,??
-"Tomatoes, greenhouse",0.13,0.333,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cucumber,,,,0.2,0,??
-"Cucumbers, greenhouse",0.13,0.333,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cucumber,,,,0.2,0,??
-"Lettuce, greenhouse",0.13,0.19,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,salad,,,,0.2,0,??
-"Other vegetables, greenhouse",0.13,0.547,0.437,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,white cabbage & other,,,,0.2,0,??
-"Herbs, greenhouse",0.2,0.250517598,0.819875776,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Herbs,,,,0.2,0,??
-"Strawberries, greenhouse",0.1,1,1.311258278,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Strawberries,,,,0.2,0,??
+"Tomatoes, greenhouse",0.13,0.333,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cucumber,,,,0.2,0,??
+"Cucumbers, greenhouse",0.13,0.333,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Cucumber,,,,0.2,0,??
+"Lettuce, greenhouse",0.13,0.19,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,salad,,,,0.2,0,??
+"Other vegetables, greenhouse",0.13,0.547,0.333,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,white cabbage & other,,,,0.2,0,??
+"Herbs, greenhouse",0.2,0.251,0.5,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Herbs,,,,0.2,0,??
+"Strawberries, greenhouse",0.1,1,0.5,,,,0.0325,0.5,,,0.014,0.5,1,Jacobs et al (2020) Exports and inputs of organic carbon on agricultural soils in Germany,Strawberries,,,,0.2,0,??
 "Other berries, greenhouse",0.13,,,,,,,0.5,,,,0.5,1,??,,,,,0.2,0,??
 Fallow,1,1,0.54,,,,0.024,0.5,,,0.016,0.5,0.1,NIR 2022. Table 5.27,"Grass-clover mixtures, ag_resid = 1, frac_renew = 0.1",,,,0.3,0,??
 Energy grass,1,0.25,0.54,,,,0.02,0.5,,,0.012,0.5,1,NIR 2022. Table 5.25,Green fodder (cereals),,,,0.3,0,??
