@@ -1501,7 +1501,7 @@ class FeedDistributor:
         try:
             b14_cp = self.make_b14("crop_prod")
             b14_by = self.make_b14("by_prod")
-        except ValueError:
+        except (ValueError, KeyError):
             warnings.warn(
                 "C14 enabled, but b14 could not be built. This is likely because no feeds had max_total_import defined. Thus, C14 was ignored."
             )
