@@ -564,9 +564,6 @@ class CattleHerd(AnimalHerd):
         # Get available paramters
         pars = self.par.data.index.get_level_values('parameter')
 
-        # Check which feed parameters to include
-        incl_pars = set()
-
         for ani, ps in zip(anis, pss):
             self.par.set(
                 prod_system = ps,
@@ -579,13 +576,11 @@ class CattleHerd(AnimalHerd):
             # Calculate metabolizable energy requirements
             ME_req = self._calculate_ME_req(ps, ani)
             self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
-            incl_pars.add('ME')
 
             # Calculate protein requirements in terms of AAT
             if 'AAT_factor' in pars:
                 AAT_min = ME_req * p('AAT_factor')
                 self.data_attr.get('feed_req_min').loc[:,(ps,ani,'AAT')] = AAT_min * heads
-                incl_pars.add('AAT')
 
             # Calculate min and max PBV
             if (
@@ -598,16 +593,11 @@ class CattleHerd(AnimalHerd):
                 PBV_max = p('max_PBV') * 365.25 + p('max_PBV_per_ME') * ME_req
                 self.data_attr.get('feed_req_min').loc[:,(ps,ani,'PBV')] = PBV_min * heads
                 self.data_attr.get('feed_req_max').loc[:,(ps,ani,'PBV')] = PBV_max * heads
-                incl_pars.add('PBV')
 
             # Get maximum dry matter intake
             if 'max_DMI' in pars:
                 DM_max = p('max_DMI') * 365.25
                 self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
-                incl_pars.add('DM')
-
-        print('[',', '.join(incl_pars), ']', sep='', end=' ')
-
 
     def _calculate_ME_req(self,ps,ani):
         '''Calculates Metabolizable Energy (ME) requrements for cattle based on

@@ -90,9 +90,14 @@ class HorseHerd(AnimalHerd):
 
     def _calculate_feed_req(self):
 
+        p = self.par.get
+
         # Get production systems and animals present
         pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
         anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+
+        # Get available paramters
+        pars = self.par.data.index.get_level_values('parameter')
 
         for ani, ps in zip(anis, pss):
             self.par.set(
@@ -100,19 +105,17 @@ class HorseHerd(AnimalHerd):
                 animal = ani
             )
 
-            # Calculate metabolizable energy requirements
-            ME_req = self._calculate_ME_req(ps, ani)
-
             # Get number of heads of animal = ani & production system = ps
             heads = self.data_attr.get('heads').loc[:,(ps,ani)]
 
-            # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
+            # Calculate metabolizable energy requirements
+            ME_req = self._calculate_ME_req(ps, ani)
             self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
 
-            # NOTE: THIS METHOD ONLY CALCULATES ME REQUIREMENTS AND THEREFORE RELY ON
-            # STRICTLY DEFINING FEED RATIONS WITH 'share_in_ration' PARAMETER
-
-        print('[ME]', sep='', end=' ')
+            # Get maximum dry matter intake
+            if 'max_DMI' in pars:
+                DM_max = p('max_DMI') * 365.25
+                self.data_attr.get('feed_req_max').loc[:,(ps,ani,'DM')] = DM_max * heads
 
     def _calculate_ME_req(self,ps,ani):
 

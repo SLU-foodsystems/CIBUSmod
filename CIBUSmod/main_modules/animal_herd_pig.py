@@ -298,8 +298,6 @@ class PigHerd(AnimalHerd):
                             feed_par_mm = NE_req * p(f'{mm}_feed_par_per_NE')
                             self.data_attr.get(f'feed_req_{mm}').loc[:,(ps,ani,fp)] = feed_par_mm * heads
 
-        print('[NE]', sep='', end=' ')
-
     def _calculate_NE_req(self,ps,ani):
         '''Calculates Net Energy (NEs [sows and boars] or NEv [other pigs]) requrements for pigs based on
         [1] Simonsson, A. (2006). Fodermedel och näringsrekommendationer för gris. HUV Rapport 266. SLU

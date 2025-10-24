@@ -263,11 +263,6 @@ class LayerHerd(AnimalHerd):
             # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
             self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'DM')] = DM_req * heads
 
-            # NOTE: THIS METHOD ONLY CALCULATES DM REQUIREMENTS AND THEREFORE RELY ON
-            # STRICTLY DEFINING FEED RATIONS WITH 'share_in_ration' PARAMETER
-
-        print('[DM]', sep='', end=' ')
-
     def _calculate_DM_req(self,ps,ani):
         p = self.par.get
         feed_req = p('feed_per_head')
