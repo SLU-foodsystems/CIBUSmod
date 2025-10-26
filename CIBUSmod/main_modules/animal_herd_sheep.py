@@ -127,7 +127,7 @@ class SheepHerd(AnimalHerd):
             desc = 'Total average number of heads over a year'
         )
         self.data_attr.add(
-            heads,
+            inserted_n,
             name = 'inserted_n',
             unit = 'heads/year',
             orig = 'SheepHerd',
