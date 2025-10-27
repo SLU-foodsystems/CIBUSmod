@@ -56,7 +56,7 @@ class SheepHerd(AnimalHerd):
         lw_rams_lost = rams_lost * p('slaughter_weight') * p('live_weight_per_CW')
 
         lambs_lost = lambs_born * (p('mortality', animal='lambs')/100)
-        lw_lambs_lost = lambs_lost * ((p('birth_weight') + p('slaughter_weight'))/2) * p('live_weight_per_CW')
+        lw_lambs_lost = lambs_lost * (p('birth_weight') + p('slaughter_weight')* p('live_weight_per_CW'))/2
 
         ewes_to_slaughter = lambs_to_replacement - ewes_lost
         rams_to_slaughter = lambs_to_replacement_rams - rams_lost
@@ -66,7 +66,7 @@ class SheepHerd(AnimalHerd):
         lambs = (
             # Lost lambs are assumed to live to half their slaughter age
             (lambs_lost/2 + lambs_to_slaughter) * p('slaughter_age', animal='lambs') / 365.25 +
-            lambs_to_replacement * p('age_at_first_lambing') / 12
+            (lambs_to_replacement + lambs_to_replacement_rams) * p('age_at_first_lambing') / 12
         )
 
         # Create output DataFrames
