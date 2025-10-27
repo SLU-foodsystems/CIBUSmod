@@ -192,6 +192,9 @@ class SheepHerd(AnimalHerd):
         pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
         anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
 
+        # Get available paramters
+        pars = self.par.data.index.get_level_values('parameter')
+
         for ani, ps in zip(anis, pss):
             self.par.set(
                 prod_system = ps,
@@ -201,9 +204,20 @@ class SheepHerd(AnimalHerd):
             # Get number of heads of animal = ani & production system = ps
             heads = self.data_attr.get('heads').loc[:,(ps,ani)]
 
-            # Calculate dry matter requirements and append to feed_req DataFrame
-            DM_req = self._calculate_DM_req(ps, ani)
-            self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'DM')] = DM_req * heads
+            if (
+                'maintanance_energy_factor' in pars and
+                'gestation_energy_add' in pars and
+                'lactation_energy_factor' in pars and
+                'growth_energy_factor' in pars and
+                'energy_share_before_weaning_from_milk' in pars
+            ):
+                # Calculate metabolizable energy (ME) requirements and append to feed_req DataFrame
+                ME_req = self._calculate_ME_req(ps, ani)
+                self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
+            else:
+                # Calculate dry matter requirements and append to feed_req DataFrame
+                DM_req = self._calculate_DM_req(ps, ani)
+                self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'DM')] = DM_req * heads
 
     def _calculate_DM_req(self,ps,ani):
         '''Calculates feed DM requirements from fixed intake per head or lifetime'''
@@ -225,8 +239,62 @@ class SheepHerd(AnimalHerd):
         Spörndly, R. (ed.). (2003). Fodertabeller för idisslare 2003. HUV Rapport 257. SLU'''
 
         p = self.par.get
+        
+        heads = self.data_attr.get('heads').loc[:,(ps,ani)]
+        lwg = self.data_attr.get('lwg').loc[:,(ps,ani)]
+
+        lambs_born = self.data_attr.get('inserted_n').loc[:,(ps,'lambs')]
+        lambs_slaughtered = self.data_attr.get('slaughtered_n').loc[:,(ps,'lambs')]
+        lambs_lost = self.data_attr.get('lost_n').loc[:,(ps,'lambs')]
+
+        # If no animals return zero array
+        if heads.sum() == 0:
+            return np.zeros(len(self.index))
+
+        # Get average live weight [kg] and growth rate [kg/day] for calculating energy requirements
+        growth_rate = lwg / heads / 365.25
+        if ani in ['ewes','rams']:
+            live_weight = p('slaughter_weight')*p('live_weight_per_CW')
+        elif ani == 'lambs':
+            # Calculate average final (i.e. slaughter, lost or replacing ewe/ram)
+            # weight of lambs to calculate average live weight of lambs in herd
+            avg_end_weight = (
+                p('slaughter_weight')*p('live_weight_per_CW') * lambs_slaughtered
+                + (p('slaughter_weight')*p('live_weight_per_CW')/2) * lambs_lost
+                + p('slaughter_weight', animal='ewes')*p('live_weight_per_CW') * (lambs_born-lambs_slaughtered-lambs_lost)
+            ) / lambs_born
+            self.par.set(animal=ani)
+            live_weight = (p('birth_weight') + avg_end_weight) / 2
+
+        # Get share of energy from milk for lambs
+        if ani == 'lambs':
+            # Calculate average final (i.e. slaughter, lost or replacing ewe/ram)
+            # age of lambs to calculate share of time suckling
+            avg_end_age = (
+                p('slaughter_age') * lambs_slaughtered
+                + (p('slaughter_age')/2) * lambs_lost
+                + (p('age_at_first_lambing')*30.44) * (lambs_born-lambs_slaughtered-lambs_lost)
+            ) / lambs_born # [days]
+            # Calcualte energy share from milk as share of time suckling
+            # times share of energy from milk during the suckling period
+            E_share_milk = (p('weaning_age')/avg_end_age) * (p('energy_share_before_weaning_from_milk')/100)
+        else:
+            E_share_milk = 0
+
+        # Calculate energy for maintenance and growth besed on supplied factors
+        # and average live weigh and growth rate
+        E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
+        E_growth = p('growth_energy_factor') * live_weight**0.75 * growth_rate
 
         if ani == 'ewes':
-            pass
+            E_lactation = p('lactation_energy_factor') * p('weaning_age')
+            E_gestation = p('gestation_energy_add')
+        else:
+            E_lactation = 0
+            E_gestation = 0
 
-        return None
+        # Total ME req. [MJ/year] (excl. gestation)
+        E_req_final = (E_maintenance + E_growth)*(1-E_share_milk)*365.25 + E_lactation + E_gestation
+        E_req_final = np.nan_to_num(E_req_final)
+
+        return E_req_final
