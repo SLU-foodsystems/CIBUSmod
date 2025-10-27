@@ -56,11 +56,27 @@ class SheepHerd(AnimalHerd):
         lw_rams_lost = rams_lost * p('slaughter_weight') * p('live_weight_per_CW')
 
         lambs_lost = lambs_born * (p('mortality', animal='lambs')/100)
-        lw_lambs_lost = lambs_lost * (p('birth_weight') + p('slaughter_weight')* p('live_weight_per_CW'))/2
+        lw_lambs_lost = lambs_lost * (p('birth_weight') + p('slaughter_weight')*p('live_weight_per_CW'))/2
 
         ewes_to_slaughter = lambs_to_replacement - ewes_lost
         rams_to_slaughter = lambs_to_replacement_rams - rams_lost
         lambs_to_slaughter = lambs_born - lambs_to_replacement - lambs_lost
+
+        # CALCULATE LIVE WEIGHT GAINS
+        # These are in terms of total weight gain in the herd
+        # per animal category and year [kg/year]
+        lwg_ewes = np.zeros(len(ewes))
+        lwg_rams = np.zeros(len(rams))
+
+        lwg_lambs = (
+            (
+                lambs_to_replacement * p('slaughter_weight', animal='ewes') * p('live_weight_per_CW')
+                + lambs_to_replacement_rams * p('slaughter_weight', animal='rams') * p('live_weight_per_CW')
+                + lambs_to_slaughter * p('slaughter_weight', animal='lambs') * p('live_weight_per_CW')
+                + lambs_lost * (p('slaughter_weight', animal='lambs')/2) * p('live_weight_per_CW')
+            )
+            - lambs_born*p('birth_weight')
+        )
 
         # Calculate average number of live lambs over the year
         lambs = (
@@ -77,7 +93,7 @@ class SheepHerd(AnimalHerd):
             index = self.index,
             dtype = 'float64'
             )
-        heads, inserted_n, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(5)]
+        heads, inserted_n, lwg, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(6)]
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
         for ps in pss:
@@ -96,6 +112,13 @@ class SheepHerd(AnimalHerd):
                     lambs_to_replacement_rams[sel],
                     lambs_born[sel]
                 ]).T
+            
+            lwg.loc[:,(ps,slice(None))] = \
+                    np.array([
+                        lwg_ewes[sel],
+                        lwg_rams[sel],
+                        lwg_lambs[sel]
+                    ]).T
 
             slaughtered_n.loc[:,(ps,slice(None))] = \
                     np.array([
@@ -134,6 +157,13 @@ class SheepHerd(AnimalHerd):
             desc = 'Total number of heads inserted'
         )
         self.data_attr.add(
+            lwg,
+            name = 'lwg',
+            unit = 'kg LW',
+            orig = 'SheepHerd',
+            desc = 'Total live weight gains used in calculating nutrient retention in animals'
+        )
+        self.data_attr.add(
             slaughtered_n,
             name = 'slaughtered_n',
             unit = 'heads/year',
@@ -168,13 +198,11 @@ class SheepHerd(AnimalHerd):
                 animal = ani
             )
 
-            # Calculate dry matter requirements
-            DM_req = self._calculate_DM_req(ps, ani)
-
             # Get number of heads of animal = ani & production system = ps
             heads = self.data_attr.get('heads').loc[:,(ps,ani)]
 
-            # Append requirements scaled to number of heads to appropriate 'feed_req_*' DataFrames
+            # Calculate dry matter requirements and append to feed_req DataFrame
+            DM_req = self._calculate_DM_req(ps, ani)
             self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'DM')] = DM_req * heads
 
     def _calculate_DM_req(self,ps,ani):
@@ -191,3 +219,14 @@ class SheepHerd(AnimalHerd):
             feed_req = p('feed_per_head')
 
         return feed_req
+
+    def _calculate_ME_req(self,ps,ani):
+        '''Calculates Metabolizable Energy (ME) requrements for sheep based on
+        Spörndly, R. (ed.). (2003). Fodertabeller för idisslare 2003. HUV Rapport 257. SLU'''
+
+        p = self.par.get
+
+        if ani == 'ewes':
+            pass
+
+        return None
