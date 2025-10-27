@@ -2469,8 +2469,7 @@ class FeedDistributor:
         )
 
         merged["values"] = (
-            merged["feed_to_par_factor"] * merged["losses_factor"]
-            - merged["feed_req_of_DM"]
+            merged["losses_factor"] * (merged["feed_to_par_factor"] - merged["feed_req_of_DM"])
         )
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
 
