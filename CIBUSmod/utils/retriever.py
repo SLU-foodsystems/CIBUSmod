@@ -721,14 +721,23 @@ Module: '{self.name}'
             res = df['f_'+filter].unique()
             return res[~pd.isna(res)]
 
-def _read_csv(path,parameter):
-    df = pd.read_csv(path, dtype=str)
+def _read_external_sheet(path,parameter):
+
+    file_ext = os.path.splitext(path)[1]
+    if file_ext == '.csv':
+        reader = pd.read_csv
+    elif file_ext == '.xlsx':
+        reader = pd.read_excel
+    else:
+        raise ValueError(f"Supplied path had file extension {file_ext}, only .csv or .xlsx allowed")
+
+    df = reader(path, dtype=str)
 
     cell1 = df.columns[0]
     if cell1.startswith('cols_as_filter'):
         # If 'cols_as_filter' keyword found in first cell
         # then stack data
-        df = pd.read_csv(path, dtype=str, header=1)
+        df = reader(path, dtype=str, header=1)
         df.columns.name = cell1.replace('cols_as_filter: ','')
         f_cols = [c for c in df.columns if c.startswith("f_")]
         df = (
@@ -751,127 +760,127 @@ def _read_csv(path,parameter):
     return df.loc[:,f_cols+['parameter','value']]
 
 def _read_xl(path,sheet):
-        idx = pd.IndexSlice
-        # Read xl and set value columns to type float
-        df = pd.read_excel(path, sheet_name=sheet, dtype=str)
+    idx = pd.IndexSlice
+    # Read xl and set value columns to type float
+    df = pd.read_excel(path, sheet_name=sheet, dtype=str)
 
-        # Get parameters from any referenced csv-files
-        if sheet=='default':
+    # Get parameters from any referenced external sheets
+    if sheet=='default':
 
-            # Get rows with reference to csv-files
-            to_read_csv = df.value.str.contains('.csv', na=False)
-            csvs_to_read = df.loc[to_read_csv,idx['parameter','value']]
+        # Get rows with reference to external sheets (csv or xlsx)
+        to_read_external = df.value.str.contains(r'\.csv|\.xlsx', case=False, na=False)
+        external_sheets_to_read = df.loc[to_read_external,idx['parameter','value']]
 
-            # Drop rows refering to csv-files from df
-            df = df.loc[~to_read_csv]
+        # Drop rows refering to external sheets from df
+        df = df.loc[~to_read_external]
 
-            # Read csvs and append to df
-            for parameter,csv_file in csvs_to_read.values:
+        # Read external sheets and append to df
+        for parameter,external_file in external_sheets_to_read.values:
 
-                csv_path = os.path.join(os.path.dirname(path),csv_file)
-                df_csv = _read_csv(csv_path,parameter)
+            external_sheet_path = os.path.join(os.path.dirname(path),external_file)
+            df_external_sheet = _read_external_sheet(external_sheet_path,parameter)
 
-                df = pd.concat([df,df_csv])
+            df = pd.concat([df,df_external_sheet])
 
-        # Only retain filter column(s), parameter column and value column(s)
-        index_cols = [c for c in df.columns if c.startswith("f_") or c=="val_is"]
-        value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
+    # Only retain filter column(s), parameter column and value column(s)
+    index_cols = [c for c in df.columns if c.startswith("f_") or c=="val_is"]
+    value_cols = "value" if "value" in df.columns else [c for c in df.columns if c.startswith("y_")]
 
-        df = (
-            df.loc[lambda d: d["parameter"].notnull()]
-            #.loc[lambda d: d["value"].notnull()]
-            .set_index(index_cols + ["parameter"])[value_cols]
-            .astype(float)
-        )
+    df = (
+        df.loc[lambda d: d["parameter"].notnull()]
+        #.loc[lambda d: d["value"].notnull()]
+        .set_index(index_cols + ["parameter"])[value_cols]
+        .astype(float)
+    )
 
-        # Go thorough any filter columns with a ':', which indicates that these
-        # are expresed on som aggregated level and should be translated
-        # using relation tables.
-        rel_filters = [f for f in df.index.names if ':' in f]
-        if len(rel_filters)>0:
+    # Go thorough any filter columns with a ':', which indicates that these
+    # are expresed on som aggregated level and should be translated
+    # using relation tables.
+    rel_filters = [f for f in df.index.names if ':' in f]
+    if len(rel_filters)>0:
 
-            # If df is a Series make DataFrame
-            if isinstance(df, pd.Series):
-                df = df.rename(value_cols).to_frame()
+        # If df is a Series make DataFrame
+        if isinstance(df, pd.Series):
+            df = df.rename(value_cols).to_frame()
 
-            for rf in rel_filters:
-                # Get aggregated and target filter names
-                f_from = rf.split(':')[0][2:]
-                f_to = rf.split(':')[1]
-                rel = inv_dict(ParameterRetriever.get_rel(f_to,f_from))
+        for rf in rel_filters:
+            # Get aggregated and target filter names
+            f_from = rf.split(':')[0][2:]
+            f_to = rf.split(':')[1]
+            rel = inv_dict(ParameterRetriever.get_rel(f_to,f_from))
 
-                # If target filter column does not exist create it
-                if 'f_'+f_to not in df.index.names:
-                    df_ = df.copy()
-                    df_['f_'+f_to] = np.nan
-                    df_ = df_.set_index('f_'+f_to, append=True)
-                    df = df_
+            # If target filter column does not exist create it
+            if 'f_'+f_to not in df.index.names:
+                df_ = df.copy()
+                df_['f_'+f_to] = np.nan
+                df_ = df_.set_index('f_'+f_to, append=True)
+                df = df_
 
-                # Get rows
-                df_w_rf = df.loc[~df.index.get_level_values(rf).isna(),:]
-                df = df.loc[df.index.get_level_values(rf).isna(),:]
-                # Make sure that the target filter column is empty
-                if not df_w_rf.index.get_level_values('f_'+f_to).isna().all():
-                    raise Exception('Target filter column has values')
+            # Get rows
+            df_w_rf = df.loc[~df.index.get_level_values(rf).isna(),:]
+            df = df.loc[df.index.get_level_values(rf).isna(),:]
+            # Make sure that the target filter column is empty
+            if not df_w_rf.index.get_level_values('f_'+f_to).isna().all():
+                raise Exception('Target filter column has values')
 
-                # Get index of relative filter and target filter
-                rf_i = df.index.names.index(rf)
-                tf_i = df.index.names.index('f_'+f_to)
+            # Get index of relative filter and target filter
+            rf_i = df.index.names.index(rf)
+            tf_i = df.index.names.index('f_'+f_to)
 
-                # Create new df where data values are propagaed across target filter values
-                new_df = pd.DataFrame.from_dict(
-                    {
-                        tuple(
-                            list(idx[:tf_i]) +
-                            [f] +
-                            list(idx[tf_i+1:])
-                        ) : v
-                        for idx, v in zip(df_w_rf.index, df_w_rf.values)
-                        for f in rel[idx[rf_i]]
-                    },
-                    orient = 'index'
-                )
-                new_df.index = pd.MultiIndex.from_tuples(new_df.index, names = df.index.names)
-                if new_df.shape[1] > 0: # To avoid failing if filter column with ':' has no values
-                    new_df.columns = value_cols if isinstance(value_cols, list) else [value_cols]
-
-                # Remove any rows with identical filters as rows in the big df
-                sel = [
+            # Create new df where data values are propagaed across target filter values
+            new_df = pd.DataFrame.from_dict(
+                {
                     tuple(
-                        list(idx[:rf_i]) +
-                        [np.nan] +
-                        list(idx[rf_i+1:])
-                    ) not in df.index
-                    for idx in
-                    new_df.index
-                ]
-                new_df = new_df[sel]
+                        list(idx[:tf_i]) +
+                        [f] +
+                        list(idx[tf_i+1:])
+                    ) : v
+                    for idx, v in zip(df_w_rf.index, df_w_rf.values)
+                    for f in rel[idx[rf_i]]
+                },
+                orient = 'index'
+            )
+            new_df.index = pd.MultiIndex.from_tuples(new_df.index, names = df.index.names)
+            if new_df.shape[1] > 0: # To avoid failing if filter column with ':' has no values
+                new_df.columns = value_cols if isinstance(value_cols, list) else [value_cols]
 
-                # Add new data to df and drop aggregated filter level
-                df = pd.concat([df,new_df])
-                df = df.droplevel(rf)
+            # Remove any rows with identical filters as rows in the big df
+            sel = [
+                tuple(
+                    list(idx[:rf_i]) +
+                    [np.nan] +
+                    list(idx[rf_i+1:])
+                ) not in df.index
+                for idx in
+                new_df.index
+            ]
+            new_df = new_df[sel]
 
-            # Make sure that 'parameter' is the last level in index.
-            par_i = df.index.names.index('parameter')
-            df = df.reorder_levels(df.index.names[:par_i]+df.index.names[par_i+1:]+[df.index.names[par_i]])
+            # Add new data to df and drop aggregated filter level
+            df = pd.concat([df,new_df])
+            df = df.droplevel(rf)
 
-            # Convert back to Series if value_cols not a list
-            if not isinstance(value_cols, list):
-                df = df[value_cols]
+        # Make sure that 'parameter' is the last level in index.
+        par_i = df.index.names.index('parameter')
+        df = df.reorder_levels(df.index.names[:par_i]+df.index.names[par_i+1:]+[df.index.names[par_i]])
 
-        # Raise error if duplicates found and print some usefull info
-        if 'val_is' in df.index.names:
-            dup = df.droplevel('val_is').index[df.droplevel('val_is').index.duplicated()].get_level_values("parameter")
-        else:
-            dup = df.index[df.index.duplicated()].get_level_values("parameter")
-        if len(dup)>0:
-            n = min(len(dup),5)
-            str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
-            str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")
-            raise ValueError(str1+str2)
+        # Convert back to Series if value_cols not a list
+        if not isinstance(value_cols, list):
+            df = df[value_cols]
+
+    # Raise error if duplicates found and print some usefull info
+    if 'val_is' in df.index.names:
+        dup = df.droplevel('val_is').index[df.droplevel('val_is').index.duplicated()].get_level_values("parameter")
+    else:
+        dup = df.index[df.index.duplicated()].get_level_values("parameter")
+    if len(dup)>0:
+        n = min(len(dup),5)
+        str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
+        str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")
+        raise ValueError(str1+str2)
 
 
-        return df
+    return df
 
 def _get_problem_data(data, index_cols, parameter):
     if not isinstance(data, pd.Series):
