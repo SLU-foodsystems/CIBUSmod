@@ -8,7 +8,7 @@ import itertools
 from openpyxl import load_workbook
 import inspect
 
-from .misc import inv_dict
+from .misc import inv_dict, index_to_multi
 
 EMPTY = float("nan")
 
@@ -567,11 +567,14 @@ Parameters
             scn_data_rows_ = scn_data_rows.drop(4, level='val_is', errors='ignore').droplevel(level='val_is')
             
             # Go through parameters in scenario and update values
-            for parameter in scn_data_.index.get_level_values('parameter').unique():
+            for parameter in scn_data_.index.unique('parameter'):
             
                 # Create selection
                 try:
-                    selection = data.xs(parameter, level='parameter', drop_level=False).index
+                    if isinstance(data.index, pd.MultiIndex):
+                        selection = data.xs(parameter, level='parameter', drop_level=False).index
+                    else:
+                        selection = data.loc[[parameter]].index
                 except KeyError:
                     continue
                 scn_selection = selection.droplevel('parameter')
