@@ -2423,7 +2423,7 @@ class FeedDistributor:
             levels=[feed_pars], names=["feed_par"], index=_base_row_idx, mode="prepend"
         )
 
-        # Get all feeds
+        # Get loss factors and composition for all feeds
         losses_factors = self._get_losses_factors(shape="long").reset_index()
         feed_compositions = self._get_feed_compositions(shape="long").reset_index()
 
@@ -2618,6 +2618,7 @@ class FeedDistributor:
         # Get all losses
         losses_retrieve_df = pd.DataFrame(
             columns=self.x_idx["fds"].unique("feed"),
+            # Note: Feed losses can't differ by region
             index=self.x_idx["fds"].droplevel(["region", "feed"]).unique(),
         )
 
@@ -2656,9 +2657,9 @@ class FeedDistributor:
         feeds = self.feed_mgmt.par.get_unique(
             "feed", qry="parameter=='feed_composition'"
         ).tolist()
-        feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
+        feed_pars = [*self.feed_mgmt.par.get_unique("feed_par")]
 
-        base_idx = self.x_idx["fds"].droplevel("region").unique()
+        base_idx = self.x_idx["fds"]
         mask = base_idx.get_level_values("feed").isin(feeds)
         row_idx = base_idx if all(mask) else base_idx[mask]
 
@@ -2672,7 +2673,7 @@ class FeedDistributor:
             ),
             warn_if_nan=False,
         ).sort_index()
-        # Add a column called 'DM' with value 1 everywhere
+        # Add a column called 'DM' with value 1 everywhere (all feeds defined on DM basis)
         data = data.assign(DM=1)
 
         if shape == "long":
