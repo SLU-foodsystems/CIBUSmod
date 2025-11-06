@@ -272,9 +272,66 @@ class CattleHerd(AnimalHerd):
         # per animal category and year [kg/year]
         self.par.remove('animal')
         lw_calves_start = p('birth_weight')
-        lw_calves_weaning_male = p('live_weight_weaning_male') # kg/head
-        lw_calves_weaning_female = p('live_weight_weaning_female') # kg/head
         weaning_age = p('weaning_age') # days
+
+        tmp_lwg_heifers = np.nan_to_num( # <----
+            (
+                # For replacement
+                (
+                    (p('live_weight_first_calving')) /
+                    (p('AFC')*30.44)
+                ) * #  -> kg/head/day
+                tmp_heifers_replacement + # -> kg/day
+                # For slaughter
+                (
+                    (p('live_weight_slaughter', animal='heifers')) /
+                    (p('slaughter_age', animal='heifers')*30.44)
+                ) * # -> kg/head/day
+                tmp_heifers_slaughter # -> kg/day
+            ) / _np_zero_to_nan(heifers) # To avoid zero div errors
+        ) # kg/head/day
+        lwg_calves_heifer = tmp_lwg_heifers * calves_heifer * 365.25 # -> kg/year
+        lwg_heifers = tmp_lwg_heifers * heifers * 365.25 # -> kg/year
+
+        tmp_lwg_steers = (
+            (p('live_weight_slaughter', animal='steers')) /
+            (p('slaughter_age', animal='steers')*30.44) # -> kg/head/day
+        )
+        lwg_calves_steer = tmp_lwg_steers * calves_steer * 365.2 # -> kg/year
+        lwg_steers = tmp_lwg_steers * steers * 365.2 # -> kg/year
+
+        tmp_lwg_bulls = (
+            (p('live_weight_slaughter', animal='bulls')) /
+            (p('slaughter_age', animal='bulls')*30.44) # -> kg/head/day
+        )
+        lwg_calves_bull = tmp_lwg_bulls * calves_bull * 365.25 # -> kg/year
+        lwg_bulls = tmp_lwg_bulls * bulls * 365.25 # -> kg/year
+
+        tmp_lwg_calves_slaughter_male = (
+            # Male calves
+            (p('live_weight_slaughter', animal='calves, for slaughter')) /
+            (p('slaughter_age', animal='calves, for slaughter')*30.44) # -> kg/head/day
+        )
+        tmp_lwg_calves_slaughter_female = (
+            # Female calves
+            (p('live_weight_slaughter', animal='calves, for slaughter')) /
+            (p('slaughter_age', animal='calves, for slaughter')*30.44) # -> kg/head/day
+        )
+        lwg_calves_slaughter = (
+            tmp_lwg_calves_slaughter_male * tmp_calves_slaughter_male * 365.25 + # -> kg/year
+            tmp_lwg_calves_slaughter_female * tmp_calves_slaughter_female * 365.25 # -> kg/year
+        )
+
+        lw_calves_weaning_male = lw_calves_start + (
+            tmp_lwg_bulls * (tmp_calves2bull+tmp_calves2breeding_bulls) +
+            tmp_lwg_steers * tmp_calves2steer +
+            tmp_lwg_calves_slaughter_male * tmp_male_calves2slaughter
+        ) / (tmp_calves2bull+tmp_calves2breeding_bulls+tmp_calves2steer+tmp_male_calves2slaughter) * p('weaning_age') # -> kg
+        
+        lw_calves_weaning_female = lw_calves_start + (
+            tmp_lwg_heifers * (tmp_calves2heifer+tmp_calves2replacement) + 
+            tmp_lwg_calves_slaughter_female * tmp_female_calves2slaughter
+        ) / (tmp_calves2heifer+tmp_calves2replacement) * p('weaning_age') # -> kg
 
         tmp_lwg_calves_suckling_male = (
             # Male calves
@@ -289,55 +346,6 @@ class CattleHerd(AnimalHerd):
             * 365.25 # -> kg/year
         )
         lwg_calves_suckling = tmp_lwg_calves_suckling_male + tmp_lwg_calves_suckling_female
-
-        tmp_lwg_heifers = np.nan_to_num( # <----
-            (
-                # For replacement
-                (
-                    (p('live_weight_first_calving') - lw_calves_weaning_female) /
-                    (p('AFC')*30.44 - weaning_age)
-                ) * #  -> kg/head/day
-                tmp_heifers_replacement + # -> kg/day
-                # For slaughter
-                (
-                    (p('live_weight_slaughter', animal='heifers') - lw_calves_weaning_female) /
-                    (p('slaughter_age', animal='heifers')*30.44 - weaning_age)
-                ) * # -> kg/head/day
-                tmp_heifers_slaughter # -> kg/day
-            ) / _np_zero_to_nan(heifers) # To avoid zero div errors
-        ) # kg/head/day
-        lwg_calves_heifer = tmp_lwg_heifers * calves_heifer * 365.25 # -> kg/year
-        lwg_heifers = tmp_lwg_heifers * heifers * 365.25 # -> kg/year
-
-        tmp_lwg_steers = (
-            (p('live_weight_slaughter', animal='steers') - lw_calves_weaning_male) /
-            (p('slaughter_age', animal='steers')*30.44 - weaning_age) # -> kg/head/day
-        )
-        lwg_calves_steer = tmp_lwg_steers * calves_steer * 365.2 # -> kg/year
-        lwg_steers = tmp_lwg_steers * steers * 365.2 # -> kg/year
-
-        tmp_lwg_bulls = (
-            (p('live_weight_slaughter', animal='bulls') - lw_calves_weaning_male) /
-            (p('slaughter_age', animal='bulls')*30.44 - weaning_age) # -> kg/head/day
-        )
-        lwg_calves_bull = tmp_lwg_bulls * calves_bull * 365.25 # -> kg/year
-        lwg_bulls = tmp_lwg_bulls * bulls * 365.25 # -> kg/year
-
-        tmp_lwg_calves_slaughter_male = (
-            # Male calves
-            (p('live_weight_slaughter', animal='calves, for slaughter') - lw_calves_weaning_male) /
-            (p('slaughter_age', animal='calves, for slaughter')*30.44 - weaning_age) # -> kg/head/day
-            * tmp_calves_slaughter_male # -> kg/day
-            * 365.25 # -> kg/year
-        )
-        tmp_lwg_calves_slaughter_female = (
-            # Female calves
-            (p('live_weight_slaughter', animal='calves, for slaughter') - lw_calves_weaning_female) /
-            (p('slaughter_age', animal='calves, for slaughter')*30.44 - weaning_age) # -> kg/head/day
-            * tmp_calves_slaughter_female # -> kg/day
-            * 365.25 # -> kg/year
-        )
-        lwg_calves_slaughter = tmp_lwg_calves_slaughter_male + tmp_lwg_calves_slaughter_female
 
         # lwg for cows includes fetus growth
         lwg_cows_fetus = tmp_calves_per_year * p('birth_weight') * cows # -> kg/year
@@ -429,6 +437,15 @@ class CattleHerd(AnimalHerd):
             )
         heads, lwg, slaughtered_n, lost_n, lost_lw  = [empty_df.copy() for i in range(5)]
 
+        # Create dict of DataFrames for storing LW @ waening to access in _calculate_ME_req()
+        self.lw_weaning = {
+            k : pd.DataFrame(
+                columns = pd.Index([ps for ps in pss], name='prod_system'),
+                index = self.index,
+                dtype = 'float64'
+            ) for k in ['male','female']
+        }
+
         # Populate dataframes by distributing rows according to output production systems (i.e. after redistribution of animals)
         n = 0
         for ps in pss:
@@ -503,6 +520,10 @@ class CattleHerd(AnimalHerd):
                     lw_steers2lost[sel],
                     lw_bulls2lost[sel]
                 ]).T
+            
+            # Store LW @ weaning to access in _calculate_ME_req()
+            self.lw_weaning['male'].loc[:,ps] = lw_calves_weaning_male[sel]
+            self.lw_weaning['female'].loc[:,ps] = lw_calves_weaning_female[sel]
 
             n += 1
 
@@ -625,7 +646,7 @@ class CattleHerd(AnimalHerd):
                 live_weight = (2*p('birth_weight') + growth_rate * p('weaning_age')) / 2
             elif ani in ['calves, heifer', 'calves, steer', 'calves, bull']:
                 sex = 'female' if ani == 'calves, heifer' else 'male'
-                live_weight = (2*p(f'live_weight_weaning_{sex}') + growth_rate * (365.25 - p('weaning_age'))) / 2
+                live_weight = (2*self.lw_weaning[sex].loc[:,ps].values + growth_rate * (365.25 - p('weaning_age'))) / 2
             else:
                 live_weight = (2*p('live_weight_slaughter') - growth_rate * (p('slaughter_age')*30.44 - 365.25)) / 2
 
