@@ -37,6 +37,7 @@ class GeoDistributor:
     '''
 
     module_name = 'GeoDistributor'
+    feed_mgmt_type = GeoDistFeedMgmt
 
     success: bool
     constraints: dict[str, dict]
@@ -63,8 +64,8 @@ class GeoDistributor:
         self.feed_mgmt = feed_mgmt
 
         # Check FeedMgmt type
-        if not isinstance(feed_mgmt, GeoDistFeedMgmt):
-            raise TypeError("FeedMgmt object had the wrong type. Use type='GeoDist' when instantiating FeedMgmt")
+        if not isinstance(feed_mgmt, self.feed_mgmt_type):
+            raise TypeError(f"FeedMgmt object had the wrong type. Use type={self.module_name.replace('ributor','')} when instantiating FeedMgmt")
 
     def reset(self):
         self.x = None
@@ -108,7 +109,7 @@ class GeoDistributor:
         None
         '''
 
-        vprint = verbose_init(verbose, id_str='GeoDistributor.make')
+        vprint = verbose_init(verbose, id_str=f"{self.module_name}.make")
 
         # Reset problem definitions and solution
         self.reset()
@@ -135,7 +136,7 @@ class GeoDistributor:
 
         # Make objective function(s)
         vprint('Making objective O1 ...')
-        self.make_P1()
+        self.P1 = self.make_P1()
 
         # Make constraints
         for nr in use_cons:
@@ -151,7 +152,7 @@ class GeoDistributor:
 
         # If C7 not included no variables are dropped
         if '7' not in use_cons:
-            self.x_idx_short = {'ani':self.x_idx['ani'].copy(), 'crp':self.x_idx['crp'].copy()}
+            self.x_idx_short = {k:v.copy() for k,v in self.x_idx.items()}
 
         vprint(type='end')
 
@@ -254,16 +255,16 @@ class GeoDistributor:
             assert self.problem is not None, "Could not access problem after solving"
             x = self.problem.variables()[0].value
             assert x is not None, "Could not fetch optimal value from problem."
+
             # Put xs on short index (!= index if C7 is used) and reindex
+            split_indices = np.cumsum([len(i) for i in self.x_idx_short.values()])[:-1]
+            x_split = np.split(x, split_indices)
             self.x = {
-                'ani' : pd.Series(
-                    x[:len(self.x_idx_short['ani'])],
-                    index = self.x_idx_short['ani']
-                ).reindex(self.x_idx['ani'], fill_value=0),
-                'crp' : pd.Series(
-                    x[len(self.x_idx_short['ani']):],
-                    index = self.x_idx_short['crp']
-                ).reindex(self.x_idx['crp'], fill_value=0)
+                k : pd.Series(
+                    xn,
+                    index = self.x_idx_short[k]
+                ).reindex(self.x_idx[k], fill_value=0)
+                for k,xn in zip(self.x_idx.keys(), x_split)
             }
 
             self.data_attr.add(
@@ -280,6 +281,14 @@ class GeoDistributor:
                 orig = 'GeoDistributor',
                 desc = 'Number of "defining animal" heads in solution'
             )
+            if 'fds' in self.x_idx.keys():
+                self.data_attr.add(
+                    self.x["fds"],
+                    name="x_feeds",
+                    unit="kg DM",
+                    orig="FeedDistributor",
+                    desc="Total amount of feed for each animal system",
+                )
 
             if apply_solution:
                 vprint('Applying solution ...')
@@ -294,11 +303,14 @@ class GeoDistributor:
         return None
 
     def matrices(self):
-        mats = {'OBJ.P1' : self.P1}
+        mats = {"OBJ.P1" : self.P1}
         mats.update(
-            {f'{cn[:cn.index(":")]}.{mn}':m for cn,c in self.constraints.items()
-            for mn,m in c['pars'].items()
-            if isinstance(m, IndexedMatrix)}
+            {
+                f"{cn[:cn.index(':')]}.{mn}":m
+                for cn,c in self.constraints.items()
+                for mn,m in c["pars"].items()
+                if isinstance(m, IndexedMatrix)
+            }
         )
         return mats
 
@@ -988,7 +1000,7 @@ Constraint C2 was omitted!
             ])
         ], format='csc')
 
-        self.P1 = IndexedMatrix(
+        return IndexedMatrix(
             matrix=P1,
             row_idx={'ani':P1_1.rows, 'crp':P1_2.rows},
             col_idx={'ani':P1_1.cols, 'crp':P1_2.cols}
