@@ -20,6 +20,7 @@ from ..main_modules.animal_herd import concat_herds
 from ..mgmt_modules.feed_mgmt.feed_mgmt_geodist import GeoDistFeedMgmt
 
 from .indexed_matrix import IndexedMatrix
+from .utils import Constraint, make_cvxpy_constraint
 
 class GeoDistributor:
     '''Class that handles the distribution of animals and crops across regions for a given
@@ -440,23 +441,30 @@ class GeoDistributor:
         to or equal to zero are effectively removed from the solution space.
         '''
 
-        scale_f = {key:df.copy() for key,df in zip(self.x0.keys(),self.x0.values())}
+        scale_f = {k:df.copy() for k,df in self.x0.items()}
 
         # First all fetures (i.e. land uses and animal species) are normalised to the same range
         # (0 - max) as land use = cropland
-        norm_max = self.x0['crp'].rename(self.crops.par.get_rel('crop','land_use')).loc['cropland'].max()
-        rn = pd.concat([
-            self.x0['ani']
-            .groupby('species')
-            .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
-            * norm_max,
-
+        norm_max = (
             self.x0['crp']
             .rename(self.crops.par.get_rel('crop','land_use'))
-            .groupby('crop')
-            .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
-            * norm_max
-        ])
+            .loc['cropland']
+            .max()
+        )
+        rn = pd.concat(
+            [
+                self.x0['ani']
+                .groupby('species')
+                .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
+                * norm_max,
+
+                self.x0['crp']
+                .rename(self.crops.par.get_rel('crop','land_use'))
+                .groupby('crop')
+                .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
+                * norm_max
+            ]
+        )
 
         x0 = pd.concat((self.x0['ani'],self.x0['crp'])) * rn.values
         sf = x0.mean()/x0
@@ -465,7 +473,7 @@ class GeoDistributor:
         sf = sf ** scale_power
 
         f = rn.values * sf.values
-        assert np.isfinite(f).all()
+        assert np.isfinite(f).all(), "Non-finite values encountered in scaling factors"
 
         scale_f['ani'].iloc[:] = f[:len(scale_f['ani'])]
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
@@ -475,53 +483,45 @@ class GeoDistributor:
 
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
-            np.concatenate([
-                (self.x0[k] * self.scale_f[k])
-                .reindex(self.x0_idx[k])
-                for k in ['ani','crp']
-            ])
+            np.concatenate(
+                [
+                    (self.x0[k] * self.scale_f[k]).reindex(self.x0_idx[k])
+                    for k in self.x0_idx.keys()
+                ]
+            )
         )
 
         # Get scaling factors for x
+        lvls = ["species", "breed", "prod_system", "region", "sub_system"]
         sf = cvxpy.Constant(
-            np.concatenate([
-                (
-                    self.scale_f['ani']
-                    .reindex(self.x_idx['ani'].reorder_levels(['species','breed','prod_system','region','sub_system']))
-                    .reindex(self.x_idx_short['ani'].reorder_levels(['species','breed','prod_system','region','sub_system']))
-                ),
-                self.scale_f['crp'].reindex(self.x_idx_short['crp'])
-            ])
+            np.concatenate(
+                [
+                    self.scale_f[k]
+                    .reindex(self.x_idx[k].reorder_levels(lvls))
+                    .reindex(self.x_idx_short[k].reorder_levels(lvls))
+                    if k == 'ani' else
+                    self.scale_f[k].reindex(self.x_idx_short[k])
+                    for k in self.x0_idx.keys()
+                ]
+            )
         )
 
-        n = len(self.x_idx_short['ani'])+len(self.x_idx_short['crp'])
+        n = sum([len(idx) for idx in self.x_idx_short.values()])
         x = cvxpy.Variable(n, nonneg=True)
 
-        self.O1 = cvxpy.sum_squares(
-            (self.P1.M @ cvxpy.multiply(sf,x)) - x0s
+        objective = cvxpy.Minimize(
+            cvxpy.sum_squares((self.P1.M @ cvxpy.multiply(sf, x)) - x0s)
         )
-        OBJ = cvxpy.Minimize(self.O1)
 
         # Append constraints
-        CONS = []
-        operators = {
-            '==' : lambda left, right: left == right,
-            '>=' : lambda left, right: left >= right,
-            '<=' : lambda left, right: left <= right,
-        }
-        for cons in self.constraints.values():
-
-            left = cons['left']
-            right = cons['right']
-            rel = cons['rel']
-            pars = cons['pars']
-
-            CONS.append(operators[rel](left(x, **pars), right(**pars)))
+        constraints = [
+            make_cvxpy_constraint(cons, x) for cons in self.constraints.values()
+        ]
 
         # Define problem
         self.problem = cvxpy.Problem(
-            objective = OBJ,
-            constraints = CONS
+            objective = objective,
+            constraints = constraints
         )
 
     def make_C1(self):

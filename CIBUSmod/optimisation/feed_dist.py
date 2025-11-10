@@ -26,7 +26,7 @@ from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
-from .utils import Constraint, make_cvxpy_constraint, feed_demands_to_crop_demands
+from .utils import feed_demands_to_crop_demands
 
 from typing import Literal
 
@@ -203,101 +203,9 @@ class FeedDistributor(GeoDistributor):
     def calculate_scaling_factors(
         self, scale_power: float = 0.0, cutoff_percentile: float = 99.0
     ):
-        """Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf
-        where rn is a factor normalising all features (i.e. distinct land uses and
-        animal species) to the same range and fs is a scaling factor calculated as
-        fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
-        maximum scaling factor to a certain percentile is implemented to avoid that
-        crops/animals with x0 close to or equal to zero are effectively removed from the
-        solution space.
-        """
-
-        scale_f = {key: df.copy() for key, df in zip(self.x0.keys(), self.x0.values())}
-
-        # First all fetures (i.e. land uses and animal species) are normalised to the same range
-        # (0 - max) as land use = cropland
-        norm_max = (
-            self.x0["crp"]
-            .rename(self.crops.par.get_rel("crop", "land_use"))
-            .loc["cropland"]
-            .max()
-        )
-        # We then compute the range(?) for each group
-        rn = pd.concat(
-            [
-                self.x0["ani"]
-                .groupby("species")
-                .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
-                * norm_max,
-                self.x0["crp"]
-                .rename(self.crops.par.get_rel("crop", "land_use"))
-                .groupby("crop")
-                .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
-                * norm_max,
-            ]
-        )
-
-        # Compute sf without taking fds into account, as we don't want it to affect the
-        # means.
-        x0 = pd.concat([self.x0["ani"], self.x0["crp"]]) * rn.values
-        sf = x0.mean() / x0
-        cutoff_value = np.percentile(sf.loc[sf != np.inf], cutoff_percentile)
-        sf.loc[sf > cutoff_value] = cutoff_value
-        sf = sf**scale_power
-
-        f = rn.values * sf.values
-        assert np.isfinite(f).all(), "Non-finite values encountered in scaling factors"
-
-        (n_ani, n_crp) = (len(scale_f["ani"]), len(scale_f["crp"]))
-        # Write back the values to scale_f
-        scale_f["ani"].iloc[:] = f[:n_ani]
-        scale_f["crp"].iloc[:] = f[n_ani : n_ani + n_crp]
-        scale_f["fds"].iloc[:] = 0
-        self.scale_f = scale_f
-
-    def define_cvx_problem(self):
-        # Apply scaling factors to x0
-        x0s = cvxpy.Constant(
-            np.concatenate(
-                [
-                    (self.x0[k] * self.scale_f[k]).reindex(self.x0_idx[k])
-                    for k in ["ani", "crp", "fds"]
-                ]
-            )
-        )
-
-        lvls = ["species", "breed", "prod_system", "region", "sub_system"]
-        # Get scaling factors for x
-        sf = cvxpy.Constant(
-            np.concatenate(
-                [
-                    self.scale_f["ani"]
-                    .reindex(self.x_idx["ani"].reorder_levels(lvls))
-                    .reindex(self.x_idx_short["ani"].reorder_levels(lvls)),
-                    self.scale_f["crp"].reindex(self.x_idx_short["crp"]),
-                    self.scale_f["fds"].reindex(self.x_idx_short["fds"]),
-                ]
-            )
-        )
-
-        n = (
-            len(self.x_idx_short["ani"])
-            + len(self.x_idx_short["crp"])
-            + len(self.x_idx_short["fds"])
-        )
-        x = cvxpy.Variable(n, nonneg=True)
-
-        objective = cvxpy.Minimize(
-            cvxpy.sum_squares((self.P1.M @ cvxpy.multiply(sf, x)) - x0s)
-        )
-
-        # Append constraints
-        constraints = [
-            make_cvxpy_constraint(cons, x) for cons in self.constraints.values()
-        ]
-
-        # Define problem
-        self.problem = cvxpy.Problem(objective=objective, constraints=constraints)
+        super().calculate_scaling_factors(scale_power, cutoff_percentile)
+        # No scaling factors for feeds
+        self.scale_f["fds"].iloc[:] = 0
 
     def make_C1(self):
         """Creates C1: A1 @ x == b1
@@ -2311,5 +2219,5 @@ class FeedDistributor(GeoDistributor):
         # NOTE: THIS METHOD DOES NOT WORK WITH FeedDistributor
         # currently as the attribute 'feed.max_supply_from_crop_group'
         # is not set with the FeedDistFeedMgmt
-        print('Crop allocation not asdjusted')
+        print('Crop allocation not adjusted', end='')
         return None
