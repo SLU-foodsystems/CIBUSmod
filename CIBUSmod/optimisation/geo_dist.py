@@ -1,4 +1,5 @@
 import sys
+from itertools import product
 
 import warnings
 import pandas as pd
@@ -337,29 +338,51 @@ class GeoDistributor:
                     x_is = h.x_is
                 )
 
+        try:
+            self.allocate_feed_demand()
+            self.allocate_feed_crop_prod_demand()
+        except AttributeError:
+            # Only applicatble to FeedDistributor
+            pass
+
         # Allocate crop production to uses
         self.allocate_crop_production_per_use()
-        if 'A5' in self.matrices():
+        if 'C5.A5' in self.matrices():
             self.adjust_crop_allocation()
 
+        return None
+
     def get_x0(self):
+        # Define index for x
+        self.x_idx = {
+            'ani' : pd.MultiIndex.from_tuples(
+                [
+                    (sp,br,ps,ss,re)
+                    for (sp,br,ps,ss) in self.herds.index
+                    for re in self.herds[(sp,br,ps,ss)].index
+                ],
+                names = [
+                    'species',
+                    'breed',
+                    'prod_system',
+                    'sub_system',
+                    'region'
+                ]
+            ),
+
+            'crp' : self.crops.index.copy()
+        }
+
         # Get x0
         self.x0 = {
             'ani' : self.regions.data_attr.get('x0_animals').copy(),
             'crp' : self.regions.data_attr.get('x0_crops').copy()
         }
 
-        # Define index for x
-        self.x_idx = {
-            'ani' : pd.MultiIndex.from_tuples(
-                    [(sp,br,ps,ss,re) for (sp,br,ps,ss) in self.herds.index for re in self.herds[(sp,br,ps,ss)].index],
-                    names=['species','breed','prod_system','sub_system','region']
-                    ),
-            'crp' : self.crops.index.copy()
-        }
-
         # Sort x0['ani'] to match x['ani']
-        self.x0['ani'] = self.x0['ani'].loc[self.x_idx['ani'].droplevel('sub_system').unique()]
+        self.x0['ani'] = self.x0['ani'].loc[
+            self.x_idx['ani'].droplevel('sub_system').unique()
+        ]
 
         # Store x0 indexes
         self.x0_idx = {
@@ -372,22 +395,40 @@ class GeoDistributor:
         Calculates and sets the demand-matrix (D) and its index (D_idx).
         """
         self.D = {
-            'ani' : self.demand.data_attr.get('animal_prod_demand').sum(axis=1),
-            'crp' : self.demand.data_attr.get('crop_prod_demand').sum(axis=1)
-            }
+            "ani" : self.demand.data_attr.get("animal_prod_demand").sum(axis=1),
+            "crp" : self.demand.data_attr.get("crop_prod_demand").sum(axis=1),
+        }
 
-        # Add rows for any domestically produced crop products used for feed or seed not already in crop product demand vector (D['crp'])
+        # Add rows for any domestically produced crop products used for feed or seed not
+        # already in crop product demand vector (D['crp'])
+        # Get all crop-products from feed_mgmt and the seed crop products from Crops
         self.feed_mgmt.par.clear()
-        for cp in set(self.feed_mgmt.par.get_unique('crop_prod')) | set(self.crops.par.get_unique('crop_prod', qry='parameter == "seed"')):
-            for ps in self.D['crp'].index.get_level_values('prod_system').unique():
-                idx = (ps,cp)
-                if (self.feed_mgmt.par.get('share_domestic', crop_prod=cp, prod_system=ps) != 0).any() & (idx not in self.D['crp'].index):
-                    self.D['crp'][idx] = 0
+        cps = set(self.feed_mgmt.par.get_unique("crop_prod")) | set(
+            self.crops.par.get_unique("crop_prod", qry='parameter == "seed"')
+        )
+        # ... and the prod_systems in the crop-demand vector
+        pss = self.D["crp"].index.unique("prod_system")
+
+        share_domestic = self.feed_mgmt.par.get_from_frame(
+            "share_domestic",
+            pd.DataFrame(
+                index=pd.Index(pss, name="prod_system"),
+                columns=pd.Index(cps, name="crop_prod"),
+                dtype=float,
+            ),
+        )
+
+        for ps, cp in product(pss, cps):
+            # Skip if already assigned
+            if (ps, cp) in self.D["crp"].index:
+                continue
+            if (share_domestic.loc[ps, cp] != 0).any():
+                self.D["crp"][(ps, cp)] = 0
 
         # Store indexes
         self.D_idx = {
-            'ani' : self.D['ani'].index,
-            'crp' : self.D['crp'].index
+            "ani" : self.D["ani"].index,
+            "crp" : self.D["crp"].index
         }
 
     def calculate_scaling_factors(self, scale_power: float = 0.0,
@@ -1636,14 +1677,15 @@ Constraint C2 was omitted!
         return M
 
     def allocate_crop_production_per_use(self):
-        '''Allocate crop areas to different uses.
-        Creates attriute 'production_per_use' in CropProduction'''
+        """Allocate crop areas to different uses.
+        Creates attribute 'production_per_use' in CropProduction"""
 
         # Get prouction per crop product
         prod = (
-            self.crops.data_attr.get('production')
+            self.crops.data_attr.get("production")
             .stack()
-            .groupby(['region','prod_system','crop_prod']).sum()
+            .groupby(["region", "prod_system", "crop_prod"])
+            .sum()
         )
 
         # Get concatenated herds
@@ -1651,15 +1693,17 @@ Constraint C2 was omitted!
 
         # Get crop product demand for feed per region
         feed_demand = (
-            con_herds
-            .data_attr.get('feed.crop_product_demand')
-            .xs('domestic', level='origin', axis=1)
-            .T.groupby(['species','breed','sub_system','prod_system','crop_prod']).sum().T
-            .stack(['prod_system','crop_prod'])
+            con_herds.data_attr.get("feed.crop_product_demand")
+            .xs("domestic", level="origin", axis=1)
+            .T.groupby(["species", "breed", "sub_system", "prod_system", "crop_prod"])
+            .sum().T
+            .stack(["prod_system", "crop_prod"], future_stack=True)
             .reindex(prod.index)
             .fillna(0)
         )
-        feed_demand.columns = feed_demand.columns.map('feed ({0[0]}, {0[1]}, {0[2]})'.format).rename('demand')
+        feed_demand.columns = feed_demand.columns.map(
+            "feed ({0[0]}, {0[1]}, {0[2]})".format
+        ).rename("demand")
 
         # Calculate feed demand met regionally as the maximum
         # share possible (i.e. regional crop areas are first
@@ -1677,71 +1721,88 @@ Constraint C2 was omitted!
         prod_to_national = prod - regional_feed_demand.sum(axis=1)
 
         # Calculate remaining feed demand that needs to be supplied nationally
-        national_feed_demand = (feed_demand - regional_feed_demand).groupby(['prod_system','crop_prod']).sum()
+        national_feed_demand = (
+            (feed_demand - regional_feed_demand)
+            .groupby(["prod_system", "crop_prod"])
+            .sum()
+        )
 
-        national_demand = pd.concat([
+        national_demand = (
+            pd.concat(
+                [
+                    self.demand.data_attr.get("crop_prod_demand"),
 
-            self.demand.data_attr.get('crop_prod_demand'),
+                    self.crops.data_attr.get("seed_demand")
+                    .groupby("prod_system")
+                    .sum()
+                    .stack()
+                    .rename("seed"),
 
-            self.crops.data_attr.get('seed_demand')
-            .groupby('prod_system').sum()
-            .stack().rename('seed'),
-
-            national_feed_demand
-
-        ], axis=1).fillna(0).rename_axis('demand',axis=1)
+                    national_feed_demand,
+                ],
+                axis=1,
+            )
+            .fillna(0)
+            .rename_axis("demand", axis=1)
+        )
 
         national_demand_shares = (
-            national_demand
-            .transform(lambda x: x/x.sum() if x.sum()>0 else 0, axis=1)
-            .reindex(
-                prod_to_national
-                .reorder_levels(['prod_system','crop_prod','region'])
-                .index
+            national_demand.transform(
+                lambda x: x / x.sum() if x.sum() > 0 else 0, axis=1
             )
-            .reorder_levels(['region','prod_system','crop_prod'])
+            .reindex(
+                prod_to_national.reorder_levels(
+                    ["prod_system", "crop_prod", "region"]
+                ).index
+            )
+            .reorder_levels(["region", "prod_system", "crop_prod"])
         )
 
         # Calculate total demand (regional+national)
-        total_demand = (
-            national_demand_shares.mul(prod_to_national, axis=0)
-            +
-            regional_feed_demand.reindex(national_demand_shares.columns, axis=1).fillna(0)
+        total_demand = national_demand_shares.mul(
+            prod_to_national, axis=0
+        ) + regional_feed_demand.reindex(national_demand_shares.columns, axis=1).fillna(
+            0
         )
-        total_demand['none'] = prod - total_demand.sum(axis=1)
+        total_demand["none"] = prod - total_demand.sum(axis=1)
         # Set small negatives to zero
         assert total_demand.min().min() > -1e-6
         total_demand = total_demand.where(total_demand > 0, 0)
 
         # Calculate shares of total demand per use
-        total_demand_shares = total_demand.mul(1/prod, axis=0)
+        total_demand_shares = total_demand.mul(1 / prod, axis=0)
         # Assume 100% none demand for rows with NaNs (i.e. where prod==0)
-        total_demand_shares.loc[:,'none'].fillna(1, inplace=True)
+        total_demand_shares.loc[:, "none"] = total_demand_shares.loc[:, "none"].fillna(
+            1
+        )
         total_demand_shares.fillna(0, inplace=True)
 
-        assert np.isclose(total_demand_shares.sum(axis=1),1).all()
+        assert np.isclose(total_demand_shares.sum(axis=1), 1).all()
 
         # Calculate crop production per use
-        crop_production_per_use = multiply_aligned(
-
-            total_demand_shares.unstack()
-            .reindex(
-                self.crops.data_attr.get('production')
-                .reorder_levels(['region','prod_system','crop'])
-                .index
+        crop_production_per_use = (
+            multiply_aligned(
+                total_demand_shares.unstack()
+                .reindex(
+                    self.crops.data_attr.get("production")
+                    .reorder_levels(["region", "prod_system", "crop"])
+                    .index
+                )
+                .reorder_levels(["crop", "prod_system", "region"]),
+                self.crops.data_attr.get("production"),
             )
-            .reorder_levels(['crop','prod_system','region']),
-
-            self.crops.data_attr.get('production')
-        ).T.groupby('demand').sum().T
+            .T.groupby("demand")
+            .sum()
+            .T
+        )
 
         # Add data attribute
         self.crops.data_attr.add(
             crop_production_per_use,
-            name = 'production_per_use',
-            unit = 'kg/year',
-            orig = 'GeoDistributor',
-            desc = 'Total crop production distributed across different uses (unreliable)'
+            name="production_per_use",
+            unit="kg/year",
+            orig="FeedDistributor",
+            desc="Total crop production distributed across different uses (unreliable)",
         )
 
     def adjust_crop_allocation(self):
