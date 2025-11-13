@@ -191,7 +191,7 @@ class SheepHerd(AnimalHerd):
             feed_req = (
                 self.data_attr.get('inserted_n').loc[:,(ps,ani)] -
                 self.data_attr.get('lost_n').loc[:,(ps,ani)] * 0.5 # 50% feed req. for lost lambs
-            ) * p('feed_per_lifetime')
+            ) * p('feed_per_lifetime') / self.data_attr.get('heads').loc[:,(ps,ani)]
         else:
             feed_req = p('feed_per_head')
 
