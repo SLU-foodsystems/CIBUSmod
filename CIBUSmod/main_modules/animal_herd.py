@@ -470,6 +470,7 @@ def make_herds(
                 herd_class(
                     par = ParameterRetriever(herd_class_name),
                     index = regions.data_attr.get('x0_animals').index.get_level_values('region').unique(),
+                    species = sp,
                     breed = br,
                     prod_system = ps,
                     sub_system = ss
