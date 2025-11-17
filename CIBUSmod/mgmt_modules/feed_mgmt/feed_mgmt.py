@@ -46,6 +46,11 @@ class FeedMgmt(ABC):
     def calculate_ration_characteristics(self):
         """Calculates ration characteristics"""
         for herd in self.herds:
+
+            if not 'feed.consumption' in herd.data_attr:
+                # Skip herd if it does not have the 'feed.consumption' data attribute
+                continue
+
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
             self.par.set(species=herd.species, breed=herd.breed)
@@ -111,6 +116,11 @@ class FeedMgmt(ABC):
         not_linked_feeds = []
 
         for herd in self.herds:
+
+            if not 'feed.demand' in herd.data_attr:
+                # Skip herd if it does not have the 'feed.demand' data attribute
+                continue
+
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
             self.par.set(
@@ -256,6 +266,11 @@ class FeedMgmt(ABC):
         ).set_index("crop_prod")["crop_group"]
 
         for herd in self.herds:
+
+            if not 'feed.crop_product_demand' in herd.data_attr:
+                # Skip herd if it does not have the 'feed.crop_product_demand' data attribute
+                continue
+
             # If all empty, skip the calculations and just add a None
             if (
                 not herd.data_attr.get("feed.crop_product_demand")
@@ -321,6 +336,11 @@ class FeedMgmt(ABC):
         idx = pd.IndexSlice
 
         for herd in self.herds:
+
+            if not 'feed.heads' in herd.data_attr:
+                # Skip herd if it does not have the 'feed.heads' data attribute
+                continue
+
             self.par.set(
                 species=herd.species, breed=herd.breed, sub_system=herd.sub_system
             )

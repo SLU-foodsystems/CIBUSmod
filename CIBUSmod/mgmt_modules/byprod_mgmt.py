@@ -66,7 +66,7 @@ class ByProductMgmt():
 
         # Get demand for feed
         feed_demand = (
-            pd.concat([h.data_attr.get('feed.by_product_demand').sum() for h in self.herds])
+            pd.concat([h.data_attr.get('feed.by_product_demand').sum() for h in self.herds if 'feed.by_product_demand' in h.data_attr])
             .groupby(['prod_system', 'by_prod']).sum().rename('feed')
         )
 

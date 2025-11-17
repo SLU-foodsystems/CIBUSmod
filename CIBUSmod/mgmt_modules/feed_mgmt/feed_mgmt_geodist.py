@@ -70,6 +70,10 @@ class GeoDistFeedMgmt(FeedMgmt):
 
         for herd in self.herds:
 
+            if not 'heads' in herd.data_attr:
+                # Skip herd if it does not have the 'heads' data attribute
+                continue
+
             # Set species and breed filters for ParameterRetriever
             self.par.set(
                 species = herd.species,

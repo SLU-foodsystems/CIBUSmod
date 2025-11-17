@@ -60,9 +60,9 @@ class AnimalHerd(ABC):
         self.par = par
         self.index = index
 
-        self.breed = kwargs['breed'] or 'none'
-        self.prod_system = kwargs['prod_system'] or 'none'
-        self.sub_system = kwargs['sub_system'] or 'none'
+        self.breed = kwargs.get('breed','none')
+        self.prod_system = kwargs.get('prod_system','none')
+        self.sub_system = kwargs.get('sub_system','none')
 
     def __repr__(self):
         return f'''
@@ -155,7 +155,7 @@ animals              {self.animals}
         )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','meat','milk']
+        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','meat','milk','fish']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -171,7 +171,7 @@ animals              {self.animals}
             x_is = 'sows'
 
         # Get 'old_x'
-        if x_is in ['milk','meat']:
+        if x_is in ['milk','meat','fish']:
             old_x = self.data_attr.get('production').loc[:,(slice(None),x_is)].sum(axis=1)
         elif x_is == 'total horses':
             old_x = self.data_attr.get('heads').sum(axis=1)
@@ -309,7 +309,11 @@ animals              {self.animals}
         # Get output products
         prs = self.products
         # Get ouput production systems
-        pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
+        try:
+            pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
+        except KeyError:
+            # If 'heads' data attribute not set
+            pss = [self.prod_system]
         # Get animals
         anis = self.animals
 
@@ -363,6 +367,11 @@ animals              {self.animals}
                 .reorder_levels(['prod_system','animal','animal_prod'], axis=1)
             )
 
+        if 'fish' in prs:
+            # Fish live weigh harvest/landings (in tonnes) is directly defined as x for fish production systems
+            production.loc[:,(slice(None),slice(None),'fish')] = \
+                self.x
+
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)
 
@@ -392,6 +401,8 @@ from .animal_herd_poultry_broiler import BroilerHerd
 from .animal_herd_poultry_layer import LayerHerd
 from .animal_herd_horse import HorseHerd
 from .animal_herd_sheep import SheepHerd
+from .animal_herd_aquaculture import AquacultureHerd
+from .animal_herd_fisheries import FisheriesHerd
 
 def make_herds(
         regions,

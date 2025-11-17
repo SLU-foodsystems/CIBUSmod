@@ -62,6 +62,11 @@ class FeedDistributor(GeoDistributor):
         heads_total = concatenated_herds.data_attr.get("heads")
 
         for herd in self.herds:
+
+            if not 'heads' in herd.data_attr:
+                # Skip herd if it does not have the 'heads' data attribute
+                continue
+
             sp = herd.species
             br = herd.breed
             ps = herd.prod_system
@@ -154,6 +159,11 @@ class FeedDistributor(GeoDistributor):
         )
 
         for herd in self.herds:
+
+            if not 'feed.demand' in herd.data_attr:
+                # Skip herd if it does not have the 'feed.demand' data attribute
+                continue
+
             feed_demands = herd.data_attr.get("feed.demand")
 
             # Compute the demand for crop_products yielded by the feed demands
@@ -178,9 +188,12 @@ class FeedDistributor(GeoDistributor):
                 (f, ani, sp, br, ps, ss, re)
                 for (sp, br, ps, ss) in self.herds.index
                 for re in self.herds[(sp, br, ps, ss)].index
-                for f in 
-                    self.herds[(sp, br, ps, ss)].par
-                    .get_unique("feed", qry = "parameter.isin(['share_in_ration','min_share_in_ration','max_share_in_ration'])")
+                for f in
+                    (
+                        self.herds[(sp, br, ps, ss)].par
+                        .get_unique("feed", qry = "parameter.isin(['share_in_ration','min_share_in_ration','max_share_in_ration'])")
+                        if "f_feed" in self.herds[(sp, br, ps, ss)].par.data.index.names else [] # Empty list if 'f_feed' filter column not in data
+                    )
                 for ani in self.herds[(sp, br, ps, ss)].animals
             ],
             names = [
@@ -1727,7 +1740,11 @@ class FeedDistributor(GeoDistributor):
             p = herd.par
             p.clear()
 
-            feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
+            try:
+                feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
+            except KeyError:
+                # Empty list if 'f_feed' filter column not in data
+                feeds = []
 
             # Where there are no 'constraints' for this parameter- and herd combo, we
             # do not need to add anything to the df.

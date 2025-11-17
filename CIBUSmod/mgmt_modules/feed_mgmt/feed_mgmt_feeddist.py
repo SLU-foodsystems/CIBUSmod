@@ -54,6 +54,11 @@ class FeedDistFeedMgmt(FeedMgmt):
         """
 
         for herd in self.herds:
+
+            if not 'feed.demand' in herd.data_attr:
+                # Skip herd if it does not have the 'feed.consumption' data attribute
+                continue
+
             # Set species and breed filters for ParameterRetriever
             self.par.set(species=herd.species, breed=herd.breed)
 

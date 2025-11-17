@@ -12,6 +12,7 @@ from .main_modules.demand_and_conversions import \
 from .main_modules.crop_prod import CropProduction
 from .main_modules.animal_herd import \
     CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd, SheepHerd, \
+    AquacultureHerd, FisheriesHerd, \
     make_herds, concat_herds
 from .main_modules.waste_and_circularity import WasteAndCircularity
 
