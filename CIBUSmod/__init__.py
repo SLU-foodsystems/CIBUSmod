@@ -45,3 +45,22 @@ from .soil_modules.soil_class import SoilData
 from .soil_modules.soil_class import SoilDataExplore
 from .soil_modules.soil_class import ScenarioTempCalc
 from .soil_modules import soil_utils
+
+from .utils.misc import get_git_info
+print("""
+ -----------------------
+|   Imported CIBUSmod   |
+ -----------------------""", end='')
+try:
+    GIT_COMMIT, GIT_BRANCH, GIT_DIRTY, GIT_REMOTE = \
+    get_git_info(root).values()
+    print(f"""
+commit : {GIT_COMMIT}
+branch : {GIT_BRANCH}
+dirty  : {GIT_DIRTY}
+remote : {GIT_REMOTE}
+    """)
+except:
+    print("""
+Could not access git.
+""")

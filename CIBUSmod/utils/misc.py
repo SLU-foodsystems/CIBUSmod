@@ -139,3 +139,20 @@ elem_to_name = {
     'P' : 'phosphorus (P)',
     'K' : 'potassium (K)'
 }
+
+# Function to get git version
+def get_git_info(path):
+    import subprocess
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", path] + list(args), text=True).strip()
+    
+    try:
+        return {
+            "commit": git("rev-parse", "HEAD"),
+            "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
+            "dirty": bool(git("status", "--porcelain")),
+            "remote": git("config", "--get", "remote.origin.url")
+        }
+    except subprocess.CalledProcessError:
+        return None
