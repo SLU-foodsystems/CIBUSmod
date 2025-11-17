@@ -89,14 +89,14 @@ class CropResidueMgmt():
 
         # Get crop residues used for feed
         demand_for_feed = (
-            pd.concat([h.data_attr.get('feed.crop_residue_demand') for h in self.herds], axis=1)
+            pd.concat([h.data_attr.get('feed.crop_residue_demand') for h in self.herds if 'heads' in h.data_attr], axis=1)
             .T.groupby(['crop_resid']).sum().T
             # WIP
         )
 
         # Get crop residues used for bedding
         demand_for_bedding = (
-            pd.concat([h.data_attr.get('bedding_material') for h in self.herds], axis=1)
+            pd.concat([h.data_attr.get('bedding_material') for h in self.herds if 'heads' in h.data_attr], axis=1)
             .T.groupby(['feed']).sum().T
             .rename_axis(columns={'feed':'crop_resid'})
         )
