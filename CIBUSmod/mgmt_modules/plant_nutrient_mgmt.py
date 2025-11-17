@@ -287,7 +287,9 @@ class PlantNutrientMgmt():
 
         # 1. MANURE TO GRAZING AREAS ---------------------------->
         # Get crops used for grazing
-        grazing_crops = self.crops.par.get_unique('crop', 'f_crop_prod=="grazing"')
+        # Note: This assumes that all crops used for grazing are parametrised
+        # to produce a 'crop_prod' that includes "grazing" in its name
+        grazing_crops = self.crops.par.get_unique('crop', qry='f_crop_prod.str.contains("grazing", na=False)')
         # Get menure TAN deposited while grazing
         manure_TAN_grazing = herds.data_attr.get('manure.TAN_to_spread').xs('grazing', level='MMS', axis=1, drop_level=False)
         # Share of grazed biomass per "grazing crop"
