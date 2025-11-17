@@ -129,7 +129,7 @@ class ManureMgmt():
         # Get defined manure management systems
         mmss = list(self.par.get_unique('MMS', qry="parameter == 'mms_share'"))
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -260,7 +260,7 @@ class ManureMgmt():
         # Get types of bedding materials used
         fes = self.par.get_unique('feed', qry='parameter == "bedding_material_use"')
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters
             self.par.set(
@@ -324,7 +324,7 @@ class ManureMgmt():
         self.par.clear()
         pf = self.par.get_from_frame
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -379,7 +379,7 @@ class ManureMgmt():
 
         idx = pd.IndexSlice
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -480,7 +480,7 @@ class ManureMgmt():
 
     def calculate_NPK_excretion(self, element):
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -588,7 +588,7 @@ class ManureMgmt():
         # Get compounds emitted
         cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(

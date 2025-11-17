@@ -53,11 +53,7 @@ class FeedDistFeedMgmt(FeedMgmt):
         products from feed demand, assigning it to the herd objects
         """
 
-        for herd in self.herds:
-
-            if not 'feed.demand' in herd.data_attr:
-                # Skip herd if it does not have the 'feed.consumption' data attribute
-                continue
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(species=herd.species, breed=herd.breed)

@@ -322,16 +322,19 @@ class MachineryAndEnergyMgmt(object):
 
             # Create dataframes of heads, inserted heads and production
             # and calculate energy use
-            heads = herd.data_attr.get('heads').reindex(
-                columns = pd.MultiIndex.from_tuples(
-                    [(ps,an,ac,es) for ps,an in herd.data_attr.get('heads').columns for ac in acs for es in ess],
-                    names=['prod_system','animal','activity','energy_source']
+            if 'heads' in herd.data_attr:
+                heads = herd.data_attr.get('heads').reindex(
+                    columns = pd.MultiIndex.from_tuples(
+                        [(ps,an,ac,es) for ps,an in herd.data_attr.get('heads').columns for ac in acs for es in ess],
+                        names=['prod_system','animal','activity','energy_source']
+                    )
                 )
-            )
-            energy_use_per_head = (
-                heads *
-                pf('stable_energy_use_per_head',heads)
-            )
+                energy_use_per_head = (
+                    heads *
+                    pf('stable_energy_use_per_head',heads)
+                )
+            else:
+                energy_use_per_head = 0
 
             if 'inserted_n' in herd.data_attr:
                 inserted_heads = herd.data_attr.get('inserted_n').reindex(

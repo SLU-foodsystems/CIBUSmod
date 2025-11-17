@@ -287,7 +287,7 @@ class WasteAndCircularity(object):
 
             # Get item from manure
             m_list = []
-            for herd in self.herds:
+            for herd in (h for h in self.herds if 'heads' in h.data_attr):
                 m = herd.data_attr.get(f'manure.{i}_to_treatment').T.groupby('MMS').sum().T
 
                 # Create column index

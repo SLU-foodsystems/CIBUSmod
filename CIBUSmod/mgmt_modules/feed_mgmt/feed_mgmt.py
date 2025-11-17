@@ -45,11 +45,7 @@ class FeedMgmt(ABC):
 
     def calculate_ration_characteristics(self):
         """Calculates ration characteristics"""
-        for herd in self.herds:
-
-            if not 'feed.consumption' in herd.data_attr:
-                # Skip herd if it does not have the 'feed.consumption' data attribute
-                continue
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -115,11 +111,7 @@ class FeedMgmt(ABC):
         # Create list for feeds not linked to a product
         not_linked_feeds = []
 
-        for herd in self.herds:
-
-            if not 'feed.demand' in herd.data_attr:
-                # Skip herd if it does not have the 'feed.demand' data attribute
-                continue
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -265,11 +257,7 @@ class FeedMgmt(ABC):
             ["crop_group", "crop_prod"], qry='parameter == "max_crop_in_crop_prod"'
         ).set_index("crop_prod")["crop_group"]
 
-        for herd in self.herds:
-
-            if not 'feed.crop_product_demand' in herd.data_attr:
-                # Skip herd if it does not have the 'feed.crop_product_demand' data attribute
-                continue
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             # If all empty, skip the calculations and just add a None
             if (
@@ -335,11 +323,7 @@ class FeedMgmt(ABC):
     def calculate_enteric_methane(self):
         idx = pd.IndexSlice
 
-        for herd in self.herds:
-
-            if not 'feed.heads' in herd.data_attr:
-                # Skip herd if it does not have the 'feed.heads' data attribute
-                continue
+        for herd in (h for h in self.herds if 'heads' in h.data_attr):
 
             self.par.set(
                 species=herd.species, breed=herd.breed, sub_system=herd.sub_system
