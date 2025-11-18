@@ -216,7 +216,7 @@ class MachineryAndEnergyMgmt(object):
         # Series to get regions with soil class
         sc = pd.Series(self.regions.data_attr.get('soil_texture').index.values, index = self.regions.data_attr.get('soil_texture'))
 
-        for soil_class in soil_classes:
+        for soil_class in sc.index.unique():
             E_final.loc[idx[:,:,sc[soil_class]],:] = (
                 (A * E_per_area.loc[soil_class,:]).mul(self.crops.data_attr.get('area'), axis=0) +
                 (A * E_per_mass.loc[soil_class,:]).mul(self.crops.data_attr.get('harvest'), axis=0) +
