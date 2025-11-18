@@ -358,51 +358,52 @@ class PlantNutrientMgmt():
         manure_TAN_remaining = manure_TAN.copy()
         TAN_req_remaining = TAN_req.copy()
 
-        # 2. ORGANIC MANURE TO ORGANIC AREAS -------------------------->
+        if 'organic' in TAN_req.index.unique('prod_system'):
+            # 2. ORGANIC MANURE TO ORGANIC AREAS -------------------------->
 
-        # TAN requirements to be covered and manure to be used in this step
-        TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
-        manure_TAN_to_use = manure_TAN_remaining.xs('organic', level='prod_system', axis=1, drop_level=False)
+            # TAN requirements to be covered and manure to be used in this step
+            TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
+            manure_TAN_to_use = manure_TAN_remaining.xs('organic', level='prod_system', axis=1, drop_level=False)
 
-        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+            manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
 
-        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
-        _update_manure_TAN_frames(
-            manure_TAN_to_spread,
-            manure_TAN_remaining,
-            TAN_req_remaining, manure_TAN_application
-        )
+            manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+            _update_manure_TAN_frames(
+                manure_TAN_to_spread,
+                manure_TAN_remaining,
+                TAN_req_remaining, manure_TAN_application
+            )
 
-        # 3. ALL MANURE TO ORGANIC AREAS UP TO X% TAN --------------------->
+            # 3. ALL MANURE TO ORGANIC AREAS UP TO X% TAN --------------------->
 
-        # Calculate TAN requirements to be covered in this step
-        self.par.clear()
+            # Calculate TAN requirements to be covered in this step
+            self.par.clear()
 
-        TAN_not_to_cover = TAN_req.xs('organic', level='prod_system', drop_level=False)
-        TAN_not_to_cover = (
-            TAN_not_to_cover *
-            (1-self.par.get(
-                'manure_TAN_max',
-                **TAN_not_to_cover.index.to_frame().to_dict('list')
-            )/100)
-        )
+            TAN_not_to_cover = TAN_req.xs('organic', level='prod_system', drop_level=False)
+            TAN_not_to_cover = (
+                TAN_not_to_cover *
+                (1-self.par.get(
+                    'manure_TAN_max',
+                    **TAN_not_to_cover.index.to_frame().to_dict('list')
+                )/100)
+            )
 
-        TAN_to_cover = (
-            TAN_req_remaining.xs('organic', level='prod_system', drop_level=False) -
-            TAN_not_to_cover
-        )
-        TAN_to_cover[TAN_to_cover<0] = 0
+            TAN_to_cover = (
+                TAN_req_remaining.xs('organic', level='prod_system', drop_level=False) -
+                TAN_not_to_cover
+            )
+            TAN_to_cover[TAN_to_cover<0] = 0
 
-        manure_TAN_to_use = manure_TAN_remaining
+            manure_TAN_to_use = manure_TAN_remaining
 
-        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+            manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
 
-        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
-        _update_manure_TAN_frames(
-            manure_TAN_to_spread,
-            manure_TAN_remaining,
-            TAN_req_remaining, manure_TAN_application
-        )
+            manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+            _update_manure_TAN_frames(
+                manure_TAN_to_spread,
+                manure_TAN_remaining,
+                TAN_req_remaining, manure_TAN_application
+            )
 
         # 4. MANURE PER HERD TO CROP AREAS USED AS FEED --------------------->
 
@@ -542,7 +543,11 @@ class PlantNutrientMgmt():
         # 2. ORGANIC FERTILISERS TO ORGANIC AREAS ACROSS REGIONS
         # 3. ORGANIC FERTILISERS TO CONVENTIONAL AREAS IN REGION
         # 4. ORGANIC FERTILISERS TO CONVENTIONAL AREAS ACROSS REGIONS
-        for do_step in [1,2,3,4]:
+        if 'organic' in TAN_req.index.unique('prod_system'):
+            steps = [1,2,3,4]
+        else:
+            steps = [3,4]
+        for do_step in steps:
 
             if do_step in [1,2]:
                 TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
