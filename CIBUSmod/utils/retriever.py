@@ -398,7 +398,9 @@ Parameters
         '''Get parametervalues based on index and columns in supplied pandas.DataFrame'''
 
         if min(df.shape)<1:
-            raise ValueError('DataFrame must have at least one row and one column')
+            # If empty DataFrame no parameter valuse can be returned
+            # --> return the empty DataFrame
+            return df.copy()
 
         row_names = df.index.names
         col_names = df.columns.names
