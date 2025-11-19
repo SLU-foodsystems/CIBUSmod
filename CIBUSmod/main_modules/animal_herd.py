@@ -172,7 +172,7 @@ animals              {self.animals}
 
         # Get 'old_x'
         if x_is in ['milk','meat','fish']:
-            old_x = self.data_attr.get('production').loc[:,(slice(None),x_is)].sum(axis=1)
+            old_x = self.data_attr.get('production').loc[:,(slice(None),slice(None),x_is)].sum(axis=1)
         elif x_is == 'total horses':
             old_x = self.data_attr.get('heads').sum(axis=1)
         elif x_is == 'ewes+rams':
@@ -214,6 +214,14 @@ animals              {self.animals}
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
+    
+    def has_feed_demand(self):
+        '''Returns True if AnimalHerd object has demand for feed.'''
+        attrs = ['feed_req_eq','feed_req_min','feed_req_max']
+        for attr in attrs:
+            if self.data_attr.get(attr).sum().sum() > 0:
+                return True
+        return False
 
     def calculate_feed_req(self):
 
@@ -369,8 +377,16 @@ animals              {self.animals}
 
         if 'fish' in prs:
             # Fish live weigh harvest/landings (in tonnes) is directly defined as x for fish production systems
-            production.loc[:,(slice(None),slice(None),'fish')] = \
-                self.x
+            if production.loc[:,(slice(None),slice(None),'fish')].shape[1] == 1:
+                production.loc[:,(slice(None),slice(None),'fish')] = \
+                    self.x
+            else:
+                production.loc[:,(slice(None),slice(None),'fish')] = 0
+                # Get the producing animal category and assign values
+                ps_ani = (self.data_attr.get('slaughtered_n').sum()>0).replace({False:np.nan}).dropna().index
+                assert len(ps_ani) == 1, "One and only one producing animal category allowed in fish systems"
+                production.loc[:,tuple(list(ps_ani[0])+['fish'])] = \
+                    self.x
 
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)

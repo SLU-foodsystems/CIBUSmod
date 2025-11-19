@@ -3,6 +3,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
+from ..utils.misc import fix_herds
 
 if TYPE_CHECKING:
     from ..main_modules.demand_and_conversions import DemandAndConversions
@@ -36,17 +37,7 @@ class MachineryAndEnergyMgmt(object):
         self.regions = regions
         self.crops = crops
         self.waste = waste
-
-        if isinstance(herds, pd.Series):
-            self.herds = herds
-        else:
-            self.herds = pd.Series(
-                data=herds,
-                index=pd.MultiIndex.from_tuples(
-                    [(herds.species,herds.breed,herds.prod_system,herds.sub_system)],
-                    names=['species','breed','prod_system','sub_system']
-                )
-            )
+        self.herds = fix_herds(herds)
 
     def calculate(self, verbose=False):
 

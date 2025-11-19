@@ -13,7 +13,7 @@ import re as regex
 from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict
+from ..utils.misc import multiply_aligned, inv_dict, fix_herds
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
@@ -62,7 +62,7 @@ class GeoDistributor:
         self.regions = regions
         self.demand = demand
         self.crops = crops
-        self.herds = herds
+        self.herds = fix_herds(herds)
         self.feed_mgmt = feed_mgmt
 
         # Check FeedMgmt type
@@ -767,7 +767,7 @@ Constraint C2 was omitted!
         # produced in the region)
         sel_an = []
 
-        for h in self.herds:
+        for h in (h for h in self.herds if h.has_feed_demand()):
             if h.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0:
                 # Get crop products with a regional feed demand
                 nsel_cp2 = (
@@ -1199,7 +1199,8 @@ Constraint C2 was omitted!
             (cp,ps,re)
             for cp in list(set([
                                 cp
-                                for herd in self.herds if herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0
+                                for herd in self.herds if 
+                                    herd.has_feed_demand() and herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0
                                 for cp in (
                                     herd.data_attr.get('feed.regional_crop_product_demand')
                                     .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
@@ -1218,10 +1219,7 @@ Constraint C2 was omitted!
         col_nr = []
 
         # Go through animal herds
-        for herd in self.herds:
-            # Skip herds where there are no regional demands for feeds
-            if herd.data_attr.get('feed.regional_crop_product_demand').shape[1] <= 0:
-                continue
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             sp = herd.species
             br = herd.breed
@@ -1275,7 +1273,8 @@ Constraint C2 was omitted!
             (cp,ps,re)
             for cp in list(set([
                                 cp
-                                for herd in self.herds if herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0
+                                for herd in self.herds if 
+                                    herd.has_feed_demand() and herd.data_attr.get('feed.regional_crop_product_demand').shape[1] > 0
                                 for cp in (
                                     herd.data_attr.get('feed.regional_crop_product_demand')
                                     .replace({0:np.nan}).dropna(axis=1, how='all') # drop feeds with no regional demand
@@ -1432,7 +1431,7 @@ Constraint C2 was omitted!
         col_nr = []
 
         # Go through animal herds
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             sp = herd.species
             br = herd.breed

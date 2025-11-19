@@ -68,7 +68,7 @@ class GeoDistFeedMgmt(FeedMgmt):
     def calculate_feed_consumption(self):
         '''Calculates energy requirements per animal and from this + defined feed rations the total demand for feeds per animal.'''
 
-        for herd in (h for h in self.herds if 'heads' in h.data_attr):
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -139,7 +139,7 @@ class GeoDistFeedMgmt(FeedMgmt):
     def calculate_losses(self):
         '''Calculate feeds lost during storage and feeding and demand for feed products entering on-farm storage.
         '''
-        for herd in (h for h in self.herds if 'heads' in h.data_attr):
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(

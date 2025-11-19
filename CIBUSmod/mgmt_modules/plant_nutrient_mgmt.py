@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict, index_to_multi, elem_to_name
+from ..utils.misc import multiply_aligned, inv_dict, index_to_multi, fix_herds, elem_to_name
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -50,17 +50,7 @@ class PlantNutrientMgmt():
         self.crops = crops
         self.waste = waste
         self.cover_crops_mgmt = cover_crops_mgmt
-
-        if isinstance(herds, pd.Series):
-            self.herds = herds
-        else:
-            self.herds = pd.Series(
-                data=herds,
-                index=pd.MultiIndex.from_tuples(
-                    [(herds.species,herds.breed,herds.prod_system,herds.sub_system)],
-                    names=['species','breed','prod_system','sub_system']
-                )
-            )
+        self.herds = fix_herds(herds)
 
     def calculate(self, verbose=False):
 

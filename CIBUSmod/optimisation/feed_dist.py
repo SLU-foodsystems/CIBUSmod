@@ -61,11 +61,7 @@ class FeedDistributor(GeoDistributor):
         concatenated_herds = concat_herds(self.herds)
         heads_total = concatenated_herds.data_attr.get("heads")
 
-        for herd in self.herds:
-
-            if not 'heads' in herd.data_attr:
-                # Skip herd if it does not have the 'heads' data attribute
-                continue
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             sp = herd.species
             br = herd.breed
@@ -99,20 +95,23 @@ class FeedDistributor(GeoDistributor):
                 assert all_ratio_one_or_zero, (
                     "All ratios for non-cattle should be either 0 or 1"
                 )
-
-            feed_demands = (
-                self.x["fds"]
-                .to_frame("feed_amount")
-                .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
-                .reset_index()
-                .pivot(
-                    columns=["prod_system", "animal", "feed"],
-                    index="region",
-                    values="feed_amount",
+            try:
+                feed_demands = (
+                    self.x["fds"]
+                    .to_frame("feed_amount")
+                    .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
+                    .reset_index()
+                    .pivot(
+                        columns=["prod_system", "animal", "feed"],
+                        index="region",
+                        values="feed_amount",
+                    )
+                    .sort_index(axis=1)
+                    .sort_index()
                 )
-                .sort_index(axis=1)
-                .sort_index()
-            )
+            except KeyError:
+                # If KeyError there are no feeds to distribute to this AnimalHerd
+                continue
 
             adjusted_feed_demands = (ratio.T * feed_demands.T).T
             # Drop cols where feed is nan, which may arise when multiplying with ratio
@@ -158,11 +157,7 @@ class FeedDistributor(GeoDistributor):
             ["prod_system", "feed", "crop_prod"]
         )
 
-        for herd in self.herds:
-
-            if not 'feed.demand' in herd.data_attr:
-                # Skip herd if it does not have the 'feed.demand' data attribute
-                continue
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             feed_demands = herd.data_attr.get("feed.demand")
 

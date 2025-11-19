@@ -33,19 +33,13 @@ class FeedMgmt(ABC):
         self.herds: pd.Series = fix_herds(herds)
         self.index = list(self.herds)[0].index
 
-    def check_index(self):
-        if len(self.herds) > 0:
-            for n in range(len(self.herds) - 1):
-                if (self.herds[n].index != self.herds[n + 1].index).any():
-                    raise Exception("Indexes does not match across herds!")
-
     @abstractmethod
     def calculate(self, verbose=False):
         pass
 
     def calculate_ration_characteristics(self):
         """Calculates ration characteristics"""
-        for herd in (h for h in self.herds if 'heads' in h.data_attr):
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -111,7 +105,7 @@ class FeedMgmt(ABC):
         # Create list for feeds not linked to a product
         not_linked_feeds = []
 
-        for herd in (h for h in self.herds if 'heads' in h.data_attr):
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -257,7 +251,7 @@ class FeedMgmt(ABC):
             ["crop_group", "crop_prod"], qry='parameter == "max_crop_in_crop_prod"'
         ).set_index("crop_prod")["crop_group"]
 
-        for herd in (h for h in self.herds if 'heads' in h.data_attr):
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # If all empty, skip the calculations and just add a None
             if (
@@ -323,7 +317,7 @@ class FeedMgmt(ABC):
     def calculate_enteric_methane(self):
         idx = pd.IndexSlice
 
-        for herd in (h for h in self.herds if 'heads' in h.data_attr):
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             self.par.set(
                 species=herd.species, breed=herd.breed, sub_system=herd.sub_system
