@@ -49,18 +49,14 @@ class FeedMgmt(ABC):
             # Get dry matter intake [kg DM]
             ration_DM = feed_DM.T.groupby(["prod_system", "animal"]).sum().T
 
+            pars = ["N", "P", "K", "ASH", "GE"]
+
             if herd.species == "cattle":
-                pars = ["N", "P", "K", "ASH", "GE", "DE", "fat"]
-            elif herd.species == "sheep":
-                pars = ["N", "P", "K", "ASH", "GE", "DE"]
-            elif herd.species == "horses":
-                pars = ["N", "P", "K", "ASH", "GE", "DE"]
-            elif herd.species == "pigs":
-                pars = ["N", "P", "K", "ASH", "GE", "DE"]
+                pars += ["DE", "fat"]
+            elif herd.species in ["sheep","horses","pigs"]:
+                pars += ["DE"]
             elif herd.species == "poultry":
-                pars = ["N", "P", "K", "ASH", "GE", "AME"]
-            else:
-                raise ValueError(f"Received unexpected species of herd: {herd.species}")
+                pars += ["AME"]
 
             for par in pars:
                 res = (

@@ -52,6 +52,9 @@ class AnimalHerd(ABC):
     animals: list[str]
     products: list[str]
 
+    # Defines if manure should be calculated for AnimalHerd
+    has_manure = True
+
     def __init__(self,par,index,**kwargs):
 
         # Set to keep track of data attributes that have been assigned
