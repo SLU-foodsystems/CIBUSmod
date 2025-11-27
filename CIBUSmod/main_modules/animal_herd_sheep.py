@@ -287,8 +287,8 @@ class SheepHerd(AnimalHerd):
         E_growth = p('growth_energy_factor') * live_weight**0.75 * growth_rate
 
         if ani == 'ewes':
-            E_lactation = p('lactation_energy_factor') * p('weaning_age')
-            E_gestation = p('gestation_energy_add')
+            E_lactation = p('lactation_energy_factor') * (p('fertility')/100) * p('weaning_age')
+            E_gestation = p('gestation_energy_add') * (p('fertility')/100)
         else:
             E_lactation = 0
             E_gestation = 0
