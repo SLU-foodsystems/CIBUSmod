@@ -72,7 +72,7 @@ class ParameterRetriever:
     def update_relation_tables(cls):
         path = os.path.join(cls.data_path,'relation_tables.xlsx')
         try:
-            cls.relation_tables = pd.read_excel(
+            cls.relation_tables = _excel_reader(
                 path,
                 sheet_name=None, dtype=str
             )
@@ -496,15 +496,16 @@ Parameters
                 warnings.warn(f"No scenario data workbook found on path {scn_path}")
                 continue
 
-            wb = load_workbook(scn_path, read_only=True)
-            if self.name not in wb.sheetnames:
-                # If sheet does not exist don't update anything
-                wb._archive.close()
-                continue
-            wb._archive.close()
-
             # Read scenario parameter values
-            scn_data_raw = _read_xl(scn_path,self.name)
+            try:
+                scn_data_raw = _read_xl(scn_path,self.name)
+            except ValueError as e:
+                if e.args[0] == f"Worksheet named '{self.name}' not found":
+                    # If sheet does not exist don't update anything
+                    continue
+                else:
+                    raise e
+                
             scn_data = scn_data_raw.copy()
 
             # Select parameters to update
@@ -729,7 +730,7 @@ def _read_external_sheet(path,parameter):
     if file_ext == '.csv':
         reader = pd.read_csv
     elif file_ext == '.xlsx':
-        reader = pd.read_excel
+        reader = _excel_reader
     else:
         raise ValueError(f"Supplied path had file extension {file_ext}, only .csv or .xlsx allowed")
 
@@ -761,10 +762,47 @@ def _read_external_sheet(path,parameter):
 
     return df.loc[:,f_cols+['parameter','value']]
 
+def _excel_reader(
+        io,
+        sheet_name = 0,
+        **kwargs
+    ):
+    '''Calls pandas.read_excel() and tries to solve PermissionError if it occurs.'''
+    try:
+        return pd.read_excel(io, sheet_name, **kwargs)
+    except PermissionError:
+        # If PermissinError is thrown this is likely because Windows blocks read
+        # (e.g. if the file is in a OneDrive fodler). Try open as shared. This
+        # will likely fail for other OS.
+        src = io
+
+        import win32file
+        import win32con
+        import io
+
+        # Open file with shared read/write so Excel won’t block us
+        handle = win32file.CreateFile(
+            src,
+            win32con.GENERIC_READ,
+            win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE | win32con.FILE_SHARE_DELETE,
+            None,
+            win32con.OPEN_EXISTING,
+            0,
+            None
+        )
+
+        # Read the file bytes manually
+        _, data = win32file.ReadFile(handle, 10_000_000)  # read up to ~10MB; increase if needed
+        handle.Close()
+
+        # Load workbook from bytes in memory
+        bio = io.BytesIO(data)
+        return pd.read_excel(bio, sheet_name, **kwargs)
+
 def _read_xl(path,sheet):
     idx = pd.IndexSlice
     # Read xl and set value columns to type float
-    df = pd.read_excel(path, sheet_name=sheet, dtype=str)
+    df = _excel_reader(path, sheet_name=sheet, dtype=str)
 
     # Get parameters from any referenced external sheets
     if sheet=='default':
