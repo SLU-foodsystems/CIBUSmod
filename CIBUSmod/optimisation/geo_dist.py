@@ -1048,11 +1048,10 @@ Constraint C2 was omitted!
         )
 
     def make_A1_1(self):
-
         # Get row index from animal product demand vector (ps,sp,ap)
-        row_idx = self.D_idx['ani']
+        row_idx = self.D_idx["ani"]
         # Get col index from animal herds (sp,br,ps,ss,re)
-        col_idx = self.x_idx['ani']
+        col_idx = self.x_idx["ani"]
 
         # To store data and corresponding row/col numbers for constructing matrix
         val = []
@@ -1068,32 +1067,28 @@ Constraint C2 was omitted!
             ss = herd.sub_system
 
             # Go through animal products
-            for ap in herd.data_attr.get('production').columns.get_level_values('animal_prod').unique():
+            for ap in herd.data_attr.get("production").columns.unique("animal_prod"):
                 # Go through output production systems
-                for ops in herd.data_attr.get('production').columns.get_level_values('prod_system').unique():
-                    if (ops,sp,ap) in row_idx:
+                for ops in herd.data_attr.get("production").columns.unique("prod_system"):
+                    if (ops, sp, ap) in row_idx:
                         # Get production of animal product (ap) from output production system (ops) per head
                         # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
                         # and region (re)
-                        res = herd.data_attr.get('production').loc[:,(ops,slice(None),ap)].sum(axis=1)
+                        res = (
+                            herd.data_attr.get("production")
+                            .loc[:, (ops, slice(None), ap)]
+                            .sum(axis=1)
+                        )
 
                         # Store values and row/col nr
                         val.extend(res.values)
-                        row_nr.extend(
-                            [row_idx.get_loc((ops,sp,ap))] * len(res)
-                        )
+                        row_nr.extend([row_idx.get_loc((ops, sp, ap))] * len(res))
                         col_nr.extend(
-                            [col_idx.get_loc((sp,br,ps,ss,re)) for re in res.index]
+                            [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
                         )
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc(),
-            row_idx,
-            col_idx
-        )
-
-        return M
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
     def make_A1_2(self):
         # Get row index from crop product demand vector (ps,cp)
