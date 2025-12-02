@@ -158,7 +158,7 @@ animals              {self.animals}
         )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','meat','milk','fish']
+        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','does','meat','milk','fish']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -355,10 +355,18 @@ animals              {self.animals}
         # Calculate raw milk production [kg ECM]
         # kg ECM = kg milk x 0.25 + kg fat x 12.2 + kg protein x 7.7
         if 'milk' in prs:
+            #
+            if self.species == 'cattle':
+                milk_ani = 'cows'
+                milk_to_young_attr = 'milk_to_calves'
+            elif self.species == 'goats':
+                milk_ani = 'does'
+                milk_to_young_attr = 'milk_to_kids'
+
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
-                    pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
-                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get('milk_to_calves').sum(axis=1)).values.clip(0) *
+                    pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,milk_ani)]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
+                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get(milk_to_young_attr).sum(axis=1)).values.clip(0) *
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
                     axis = 0
                 )
@@ -420,6 +428,7 @@ from .animal_herd_poultry_broiler import BroilerHerd
 from .animal_herd_poultry_layer import LayerHerd
 from .animal_herd_horse import HorseHerd
 from .animal_herd_sheep import SheepHerd
+from .animal_herd_goat import GoatHerd
 from .animal_herd_aquaculture import AquacultureHerd
 from .animal_herd_fisheries import FisheriesHerd
 

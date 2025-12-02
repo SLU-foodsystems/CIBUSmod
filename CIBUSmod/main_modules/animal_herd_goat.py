@@ -8,7 +8,7 @@ class GoatHerd(AnimalHerd):
 
     def __init__(self,par,index,**kwargs):
 
-        self.species = 'sheep'
+        self.species = 'goats'
         self.animals = ['does','bucks','kids']
         self.products = ['meat','milk']
 
@@ -35,8 +35,8 @@ class GoatHerd(AnimalHerd):
         idx_len = len(self.index)
 
         # Calculate number of does and bucks
-        does = self.x / (1 + p('bucks_per_doe'))
-        bucks = self.x - does
+        does = self.x
+        bucks = does * p('bucks_per_doe')
 
         kids_born = (
             does *
@@ -47,14 +47,26 @@ class GoatHerd(AnimalHerd):
         kids_to_replacement = does * (p('replacement_rate')/100)
         kids_to_replacement_bucks = bucks * (p('replacement_rate_bucks')/100)
 
+        kids_culled = (
+            kids_born -
+            kids_to_replacement -
+            kids_to_replacement_bucks
+        ) * (p('surplus_kids_culled')/100)
+
         does_lost = does * (p('mortality', animal='does')/100)
         lw_does_lost = does_lost * p('slaughter_weight') * p('live_weight_per_CW')
 
         bucks_lost = bucks * (p('mortality', animal='bucks')/100)
         lw_bucks_lost = bucks_lost * p('slaughter_weight') * p('live_weight_per_CW')
 
-        kids_lost = kids_born * (p('mortality', animal='kids')/100)
-        lw_kids_lost = kids_lost * (p('birth_weight') + p('slaughter_weight')*p('live_weight_per_CW'))/2
+        kids_lost = (
+            (kids_born - kids_culled) * (p('mortality', animal='kids')/100) +
+            kids_culled
+        )
+        lw_kids_lost = (
+            (kids_lost - kids_culled) * (p('birth_weight') + p('slaughter_weight')*p('live_weight_per_CW'))/2 +
+            kids_culled * p('birth_weight')
+        )
 
         does_to_slaughter = kids_to_replacement - does_lost
         bucks_to_slaughter = kids_to_replacement_bucks - bucks_lost
@@ -71,7 +83,7 @@ class GoatHerd(AnimalHerd):
                 kids_to_replacement * p('slaughter_weight', animal='does') * p('live_weight_per_CW')
                 + kids_to_replacement_bucks * p('slaughter_weight', animal='bucks') * p('live_weight_per_CW')
                 + kids_to_slaughter * p('slaughter_weight', animal='kids') * p('live_weight_per_CW')
-                + kids_lost * (p('slaughter_weight', animal='kids')/2) * p('live_weight_per_CW')
+                + (kids_lost - kids_culled) * (p('slaughter_weight', animal='kids')/2) * p('live_weight_per_CW')
             )
             - kids_born*p('birth_weight')
         )
@@ -79,7 +91,7 @@ class GoatHerd(AnimalHerd):
         # Calculate average number of live kids over the year
         kids = (
             # Lost kids are assumed to live to half their slaughter age
-            (kids_lost/2 + kids_to_slaughter) * p('slaughter_age', animal='kids') / 365.25 +
+            ((kids_lost - kids_culled)/2 + kids_to_slaughter) * p('slaughter_age', animal='kids') / 365.25 +
             (kids_to_replacement + kids_to_replacement_bucks) * p('age_at_first_kidding') / 12
         )
 
@@ -186,9 +198,18 @@ class GoatHerd(AnimalHerd):
         return None
 
     def _calculate_feed_req(self):
+
+        # Remove 'milk_to_kids' attribute if it exists
+        if 'milk_to_kids' in self.data_attr:
+            self.data_attr.remove('milk_to_kids')
+
         # Get production systems and animals present
         pss = list(self.data_attr.get("heads").columns.get_level_values('prod_system'))
         anis = list(self.data_attr.get("heads").columns.get_level_values('animal'))
+
+        # Make sure kids are hendeled first to get milk from does
+        # to kids
+        anis.insert(0, anis.pop(anis.index('kids')))
 
         # Get available paramters
         pars = self.par.data.index.get_level_values('parameter')
@@ -202,35 +223,9 @@ class GoatHerd(AnimalHerd):
             # Get number of heads of animal = ani & production system = ps
             heads = self.data_attr.get('heads').loc[:,(ps,ani)]
 
-            if (
-                'maintanance_energy_factor' in pars and
-                'gestation_energy_add' in pars and
-                'lactation_energy_factor' in pars and
-                'growth_energy_factor' in pars and
-                'energy_share_before_weaning_from_milk' in pars
-            ):
-                # Calculate metabolizable energy (ME) requirements and append to feed_req DataFrame
-                ME_req = self._calculate_ME_req(ps, ani)
-                self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
-            else:
-                # Calculate dry matter requirements and append to feed_req DataFrame
-                DM_req = self._calculate_DM_req(ps, ani)
-                self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'DM')] = DM_req * heads
-
-    def _calculate_DM_req(self,ps,ani):
-        '''Calculates feed DM requirements from fixed intake per head or lifetime'''
-
-        p = self.par.get
-
-        if ani == 'kids':
-            feed_req = (
-                self.data_attr.get('inserted_n').loc[:,(ps,ani)] -
-                self.data_attr.get('lost_n').loc[:,(ps,ani)] * 0.5 # 50% feed req. for lost kids
-            ) * p('feed_per_lifetime') / self.data_attr.get('heads').loc[:,(ps,ani)]
-        else:
-            feed_req = p('feed_per_head')
-
-        return feed_req
+            # Calculate metabolizable energy (ME) requirements and append to feed_req DataFrame
+            ME_req = self._calculate_ME_req(ps, ani)
+            self.data_attr.get('feed_req_eq').loc[:,(ps,ani,'ME')] = ME_req * heads
 
     def _calculate_ME_req(self,ps,ani):
         '''Calculates Metabolizable Energy (ME) requrements for goats based on
@@ -243,7 +238,15 @@ class GoatHerd(AnimalHerd):
 
         kids_born = self.data_attr.get('inserted_n').loc[:,(ps,'kids')]
         kids_slaughtered = self.data_attr.get('slaughtered_n').loc[:,(ps,'kids')]
-        kids_lost = self.data_attr.get('lost_n').loc[:,(ps,'kids')]
+        kids_culled = (
+            kids_born -
+            self.data_attr.get('inserted_n').loc[:,(ps,'does')] -
+            self.data_attr.get('inserted_n').loc[:,(ps,'bucks')]
+        ) * (p('surplus_kids_culled')/100)
+        kids_lost = (
+            self.data_attr.get('lost_n').loc[:,(ps,'kids')] -
+            kids_culled
+        )
 
         # If no animals return zero array
         if heads.sum() == 0:
@@ -254,25 +257,26 @@ class GoatHerd(AnimalHerd):
         if ani in ['does','bucks']:
             live_weight = p('slaughter_weight')*p('live_weight_per_CW')
         elif ani == 'kids':
-            # Calculate average final (i.e. slaughter, lost or replacing ewe/ram)
-            # weight of lambs to calculate average live weight of lambs in herd
+            # Calculate average final (i.e. slaughter, lost or replacing doe/buck)
+            # weight of kids to calculate average live weight of kids in herd
+            # Kids culled at birth excluded as zero feed demand assumed for those
             avg_end_weight = (
                 p('slaughter_weight')*p('live_weight_per_CW') * kids_slaughtered
                 + (p('slaughter_weight')*p('live_weight_per_CW')/2) * kids_lost
-                + p('slaughter_weight', animal='does')*p('live_weight_per_CW') * (kids_born-kids_slaughtered-kids_lost)
-            ) / kids_born
+                + p('slaughter_weight', animal='does')*p('live_weight_per_CW') * (kids_born-kids_slaughtered-kids_culled-kids_lost)
+            ) / (kids_born - kids_culled)
             self.par.set(animal=ani)
             live_weight = (p('birth_weight') + avg_end_weight) / 2
 
-        # Get share of energy from milk for lambs
+        # Get share of energy from milk for kids
         if ani == 'kids':
-            # Calculate average final (i.e. slaughter, lost or replacing ewe/ram)
-            # age of lambs to calculate share of time suckling
+            # Calculate average final (i.e. slaughter, lost or replacing doe/buck)
+            # age of kids to calculate share of time suckling
             avg_end_age = (
                 p('slaughter_age') * kids_slaughtered
                 + (p('slaughter_age')/2) * kids_lost
-                + (p('age_at_first_kidding')*30.44) * (kids_born-kids_slaughtered-kids_lost)
-            ) / kids_born # [days]
+                + (p('age_at_first_kidding')*30.44) * (kids_born-kids_slaughtered-kids_lost-kids_culled)
+            ) / (kids_born - kids_culled) # [days]
             # Calcualte energy share from milk as share of time suckling
             # times share of energy from milk during the suckling period
             E_share_milk = (p('weaning_age')/avg_end_age) * (p('energy_share_before_weaning_from_milk')/100)
@@ -282,11 +286,22 @@ class GoatHerd(AnimalHerd):
         # Calculate energy for maintenance and growth besed on supplied factors
         # and average live weigh and growth rate
         E_maintenance = p('maintanance_energy_factor') * live_weight**0.75
-        E_growth = p('growth_energy_factor') * live_weight**0.75 * growth_rate
+        E_growth = p('growth_energy_factor') * growth_rate
 
         if ani == 'does':
-            E_lactation = p('lactation_energy_factor') * p('weaning_age')
-            E_gestation = p('gestation_energy_add')
+            # ME req. for lactation [MJ/day]
+            # Milk production is taken as the maximum of 'milk_prod' parameter and
+            # calculated milk to kids
+            # Milk in kg ECM: milk kg x 0,25 + fat kg x 12,2 + protein kg x 7,7 = kg ECM
+            milk_prod = np.maximum(
+                p('milk_prod'),
+                self.data_attr.get('milk_to_kids').sum(axis=1).values
+            )
+            milk = milk_prod * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7) / 365.25
+            E_lactation = p('lactation_energy_factor') * milk
+
+            # ME req. for gestation [MJ/year]
+            E_gestation = p('gestation_energy_add') * (p('fertility')/100)
         else:
             E_lactation = 0
             E_gestation = 0
@@ -294,5 +309,27 @@ class GoatHerd(AnimalHerd):
         # Total ME req. [MJ/year] (excl. gestation)
         E_req_final = (E_maintenance + E_growth)*(1-E_share_milk)*365.25 + E_lactation + E_gestation
         E_req_final = np.nan_to_num(E_req_final)
+
+        
+        if ani == 'kids':
+            # Calculate milk to kids and store data attribute
+            milk_to_kids = pd.DataFrame(
+                (
+                    (
+                        (E_maintenance + E_growth) * E_share_milk
+                        * self.data_attr.get('heads').loc[:,(ps, ani)]
+                        * 365.25
+                    ) / p('energy_in_milk_to_kids')
+                ).values,
+                index = self.index,
+                columns = pd.Index([ps], name='prod_system')
+            )
+            self.data_attr.add(
+                milk_to_kids,
+                name = 'milk_to_kids',
+                unit = 'kg/year',
+                orig = 'GoatHerd',
+                desc = 'Milk fed to kids'
+            )
 
         return E_req_final
