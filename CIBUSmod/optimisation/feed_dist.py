@@ -26,7 +26,7 @@ from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
-from .utils import feed_demands_to_crop_demands
+from .utils import Constraint, feed_demands_to_crop_demands
 
 from typing import Literal
 
@@ -930,17 +930,13 @@ class FeedDistributor(GeoDistributor):
             mode="prepend",
         )
 
-        # Build first a 'large' A12_2, from which we later slice smaller versions
-        # depending on which rows are present in A12_1.
-        A12_2_complete = self.make_A12_2(row_idx)
-
         def make_A12(rel):
             A12_1 = self.make_A12_1(row_idx, rel)
             # Drop rows where we lack constriants
             A12_1.prune_rows()
             # Create an A12_2 which only contains the rows for which we have data for
             # the given herd, animal and feed_par.
-            A12_2 = IndexedMatrix.align_rows(A12_2_complete, A12_1)
+            A12_2 = self.make_A12_2(A12_1.rows)
             Z_crp = scipy.sparse.csc_array((len(A12_1.rows), len(self.x_idx["crp"])))
 
             if A12_1.shape[0] == 0:
@@ -1828,19 +1824,27 @@ class FeedDistributor(GeoDistributor):
         row_idx_df = pd.DataFrame(range(len(row_idx)), index=row_idx, columns=["row_i"])
         col_idx_df = pd.DataFrame(range(len(col_idx)), index=col_idx, columns=["col_i"])
 
-        loss_factors = self._get_losses_factors(shape="long")
-        feed_compositions = self._get_feed_compositions(shape="long").dropna()
+        joined_df = row_idx_df.join(col_idx_df)
 
-        values = feed_compositions.join(loss_factors)
-        values = (values["losses_factor"] * values["feed_to_par_factor"]).to_frame(
-            name="values"
+        def perc_to_change_factor(df):
+            return (100 - df) / 100
+
+        # Set filters to get feed composition and losses
+        self.feed_mgmt.par.clear()
+        self.feed_mgmt.par.set(**joined_df.index.to_frame().to_dict('list'))
+
+        # Get feed composition
+        joined_df["feed_composition"] = np.nan_to_num(
+            self.feed_mgmt.par.get('feed_composition', warn_if_nan=False) # <-- Warn for NaN???
         )
+        joined_df.loc[joined_df.index.get_level_values('feed_par') == 'DM', "feed_composition"] = 1 # Dry matter is allways 1
 
-        joined_df = values.join(row_idx_df).join(col_idx_df)
-        # Drop all levels in the index except "row_i". This is significantly (10x)
-        # faster than doing reset_index() directly, for some reason.
-        cols_to_drop = [x for x in joined_df.index.names if x != "row_i"]
-        joined_df = joined_df.reset_index(cols_to_drop, drop=True)
+        joined_df["loss_factor"] = (
+            perc_to_change_factor(self.feed_mgmt.par.get('storage_losses')) *
+            perc_to_change_factor(self.feed_mgmt.par.get('feeding_losses'))
+        )
+        joined_df["values"] = joined_df["feed_composition"] * joined_df["loss_factor"]
+        joined_df = joined_df.reset_index(drop=True)
 
         return IndexedMatrix.from_frame(joined_df, row_idx, col_idx)
 
@@ -1925,10 +1929,6 @@ class FeedDistributor(GeoDistributor):
             levels=[feed_pars], names=["feed_par"], index=_base_row_idx, mode="prepend"
         )
 
-        # Get loss factors and composition for all feeds
-        losses_factors = self._get_losses_factors(shape="long").reset_index()
-        feed_compositions = self._get_feed_compositions(shape="long").reset_index()
-
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
@@ -1948,31 +1948,41 @@ class FeedDistributor(GeoDistributor):
                     "region",
                 ],
             )
-            # Now merge with feed_compositions to map feeds to feed_pars. how="left" to set a default value of 0
-            .merge(
-                feed_compositions,
-                how="left",
-                on=[
-                    "feed_par",
-                    "feed",
-                    "animal",
-                    "species",
-                    "breed",
-                    "prod_system",
-                    "sub_system",
-                ],
-            )
-            .merge(
-                losses_factors,
-                how="left",
-                on=["feed", "animal", "species", "breed", "prod_system", "sub_system"],
-            )
-            .fillna(0)
+        )
+
+        def perc_to_change_factor(df):
+            return (100 - df) / 100
+
+        # Set filters to get feed composition and losses
+        self.feed_mgmt.par.clear()
+        self.feed_mgmt.par.set(
+            **merged[[
+                'feed',
+                'animal',
+                'species',
+                'breed',
+                'prod_system',
+                'sub_system',
+                'region',
+                'feed_par'
+                ]].to_dict('list')
+        )
+
+        # Get feed composition
+        merged['feed_to_par_factor'] = np.nan_to_num(
+            self.feed_mgmt.par.get('feed_composition', warn_if_nan=False) # <-- Warn for NaN???
+        )
+
+        # Get feed losses
+        merged['losses_factor'] = (
+            perc_to_change_factor(self.feed_mgmt.par.get('storage_losses')) *
+            perc_to_change_factor(self.feed_mgmt.par.get('feeding_losses'))
         )
 
         merged["values"] = (
             merged["losses_factor"] * (merged["feed_to_par_factor"] - merged["feed_req_of_DM"])
         )
+
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
 
     def make_A14(
