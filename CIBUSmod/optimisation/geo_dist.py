@@ -208,7 +208,7 @@ class GeoDistributor:
         None
         '''
 
-        vprint = verbose_init(verbose, id_str='GeoDistributor.solve')
+        vprint = verbose_init(verbose, id_str=f"{self.module_name}.solve")
 
         # If a list of alternative solver/settings is not supplied
         # make a one element list
