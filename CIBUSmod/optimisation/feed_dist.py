@@ -177,21 +177,34 @@ class FeedDistributor(GeoDistributor):
     def get_x0(self):
         super().get_x0()
 
-        # Add feeds to x index
-        self.x_idx['fds'] = pd.MultiIndex.from_tuples(
-            [
-                (f, ani, sp, br, ps, ss, re)
-                for (sp, br, ps, ss) in self.herds.index
-                for re in self.herds[(sp, br, ps, ss)].index
-                for f in
-                    (
-                        self.herds[(sp, br, ps, ss)].par
-                        .get_unique("feed", qry = "parameter.isin(['share_in_ration','min_share_in_ration','max_share_in_ration'])")
-                        if "f_feed" in self.herds[(sp, br, ps, ss)].par.data.index.names else [] # Empty list if 'f_feed' filter column not in data
-                    )
-                for ani in self.herds[(sp, br, ps, ss)].animals
-            ],
-            names = [
+        idx_list = []
+        for i,herd in enumerate(self.herds):
+
+            # Get feeds in herd
+            if "f_feed" in herd.par.data.index.names:
+                feed_idx = pd.Index(
+                    herd.par.get_unique("feed", qry = "parameter.isin(['share_in_ration','min_share_in_ration','max_share_in_ration'])"),
+                    name = 'feed'
+                )
+            else:
+                # Empty index if 'f_feed' filter column not in data
+                feed_idx =  pd.Index([], name = 'feed')
+
+            # Create full feed index for herd
+            idx = pd.MultiIndex.from_product(
+                [self.herds.index[[i]].get_level_values(l) for l in self.herds.index.names] +
+                [herd.index] +
+                [feed_idx] +
+                [pd.Index(herd.animals, name='animal')]
+            )
+
+            idx_list += [idx]
+
+        # Create combined feed index for all herds
+        full_feed_idx = (
+            idx_list[0]
+            .append(list(idx_list[1:]))
+            .reorder_levels([
                 "feed",
                 "animal",
                 "species",
@@ -199,14 +212,17 @@ class FeedDistributor(GeoDistributor):
                 "prod_system",
                 "sub_system",
                 "region",
-            ],
+            ])
         )
 
+        # Add to x index dict
+        self.x_idx['fds'] = full_feed_idx.copy()
+
         # Add feeds to x0
-        self.x0['fds'] = pd.Series(data=0, index=self.x_idx["fds"])
+        self.x0['fds'] = pd.Series(data=0, index=full_feed_idx.copy())
 
         # Add feeds to x0 index
-        self.x0_idx['fds'] = self.x_idx["fds"].copy()
+        self.x0_idx['fds'] = full_feed_idx.copy()
 
     def calculate_scaling_factors(
         self, scale_power: float = 0.0, cutoff_percentile: float = 99.0
