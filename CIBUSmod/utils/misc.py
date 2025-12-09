@@ -4,7 +4,8 @@ from itertools import product
 import pandas as pd
 import numpy as np
 
-from typing import TYPE_CHECKING, Literal, Iterable, Sequence, Hashable
+from typing import TYPE_CHECKING, Literal, Iterable, \
+    Union, Sequence, Hashable
 
 if TYPE_CHECKING:
     from ..main_modules.animal_herd import AnimalHerd
@@ -130,6 +131,24 @@ def extend_index(
         [combine(tup, new_els) for tup in index.values for new_els in product(*levels)],
         names=combine(index.names, names),
     )
+
+def multiindex_product(
+        indexes:Sequence[Union[pd.Index, pd.MultiIndex]]
+    ) -> pd.MultiIndex:
+    """Return MultiIndex that is the cartesian product of supplied
+    Index or MultiIndex objects"""
+    idx_dfs = [idx.to_frame(index=False) for idx in indexes]
+    part_idx = pd.MultiIndex.from_product([df.index for df in idx_dfs])
+    idx_df = pd.concat(
+        [
+            idx_dfs[i]
+            .loc[part_idx.get_level_values(i)]
+            .reset_index(drop=True)
+            for i in range(len(indexes))
+        ],
+        axis=1
+    )
+    return pd.MultiIndex.from_frame(idx_df)
 
 # Chemical elements to names
 elem_to_name = {

@@ -119,6 +119,22 @@ class IndexedMatrix:
             row_idx=row_idx,
             col_idx=col_idx,
         )
+    
+    @classmethod
+    def zeros(
+        cls,
+        row_idx: pd.Index | pd.MultiIndex,
+        col_idx: pd.Index | pd.MultiIndex,
+    ):
+        """
+        Create an IndexedMatrix of zeros
+        """
+        return cls(
+            scipy.sparse.csc_matrix((len(row_idx), len(col_idx))),
+            row_idx=row_idx,
+            col_idx=col_idx,
+        )
+        
 
     @classmethod
     def align_rows(cls, A: Self, B: Self):
