@@ -2299,7 +2299,7 @@ class FeedDistributor(GeoDistributor):
 
     def _get_feed_to_prod_factors(
         self,
-        crop_prod_type: Literal["crop_prod", "by_prod"] = "crop_prod",
+        prod_type: Literal["crop_prod", "by_prod", "crop_resid"] = "crop_prod",
         index: bool = False,
     ) -> pd.DataFrame:
         """
@@ -2309,7 +2309,7 @@ class FeedDistributor(GeoDistributor):
         feed_par = self.feed_mgmt.par
         feed_par.clear()
 
-        feed_to_prod: pd.DataFrame = feed_par.get_unique(["feed", crop_prod_type])
+        feed_to_prod: pd.DataFrame = feed_par.get_unique(["feed", prod_type])
         row_idx = self.x_idx["fds"].droplevel("region").unique().to_frame(index=False)
         df = row_idx.merge(feed_to_prod, on="feed")
 
@@ -2325,7 +2325,7 @@ class FeedDistributor(GeoDistributor):
         if index:
             df = df.set_index(
                 ["feed", "animal", "species", "breed", "prod_system", "sub_system"]
-                + [crop_prod_type]
+                + [prod_type]
             )
 
         return df

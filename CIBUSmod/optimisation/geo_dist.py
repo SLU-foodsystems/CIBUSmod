@@ -10,7 +10,10 @@ import scipy
 
 import re as regex
 
-from .. import Regions, DemandAndConversions, CropProduction, FeedMgmt, ParameterRetriever
+from .. import \
+    Regions, DemandAndConversions, CropProduction, FeedMgmt, \
+    ManureMgmt, CropResidueMgmt, \
+    ParameterRetriever
 
 from ..utils.verbose_print import verbose_init
 from ..utils.misc import multiply_aligned, inv_dict, fix_herds
@@ -54,7 +57,10 @@ class GeoDistributor:
             crops:CropProduction,
             herds:pd.Series,
             feed_mgmt:FeedMgmt,
-            par:ParameterRetriever):
+            par:ParameterRetriever,
+            manure_mgmt:ManureMgmt = None,
+            crop_residue_mgmt:CropResidueMgmt = None
+        ):
 
         self.par = par
         self.data_attr = DataAttr(self)
@@ -64,6 +70,8 @@ class GeoDistributor:
         self.crops = crops
         self.herds = fix_herds(herds)
         self.feed_mgmt = feed_mgmt
+        self.manure_mgmt = manure_mgmt
+        self.crop_residue_mgmt = crop_residue_mgmt
 
         # Check FeedMgmt type
         if not isinstance(feed_mgmt, self.feed_mgmt_type):
