@@ -219,17 +219,14 @@ class ManureMgmt():
                     # Update DataFrame
                     mms_shares.update(grazing_share)
 
-            if not np.isclose(mms_shares.T.groupby(['prod_system','animal']).sum().T, 1).all():
-                # Adjust non-grazing MMS shares
-                adjusted = (
-                    mms_shares.loc[:, (slice(None), slice(None), mmss)]
-                    .T.groupby(['prod_system','animal']).transform(lambda x: x/x.sum()).T
+            # Adjust non-grazing MMS shares
+            mms_shares.loc[:, (slice(None), slice(None), mmss)] = (
+                mms_shares.loc[:, (slice(None), slice(None), mmss)] - 
+                multiply_aligned(
+                    mms_shares.loc[:, (slice(None), slice(None), mmss)],
+                    mms_shares.xs('grazing', level='MMS', axis=1)
                 )
-                adjusted = multiply_aligned(
-                    adjusted,
-                    1 - mms_shares.xs('grazing', level='MMS', axis=1)
-                )
-                mms_shares.update(adjusted)
+            )
 
             # Drop MMSs not used in herd
             mms_sums = mms_shares.T.groupby('MMS').sum().T.sum()
