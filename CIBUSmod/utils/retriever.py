@@ -992,8 +992,6 @@ def _select_allowing_any_k_defaults(data, index, k):
 
     # Get elements with exactly one result
     results = results[exactly_one_result].sum(axis=1)
-    # Drop duplicate indexes to be able to merge back (these will have returned the same value anyway)
-    results = results[~results.index.duplicated(keep='first')]
 
     return results
 
