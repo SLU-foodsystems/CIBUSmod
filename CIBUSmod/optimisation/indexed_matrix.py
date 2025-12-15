@@ -59,6 +59,64 @@ class IndexedMatrix:
         self.M = pruned_csr.tocsc()
         self.rows = self.rows[non_empty_rows]
         return self
+    
+    def extend_cols(
+            self,
+            target_idx:dict[str, pd.MultiIndex],
+            col_key:str|None = None
+            ):
+        """
+        Horizontaly extend matrix with zero-matrices to match target_idx
+        """
+
+        # Define function to slice original matrix into sub-matrices
+        # per key in column dict
+        def slice_horizontally(M, widths:dict):
+            slices = dict()
+            start = 0
+            for k,w in widths.items():
+                end = start + w
+                slices[k] = M[:, start:end]
+                start = end
+            return slices
+
+        # Get target keys (i.e. 'crp', 'ani', ...)
+        target_keys = list(target_idx.keys())
+
+        # Get width(s) of original matrix(ces)
+        if col_key is None:
+            try:
+                # Get widths of sub-matrices to slice out of original matrix
+                orig_widths = {k:len(v) for k,v in self.cols.items()}
+            except AttributeError:
+                raise ValueError("'col_key' must be specified if self.cols is not a dict")
+        elif isinstance(col_key, str):
+            if isinstance(self.cols, pd.MultiIndex):
+                # Only one sub-matrix with width = length of column index
+                orig_widths = {col_key:len(self.cols)}
+            else:
+                raise ValueError("self.cols should be a pd.MultiIndex if 'col_key' is supplied")
+        else:
+            raise ValueError("'col_key' must be None or str")
+
+        # Slice original matrix
+        orig_matrices = slice_horizontally(self.M, orig_widths)
+
+        # Dict to store output sub-matrices
+        matrices = dict()
+
+        # Assign matrices (zero matrix if key not in original matrix)
+        for k in target_keys:
+            if k in orig_matrices:
+                matrices[k] = orig_matrices[k]
+            else:
+                matrices[k] = scipy.sparse.csc_array((self.shape[0], len(target_idx[k])))
+
+        # Update matrix and cols
+        self.M = scipy.sparse.hstack(list(matrices.values()))
+        self.cols = target_idx.copy()
+
+        return None
 
     def todense(self):
         index = self.rows
