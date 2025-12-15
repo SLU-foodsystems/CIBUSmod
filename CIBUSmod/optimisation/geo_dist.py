@@ -612,30 +612,40 @@ Constraint C2 was omitted!
         }})
 
     def make_C3(self):
-        '''Creates C3: A3 @ x <= b3
+        """Creates C3: A3 @ x <= b3
 
-        Constrain the maximum area per 'land_use' in each region. The maximum area is set relative to areas
-        in x0 via the parameter 'max_land_use_factor' in the 'Regions' module. A 'max_land_use_factor' of 1
-        implies that areas can't exceed current areas in each region.
-        If the Regions setting 'max_land_use_from_scenario_x0' is set to True (default is False) maximum land
-        use changes if there are changes to 'x0_crops' in a scenario, otherwise default values of 'x0_crops'
-        are used irrespective of any changes in scenarios.
-        '''
+        Constrain the maximum area per 'land_use' in each region. The maximum area is
+        set relative to areas in x0 via the parameter 'max_land_use_factor' in the
+        'Regions' module. A 'max_land_use_factor' of 1 implies that areas can't exceed
+        current areas in each region.
+
+        If the Regions setting 'max_land_use_from_scenario_x0' is set to True (default
+        is False) maximum land use changes if there are changes to 'x0_crops' in a
+        scenario, otherwise default values of 'x0_crops' are used irrespective of any
+        changes in scenarios.
+        """
 
         A3 = self.make_A3()
+        A3.extend_cols(self.x_idx)
 
-        b3 = np.array([
-            self.regions.data_attr.get('max_land_use').loc[x[1],x[0]]
-            for x in A3.rows
-        ])
+        b3 = np.array(
+            [
+                self.regions.data_attr.get("max_land_use").loc[x[1], x[0]]
+                for x in A3.rows
+            ]
+        )
 
         # Append constraint
-        self.constraints.update({'C3: A3 @ x <= b3' : {
-            'left' : lambda x,A3,b3: A3.M @ x,
-            'right' : lambda A3,b3: b3,
-            'rel' : '<=',
-            'pars' : {'A3':A3, 'b3':b3}
-        }})
+        self.constraints.update(
+            {
+                "C3: A3 @ x <= b3": {
+                    "left": lambda x, A3, b3: A3.M @ x,
+                    "right": lambda A3, b3: b3,
+                    "rel": "<=",
+                    "pars": {"A3": A3, "b3": b3},
+                }
+            }
+        )
 
     def make_C4(self):
         '''Creates C4: A4 @ x <= 0
@@ -648,6 +658,13 @@ Constraint C2 was omitted!
         '''
 
         A4 = self.make_A4()
+        A4.extend_cols(self.x_idx)
+
+        if A4.shape[0] == 0:
+            warnings.warn(
+                "When building C4, the resulting A4 matrix turned out empty. C4 thus ignored."
+            )
+            return
 
         # Append constraint
         self.constraints.update({'C4: A4 @ x <= 0' : {
@@ -692,14 +709,16 @@ Constraint C2 was omitted!
         }})
 
     def make_C6(self):
-        '''Creates C6: A6 @ x <= 0
+        """Creates C6: A6 @ x <= 0
 
-        Constrain the minimum and/or maximum share of cropland devoted to a given crop group in a given
-        region in a given production system. The maximum share is set on 'crop_group' level via the parameters
-        'min_in_rot' and 'max_in_rot' in the 'CropProduction' module.
+        Constrain the minimum and/or maximum share of cropland devoted to a given crop
+        group in a given region in a given production system. The maximum share is set
+        on 'crop_group' level via the parameters 'min_in_rot' and 'max_in_rot' in the
+        'CropProduction' module.
 
-        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the relation tables.
-        '''
+        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the
+        relation tables.
+        """
 
         # Note to future:
         # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
@@ -711,6 +730,7 @@ Constraint C2 was omitted!
             ).shape[0] > 0:
 
                 A6 = self.make_A6(minmax)
+                A6.extend_cols(self.x_idx)
 
                 sign = '<=' if minmax == 'max' else '>='
 
@@ -1346,13 +1366,12 @@ Constraint C2 was omitted!
         row_nr = [row_idx.get_loc((lu,re)) for lu in land_uses for _,_,re in col_idx]
 
         M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z,M], format='csc'),
+            M,
             row_idx,
-            {'ani':self.x_idx['ani'],'crp':col_idx}
+            {'crp':col_idx}
         )
 
         return M
@@ -1402,13 +1421,12 @@ Constraint C2 was omitted!
             row_nr.extend(rns)
 
         M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['crp']))) # Zero matrix
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([M,Z], format='csc'),
+            M,
             row_idx,
-            {'ani':self.x_idx['ani'],'crp':col_idx}
+            {'ani':col_idx}
         )
 
         return M
@@ -1531,7 +1549,7 @@ Constraint C2 was omitted!
             names = ['crop_group','prod_system','region']
         )
         # Get col index from crops (cr,ps,re)
-        col_idx = self.x_idx['crp']
+        col_idx = self.x_idx['crp'].copy()
 
         # Get dict for translating crop --> land use
         lu_rel = self.par.get_rel('crop','land_use')
@@ -1561,13 +1579,12 @@ Constraint C2 was omitted!
             row_nr.extend(rns)
 
         M = scipy.sparse.coo_array((val,(row_nr,col_nr)), shape=(len(row_idx),len(col_idx))).tocsc()
-        Z = scipy.sparse.csc_matrix((M.shape[0],len(self.x_idx['ani']))) # Zero matrix
 
         # Create Compressed Sparse Column matrix
         M = IndexedMatrix(
-            scipy.sparse.hstack([Z,M], format='csc'),
+            M,
             row_idx,
-            {'ani':self.x_idx['ani'],'crp':col_idx}
+            {'crp':col_idx}
         )
 
         return M
