@@ -760,7 +760,7 @@ def _read_external_sheet(path,parameter):
     df = df.rename({parameter:'value'}, axis=1)
     df['parameter'] = parameter
 
-    return df.loc[:,f_cols+['parameter','value']]
+    return df.loc[:,f_cols+['parameter','value']].dropna(subset="value")
 
 def _excel_reader(
         io,
