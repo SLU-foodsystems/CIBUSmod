@@ -53,7 +53,7 @@ class FeedMgmt(ABC):
 
             if herd.species == "cattle":
                 pars += ["DE", "fat"]
-            elif herd.species in ["sheep","horses","pigs"]:
+            elif herd.species in ["sheep","goats","horses","pigs"]:
                 pars += ["DE"]
             elif herd.species == "poultry":
                 pars += ["AME"]
