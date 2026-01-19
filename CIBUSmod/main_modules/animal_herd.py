@@ -125,6 +125,9 @@ animals              {self.animals}
 
         vprint('Calculating herd structure ...')
         self.calculate_herd()
+        # Check for negative animal numbers (with some tolerance)
+        if (self.data_attr.get('heads') < 0-1e-8).any().any():
+            raise ValueError(f"Herd structure with negative headcounts for AnimalHerd ({self.species}, {self.breed}, {self.prod_system}, {self.sub_system}). Check data!")
 
         vprint('Calculating feed requirements ...')
         self.calculate_feed_req()
