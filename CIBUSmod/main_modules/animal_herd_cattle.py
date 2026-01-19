@@ -132,15 +132,17 @@ class CattleHerd(AnimalHerd):
 
         # No. female calves --> replacement heifers
         tmp_calves2replacement = cows * p('replacement_rate')/100
+        # No. male calves --> breeding bulls
+        tmp_calves2breeding_bulls = breeding_bulls * p('replacement_rate_bulls')/100
 
         # No. calves slaughtered before 1 year
-        tmp_calves2slaughter = (tmp_male2end + tmp_female2end - tmp_calves2replacement) * p('slaughter_share_as_calf')/100
+        tmp_calves2slaughter = (tmp_male2end + tmp_female2end - tmp_calves2replacement - tmp_calves2breeding_bulls) * p('slaughter_share_as_calf')/100
         # No. male calves slaughtered before 1 year (return 0 if div. by 0)
         tmp_male_calves2slaughter = np.divide(
-            tmp_calves2slaughter * (tmp_male2end),
-            (tmp_male2end + tmp_female2end - tmp_calves2replacement),
+            tmp_calves2slaughter * (tmp_male2end - tmp_calves2breeding_bulls),
+            (tmp_male2end + tmp_female2end - tmp_calves2replacement - tmp_calves2breeding_bulls),
             out = np.zeros_like(tmp_calves2slaughter),
-            where = (tmp_male2end + tmp_female2end - tmp_calves2replacement) != 0
+            where = (tmp_male2end + tmp_female2end - tmp_calves2replacement - tmp_calves2breeding_bulls) != 0
         )
 
         # No. female calves slaughtered before 1 year
@@ -149,15 +151,7 @@ class CattleHerd(AnimalHerd):
         # No. calves --> heifers for slaughter
         tmp_calves2heifer = tmp_female2end - tmp_calves2replacement - tmp_female_calves2slaughter
         # No. calves --> steers for slaughter
-        tmp_calves2steer = (tmp_male2end - tmp_male_calves2slaughter) * p('slaughter_share_male_as_steers')/100
-        # No. calves --> breeding bulls
-        tmp_calves2breeding_bulls = breeding_bulls * p('replacement_rate_bulls')/100
-        # Adjust number of steers for cases where male calves aren't enough
-        np.where(
-            tmp_calves2steer + tmp_male_calves2slaughter + tmp_calves2breeding_bulls > tmp_male2end,
-            tmp_male2end - tmp_male_calves2slaughter - tmp_calves2breeding_bulls,
-            tmp_calves2steer
-        )
+        tmp_calves2steer = (tmp_male2end - tmp_male_calves2slaughter - tmp_calves2breeding_bulls) * p('slaughter_share_male_as_steers')/100
         # No. calves --> bulls for slaughter
         tmp_calves2bull = tmp_male2end - tmp_male_calves2slaughter - tmp_calves2steer - tmp_calves2breeding_bulls
 
@@ -322,16 +316,26 @@ class CattleHerd(AnimalHerd):
             tmp_lwg_calves_slaughter_female * tmp_calves_slaughter_female * 365.25 # -> kg/year
         )
 
-        lw_calves_weaning_male = lw_calves_start + (
-            tmp_lwg_bulls * (tmp_calves2bull+tmp_calves2breeding_bulls) +
-            tmp_lwg_steers * tmp_calves2steer +
-            tmp_lwg_calves_slaughter_male * tmp_male_calves2slaughter
-        ) / (tmp_calves2bull+tmp_calves2breeding_bulls+tmp_calves2steer+tmp_male_calves2slaughter) * p('weaning_age') # -> kg
-        
-        lw_calves_weaning_female = lw_calves_start + (
-            tmp_lwg_heifers * (tmp_calves2heifer+tmp_calves2replacement) + 
-            tmp_lwg_calves_slaughter_female * tmp_female_calves2slaughter
-        ) / (tmp_calves2heifer+tmp_calves2replacement) * p('weaning_age') # -> kg
+        lw_calves_weaning_male = np.nan_to_num(
+            lw_calves_start + 
+            (
+                tmp_lwg_bulls * (tmp_calves2bull+tmp_calves2breeding_bulls) +
+                tmp_lwg_steers * tmp_calves2steer +
+                tmp_lwg_calves_slaughter_male * tmp_male_calves2slaughter
+            ) /
+            _np_zero_to_nan(tmp_calves2bull+tmp_calves2breeding_bulls+tmp_calves2steer+tmp_male_calves2slaughter) * # To avoid zero div errors
+            p('weaning_age') # -> kg
+        )
+
+        lw_calves_weaning_female = np.nan_to_num(
+            lw_calves_start + 
+                (
+                tmp_lwg_heifers * (tmp_calves2heifer+tmp_calves2replacement) + 
+                tmp_lwg_calves_slaughter_female * tmp_female_calves2slaughter
+            ) /
+            _np_zero_to_nan(tmp_calves2heifer+tmp_calves2replacement) * # To avoid zero div errors
+            p('weaning_age') # -> kg
+        )
 
         tmp_lwg_calves_suckling_male = (
             # Male calves
@@ -385,7 +389,7 @@ class CattleHerd(AnimalHerd):
         )
         tmp_calves_slaughter2lost_male
         tmp_calves_slaughter2lost_female
-        
+
         lw_calves_slaughter2lost = (
             # Male
             np.nan_to_num(
@@ -419,7 +423,7 @@ class CattleHerd(AnimalHerd):
             (p('mortality_male_weantoslaught_age') - p('weaning_age')) * # days
             (lwg_calves_bull / _np_zero_to_nan(calves_bull) / 365.25) # kg/head/day
         ) * calves_bull2lost # --> kg
-        
+
         lw_heifers2lost = np.zeros(len(cows)) # No losses
         lw_steers2lost = np.zeros(len(cows)) # No losses
         lw_bulls2lost = np.zeros(len(cows)) # No losses
