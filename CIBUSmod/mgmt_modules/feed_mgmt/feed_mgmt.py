@@ -52,7 +52,7 @@ class FeedMgmt(ABC):
             pars = ["N", "P", "K", "ASH", "GE"]
 
             if herd.species == "cattle":
-                pars += ["DE", "fat"]
+                pars += ["DE", "rough", "fat"]
             elif herd.species in ["sheep","goats","horses","pigs"]:
                 pars += ["DE"]
             elif herd.species == "poultry":
@@ -76,7 +76,7 @@ class FeedMgmt(ABC):
                 herd.data_attr.add(
                     res,
                     name="feed.ration_" + par,
-                    unit="MJ" if par in ["GE", "DE"] else "%",
+                    unit="MJ/kg DM" if par in ["GE", "DE"] else "*/kg DM",
                     orig="FeedMgmt",
                     desc="Ration " + par + " content",
                     scalable=False,
@@ -319,7 +319,7 @@ class FeedMgmt(ABC):
                 species=herd.species, breed=herd.breed, sub_system=herd.sub_system
             )
 
-            if herd.species in ["cattle", "sheep"]:
+            if herd.species in ["cattle", "sheep", "goats"]:
                 CH4_specific_energy = 55.6  # [MJ/kg]
 
                 # Get dry matter intake [kg DM]
@@ -347,40 +347,8 @@ class FeedMgmt(ABC):
 
                     # Get fat in ration [g/kg DM]
                     fat_in_ration = herd.data_attr.get("feed.ration_fat")
-
-                    # FUTURE FIX: Not ideal that roughage feeds are hardcoded here... Use relation_tables instead??
-                    rough_feeds = {
-                        "ley silage, 1st cut",
-                        "ley silage, regrowth",
-                        "other silage",
-                        "maize silage",
-                        "grazing",
-                    }
-                    sel_rough = list(
-                        set(
-                            herd.data_attr.get(
-                                "feed.consumption"
-                            ).columns.get_level_values("feed")
-                        ).intersection(rough_feeds)
-                    )
-
-                    # Calculate concentrate share [% of DM]
-                    concentrate_share = (
-                        100
-                        - (
-                            (
-                                herd.data_attr.get("feed.consumption")
-                                .loc[:, idx[:, :, sel_rough]]
-                                .T.groupby(["prod_system", "animal"])
-                                .sum()
-                                .T
-                            )
-                            / dry_matter_intake.replace(
-                                {0: np.nan}
-                            )  # To avoid div by 0 error
-                        )
-                        * 100
-                    )
+                    # Get concentrate share [% of DM]
+                    concentrate_share = herd.data_attr.get("feed.ration_rough")
 
                     # Calculate Ym (i.e. % of gross energy intake resulting in mtehane emissions)
                     Ym = -0.046 * concentrate_share + 7.1379
