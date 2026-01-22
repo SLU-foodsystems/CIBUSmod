@@ -97,7 +97,11 @@ class PigHerd(AnimalHerd):
             growth_rate_growers_and_finishers * p('growing_period')
         ) # kg/head
 
-        lwg_piglets = (p('live_weight_delivery') - p('birth_weight')) / (p('weaning_age') + p('post_weaning_nursing_period')) * piglets * 365.25
+        # Note: LWG for piglets only include live weight gain after weaning as N/P/K intake via milk not included
+        # in balance for calculating manure excretion. This means that manure excretion from piglets during the
+        # suckling period will be counted on the sows rather than the piglets. Half LWG counted for piglets lost
+        # between weaning and delivery.
+        lwg_piglets = (p('live_weight_delivery') - p('live_weight_weaning')) * (tmp_piglets_weaned+tmp_piglets_delivered)/2
         lwg_growers = growth_rate_growers_and_finishers * growers * 365.25
         lwg_finishers = growth_rate_growers_and_finishers * finishers * 365.25
         lwg_gilts = (
@@ -317,10 +321,8 @@ class PigHerd(AnimalHerd):
                 2*p('live_weight', animal='sows') -
                 growth_rate * (p('age_at_first_farrowing') - p('growing_period') - p('post_weaning_nursing_period') - p('weaning_age'))
             ) / 2
-        elif ani == 'piglets':
-            # After weaning
-            growth_rate = (p('live_weight_delivery') - p('live_weight_weaning')) / p('post_weaning_nursing_period')
-        elif ani in ['growing pigs','finishing pigs']:
+        elif ani in ['piglets','growing pigs','finishing pigs']:
+            # LWG for piglets only include growth after weaning. see .calculate_herd()
             growth_rate = self.data_attr.get('lwg').loc[:,(ps,ani)] / self.data_attr.get('heads').loc[:,(ps,ani)] / 365.25
 
         if ani == 'sows':
@@ -337,11 +339,7 @@ class PigHerd(AnimalHerd):
         if ani == 'gilts':
             E_req = 23.3 * 365.25 # [2] Tabell 6 >60 kg (gilts are treated as 'growing pigs' for the growing period)
 
-        if ani == 'piglets':
-            E_req = p('feed_energy_per_growth') * growth_rate * (p('post_weaning_nursing_period') / (p('weaning_age') + p('post_weaning_nursing_period'))) * 365.25
-            # E_req = 2.2 + live_weight * 0.41 * (p('post_weaning_nursing_period') / (p('weaning_age') + p('post_weaning_nursing_period'))) * 365.25 # Derived from [2] Tabell 2
-
-        if ani in ['growing pigs','finishing pigs']:
+        if ani in ['piglets','growing pigs','finishing pigs']:
             E_req = p('feed_energy_per_growth') * growth_rate * 365.25
 
         if E_req is None:
