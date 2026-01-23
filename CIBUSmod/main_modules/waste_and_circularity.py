@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
-from ..utils.misc import multiply_aligned
+from ..utils.misc import multiply_aligned, fix_herds
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ class WasteAndCircularity(object):
 
         self.demand = demand
         self.crops = crops
-        self.herds = herds
+        self.herds = fix_herds(herds)
 
     def calculate(self, verbose=False):
         '''
@@ -287,7 +287,7 @@ class WasteAndCircularity(object):
 
             # Get item from manure
             m_list = []
-            for herd in self.herds:
+            for herd in (h for h in self.herds if 'manure.VS_excr' in h.data_attr):
                 m = herd.data_attr.get(f'manure.{i}_to_treatment').T.groupby('MMS').sum().T
 
                 # Create column index

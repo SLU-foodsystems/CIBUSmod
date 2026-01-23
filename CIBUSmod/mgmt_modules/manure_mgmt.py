@@ -129,7 +129,7 @@ class ManureMgmt():
         # Get defined manure management systems
         mmss = list(self.par.get_unique('MMS', qry="parameter == 'mms_share'"))
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -219,17 +219,14 @@ class ManureMgmt():
                     # Update DataFrame
                     mms_shares.update(grazing_share)
 
-            if not np.isclose(mms_shares.T.groupby(['prod_system','animal']).sum().T, 1).all():
-                # Adjust non-grazing MMS shares
-                adjusted = (
-                    mms_shares.loc[:, (slice(None), slice(None), mmss)]
-                    .T.groupby(['prod_system','animal']).transform(lambda x: x/x.sum()).T
+            # Adjust non-grazing MMS shares
+            mms_shares.loc[:, (slice(None), slice(None), mmss)] = (
+                mms_shares.loc[:, (slice(None), slice(None), mmss)] - 
+                multiply_aligned(
+                    mms_shares.loc[:, (slice(None), slice(None), mmss)],
+                    mms_shares.xs('grazing', level='MMS', axis=1)
                 )
-                adjusted = multiply_aligned(
-                    adjusted,
-                    1 - mms_shares.xs('grazing', level='MMS', axis=1)
-                )
-                mms_shares.update(adjusted)
+            )
 
             # Drop MMSs not used in herd
             mms_sums = mms_shares.T.groupby('MMS').sum().T.sum()
@@ -260,7 +257,7 @@ class ManureMgmt():
         # Get types of bedding materials used
         fes = self.par.get_unique('feed', qry='parameter == "bedding_material_use"')
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters
             self.par.set(
@@ -324,7 +321,7 @@ class ManureMgmt():
         self.par.clear()
         pf = self.par.get_from_frame
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -379,7 +376,7 @@ class ManureMgmt():
 
         idx = pd.IndexSlice
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -480,7 +477,7 @@ class ManureMgmt():
 
     def calculate_NPK_excretion(self, element):
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.clear()
@@ -588,7 +585,7 @@ class ManureMgmt():
         # Get compounds emitted
         cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(

@@ -4,7 +4,8 @@ from itertools import product
 import pandas as pd
 import numpy as np
 
-from typing import TYPE_CHECKING, Literal, Iterable, Sequence, Hashable
+from typing import TYPE_CHECKING, Literal, Iterable, \
+    Union, Sequence, Hashable
 
 if TYPE_CHECKING:
     from ..main_modules.animal_herd import AnimalHerd
@@ -58,7 +59,10 @@ def inv_dict(x : dict) -> dict:
         inv_x[v] = inv_x.get(v,[]) + [k]
     return inv_x
 
-def index_to_multi(obj: pd.Index | pd.DataFrame | pd.Series) -> pd.MultiIndex | pd.DataFrame | pd.Series:
+def index_to_multi(
+        obj: pd.Index | pd.DataFrame | pd.Series,
+        axis:int = 0
+    ) -> pd.MultiIndex | pd.DataFrame | pd.Series:
     '''Converts pandas.Index/DataFrame/Series to (have) a 1 level pandas.MultiIndex'''
     if isinstance(obj, pd.Index):
         return pd.MultiIndex.from_tuples(
@@ -69,10 +73,19 @@ def index_to_multi(obj: pd.Index | pd.DataFrame | pd.Series) -> pd.MultiIndex | 
         if not isinstance(obj.index, pd.Index):
             raise TypeError('DataFrame or Series must have a pandas.Index, not a pandas.MultiIndex')
         obj = obj.copy()
-        obj.index = pd.MultiIndex.from_tuples(
-            [(i,) for i in obj.index],
-            names=obj.index.names
-        )
+        if axis == 1:
+            if isinstance(obj, pd.DataFrame):
+                obj.columns = pd.MultiIndex.from_tuples(
+                    [(i,) for i in obj.columns],
+                    names=obj.columns.names
+                )
+            else:
+                raise ValueError("Only axis=0 allowed for pd.Series")
+        else:
+            obj.index = pd.MultiIndex.from_tuples(
+                [(i,) for i in obj.index],
+                names=obj.index.names
+            )
         return obj
 
 def fix_herds(herds : "AnimalHerd | list | pd.Series") -> pd.Series:
@@ -131,6 +144,43 @@ def extend_index(
         names=combine(index.names, names),
     )
 
+def multiindex_product(
+        indexes:Sequence[Union[pd.Index, pd.MultiIndex]]
+    ) -> pd.MultiIndex:
+    """Return MultiIndex that is the cartesian product of supplied
+    Index or MultiIndex objects"""
+    idx_dfs = [idx.to_frame(index=False) for idx in indexes]
+    part_idx = pd.MultiIndex.from_product([df.index for df in idx_dfs])
+    idx_df = pd.concat(
+        [
+            idx_dfs[i]
+            .loc[part_idx.get_level_values(i)]
+            .reset_index(drop=True)
+            for i in range(len(indexes))
+        ],
+        axis=1
+    )
+    return pd.MultiIndex.from_frame(idx_df)
+
+def index_get_levels(
+    idx:pd.MultiIndex,
+    levels:list|str,
+    unique=False
+) -> pd.MultiIndex|pd.Index:
+    """
+    Returns index containing only specified levels
+    If 'unique' is True, also performes .unique() on the index
+    """
+    if isinstance(levels, str):
+        levels = [levels]
+    if not isinstance(levels, list):
+        raise TypeError("'levels' must be list or str")
+    idx_out = pd.MultiIndex.from_frame(idx.to_frame(index=False)[levels])
+    if unique:
+        return idx_out.unique()
+    else:
+        return idx_out
+
 # Chemical elements to names
 elem_to_name = {
     'C' : 'carbon (C)',
@@ -139,3 +189,20 @@ elem_to_name = {
     'P' : 'phosphorus (P)',
     'K' : 'potassium (K)'
 }
+
+# Function to get git version
+def get_git_info(path):
+    import subprocess
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", path] + list(args), text=True).strip()
+    
+    try:
+        return {
+            "commit": git("rev-parse", "HEAD"),
+            "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
+            "dirty": bool(git("status", "--porcelain")),
+            "remote": git("config", "--get", "remote.origin.url")
+        }
+    except subprocess.CalledProcessError:
+        return None

@@ -30,15 +30,21 @@ class GeoDistFeedMgmt(FeedMgmt):
         vprint('Calculating feed losses ...')
         self.calculate_losses()
 
+        not_linked_feeds = []
         vprint('Calculating demand for crop products ...')
-        self.calculate_product_demand(prod_type='crop_prod')
+        not_linked_feeds += [self.calculate_product_demand(prod_type='crop_prod')]
         self.calculate_max_crop_in_crop_prod()
 
         vprint('Calculating demand for by-products ...')
-        self.calculate_product_demand(prod_type='by_prod')
+        not_linked_feeds += [self.calculate_product_demand(prod_type='by_prod')]
 
         vprint('Calculating demand for crop residues ...')
-        self.calculate_product_demand(prod_type='crop_resid')
+        not_linked_feeds += [self.calculate_product_demand(prod_type='crop_resid')]
+
+        # Check for feeds not linked to any product
+        not_linked_feeds = list(set(not_linked_feeds[0]).intersection(*not_linked_feeds[1:]))
+        if len(not_linked_feeds)>0:
+            warnings.warn(f'Some feeds were not linked to any product: {not_linked_feeds}')
 
         vprint(type='end')
 
@@ -62,7 +68,7 @@ class GeoDistFeedMgmt(FeedMgmt):
     def calculate_feed_consumption(self):
         '''Calculates energy requirements per animal and from this + defined feed rations the total demand for feeds per animal.'''
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(
@@ -133,7 +139,7 @@ class GeoDistFeedMgmt(FeedMgmt):
     def calculate_losses(self):
         '''Calculate feeds lost during storage and feeding and demand for feed products entering on-farm storage.
         '''
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
             self.par.set(

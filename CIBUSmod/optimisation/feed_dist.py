@@ -18,22 +18,23 @@ from .. import (
 )
 
 from ..mgmt_modules.feed_mgmt.feed_mgmt_feeddist import FeedDistFeedMgmt
+from .geo_dist import GeoDistributor
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict, extend_index
+from ..utils.misc import multiply_aligned, inv_dict, extend_index, index_to_multi, multiindex_product
 from ..utils.data_attr import DataAttr
 from ..main_modules.animal_herd import concat_herds
 
 from .indexed_matrix import IndexedMatrix
-from .utils import Constraint, make_cvxpy_constraint, feed_demands_to_crop_demands
+from .utils import Constraint, feed_demands_to_crop_demands
 
 from typing import Literal
 
 
-class FeedDistributor:
-    """Class that handles the distribution of animals, crops and feeds across regions
-    for a given demand and a number of constraints by minimising deviation from an
-    initial distribution of crop areas and animal heads (x0).
+class FeedDistributor(GeoDistributor):
+    """Class that handles the distribution of animals (and their feed rations) and
+    crops across regions for a given demand and a number of constraints by minimising
+    deviation from an initial distribution of crop areas and animal heads (x0).
 
     Parameters
     ----------
@@ -47,293 +48,9 @@ class FeedDistributor:
     """
 
     module_name = "FeedDistributor"
+    feed_mgmt_type = FeedDistFeedMgmt
 
-    success: bool
-    constraints: dict[str, Constraint]
-    objective: dict
-    problem: None | cvxpy.Problem
-    x: None | dict[str, pd.Series]
-
-    def __init__(
-        self,
-        regions: Regions,
-        demand: DemandAndConversions,
-        crops: CropProduction,
-        herds: pd.Series,
-        feed_mgmt: FeedMgmt,
-        par: ParameterRetriever,
-    ):
-        self.par = par
-        self.data_attr = DataAttr(self)
-
-        self.regions = regions
-        self.demand = demand
-        self.crops = crops
-        self.herds = herds
-        self.feed_mgmt = feed_mgmt
-
-        # Check FeedMgmt type
-        if not isinstance(feed_mgmt, FeedDistFeedMgmt):
-            raise TypeError("FeedMgmt object had the wrong type. Use type='FeedDist' when instantiating FeedMgmt")
-
-    def reset(self):
-        self.x = None
-        self.success = False
-        self.constraints = dict()
-        self.objective = dict()
-        self.problem = None
-
-    def make(
-        self,
-        use_cons: list | str,
-        scale_power: float = 0.4,
-        scale_cutoff_percentile: float = 99,
-        verbose: bool = False,
-        **kwargs,
-    ):
-        """Creates constraints and defines optimisation problem
-
-        Parameters
-        ----------
-        use_cons : (list of) str
-            List of numbers corresponding to the constraints to be used. For
-            descriptions of each constraint see ?FeedDistributor.make_C<nr>
-        scale_power : float, default 0.4
-            Power used to calculate scaling factors for the optimisation.
-            scale_power=0 -> minimise absolute difference in crop areas/animal numbers
-            scale_power=1 -> minimise relative difference in crop areas/animal numbers
-            See ?FeedDistributor.calculate_scaling_factors for details
-        scale_cutoff_percentile : float (0-100), default 99
-            Percentile cutoff for scaling factors. Should be <100 to avoid effectively
-            removing crops/animals where x0 is close to zero from the solution.
-            See ?FeedDistributor.calculate_scaling_factors for details
-        verbose : bool, default False
-            Print progress messages
-        **kwargs
-            Keyword agruments to be passed on to the FeedDistributor.make_C<nr> methods.
-            These are on the form 'C<nr>_<arg>'.
-
-        Returns
-        -------
-        None
-        """
-
-        vprint = verbose_init(verbose, id_str="FeedDistributor.make")
-
-        # Reset problem definitions and solution
-        self.reset()
-
-        if not isinstance(use_cons, list):
-            use_cons = [use_cons]
-        use_cons = [str(e) for e in use_cons]
-
-        # Make sure that C7 is handled last
-        if "7" in use_cons:
-            use_cons.append(use_cons.pop(use_cons.index("7")))
-
-        vprint("Getting x0 and making indexes ...")
-        self.get_x0()
-
-        vprint("Creating demand vector ...")
-        self.get_demand()
-
-        vprint("Calculating scaling factors ...")
-        # Calculate scaling factors
-        self.calculate_scaling_factors(
-            scale_power=scale_power, cutoff_percentile=scale_cutoff_percentile
-        )
-
-        # Make objective function(s)
-        vprint("Making objective O1 ...")
-        self.P1 = self.make_P1()
-
-        # Make constraints
-        for nr in use_cons:
-            fun = getattr(self, f"make_C{nr}")
-            vprint(f"Making constraint C{nr}...")
-            try:
-                fun(**{k: v for k, v in kwargs.items() if f"C{nr}" in k})
-            except Exception as e:
-                print(
-                    f"Exception raised when making constraint C{nr}.", file=sys.stderr
-                )
-                raise e
-
-        # If C7 not included no variables are dropped
-        if "7" not in use_cons:
-            self.x_idx_short = {
-                "ani": self.x_idx["ani"].copy(),
-                "crp": self.x_idx["crp"].copy(),
-                "fds": self.x_idx["fds"].copy(),
-            }
-
-        vprint(type="end")
-
-    def solve(
-        self,
-        # Default solver settings
-        #
-        # GUROBI
-        # ------
-        # This solver seem to work really well. Licence needed, but free academic licences are
-        # available and easy to get.
-        #
-        # OSQP
-        # ----
-        # Settings for OSQP available at https://osqp.org/docs/interfaces/solver_settings.html
-        # Using a too high tolerance (eps_abs, eps_rel) leads to large relative deviations
-        # from x0 for crops with small areas, but a low tolerance increases time to find solution.
-        solver_settings: dict | list = [
-            {"solver": "GUROBI", "verbose": False},
-            # {
-            #     'solver': 'OSQP',
-            #     'max_iter': 200000,
-            #     'eps_abs': 5e-6,
-            #     'eps_rel': 5e-6,
-            #     'verbose': False
-            # }
-        ],
-        apply_solution: bool = True,
-        verbose: bool = False,
-    ) -> None:
-        """Solve optimisation problem
-
-        Parameters
-        ----------
-        solver_settings : dict, list of dicts
-            Dict of keyword arguments to be passed on to cvxpy.Problem.solve()
-            If a list of dicts is supplied the method will move to the next dict
-            of solver settings if the previous ones failed.
-            If not supplied default values are used.
-        apply_solution : bool, default True
-            Update CropProduction and AnimalHerd objects according to the found
-            solution via the the method FeedDistributor.apply_solution()
-        verbose : bool, default False
-            Print progress messages
-
-        Returns
-        -------
-        None
-        """
-
-        vprint = verbose_init(verbose, id_str="FeedDistributor.solve")
-
-        # If a list of alternative solver/settings is not supplied
-        # make a one element list
-        if not isinstance(solver_settings, list):
-            solver_settings = [solver_settings]
-
-        if self.problem is None:
-            vprint("Defining problem ...")
-            self.define_cvx_problem()
-
-        # Try to find a solution with (potentially) different solver/settings
-        # If an optimal solution is found break and do not try next solver/settings
-        for kwargs in solver_settings:
-            solver = kwargs["solver"]
-            try:
-                vprint(f"Finding solution with '{solver}' ...")
-                self.problem.solve(**kwargs)
-            except Exception as e:
-                self.x = None
-                self.success = False
-                vprint(f"Failed with {type(e).__name__}: {e}", type="msg")
-                print(e, file=sys.stderr)
-                continue
-
-            if self.problem.status and "optimal" in self.problem.status:
-                self.success = True
-                vprint(
-                    f"Optimal solution found! Status: '{self.problem.status}', Iterations: {self.problem.solver_stats.num_iters}, Solver: '{self.problem.solver_stats.solver_name}'",
-                    type="msg",
-                )
-                break
-            else:
-                self.success = False
-                status = self.problem.status if self.problem.status else "None"
-                try:
-                    num_iters = self.problem.solver_stats.num_iters
-                except Exception:
-                    num_iters = "n/a"
-                vprint(
-                    f"No solution found! Status: '{status}', Iterations: {num_iters}",
-                    type="msg",
-                )
-
-        # Check solution and print results
-        if self.success:
-            # DO SOME MORE FEASIBILITY CHECKS ON THE SOLUTION HERE??!!
-
-            vprint("Retrieving solution ...")
-
-            # Get and store optimal value for variable
-            assert self.problem is not None, "Could not access problem after solving"
-            x = self.problem.variables()[0].value
-            assert x is not None, "Could not fetch optimal value from problem."
-
-            # Put xs on short index (!= index if C7 is used) and reindex
-            n_ani_short = len(self.x_idx_short["ani"])
-            n_crp_short = len(self.x_idx_short["crp"])
-            self.x = {
-                "ani": pd.Series(
-                    x[:n_ani_short], index=self.x_idx_short["ani"]
-                ).reindex(self.x_idx["ani"], fill_value=0),
-                "crp": pd.Series(
-                    x[n_ani_short : n_ani_short + n_crp_short],
-                    index=self.x_idx_short["crp"],
-                ).reindex(self.x_idx["crp"], fill_value=0),
-                "fds": pd.Series(
-                    x[n_ani_short + n_crp_short :], index=self.x_idx_short["fds"]
-                ).reindex(self.x_idx["fds"], fill_value=0),
-            }
-
-            self.data_attr.add(
-                self.x["crp"],
-                name="x_crops",
-                unit="ha or m2",
-                orig="FeedDistributor",
-                desc="Crop areas in solution in ha (or m2 for greenhouse crops)",
-            )
-            self.data_attr.add(
-                self.x["ani"],
-                name="x_animals",
-                unit="heads",
-                orig="FeedDistributor",
-                desc='Number of "defining animal" heads in solution',
-            )
-            self.data_attr.add(
-                self.x["fds"],
-                name="x_feeds",
-                unit="kg DM",
-                orig="FeedDistributor",
-                desc="Total amount of feed for each animal system",
-            )
-
-            if apply_solution:
-                vprint("Applying solution ...")
-                self.apply_solution()
-
-        else:
-            self.x = None
-            raise RuntimeError("No solution found!")
-
-        vprint(type="end")
-
-        return None
-
-    def matrices(self):
-        mats = {"OBJ.P1": self.P1}
-        mats.update(
-            {
-                f"{cn[: cn.index(':')]}.{mn}": m
-                for cn, c in self.constraints.items()
-                for mn, m in c["pars"].items()
-                if isinstance(m, IndexedMatrix)
-            }
-        )
-        return mats
-
-    def allocate_feed_demands(self):
+    def allocate_feed_demand(self):
         """
         Save the feed consumption stored in x_fds on the data_attr of each herd based on
         the number of animals in x_ani.
@@ -344,7 +61,8 @@ class FeedDistributor:
         concatenated_herds = concat_herds(self.herds)
         heads_total = concatenated_herds.data_attr.get("heads")
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_feed_demand()):
+
             sp = herd.species
             br = herd.breed
             ps = herd.prod_system
@@ -377,20 +95,23 @@ class FeedDistributor:
                 assert all_ratio_one_or_zero, (
                     "All ratios for non-cattle should be either 0 or 1"
                 )
-
-            feed_demands = (
-                self.x["fds"]
-                .to_frame("feed_amount")
-                .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
-                .reset_index()
-                .pivot(
-                    columns=["prod_system", "animal", "feed"],
-                    index="region",
-                    values="feed_amount",
+            try:
+                feed_demands = (
+                    self.x["fds"]
+                    .to_frame("feed_amount")
+                    .loc[(slice(None), slice(None), sp, br, ps, ss, slice(None)), :]
+                    .reset_index()
+                    .pivot(
+                        columns=["prod_system", "animal", "feed"],
+                        index="region",
+                        values="feed_amount",
+                    )
+                    .sort_index(axis=1)
+                    .sort_index()
                 )
-                .sort_index(axis=1)
-                .sort_index()
-            )
+            except KeyError:
+                # If KeyError there are no feeds to distribute to this AnimalHerd
+                continue
 
             adjusted_feed_demands = (ratio.T * feed_demands.T).T
             # Drop cols where feed is nan, which may arise when multiplying with ratio
@@ -414,7 +135,7 @@ class FeedDistributor:
                 desc="Demand for feed",
             )
 
-    def allocate_feed_crop_prod_demands(self):
+    def allocate_feed_crop_prod_demand(self):
         par = self.feed_mgmt.par
         par.clear()
 
@@ -436,7 +157,8 @@ class FeedDistributor:
             ["prod_system", "feed", "crop_prod"]
         )
 
-        for herd in self.herds:
+        for herd in (h for h in self.herds if h.has_feed_demand()):
+
             feed_demands = herd.data_attr.get("feed.demand")
 
             # Compute the demand for crop_products yielded by the feed demands
@@ -452,224 +174,62 @@ class FeedDistributor:
                 desc="Demand for crop products for feed",
             )
 
-    def apply_solution(self, x=None):
-        """Update CropProduction and AnimalHerds according to found solution"""
-
-        if x is None:
-            if self.x is None:
-                raise Exception("Cannot apply_solution as x is not defined")
-            x = self.x
-
-        # Update CropProduction
-        self.crops.scale(x["crp"])
-
-        # Update AnimalHerds
-        with warnings.catch_warnings():
-            # Ignore pandas peformance warning. Performance not a problem
-            # here but the issue could probably be solved by sorting x['ani']
-            warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
-
-            for h in self.herds:
-                h.scale(
-                    x["ani"].loc[(h.species, h.breed, h.prod_system, h.sub_system)],
-                    x_is=h.x_is,
-                )
-
-        self.allocate_feed_demands()
-        self.allocate_feed_crop_prod_demands()
-
-        # Allocate crop production to uses
-        self.allocate_crop_production_per_use()
-        if "A5" in self.matrices():
-            self.adjust_crop_allocation()
-
     def get_x0(self):
-        # Define index for x
-        self.x_idx = {
-            "ani": pd.MultiIndex.from_tuples(
-                [
-                    (sp, br, ps, ss, re)
-                    for (sp, br, ps, ss) in self.herds.index
-                    for re in self.herds[(sp, br, ps, ss)].index
-                ],
-                names=["species", "breed", "prod_system", "sub_system", "region"],
-            ),
-            "crp": self.crops.index.copy(),
-            "fds": pd.MultiIndex.from_tuples(
-                [
-                    (f, ani, sp, br, ps, ss, re)
-                    for (sp, br, ps, ss) in self.herds.index
-                    for re in self.herds[(sp, br, ps, ss)].index
-                    for f in self.herds[(sp, br, ps, ss)].par.get_unique("feed")
-                    for ani in self.herds[(sp, br, ps, ss)].animals
-                ],
-                names=[
-                    "feed",
-                    "animal",
-                    "species",
-                    "breed",
-                    "prod_system",
-                    "sub_system",
-                    "region",
-                ],
-            ),
-        }
+        super().get_x0()
 
-        # Get x0
-        self.x0 = {
-            "ani": self.regions.data_attr.get("x0_animals").copy(),
-            "crp": self.regions.data_attr.get("x0_crops").copy(),
-            "fds": pd.Series(data=0, index=self.x_idx["fds"]),
-        }
+        idx_list = []
+        for i,herd in enumerate(self.herds):
 
-        # Sort x0['ani'] to match x['ani']
-        self.x0["ani"] = self.x0["ani"].loc[
-            self.x_idx["ani"].droplevel("sub_system").unique()
-        ]
+            # Get feeds in herd
+            if "f_feed" in herd.par.data.index.names:
+                feed_idx = pd.Index(
+                    herd.par.get_unique("feed", qry = "parameter.isin(['share_in_ration','min_share_in_ration','max_share_in_ration'])"),
+                    name = 'feed'
+                )
+            else:
+                # Empty index if 'f_feed' filter column not in data
+                feed_idx =  pd.Index([], name = 'feed')
 
-        # Store x0 indexes
-        self.x0_idx = {
-            "ani": self.x0["ani"].index,
-            "crp": self.x0["crp"].index,
-            "fds": self.x_idx["fds"].copy(),
-        }
+            # Create full feed index for herd
+            idx = multiindex_product(
+                [self.herds.index[[i]]] +
+                [herd.index] +
+                [feed_idx] +
+                [pd.Index(herd.animals, name='animal')]
+            )
 
-    def get_demand(self):
-        """
-        Calculates and sets the demand-matrix (D) and its index (D_idx).
-        """
-        self.D = {
-            "ani": self.demand.data_attr.get("animal_prod_demand").sum(axis=1),
-            "crp": self.demand.data_attr.get("crop_prod_demand").sum(axis=1),
-        }
+            idx_list += [idx]
 
-        # Add rows for any domestically produced crop products used for feed or seed not
-        # already in crop product demand vector (D['crp'])
-        # Get all crop-products from feed_mgmt and the seed crop products from Crops
-        self.feed_mgmt.par.clear()
-        cps = set(self.feed_mgmt.par.get_unique("crop_prod")) | set(
-            self.crops.par.get_unique("crop_prod", qry='parameter == "seed"')
-        )
-        # ... and the prod_systems in the crop-demand vector
-        pss = self.D["crp"].index.unique("prod_system")
-
-        share_domestic = self.feed_mgmt.par.get_from_frame(
-            "share_domestic",
-            pd.DataFrame(
-                index=pd.Index(pss, name="prod_system"),
-                columns=pd.Index(cps, name="crop_prod"),
-                dtype=float,
-            ),
+        # Create combined feed index for all herds
+        full_feed_idx = (
+            idx_list[0]
+            .append(list(idx_list[1:]))
+            .reorder_levels([
+                "feed",
+                "animal",
+                "species",
+                "breed",
+                "prod_system",
+                "sub_system",
+                "region",
+            ])
         )
 
-        for ps, cp in product(pss, cps):
-            # Skip if already assigned
-            if (ps, cp) in self.D["crp"].index:
-                continue
-            if (share_domestic.loc[ps, cp] == 0).any():
-                self.D["crp"][(ps, cp)] = 0
+        # Add to x index dict
+        self.x_idx['fds'] = full_feed_idx.copy()
 
-        # Store indexes
-        self.D_idx = {"ani": self.D["ani"].index, "crp": self.D["crp"].index}
+        # Add feeds to x0
+        self.x0['fds'] = pd.Series(data=0, index=full_feed_idx.copy())
+
+        # Add feeds to x0 index
+        self.x0_idx['fds'] = full_feed_idx.copy()
 
     def calculate_scaling_factors(
         self, scale_power: float = 0.0, cutoff_percentile: float = 99.0
     ):
-        """Calculates scaling factor to apply to x and x0 in objective O1 as f = rn * sf
-        where rn is a factor normalising all features (i.e. distinct land uses and
-        animal species) to the same range and fs is a scaling factor calculated as
-        fs = ( mean(x0 * rn) / (x0 * rn) ) ^ scale_power. A cutoff that limits the
-        maximum scaling factor to a certain percentile is implemented to avoid that
-        crops/animals with x0 close to or equal to zero are effectively removed from the
-        solution space.
-        """
-
-        scale_f = {key: df.copy() for key, df in zip(self.x0.keys(), self.x0.values())}
-
-        # First all fetures (i.e. land uses and animal species) are normalised to the same range
-        # (0 - max) as land use = cropland
-        norm_max = (
-            self.x0["crp"]
-            .rename(self.crops.par.get_rel("crop", "land_use"))
-            .loc["cropland"]
-            .max()
-        )
-        # We then compute the range(?) for each group
-        rn = pd.concat(
-            [
-                self.x0["ani"]
-                .groupby("species")
-                .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
-                * norm_max,
-                self.x0["crp"]
-                .rename(self.crops.par.get_rel("crop", "land_use"))
-                .groupby("crop")
-                .transform(lambda x: (1 / x.max()) if x.max() > 0 else norm_max)
-                * norm_max,
-            ]
-        )
-
-        # Compute sf without taking fds into account, as we don't want it to affect the
-        # means.
-        x0 = pd.concat([self.x0["ani"], self.x0["crp"]]) * rn.values
-        sf = x0.mean() / x0
-        cutoff_value = np.percentile(sf.loc[sf != np.inf], cutoff_percentile)
-        sf.loc[sf > cutoff_value] = cutoff_value
-        sf = sf**scale_power
-
-        f = rn.values * sf.values
-        assert np.isfinite(f).all(), "Non-finite values encountered in scaling factors"
-
-        (n_ani, n_crp) = (len(scale_f["ani"]), len(scale_f["crp"]))
-        # Write back the values to scale_f
-        scale_f["ani"].iloc[:] = f[:n_ani]
-        scale_f["crp"].iloc[:] = f[n_ani : n_ani + n_crp]
-        scale_f["fds"].iloc[:] = 0
-        self.scale_f = scale_f
-
-    def define_cvx_problem(self):
-        # Apply scaling factors to x0
-        x0s = cvxpy.Constant(
-            np.concatenate(
-                [
-                    (self.x0[k] * self.scale_f[k]).reindex(self.x0_idx[k])
-                    for k in ["ani", "crp", "fds"]
-                ]
-            )
-        )
-
-        lvls = ["species", "breed", "prod_system", "region", "sub_system"]
-        # Get scaling factors for x
-        sf = cvxpy.Constant(
-            np.concatenate(
-                [
-                    self.scale_f["ani"]
-                    .reindex(self.x_idx["ani"].reorder_levels(lvls))
-                    .reindex(self.x_idx_short["ani"].reorder_levels(lvls)),
-                    self.scale_f["crp"].reindex(self.x_idx_short["crp"]),
-                    self.scale_f["fds"].reindex(self.x_idx_short["fds"]),
-                ]
-            )
-        )
-
-        n = (
-            len(self.x_idx_short["ani"])
-            + len(self.x_idx_short["crp"])
-            + len(self.x_idx_short["fds"])
-        )
-        x = cvxpy.Variable(n, nonneg=True)
-
-        objective = cvxpy.Minimize(
-            cvxpy.sum_squares((self.P1.M @ cvxpy.multiply(sf, x)) - x0s)
-        )
-
-        # Append constraints
-        constraints = [
-            make_cvxpy_constraint(cons, x) for cons in self.constraints.values()
-        ]
-
-        # Define problem
-        self.problem = cvxpy.Problem(objective=objective, constraints=constraints)
+        super().calculate_scaling_factors(scale_power, cutoff_percentile)
+        # No scaling factors for feeds
+        self.scale_f["fds"].iloc[:] = 0
 
     def make_C1(self):
         """Creates C1: A1 @ x == b1
@@ -684,7 +244,10 @@ class FeedDistributor:
         # Crop product demand
         A1_2 = self.make_A1_2()
         # Feed demand
-        A1_3 = self.make_A1_3()
+        A1_3 = self.make_A1_3(
+            row_idx = self.D_idx["crp"],
+            prod_type = "crop_prod"
+        )
 
         # Stack matrices
         A1 = scipy.sparse.vstack(
@@ -768,71 +331,6 @@ class FeedDistributor:
             "pars": {"A2": A2},
         }
 
-    def make_C3(self):
-        """Creates C3: A3 @ x <= b3
-
-        Constrain the maximum area per 'land_use' in each region. The maximum area is
-        set relative to areas in x0 via the parameter 'max_land_use_factor' in the
-        'Regions' module. A 'max_land_use_factor' of 1 implies that areas can't exceed
-        current areas in each region.
-
-        If the Regions setting 'max_land_use_from_scenario_x0' is set to True (default
-        is False) maximum land use changes if there are changes to 'x0_crops' in a
-        scenario, otherwise default values of 'x0_crops' are used irrespective of any
-        changes in scenarios.
-        """
-
-        A3 = self.make_A3()
-
-        b3 = np.array(
-            [
-                self.regions.data_attr.get("max_land_use").loc[x[1], x[0]]
-                for x in A3.rows
-            ]
-        )
-
-        # Append constraint
-        self.constraints.update(
-            {
-                "C3: A3 @ x <= b3": {
-                    "left": lambda x, A3, b3: A3.M @ x,
-                    "right": lambda A3, b3: b3,
-                    "rel": "<=",
-                    "pars": {"A3": A3, "b3": b3},
-                }
-            }
-        )
-
-    def make_C4(self):
-        """Creates C4: A4 @ x <= 0
-
-        Constrain the maximum share of defining animal heads per species, breed and
-        prod_system belonging to a given sub_system on national level.
-
-        The maximum share is set via the parameter 'max_share_sub_system' in the
-        respective 'AnimalHerd' modules and can differ by breed.
-        """
-
-        A4 = self.make_A4()
-
-        if A4.shape[0] == 0:
-            warnings.warn(
-                "When building C4, the resulting A4 matrix turned out empty. C4 thus ignored."
-            )
-            return
-
-        # Append constraint
-        self.constraints.update(
-            {
-                "C4: A4 @ x <= 0": {
-                    "left": lambda x, A4: A4.M @ x,
-                    "right": lambda A4: 0,
-                    "rel": "<=",
-                    "pars": {"A4": A4},
-                }
-            }
-        )
-
     def make_C5(self):
         """Creates C5: A5 @ x <= 0
 
@@ -888,44 +386,6 @@ class FeedDistributor:
                 }
             }
         )
-
-    def make_C6(self):
-        """Creates C6: A6 @ x <= 0
-
-        Constrain the minimum and/or maximum share of cropland devoted to a given crop
-        group in a given region in a given production system. The maximum share is set
-        on 'crop_group' level via the parameters 'min_in_rot' and 'max_in_rot' in the
-        'CropProduction' module.
-
-        Note: This constraint only applies to crops with 'cropland' as 'land_use' in the
-        relation tables.
-        """
-
-        # Note to future:
-        # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
-
-        for minmax in ["min", "max"]:
-            if (
-                self.crops.par.get_unique(
-                    "crop_group", qry=f'parameter == "{minmax}_in_rot"'
-                ).shape[0]
-                > 0
-            ):
-                A6 = self.make_A6(minmax)
-
-                sign = "<=" if minmax == "max" else ">="
-
-                # Append constraint
-                self.constraints.update(
-                    {
-                        f"C6_{minmax}: A6 @ x {sign} 0": {
-                            "left": lambda x, A6: A6.M @ x,
-                            "right": lambda A6: 0,
-                            "rel": sign,
-                            "pars": {"A6": A6},
-                        }
-                    }
-                )
 
     def make_C7(self) -> None:
         """
@@ -1289,7 +749,10 @@ class FeedDistributor:
         D_byprod = D_byprod.reindex(complete_idx, fill_value=0)
 
         # Construct the mapping of feed-products to by-products
-        A10_fds = self.make_A10_1(D_byprod.index)
+        A10_fds = self.make_A1_3(
+            row_idx = D_byprod.index,
+            prod_type = "by_prod"
+        )
 
         # Zero matrices
         Z_ani = scipy.sparse.csc_array((A10_fds.M.shape[0], len(self.x_idx["ani"])))
@@ -1386,17 +849,13 @@ class FeedDistributor:
             mode="prepend",
         )
 
-        # Build first a 'large' A12_2, from which we later slice smaller versions
-        # depending on which rows are present in A12_1.
-        A12_2_complete = self.make_A12_2(row_idx)
-
         def make_A12(rel):
             A12_1 = self.make_A12_1(row_idx, rel)
             # Drop rows where we lack constriants
             A12_1.prune_rows()
             # Create an A12_2 which only contains the rows for which we have data for
             # the given herd, animal and feed_par.
-            A12_2 = IndexedMatrix.align_rows(A12_2_complete, A12_1)
+            A12_2 = self.make_A12_2(A12_1.rows)
             Z_crp = scipy.sparse.csc_array((len(A12_1.rows), len(self.x_idx["crp"])))
 
             if A12_1.shape[0] == 0:
@@ -1499,7 +958,7 @@ class FeedDistributor:
         try:
             b14_cp = self.make_b14("crop_prod")
             b14_by = self.make_b14("by_prod")
-        except ValueError:
+        except (ValueError, KeyError):
             warnings.warn(
                 "C14 enabled, but b14 could not be built. This is likely because no feeds had max_total_import defined. Thus, C14 was ignored."
             )
@@ -1507,8 +966,8 @@ class FeedDistributor:
 
         b14 = np.concatenate([np.array(b14_cp.values), np.array(b14_by.values)])
 
-        A14_cp = self.make_A14("crop_prod", b14_cp.index)
-        A14_by = self.make_A14("by_prod", b14_by.index)
+        A14_cp = self.make_A1_3(b14_cp.index, "crop_prod", domestic=False)
+        A14_by = self.make_A1_3(b14_by.index, "by_prod", domestic=False)
 
         n_rows = A14_cp.shape[0] + A14_by.shape[0]
         A14 = scipy.sparse.hstack(
@@ -1520,13 +979,135 @@ class FeedDistributor:
             format="csc",
         )
 
+        A14 = IndexedMatrix(
+            A14,
+            row_idx=A14_cp.rows.append(A14_by.rows),
+            col_idx={
+                "crp": self.x_idx["crp"],
+                "ani": self.x_idx["ani"],
+                "fds": self.x_idx["fds"],
+            },
+        )
+
         self.constraints.update(
             {
                 "C14: A14 @ x >= 0": {
-                    "left": lambda x, A14, b14: A14 @ x - b14,
-                    "right": lambda **kwargs: 0,
+                    "left": lambda x, A14, b14: A14.M @ x - b14,
+                    "right": lambda A14, b14: 0,
                     "rel": "<=",
                     "pars": {"A14": A14, "b14": b14},
+                }
+            }
+        )
+
+    def make_C15(self):
+        """
+        Ensure that generated by-products cover regional feed demand for by-products 
+        according to 'share_regional' parameter in FeedMgmt module.
+
+        By-products are assumed to be generated in the same region as the animals/crops
+        producing main products from which the by-products are produced.
+        """
+
+        # Get feed to by-product conversion factors
+        fe_to_bp = self._get_feed_to_prod_factors('by_prod')
+        
+        # Make unique MultiIndex of (prod_system, by_prod) where
+        # share_domestic and share_regional > 0
+        ps_bp_idx = (
+            fe_to_bp
+            .loc[(fe_to_bp['share_domestic']>0) & (fe_to_bp['share_regional']>0)]
+            .set_index(['prod_system','by_prod'])
+            .index.unique()
+        )
+        # Get regions
+        re_idx = self.x_idx['crp'].unique('region')
+        
+        # Make row index (prod_system, by_prod, region)
+        row_idx = multiindex_product([ps_bp_idx, re_idx]).sort_values()
+        
+        # Map animal numbers --> Generated by-products
+        A15_1 = self.make_A15_1(row_idx)
+        # Map crop areas --> Generated by-products
+        A15_2 = self.make_A15_2(row_idx)
+        # Map feeds --> Used by-products
+        A15_3 = self.make_A15_3(row_idx)
+        
+        # Construct final matrix
+        A15 = IndexedMatrix(
+            scipy.sparse.hstack([A15_1.M, A15_2.M, A15_3.M]),
+            row_idx=row_idx,
+            col_idx={
+                "ani": self.x_idx["ani"],
+                "crp": self.x_idx["crp"],
+                "fds": self.x_idx["fds"],
+            },
+        )
+        
+        # Append constraint
+        self.constraints["C15: A15 @ x >= 0"] = {
+                "left": lambda x, A15: A15.M @ x,
+                "right": lambda A15: 0,
+                "rel": ">=",
+                "pars": {"A15": A15},
+            }
+
+    def make_C16(self):
+
+        # Get demand for crop residues
+        D = self.demand.data_attr.get("crop_resid_demand").sum(axis=1)
+        # Create index for feed demand for crop residues
+        feed_to_resid_idx = multiindex_product([
+            self.x_idx['ani'].unique("prod_system"),
+            self.feed_mgmt.par.get_unique(["crop_resid","feed"], qry="parameter == 'feed_to_prod'")
+            .set_index(["crop_resid","feed"]).index
+        ])
+        
+        # Create row index as union of crop residue demand
+        # from DemandAndConversions and feed demand from FeedMgmt
+        row_idx = D.index.union(
+            feed_to_resid_idx.droplevel("feed")
+        ).unique()
+        
+        # Get feeds used for bedding
+        feeds_for_bedding = (
+            self.manure_mgmt
+            .par.get_unique(
+                "feed",
+                qry="parameter == 'bedding_material_use'"
+            )
+        )
+        
+        # Make sure there are no "feed" used for bedding that are not
+        # connected to a crop crop residue in the FeedMgmt module
+        # NOTE: Potentially we may want to allow feeds
+        # connected to other products (i.e. crop_prod, by_prod)
+        assert set(feeds_for_bedding) - set(feed_to_resid_idx.get_level_values("feed")) == set(), \
+        "Feed used for bedding not connected to crop residue in FeedMgmt module"
+        
+        # ani (bedding) --> crop_resid
+        A16_1 = self.make_A16_1(row_idx, feeds_for_bedding)
+        # crop --> crop_resid
+        A16_2 = self.make_A16_2(row_idx)
+        # feed --> crop_resid
+        A16_3 = self.make_A1_3(row_idx, "crop_resid")
+        
+        # Stack matrices
+        A16 = IndexedMatrix(
+            scipy.sparse.hstack([A16_1.M, A16_2.M, A16_3.M]),
+            row_idx=row_idx,
+            col_idx=self.x_idx.copy(),
+        )
+        b16 = D.reindex(row_idx, fill_value=0)
+        
+        # Append constraint
+        self.constraints.update(
+            {
+                "C16: A16 @ x >= b16": {
+                    "left": lambda x, A16, b16: A16.M @ x,
+                    "right": lambda A16, b16: b16,
+                    "rel": ">=",
+                    "pars": {"A16": A16, "b16": b16},
                 }
             }
         )
@@ -1573,50 +1154,6 @@ class FeedDistributor:
             col_idx={"ani": P1_1.cols, "crp": P1_2.cols},
         )
 
-    def make_A1_1(self):
-        # Get row index from animal product demand vector (ps,sp,ap)
-        row_idx = self.D_idx["ani"]
-        # Get col index from animal herds (sp,br,ps,ss,re)
-        col_idx = self.x_idx["ani"]
-
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
-
-        # Go through animal herds
-        for herd in self.herds:
-            sp = herd.species
-            br = herd.breed
-            ps = herd.prod_system
-            ss = herd.sub_system
-
-            # Go through animal products
-            for ap in herd.data_attr.get("production").columns.unique("animal_prod"):
-                # Go through output production systems
-                for ops in herd.data_attr.get("production").columns.unique(
-                    "prod_system"
-                ):
-                    if (ops, sp, ap) in row_idx:
-                        # Get production of animal product (ap) from output production system (ops) per head
-                        # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
-                        # and region (re)
-                        res = (
-                            herd.data_attr.get("production")
-                            .loc[:, (ops, slice(None), ap)]
-                            .sum(axis=1)
-                        )
-
-                        # Store values and row/col nr
-                        val.extend(res.values)
-                        row_nr.extend([row_idx.get_loc((ops, sp, ap))] * len(res))
-                        col_nr.extend(
-                            [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
-                        )
-
-        # Create Compressed Sparse Column matrix
-        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
-
     def make_A1_2(self):
         # Get row index from crop product demand vector (ps,cp)
         row_idx = self.D_idx["crp"]
@@ -1626,30 +1163,7 @@ class FeedDistributor:
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        def get_long(name: str) -> pd.DataFrame:
-            return (
-                self.crops.data_attr.get(name)
-                .stack("crop_prod")
-                .reset_index()
-                .rename(columns={0: name})
-            )
-
-        # Get the crop_production and seed demand, and convert both to long format
-        crop_production = get_long("production")
-        seed_demand = get_long("seed_demand")
-
-        net_production = crop_production.merge(
-            seed_demand,
-            how="left",  # keep the rows where that have no seed demand.
-            on=["crop", "prod_system", "region", "crop_prod"],
-        )
-
-        net_production["net_production"] = net_production[
-            "production"
-        ] - net_production["seed_demand"].fillna(0)
-        net_production = net_production[
-            ["crop", "prod_system", "region", "crop_prod", "net_production"]
-        ]
+        net_production = self._get_crop_production()
 
         merged = net_production.merge(
             row_idx_df, on=["prod_system", "crop_prod"]
@@ -1660,14 +1174,18 @@ class FeedDistributor:
             merged, row_idx, col_idx, values_name="net_production"
         )
 
-    def make_A1_3(self):
+    def make_A1_3(
+            self,
+            row_idx:pd.MultiIndex,
+            prod_type:Literal["crop_prod", "by_prod", "crop_resid"],
+            domestic:bool = True
+        ):
         """
-        Matrix that converts feed products to crop products at a national level.
-        The values are negative to subtract from the other crop products produces, for
-        the A1 matrix to yield the net amount of crop products on multiplication with x.
+        Matrix that converts feeds to products at a national level.
+        The values are negative to as this represents a demand
+
+        Used in constraints C1, C10, C14 and C16
         """
-        # Get row index from crop product demand vector (ps,cp)
-        row_idx = self.D_idx["crp"]
         # Get col index from feed demands (f,sp,br,ps,ss,re)
         col_idx = self.x_idx["fds"]
 
@@ -1676,12 +1194,17 @@ class FeedDistributor:
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
         # Get the factors, and perform the multiplication now for ease when merging
-        factors = self._get_feed_to_prod_factors("crop_prod")
+        factors = self._get_feed_to_prod_factors(prod_type)
         # Negative values (*-1) to indicate a 'demand' rather than production of cps
-        factors["feed_to_prod"] *= -1 * factors["share_domestic"]
+        if domestic:
+            # Map domestic share
+            factors["feed_to_prod"] *= -1 * factors["share_domestic"]
+        else:
+            # Map imported share
+            factors["feed_to_prod"] *= -1 * (1-factors["share_domestic"])
 
         # Merge the row_idx with factors, and the result of that with the col_idx
-        merged = row_idx_df.merge(factors, on=["prod_system", "crop_prod"]).merge(
+        merged = row_idx_df.merge(factors, on=["prod_system", prod_type]).merge(
             col_idx_df,
             on=["feed", "animal", "species", "breed", "prod_system", "sub_system"],
         )
@@ -1751,114 +1274,6 @@ class FeedDistributor:
         )
 
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
-
-    def make_A3(self):
-        # Get land uses to constrain
-        land_uses = self.regions.data_attr.get("max_land_use").columns
-        # Get row index from land uses and regions (lu,re)
-        row_idx = pd.MultiIndex.from_product(
-            [land_uses, self.x_idx["crp"].unique("region")],
-            names=["land_use", "region"],
-        )
-        # Get col index from crops (cr,ps,re)
-        col_idx = self.x_idx["crp"]
-
-        # Get dict for translating crop --> land use
-        rel = self.par.get_rel("crop", "land_use")
-
-        # Data and corresponding row/col numbers for constructing matrix
-        val = [1 if rel[cr] == lu else 0 for lu in land_uses for cr, _, _ in col_idx]
-        col_nr = list(range(len(col_idx))) * len(land_uses)
-        row_nr = [row_idx.get_loc((lu, re)) for lu in land_uses for _, _, re in col_idx]
-
-        M = scipy.sparse.coo_array(
-            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-        ).tocsc()
-        # Zero matrix
-        Z_ani = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["ani"])))
-        Z_fds = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["fds"])))
-
-        # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc"),
-            row_idx,
-            {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
-        )
-
-        return M
-
-    def make_A4(self):
-        # Get row index from animal herds with max in sub_system constraint (sp,br,ps,ss)
-        row_idx = pd.MultiIndex.from_tuples(
-            [
-                (h.species, h.breed, h.prod_system, h.sub_system)
-                for h in self.herds
-                if "max_share_sub_system"
-                in h.par.data.index.get_level_values("parameter")
-                and h.sub_system
-                in h.par.get_unique(
-                    "sub_system", qry='parameter == "max_share_sub_system"'
-                )
-            ],
-            names=["species", "breed", "prod_system", "sub_system"],
-        )
-
-        # Get col index from animal herds (sp,br,ps,ss,re)
-        col_idx = self.x_idx["ani"]
-
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
-
-        for sp, br, ps, ss in row_idx:
-            h = self.herds.loc[sp, br, ps, ss]
-            h.par.clear()
-
-            f = (
-                h.par.get(
-                    "max_share_sub_system",
-                    species=sp,
-                    breed=br,
-                    prod_system=ps,
-                    sub_system=ss,
-                )
-                / 100
-            )
-
-            try:
-                len(f)
-            except TypeError:
-                pass
-            finally:
-                f = float(f[0])
-
-            vls = [
-                0
-                if (sp != sp_) | (br != br_) | (ps != ps_)
-                else ((1 - f) if ss == ss_ else -f)
-                for sp_, br_, ps_, ss_, _ in col_idx
-            ]
-            cns = list(range(len(col_idx)))
-            rns = [row_idx.get_loc((sp, br, ps, ss)) for _ in col_idx]
-
-            val.extend(vls)
-            col_nr.extend(cns)
-            row_nr.extend(rns)
-
-        M = scipy.sparse.coo_array(
-            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-        ).tocsc()
-        # Zero matrices for crops and feeds
-        Z_crp = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["crp"])))
-        Z_fds = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["fds"])))
-
-        # Create Compressed Sparse Column matrix
-        return IndexedMatrix(
-            scipy.sparse.hstack([M, Z_crp, Z_fds], format="csc"),
-            row_idx,
-            {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
-        )
 
     def make_A5_1(self, row_idx):
         """
@@ -2008,71 +1423,6 @@ class FeedDistributor:
 
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
 
-    def make_A6(self, minmax: Literal["min", "max"]):
-        self.crops.par.clear()
-
-        # Get crop groups with min/max inclusion in rotation constraint
-        cgs = self.crops.par.get_unique(
-            "crop_group", qry=f'parameter == "{minmax}_in_rot"'
-        )
-        pss = self.x_idx["crp"].unique("prod_system")
-        res = self.x_idx["crp"].unique("region")
-
-        # Get row index from (cg,ps,re)
-        row_idx = pd.MultiIndex.from_tuples(
-            [(cg, ps, re) for cg in cgs for ps in pss for re in res],
-            names=["crop_group", "prod_system", "region"],
-        )
-        # Get col index from crops (cr,ps,re)
-        col_idx = self.x_idx["crp"]
-
-        # Get dict for translating crop --> land use
-        lu_rel = self.par.get_rel("crop", "land_use")
-        # Get dict for translating crop --> crop group
-        cg_rel = self.par.get_rel("crop", "crop_group")
-
-        # To store data and corresponding row/col numbers for constructing matrix
-        val = []
-        row_nr = []
-        col_nr = []
-
-        for cg, ps in row_idx.droplevel("region").unique():
-            # Create Series of 'min/max_in_rot' factors for crop_group = cg
-            # and prod_system = ps for each region
-            f = pd.Series(
-                self.crops.par.get(
-                    f"{minmax}_in_rot", crop_group=cg, prod_system=ps, region=list(res)
-                )
-                / 100,
-                index=res,
-            )
-
-            vls = [
-                0
-                if (ps != ps_) | (lu_rel[cr] != "cropland")
-                else ((1 - f.loc[re]) if cg_rel[cr] == cg else -f.loc[re])
-                for cr, ps_, re in col_idx
-            ]
-            cns = list(range(len(col_idx)))
-            rns = [row_idx.get_loc((cg, ps, re)) for _, _, re in col_idx]
-
-            val.extend(vls)
-            col_nr.extend(cns)
-            row_nr.extend(rns)
-
-        M = scipy.sparse.coo_array(
-            (val, (row_nr, col_nr)), shape=(len(row_idx), len(col_idx))
-        ).tocsc()
-        Z_ani = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["ani"])))
-        Z_fds = scipy.sparse.csc_array((M.shape[0], len(self.x_idx["fds"])))
-
-        # Create Compressed Sparse Column matrix
-        return IndexedMatrix(
-            scipy.sparse.hstack([Z_ani, M, Z_fds], format="csc"),
-            row_idx,
-            {"ani": self.x_idx["ani"], "crp": col_idx, "fds": self.x_idx["fds"]},
-        )
-
     def make_A8(self, C8_ani, C8_crp, C8_fds):
         # Store the row_index for ani, crp and fds
         row_idx = {}
@@ -2137,36 +1487,6 @@ class FeedDistributor:
 
         return M
 
-    def make_A10_1(self, D_idx: pd.MultiIndex) -> IndexedMatrix:
-        """
-        Create a matrix mapping feeds to domestic by-products based on the parameters
-        'share_domestic' and 'feed_to_prod' in feed_mgmt par.
-        """
-        # Get row index from byproducts demand vector (prod_sys, by_prod)
-        row_idx = D_idx
-        # Get col index from feed demands (f,sp,br,ps,ss,re)
-        col_idx = self.x_idx["fds"]
-
-        feed_to_byprod = self._get_feed_to_prod_factors("by_prod", index=True)
-        # Store only the conversion of feed to (domestic share of) byprods, and drop any
-        # zero-value rows. Reset the index to prepare for merging.
-        feed_to_byprod_long = (
-            (feed_to_byprod["feed_to_prod"] * feed_to_byprod["share_domestic"])
-            .to_frame(name="values")
-            .replace({0: np.nan})
-            .dropna()
-            .reset_index()
-        )
-
-        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
-        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
-
-        merged_df = feed_to_byprod_long.merge(
-            row_idx_df, on=["by_prod", "prod_system"]
-        ).merge(col_idx_df, on=[cname for cname in col_idx.names if cname != "region"])
-
-        return IndexedMatrix.from_frame(merged_df, row_idx, col_idx)
-
     def make_A11(self, param: str) -> None | IndexedMatrix:
         row_idx = self.x_idx["fds"]
         col_idx = self.x_idx["fds"]
@@ -2181,7 +1501,11 @@ class FeedDistributor:
             p = herd.par
             p.clear()
 
-            feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
+            try:
+                feeds = p.get_unique(["feed"], qry=f'parameter=="{param}"').feed.tolist()
+            except KeyError:
+                # Empty list if 'f_feed' filter column not in data
+                feeds = []
 
             # Where there are no 'constraints' for this parameter- and herd combo, we
             # do not need to add anything to the df.
@@ -2215,18 +1539,18 @@ class FeedDistributor:
 
         # Get loss factors which we want to multiply with every (non-zero) element.
         # Loss factors are needed here because x_fds concerns feed _demand_, whereas
-        # the constraint concerns feed _consumption_.
-        losses = self._get_losses_factors(shape="long")
-        # Join losses and shares on their indexes
-        factors = shares.join(losses)
+        # the constraint concerns feed _consumption_. Rename feed index level for later merge
+        losses = self._get_losses_factors(shape="long").rename_axis(index={'feed':'feed_c'})
 
-        # Note: Join first on factors, then on col_idx for a significantly faster merge
+        # Note: Join first on shares, then on col_idx for a significantly faster merge
         merged_df = row_idx_df.merge(
-            factors.reset_index(), on=factors.index.names
+            shares.reset_index(), on=shares.index.names
         ).merge(
             col_idx_df,
             on=[cname for cname in row_idx.names if cname != "feed"],
             suffixes=("", "_c"),
+        ).merge(
+            losses.reset_index(), on=losses.index.names
         )
 
         merged_df["values"] = (
@@ -2314,19 +1638,27 @@ class FeedDistributor:
         row_idx_df = pd.DataFrame(range(len(row_idx)), index=row_idx, columns=["row_i"])
         col_idx_df = pd.DataFrame(range(len(col_idx)), index=col_idx, columns=["col_i"])
 
-        loss_factors = self._get_losses_factors(shape="long")
-        feed_compositions = self._get_feed_compositions(shape="long").dropna()
+        joined_df = row_idx_df.join(col_idx_df)
 
-        values = feed_compositions.join(loss_factors)
-        values = (values["losses_factor"] * values["feed_to_par_factor"]).to_frame(
-            name="values"
+        def perc_to_change_factor(df):
+            return (100 - df) / 100
+
+        # Set filters to get feed composition and losses
+        self.feed_mgmt.par.clear()
+        self.feed_mgmt.par.set(**joined_df.index.to_frame().to_dict('list'))
+
+        # Get feed composition
+        joined_df["feed_composition"] = np.nan_to_num(
+            self.feed_mgmt.par.get('feed_composition', warn_if_nan=False) # <-- Warn for NaN???
         )
+        joined_df.loc[joined_df.index.get_level_values('feed_par') == 'DM', "feed_composition"] = 1 # Dry matter is allways 1
 
-        joined_df = values.join(row_idx_df).join(col_idx_df)
-        # Drop all levels in the index except "row_i". This is significantly (10x)
-        # faster than doing reset_index() directly, for some reason.
-        cols_to_drop = [x for x in joined_df.index.names if x != "row_i"]
-        joined_df = joined_df.reset_index(cols_to_drop, drop=True)
+        joined_df["loss_factor"] = (
+            perc_to_change_factor(self.feed_mgmt.par.get('storage_losses')) *
+            perc_to_change_factor(self.feed_mgmt.par.get('feeding_losses'))
+        )
+        joined_df["values"] = joined_df["feed_composition"] * joined_df["loss_factor"]
+        joined_df = joined_df.reset_index(drop=True)
 
         return IndexedMatrix.from_frame(joined_df, row_idx, col_idx)
 
@@ -2338,18 +1670,13 @@ class FeedDistributor:
 
         par = "max_total_imported"
 
-        pss = self.x_idx["crp"].unique("prod_system")
-        cps = self.feed_mgmt.par.get_unique(prod_type, qry=f'parameter=="{par}"')
+        pss_cps = self.feed_mgmt.par.get_unique(['prod_system',prod_type], qry=f'parameter=="{par}"')
 
-        data = self.feed_mgmt.par.get_from_frame(
-            par,
-            pd.DataFrame(
-                columns=pd.Index(pss, name="prod_system"),
-                index=pd.Index(cps, name=prod_type),
-            ),
-        ).unstack()
+        data = pd.Series(
+            self.feed_mgmt.par.get(par, **pss_cps.to_dict('list')),
+            index = pss_cps.set_index(['prod_system',prod_type]).index
+        ) * 1_000 # tonnes --> kg
 
-        assert isinstance(data, pd.Series)
         return data
 
     def make_A13(self, rel_type: Literal["min", "max"]):
@@ -2416,10 +1743,6 @@ class FeedDistributor:
             levels=[feed_pars], names=["feed_par"], index=_base_row_idx, mode="prepend"
         )
 
-        # Get all feeds
-        losses_factors = self._get_losses_factors(shape="long").reset_index()
-        feed_compositions = self._get_feed_compositions(shape="long").reset_index()
-
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
@@ -2439,59 +1762,308 @@ class FeedDistributor:
                     "region",
                 ],
             )
-            # Now merge with feed_compositions to map feeds to feed_pars. how="left" to set a default value of 0
-            .merge(
-                feed_compositions,
-                how="left",
-                on=[
-                    "feed_par",
-                    "feed",
-                    "animal",
-                    "species",
-                    "breed",
-                    "prod_system",
-                    "sub_system",
-                ],
-            )
-            .merge(
-                losses_factors,
-                how="left",
-                on=["feed", "animal", "species", "breed", "prod_system", "sub_system"],
-            )
-            .fillna(0)
+        )
+
+        def perc_to_change_factor(df):
+            return (100 - df) / 100
+
+        # Set filters to get feed composition and losses
+        self.feed_mgmt.par.clear()
+        self.feed_mgmt.par.set(
+            **merged[[
+                'feed',
+                'animal',
+                'species',
+                'breed',
+                'prod_system',
+                'sub_system',
+                'region',
+                'feed_par'
+                ]].to_dict('list')
+        )
+
+        # Get feed composition
+        merged['feed_to_par_factor'] = np.nan_to_num(
+            self.feed_mgmt.par.get('feed_composition', warn_if_nan=False) # <-- Warn for NaN???
+        )
+
+        # Get feed losses
+        merged['losses_factor'] = (
+            perc_to_change_factor(self.feed_mgmt.par.get('storage_losses')) *
+            perc_to_change_factor(self.feed_mgmt.par.get('feeding_losses'))
         )
 
         merged["values"] = (
-            merged["feed_to_par_factor"] * merged["losses_factor"]
-            - merged["feed_req_of_DM"]
+            merged["losses_factor"] * (merged["feed_to_par_factor"] - merged["feed_req_of_DM"])
         )
+
         return IndexedMatrix.from_frame(merged, row_idx, col_idx)
-
-    def make_A14(
-        self, prod_type: Literal["crop_prod", "by_prod"], row_idx: pd.Index
-    ) -> IndexedMatrix:
+    
+    def make_A15_1(self,row_idx):
         """
-        Make a matrix mapping the feeds to their total imported amounts of crop
-        products. The row-index is ["prod_system", prod_type].
+        Create a matrix mapping animal numbers to generated by-products based
+        on data attribute 'by_prod_per_animal_prod' calculated in the 
+        DemandAndConversions module.
         """
-        self.feed_mgmt.par.clear()
-        col_idx = self.x_idx["fds"]
 
+        # Get col index from crop production (sp,br,ps,ss,re)
+        col_idx = self.x_idx["ani"]
+        
+        # Get by-products generated per animal product
+        by_per_ap = self.demand.data_attr.get('by_prod_per_animal_prod').sort_index()
+        
+        val = []
+        row_nr = []
+        col_nr = []
+        
+        for herd in self.herds:
+        
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+        
+            # Go through animal products
+            for ap in herd.data_attr.get("production").columns.unique("animal_prod"):
+                # Go through output production systems
+                for ops in herd.data_attr.get("production").columns.unique("prod_system"):
+                    # Get by-products produced from animal product and
+                    # corresponding conversion factors
+                    try:
+                        bps_f = by_per_ap.loc[(ops,sp,ap)]
+                    except KeyError:
+                        # If not by-products generated, continue
+                        continue
+                    for bp in bps_f.index:
+                        if (ops, bp) in row_idx:
+                            # Get production of by-product bp from animal product (ap) and output production system (ops) per head
+                            # of defining animal of species (sp) and breed (br) in production system (ps), sub system (ss)
+                            # and region (re)
+                            res = (
+                                herd.data_attr.get("production")
+                                .loc[:, (ops, slice(None), ap)]
+                                .sum(axis=1) * bps_f[bp]
+                            )
+        
+                            if (res != 0).any():
+                                # Store values and row/col nr
+                                val.extend(res.values)
+                                row_nr.extend([row_idx.get_loc((ops, bp, re)) for re in res.index])
+                                col_nr.extend(
+                                    [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
+                                )
+                                
+        # Create Compressed Sparse Column matrix
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+    
+    def make_A15_2(self,row_idx):
+        """
+        Create a matrix mapping crop areas to generated by-products based
+        on data attribute 'by_prod_per_crop_prod' calculated in the 
+        DemandAndConversions module.
+        """
+
+        # Get col index from crop production (cr,ps,re)
+        col_idx = self.x_idx["crp"]
+        
         row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
         col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
 
-        feed_to_prod = self._get_feed_to_prod_factors(prod_type, index=True)
-        feed_to_prod = (
-            feed_to_prod["feed_to_prod"] * (1 - feed_to_prod["share_domestic"])
-        ).reset_index(name="feed_to_imp_prod")
-
-        merged = feed_to_prod.merge(row_idx_df, on=["prod_system", prod_type]).merge(
+        # Get net crop production and by-products generated per crop product
+        net_production = self._get_crop_production()
+        by_per_cp = self.demand.data_attr.get('by_prod_per_crop_prod').reset_index(name='by_prod_per_crop_prod')
+        
+        if len(
+            set(by_per_cp.set_index(['prod_system','by_prod']).index) & 
+            set(row_idx.droplevel('region'))
+        ) == 0:
+            # If by-products generated by crops not in row_idx return zero matrix
+            return IndexedMatrix.zeros(
+                row_idx, col_idx
+            )
+        
+        # Calculate ammount of by-products generated per crop areas
+        by_production = net_production.merge(
+            by_per_cp, on=["prod_system","crop_prod"]
+        )
+        by_production["values"] = (
+            by_production["net_production"] * by_production["by_prod_per_crop_prod"]
+        )
+        by_production = by_production.loc[by_production["values"] != 0] # Drop zero rows
+        
+        # Merge to get row and col index numbers for constructing matrix
+        merged = by_production.merge(
+            row_idx_df,
+            on=["prod_system", "by_prod","region"]
+        ).merge(
             col_idx_df,
-            on=["animal", "species", "breed", "prod_system", "sub_system", "feed"],
+            on=["crop", "prod_system", "region"]
+        )
+        
+        # Create Compressed Sparse Column matrix
+        return IndexedMatrix.from_frame(
+            merged, row_idx, col_idx
+        )
+    
+    def make_A15_3(self,row_idx):
+        """
+        Create a matrix mapping feeds to regional demand for by-products
+        based on the parameters 'feed_to_prod', 'share_domestic' and 'share_regional'
+        in the FeedMgmt module.
+        """
+
+        # Get col index from crop production (fe,an,sp,br,ps,ss,re)
+        col_idx = self.x_idx["fds"]
+        
+        row_idx_df = row_idx.to_frame(index=False).reset_index(names="row_i")
+        col_idx_df = col_idx.to_frame(index=False).reset_index(names="col_i")
+        
+        fe_to_bp = self._get_feed_to_prod_factors('by_prod')
+        fe_to_bp = fe_to_bp.loc[(fe_to_bp['share_domestic']>0) & (fe_to_bp['share_regional']>0)]
+        
+        merged = fe_to_bp.merge(
+            row_idx_df,
+            on = ["prod_system","by_prod"]
+        ).merge(
+            col_idx_df,
+            on = ["feed","animal","species","breed","prod_system","sub_system","region"]
+        )
+        
+        merged["values"] = (
+            merged["feed_to_prod"]
+            * merged["share_domestic"]
+            * merged["share_regional"]
+            * (-1)
+        )
+        
+        # Create Compressed Sparse Column matrix
+        return IndexedMatrix.from_frame(
+            merged, row_idx, col_idx
         )
 
-        return IndexedMatrix.from_frame(
-            merged, row_idx, col_idx, values_name="feed_to_imp_prod"
+    def make_A16_1(self, row_idx, feeds):
+        # Get col index from animal herds (sp,br,ps,ss,re)
+        col_idx = self.x_idx["ani"]
+        
+        self.manure_mgmt.par.clear()
+        self.feed_mgmt.par.clear()
+        
+        # To store data and corresponding row/col numbers for constructing matrix
+        val = []
+        row_nr = []
+        col_nr = []
+        
+        # Some convenience functions for getting parameters
+        def sfv(**kwargs):
+            self.manure_mgmt.par.set(**kwargs)
+            self.feed_mgmt.par.set(**kwargs)
+        gfm = self.manure_mgmt.par.get_from_frame
+        gff = self.feed_mgmt.par.get_from_frame
+        
+        # Go through animal herds
+        for herd in self.herds:
+        
+            sp = herd.species
+            br = herd.breed
+            ps = herd.prod_system
+            ss = herd.sub_system
+        
+            # Set filter values
+            sfv(
+                species = sp,
+                breed = br,
+                sub_system = ss
+            )
+        
+            # Go through animal products
+            for ops, cr in row_idx:
+        
+                # Set filter values
+                sfv(
+                    prod_system = ops,
+                    crop_resid = cr,
+                )
+        
+                # Get animal heads in ops
+                heads = herd.data_attr.get('heads').loc[:,ops]
+                # Add feeds to column index
+                df = (
+                    # Columns must be MultiIndex
+                    index_to_multi(heads, axis=1)
+                    .reindex(
+                        pd.MultiIndex.from_product([heads.columns, feeds], names=["animal","feed"]),
+                        axis=1
+                    )
+                )
+        
+                # Sum of (heads * bedding material use per head * feed -> crop_resid factor * share domestic)
+                # --> Domestic demand for crop_resid per defining animal (x)
+                # Negative sign
+                res = (
+                    df
+                    .mul(gfm("bedding_material_use",df))
+                    .mul(gff("feed_to_prod",df))
+                    .mul(gff("share_domestic",df)/100)
+                    .sum(axis=1)
+                )
+        
+                # We only need to store anything if there is a demand for bedding materials
+                if (res>0).any():
+                    # Store values and row/col nr
+                    val.extend(-res.values) # negative sign
+                    row_nr.extend([row_idx.get_loc((ops, cr))] * len(res))
+                    col_nr.extend(
+                        [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
+                    )
+        
+        # Create Compressed Sparse Column matrix
+        return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
+
+    def make_A16_2(self, row_idx):
+
+        # Get index for columns
+        col_idx = self.x_idx["crp"]
+        
+        # Create DataFrame with correct shape
+        df = pd.DataFrame(
+            1,
+            columns = col_idx,
+            index = row_idx
+        )
+        
+        # Calculate harvestable crop residues generated per crop
+        df = (
+            df
+            # Get generated above ground crop residues
+            .mul(
+                self.crops.data_attr.get('crop_residues').loc[:,"above ground"],
+                axis=1
+            )
+            # Factor in share of crop residues harvestable
+            .mul(
+                self.crop_residue_mgmt.par
+                .get_from_frame("crop_resid_harvestable", df.droplevel("prod_system"))
+            )
+        )
+        
+        # Set to Zero where prod_system in columns and rows do not match.
+        # I.e. crops produce crop residues of the same production system
+        mask = (
+            np.array(
+                df.index.get_level_values('prod_system')
+            )[:, None]
+            ==
+            np.array(
+                df.columns.get_level_values('prod_system')
+            )[None, :]
+        )
+        df = df.where(mask, 0)
+        
+        # Create IndexedMatrix
+        return IndexedMatrix(
+            scipy.sparse.csc_array(df),
+            row_idx,
+            col_idx
         )
 
     def make_P1_1(self):
@@ -2559,24 +2131,52 @@ class FeedDistributor:
             col_idx,
         )
         return M
+    
+    def _get_crop_production(self):
+        """
+        Get DataFrame mapping crops to net production (i.e. production - seeds)
+        of crop products
+        """
+        def get_long(name: str) -> pd.DataFrame:
+            return (
+                self.crops.data_attr.get(name)
+                .stack("crop_prod")
+                .reset_index()
+                .rename(columns={0: name})
+            )
+
+        # Get the crop_production and seed demand, and convert both to long format
+        crop_production = get_long("production")
+        seed_demand = get_long("seed_demand")
+
+        net_production = crop_production.merge(
+            seed_demand,
+            how="left",  # keep the rows where that have no seed demand.
+            on=["crop", "prod_system", "region", "crop_prod"],
+        )
+
+        net_production["net_production"] = net_production[
+            "production"
+        ] - net_production["seed_demand"].fillna(0)
+        net_production = net_production[
+            ["crop", "prod_system", "region", "crop_prod", "net_production"]
+        ]
+
+        return net_production
 
     def _get_feed_to_prod_factors(
         self,
-        crop_prod_type: Literal["crop_prod", "by_prod"] = "crop_prod",
+        prod_type: Literal["crop_prod", "by_prod", "crop_resid"] = "crop_prod",
         index: bool = False,
     ) -> pd.DataFrame:
         """
         Get a DataFrame mapping feed products to crop products, with their respective
         conversion factor as well as respective import- and regional shares.
-
-        Depending on the 'detailed_index' parameter, the function will fetch data on a
-        (ps, feed, crop_or_by_prod) level (if False) or (feed, ani, sp, br, ps, ss) (if
-        True)-level of detail.
         """
         feed_par = self.feed_mgmt.par
         feed_par.clear()
 
-        feed_to_prod: pd.DataFrame = feed_par.get_unique(["feed", crop_prod_type])
+        feed_to_prod: pd.DataFrame = feed_par.get_unique(["feed", prod_type])
         row_idx = self.x_idx["fds"].droplevel("region").unique().to_frame(index=False)
         df = row_idx.merge(feed_to_prod, on="feed")
 
@@ -2592,7 +2192,7 @@ class FeedDistributor:
         if index:
             df = df.set_index(
                 ["feed", "animal", "species", "breed", "prod_system", "sub_system"]
-                + [crop_prod_type]
+                + [prod_type]
             )
 
         return df
@@ -2612,6 +2212,7 @@ class FeedDistributor:
         # Get all losses
         losses_retrieve_df = pd.DataFrame(
             columns=self.x_idx["fds"].unique("feed"),
+            # Note: Feed losses can't differ by region
             index=self.x_idx["fds"].droplevel(["region", "feed"]).unique(),
         )
 
@@ -2650,9 +2251,9 @@ class FeedDistributor:
         feeds = self.feed_mgmt.par.get_unique(
             "feed", qry="parameter=='feed_composition'"
         ).tolist()
-        feed_pars = ["DM", *self.feed_mgmt.par.get_unique("feed_par")]
+        feed_pars = [*self.feed_mgmt.par.get_unique("feed_par")]
 
-        base_idx = self.x_idx["fds"].droplevel("region").unique()
+        base_idx = self.x_idx["fds"]
         mask = base_idx.get_level_values("feed").isin(feeds)
         row_idx = base_idx if all(mask) else base_idx[mask]
 
@@ -2666,7 +2267,7 @@ class FeedDistributor:
             ),
             warn_if_nan=False,
         ).sort_index()
-        # Add a column called 'DM' with value 1 everywhere
+        # Add a column called 'DM' with value 1 everywhere (all feeds defined on DM basis)
         data = data.assign(DM=1)
 
         if shape == "long":
@@ -2674,291 +2275,9 @@ class FeedDistributor:
 
         return data
 
-    def allocate_crop_production_per_use(self):
-        """Allocate crop areas to different uses.
-        Creates attribute 'production_per_use' in CropProduction"""
-
-        # Get prouction per crop product
-        prod = (
-            self.crops.data_attr.get("production")
-            .stack()
-            .groupby(["region", "prod_system", "crop_prod"])
-            .sum()
-        )
-
-        # Get concatenated herds
-        con_herds = concat_herds(self.herds)
-
-        # Get crop product demand for feed per region
-        feed_demand = (
-            con_herds.data_attr.get("feed.crop_product_demand")
-            .xs("domestic", level="origin", axis=1)
-            .T.groupby(["species", "breed", "sub_system", "prod_system", "crop_prod"])
-            .sum()
-            .T.stack(["prod_system", "crop_prod"], future_stack=True)
-            .reindex(prod.index)
-            .fillna(0)
-        )
-        feed_demand.columns = feed_demand.columns.map(
-            "feed ({0[0]}, {0[1]}, {0[2]})".format
-        ).rename("demand")
-
-        # Calculate feed demand met regionally as the maximum
-        # share possible (i.e. regional crop areas are first
-        # used to cater for regional feed demand befor national
-        # demand for feed, food, etc.)
-        regional_feed_demand = feed_demand.where(
-            prod >= feed_demand.sum(axis=1),
-            (feed_demand.mul(1 / feed_demand.sum(axis=1), axis=0).mul(prod, axis=0)),
-        )
-
-        prod_to_national = prod - regional_feed_demand.sum(axis=1)
-
-        # Calculate remaining feed demand that needs to be supplied nationally
-        national_feed_demand = (
-            (feed_demand - regional_feed_demand)
-            .groupby(["prod_system", "crop_prod"])
-            .sum()
-        )
-
-        national_demand = (
-            pd.concat(
-                [
-                    self.demand.data_attr.get("crop_prod_demand"),
-                    self.crops.data_attr.get("seed_demand")
-                    .groupby("prod_system")
-                    .sum()
-                    .stack()
-                    .rename("seed"),
-                    national_feed_demand,
-                ],
-                axis=1,
-            )
-            .fillna(0)
-            .rename_axis("demand", axis=1)
-        )
-
-        national_demand_shares = (
-            national_demand.transform(
-                lambda x: x / x.sum() if x.sum() > 0 else 0, axis=1
-            )
-            .reindex(
-                prod_to_national.reorder_levels(
-                    ["prod_system", "crop_prod", "region"]
-                ).index
-            )
-            .reorder_levels(["region", "prod_system", "crop_prod"])
-        )
-
-        # Calculate total demand (regional+national)
-        total_demand = national_demand_shares.mul(
-            prod_to_national, axis=0
-        ) + regional_feed_demand.reindex(national_demand_shares.columns, axis=1).fillna(
-            0
-        )
-        total_demand["none"] = prod - total_demand.sum(axis=1)
-        # Set small negatives to zero
-        assert total_demand.min().min() > -1e-6
-        total_demand = total_demand.where(total_demand > 0, 0)
-
-        # Calculate shares of total demand per use
-        total_demand_shares = total_demand.mul(1 / prod, axis=0)
-        # Assume 100% none demand for rows with NaNs (i.e. where prod==0)
-        total_demand_shares.loc[:, "none"] = total_demand_shares.loc[:, "none"].fillna(
-            1
-        )
-        total_demand_shares.fillna(0, inplace=True)
-
-        assert np.isclose(total_demand_shares.sum(axis=1), 1).all()
-
-        # Calculate crop production per use
-        crop_production_per_use = (
-            multiply_aligned(
-                total_demand_shares.unstack()
-                .reindex(
-                    self.crops.data_attr.get("production")
-                    .reorder_levels(["region", "prod_system", "crop"])
-                    .index
-                )
-                .reorder_levels(["crop", "prod_system", "region"]),
-                self.crops.data_attr.get("production"),
-            )
-            .T.groupby("demand")
-            .sum()
-            .T
-        )
-
-        # Add data attribute
-        self.crops.data_attr.add(
-            crop_production_per_use,
-            name="production_per_use",
-            unit="kg/year",
-            orig="FeedDistributor",
-            desc="Total crop production distributed across different uses (unreliable)",
-        )
-
     def adjust_crop_allocation(self):
-        """
-        Adjust allocation of crop production to uses on FeedMgmt 'max_crop_in_crop_prod'
-        parameter used to e.g. limit the share of grazing that can be supplied from
-        semi-natural grasslands for different animals
-        """
-
-        # NOTE: THIS ALLOCATION PROCEDURE GENERATES UNRELIABLE RESULTS IN TERMS OF
-        # ALLOCATING TOO MUCH OR LITTLE TO DIFFERENT ANIMAL HERDS. BALANCES ON REGION/
-        # PRODUCTION SYSTEM LEVEL ARE HOWEVER FINE. BUT INTERPRET RESULTS WITH CARE
-
-        # Get crop production per use and create df for adjustments
-        crop_production_per_use = self.crops.data_attr.get("production_per_use").copy()
-        crop_production_per_use_adjusted = crop_production_per_use.copy()
-
-        # Get map crop_group --> crop(s)
-        map_cg_cr = inv_dict(self.par.get_rel("crop", "crop_group"))
-
-        # Get concatenated herds
-        con_herds = concat_herds(self.herds)
-
-        # Get maximum inclusion of crops in crop_prod per animal herd
-        max_feed_from_crop = (
-            con_herds.data_attr.get("feed.max_supply_from_crop_group")
-            .T.groupby(
-                [
-                    "species",
-                    "breed",
-                    "sub_system",
-                    "prod_system",
-                    "crop_prod",
-                    "crop_group",
-                ]
-            )
-            .sum()
-            .T.stack(["prod_system", "crop_prod", "crop_group"])
-            .fillna(0)
-        ).reorder_levels(["crop_prod", "crop_group", "prod_system", "region"])
-        max_feed_from_crop.columns = max_feed_from_crop.columns.map(
-            "feed ({0[0]}, {0[1]}, {0[2]})".format
-        ).rename("demand")
-
-        # Get crop products with a max
-        # feed from crop_groups constraints
-        cps = max_feed_from_crop.index.unique("crop_prod")
-
-        for cp in cps:
-            # Get total demand for crop_prod per animal herd
-            cp_demand_per_herd = (
-                con_herds.data_attr.get("feed.crop_product_demand")
-                .xs(("domestic", cp), level=("origin", "crop_prod"), axis=1)
-                .T.groupby(["species", "breed", "sub_system", "prod_system"])
-                .sum()
-                .T.stack(["prod_system"])
-                .fillna(0)
-            ).reorder_levels(["prod_system", "region"])
-            cp_demand_per_herd.columns = cp_demand_per_herd.columns.map(
-                "feed ({0[0]}, {0[1]}, {0[2]})".format
-            ).rename("demand")
-
-            # Get constrained crop groups
-            cgs = max_feed_from_crop.loc[cp].index.unique("crop_group")
-
-            # Get constrained and unconstrained crops
-            crs_cons = [cr for cg in cgs for cr in map_cg_cr[cg]]
-            crs_uncons = self.crops.index.get_level_values("crop")[
-                self.crops.data_attr.get("production").loc[:, cp] > 0
-            ].unique()
-            crs_uncons = [cr for cr in crs_uncons if cr not in crs_cons]
-
-            # Go through constrained crop_groups and crops and update
-            for cg in cgs:
-                # Calculate allocation factors for constrained crop_group
-                cg_allocation_factors = max_feed_from_crop.loc[cp, cg].transform(
-                    lambda x: x / x.sum(), axis=1
-                )
-
-                # Get crops in constrained crop_group
-                crs = map_cg_cr[cg]
-
-                for cr in crs:
-                    # Get total use of crop
-                    total_use_of_cr = crop_production_per_use.loc[
-                        cr, crop_production_per_use.columns.str.contains("feed")
-                    ].sum(axis=1)
-                    # Apply allocation factors
-                    cr_allocated = cg_allocation_factors.mul(total_use_of_cr, axis=0)
-                    # Update dataframe
-                    crop_production_per_use_adjusted.update(
-                        pd.concat({cr: cr_allocated}, names=["crop"]).fillna(0)
-                    )
-
-            # Get total use of unconstrained crops
-            total_use_uncons_crs = (
-                crop_production_per_use.loc[
-                    crs_uncons, crop_production_per_use.columns.str.contains("feed")
-                ]
-                .sum(axis=1)
-                .groupby(["prod_system", "region"])
-                .sum()
-            )
-            # Get adjusted use of constrained crops per herd
-            use_cons_crs_per_herd = (
-                crop_production_per_use_adjusted.loc[
-                    crs_cons, crop_production_per_use.columns.str.contains("feed")
-                ]
-                .groupby(["prod_system", "region"])
-                .sum()
-            )
-            # Calculate allocation factors
-            uncons_crs_allocation_factors = (
-                cp_demand_per_herd - use_cons_crs_per_herd
-            ).div(total_use_uncons_crs, axis=0)
-            # Make sure rows sums to 1 (this shouldn't be needed... some problem here...)
-            uncons_crs_allocation_factors = uncons_crs_allocation_factors.transform(
-                lambda x: x / x.sum(), axis=1
-            )
-            # Go through unconstrained crops and update
-            for cr in crs_uncons:
-                # Get total use of crop
-                total_use_of_cr = crop_production_per_use.loc[
-                    cr, crop_production_per_use.columns.str.contains("feed")
-                ].sum(axis=1)
-                # Apply allocation factors
-                cr_allocated = uncons_crs_allocation_factors.mul(
-                    total_use_of_cr, axis=0
-                )
-                # Update dataframe
-                crop_production_per_use_adjusted.update(
-                    pd.concat({cr: cr_allocated}, names=["crop"]).fillna(0)
-                )
-
-        mini = crop_production_per_use_adjusted.min().min()
-        if mini < -5:
-            # Negatives!
-            warnings.warn(
-                f"Negatives of down to {mini} kg in adjusted crop allocation, these "
-                + "were set to zero"
-            )
-
-        dif = abs(
-            (
-                crop_production_per_use_adjusted.sum(axis=1)
-                - crop_production_per_use.sum(axis=1)
-            )
-        ).max()
-        if dif > 5:
-            # Dif from unadjusted
-            warnings.warn(
-                f"Adjusted crop allocation differed from unadjusted by up to {dif} kg"
-            )
-
-        # Set small negatives to zero
-        crop_production_per_use_adjusted = crop_production_per_use_adjusted.where(
-            crop_production_per_use_adjusted >= 0, 0
-        )
-
-        # Update data attribute
-        self.crops.data_attr.add(
-            crop_production_per_use_adjusted,
-            name="production_per_use",
-            unit="kg/year",
-            orig="FeedDistributor",
-            desc="Total crop production distributed across different uses (unreliable)",
-        )
+        # NOTE: THIS METHOD DOES NOT WORK WITH FeedDistributor
+        # currently as the attribute 'feed.max_supply_from_crop_group'
+        # is not set with the FeedDistFeedMgmt
+        print('Crop allocation not adjusted ', end='')
+        return None

@@ -3,6 +3,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
+from ..utils.misc import fix_herds
 
 if TYPE_CHECKING:
     from ..main_modules.demand_and_conversions import DemandAndConversions
@@ -36,17 +37,7 @@ class MachineryAndEnergyMgmt(object):
         self.regions = regions
         self.crops = crops
         self.waste = waste
-
-        if isinstance(herds, pd.Series):
-            self.herds = herds
-        else:
-            self.herds = pd.Series(
-                data=herds,
-                index=pd.MultiIndex.from_tuples(
-                    [(herds.species,herds.breed,herds.prod_system,herds.sub_system)],
-                    names=['species','breed','prod_system','sub_system']
-                )
-            )
+        self.herds = fix_herds(herds)
 
     def calculate(self, verbose=False):
 
@@ -216,7 +207,7 @@ class MachineryAndEnergyMgmt(object):
         # Series to get regions with soil class
         sc = pd.Series(self.regions.data_attr.get('soil_texture').index.values, index = self.regions.data_attr.get('soil_texture'))
 
-        for soil_class in soil_classes:
+        for soil_class in sc.index.unique():
             E_final.loc[idx[:,:,sc[soil_class]],:] = (
                 (A * E_per_area.loc[soil_class,:]).mul(self.crops.data_attr.get('area'), axis=0) +
                 (A * E_per_mass.loc[soil_class,:]).mul(self.crops.data_attr.get('harvest'), axis=0) +
@@ -322,16 +313,19 @@ class MachineryAndEnergyMgmt(object):
 
             # Create dataframes of heads, inserted heads and production
             # and calculate energy use
-            heads = herd.data_attr.get('heads').reindex(
-                columns = pd.MultiIndex.from_tuples(
-                    [(ps,an,ac,es) for ps,an in herd.data_attr.get('heads').columns for ac in acs for es in ess],
-                    names=['prod_system','animal','activity','energy_source']
+            if 'heads' in herd.data_attr:
+                heads = herd.data_attr.get('heads').reindex(
+                    columns = pd.MultiIndex.from_tuples(
+                        [(ps,an,ac,es) for ps,an in herd.data_attr.get('heads').columns for ac in acs for es in ess],
+                        names=['prod_system','animal','activity','energy_source']
+                    )
                 )
-            )
-            energy_use_per_head = (
-                heads *
-                pf('stable_energy_use_per_head',heads)
-            )
+                energy_use_per_head = (
+                    heads *
+                    pf('stable_energy_use_per_head',heads)
+                )
+            else:
+                energy_use_per_head = 0
 
             if 'inserted_n' in herd.data_attr:
                 inserted_heads = herd.data_attr.get('inserted_n').reindex(

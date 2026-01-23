@@ -11,7 +11,9 @@ from .main_modules.demand_and_conversions import \
     DemandAndConversions
 from .main_modules.crop_prod import CropProduction
 from .main_modules.animal_herd import \
-    CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd, SheepHerd, \
+    CattleHerd, PigHerd, BroilerHerd, LayerHerd, HorseHerd, \
+    SheepHerd, GoatHerd, \
+    AquacultureHerd, FisheriesHerd, \
     make_herds, concat_herds
 from .main_modules.waste_and_circularity import WasteAndCircularity
 
@@ -45,3 +47,22 @@ from .soil_modules.soil_class import SoilData
 from .soil_modules.soil_class import SoilDataExplore
 from .soil_modules.soil_class import ScenarioTempCalc
 from .soil_modules import soil_utils
+
+from .utils.misc import get_git_info
+print("""
+ -----------------------
+|   Imported CIBUSmod   |
+ -----------------------""", end='')
+try:
+    GIT_COMMIT, GIT_BRANCH, GIT_DIRTY, GIT_REMOTE = \
+    get_git_info(root).values()
+    print(f"""
+commit : {GIT_COMMIT}
+branch : {GIT_BRANCH}
+dirty  : {GIT_DIRTY}
+remote : {GIT_REMOTE}
+    """)
+except:
+    print("""
+Could not access git.
+""")

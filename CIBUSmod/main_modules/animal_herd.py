@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from abc import ABC, abstractmethod
+from itertools import product
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
@@ -51,6 +52,9 @@ class AnimalHerd(ABC):
     animals: list[str]
     products: list[str]
 
+    # Defines if manure should be calculated for AnimalHerd
+    has_manure = True
+
     def __init__(self,par,index,**kwargs):
 
         # Set to keep track of data attributes that have been assigned
@@ -59,9 +63,9 @@ class AnimalHerd(ABC):
         self.par = par
         self.index = index
 
-        self.breed = kwargs['breed'] or 'none'
-        self.prod_system = kwargs['prod_system'] or 'none'
-        self.sub_system = kwargs['sub_system'] or 'none'
+        self.breed = kwargs.get('breed','none')
+        self.prod_system = kwargs.get('prod_system','none')
+        self.sub_system = kwargs.get('sub_system','none')
 
     def __repr__(self):
         return f'''
@@ -121,6 +125,9 @@ animals              {self.animals}
 
         vprint('Calculating herd structure ...')
         self.calculate_herd()
+        # Check for negative animal numbers (with some tolerance)
+        if (self.data_attr.get('heads') < 0-1e-8).any().any():
+            raise ValueError(f"Herd structure with negative headcounts for AnimalHerd ({self.species}, {self.breed}, {self.prod_system}, {self.sub_system}). Check data!")
 
         vprint('Calculating feed requirements ...')
         self.calculate_feed_req()
@@ -154,7 +161,7 @@ animals              {self.animals}
         )
         p = self.par.get
 
-        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','meat','milk']
+        valid = ['cows','sows','sows+gilts','broilers','total hens','total horses','ewes+rams','does','meat','milk','fish']
         if x_is not in valid:
             raise ValueError("x_is must be one of %r." % valid)
 
@@ -170,8 +177,8 @@ animals              {self.animals}
             x_is = 'sows'
 
         # Get 'old_x'
-        if x_is in ['milk','meat']:
-            old_x = self.data_attr.get('production').loc[:,(slice(None),x_is)].sum(axis=1)
+        if x_is in ['milk','meat','fish']:
+            old_x = self.data_attr.get('production').loc[:,(slice(None),slice(None),x_is)].sum(axis=1)
         elif x_is == 'total horses':
             old_x = self.data_attr.get('heads').sum(axis=1)
         elif x_is == 'ewes+rams':
@@ -213,6 +220,14 @@ animals              {self.animals}
                 obj.data_attr.add(data=None, name=attr, **self.data_attr[attr])
 
         return obj
+    
+    def has_feed_demand(self):
+        '''Returns True if AnimalHerd object has demand for feed.'''
+        attrs = ['feed_req_eq','feed_req_min','feed_req_max']
+        for attr in attrs:
+            if self.data_attr.get(attr).sum().sum() > 0:
+                return True
+        return False
 
     def calculate_feed_req(self):
 
@@ -260,28 +275,35 @@ animals              {self.animals}
             desc="Feed requirements that represents maximum constraints. *differ by 'feed_par'",
         )
 
-        # Create data attributes for minimum and maximum requirements in terms of
-        # inclusion of feed parameters in total dry matter feed
-        self.data_attr.add(
-            df_req.copy(),
-            name="feed_req_of_DM_min",
-            unit="kg*/kg DM",
-            orig="AnimalHerd",
-            desc="Minimum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
-            scalable=False
-        )
-        self.data_attr.add(
-            df_req.copy(),
-            name="feed_req_of_DM_max",
-            unit="kg*/kg DM",
-            orig="AnimalHerd",
-            desc="Maximum inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
-            scalable=False
-        )
-
         # Run AnimalHerd-module specific method
         self._calculate_feed_req()
 
+        # Get minimum and maximum requirements in terms of
+        # inclusion of feed parameters in total dry matter feed
+        # and create data attributes
+        for mm in ['max','min']:
+            res = df_req.copy()
+            if 'f_feed_par' in self.par.data.index.names:
+                fps = self.par.get_unique('feed_par', qry=f"parameter == '{mm}_feed_par_of_DM'")
+                if len(fps) > 0:
+                    res = self.par.get_from_frame(
+                        f'{mm}_feed_par_of_DM',
+                        pd.DataFrame(
+                            index = self.index,
+                            columns = pd.MultiIndex.from_tuples(
+                                [(*i,fp) for i,fp in product(self.data_attr.get('heads').columns, fps)],
+                                names = ['prod_system', 'animal', 'feed_par']
+                            )
+                        )
+                )
+            self.data_attr.add(
+                res,
+                name=f"feed_req_of_DM_{mm}",
+                unit="kg*/kg DM",
+                orig="AnimalHerd",
+                desc=f"{'Maximum' if mm=='max' else 'Minimum'} inclusion of 'feed_par'. *generally kg, but may differ by 'feed_par'",
+                scalable=False
+            )
 
     def calculate_production(self):
 
@@ -301,7 +323,11 @@ animals              {self.animals}
         # Get output products
         prs = self.products
         # Get ouput production systems
-        pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
+        try:
+            pss = self.data_attr.get('heads').columns.get_level_values('prod_system').unique()
+        except KeyError:
+            # If 'heads' data attribute not set
+            pss = [self.prod_system]
         # Get animals
         anis = self.animals
 
@@ -332,10 +358,18 @@ animals              {self.animals}
         # Calculate raw milk production [kg ECM]
         # kg ECM = kg milk x 0.25 + kg fat x 12.2 + kg protein x 7.7
         if 'milk' in prs:
+            #
+            if self.species == 'cattle':
+                milk_ani = 'cows'
+                milk_to_young_attr = 'milk_to_calves'
+            elif self.species == 'goats':
+                milk_ani = 'does'
+                milk_to_young_attr = 'milk_to_kids'
+
             production.loc[:,(slice(None),slice(None),'milk')] = \
                 pd.concat([
-                    pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,'cows')]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
-                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get('milk_to_calves').sum(axis=1)).values.clip(0) *
+                    pd.concat({'milk': self.data_attr.get('heads').loc[:,[(ps,milk_ani)]]}, names=['animal_prod'], axis=1).reorder_levels(['prod_system','animal','animal_prod'], axis=1).mul(
+                    (p('milk_prod', prod_system=ps) * (1 - p('milk_loss')/100) - self.data_attr.get(milk_to_young_attr).sum(axis=1)).values.clip(0) *
                     (0.25 + p('milk_fat', prod_system=ps)/100*12.2 + p('milk_protein', prod_system=ps)/100*7.7),
                     axis = 0
                 )
@@ -354,6 +388,19 @@ animals              {self.animals}
                 pd.concat({'heads': self.data_attr.get('heads')}, names=['animal_prod'], axis=1)
                 .reorder_levels(['prod_system','animal','animal_prod'], axis=1)
             )
+
+        if 'fish' in prs:
+            # Fish live weigh harvest/landings (in tonnes) is directly defined as x for fish production systems
+            if production.loc[:,(slice(None),slice(None),'fish')].shape[1] == 1:
+                production.loc[:,(slice(None),slice(None),'fish')] = \
+                    self.x
+            else:
+                production.loc[:,(slice(None),slice(None),'fish')] = 0
+                # Get the producing animal category and assign values
+                ps_ani = (self.data_attr.get('slaughtered_n').sum()>0).replace({False:np.nan}).dropna().index
+                assert len(ps_ani) == 1, "One and only one producing animal category allowed in fish systems"
+                production.loc[:,tuple(list(ps_ani[0])+['fish'])] = \
+                    self.x
 
         # Fill NaNs in production DataFrame and set column index
         production = production.fillna(0)
@@ -384,6 +431,9 @@ from .animal_herd_poultry_broiler import BroilerHerd
 from .animal_herd_poultry_layer import LayerHerd
 from .animal_herd_horse import HorseHerd
 from .animal_herd_sheep import SheepHerd
+from .animal_herd_goat import GoatHerd
+from .animal_herd_aquaculture import AquacultureHerd
+from .animal_herd_fisheries import FisheriesHerd
 
 def make_herds(
         regions,
@@ -462,6 +512,7 @@ def make_herds(
                 herd_class(
                     par = ParameterRetriever(herd_class_name),
                     index = regions.data_attr.get('x0_animals').index.get_level_values('region').unique(),
+                    species = sp,
                     breed = br,
                     prod_system = ps,
                     sub_system = ss

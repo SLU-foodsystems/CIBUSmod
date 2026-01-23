@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
-from ..utils.misc import multiply_aligned, inv_dict, index_to_multi, elem_to_name
+from ..utils.misc import multiply_aligned, inv_dict, index_to_multi, fix_herds, elem_to_name
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -50,17 +50,7 @@ class PlantNutrientMgmt():
         self.crops = crops
         self.waste = waste
         self.cover_crops_mgmt = cover_crops_mgmt
-
-        if isinstance(herds, pd.Series):
-            self.herds = herds
-        else:
-            self.herds = pd.Series(
-                data=herds,
-                index=pd.MultiIndex.from_tuples(
-                    [(herds.species,herds.breed,herds.prod_system,herds.sub_system)],
-                    names=['species','breed','prod_system','sub_system']
-                )
-            )
+        self.herds = fix_herds(herds)
 
     def calculate(self, verbose=False):
 
@@ -287,7 +277,9 @@ class PlantNutrientMgmt():
 
         # 1. MANURE TO GRAZING AREAS ---------------------------->
         # Get crops used for grazing
-        grazing_crops = self.crops.par.get_unique('crop', 'f_crop_prod=="grazing"')
+        # Note: This assumes that all crops used for grazing are parametrised
+        # to produce a 'crop_prod' that includes "grazing" in its name
+        grazing_crops = self.crops.par.get_unique('crop', qry='f_crop_prod.str.contains("grazing", na=False)')
         # Get menure TAN deposited while grazing
         manure_TAN_grazing = herds.data_attr.get('manure.TAN_to_spread').xs('grazing', level='MMS', axis=1, drop_level=False)
         # Share of grazed biomass per "grazing crop"
@@ -356,51 +348,52 @@ class PlantNutrientMgmt():
         manure_TAN_remaining = manure_TAN.copy()
         TAN_req_remaining = TAN_req.copy()
 
-        # 2. ORGANIC MANURE TO ORGANIC AREAS -------------------------->
+        if 'organic' in TAN_req.index.unique('prod_system'):
+            # 2. ORGANIC MANURE TO ORGANIC AREAS -------------------------->
 
-        # TAN requirements to be covered and manure to be used in this step
-        TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
-        manure_TAN_to_use = manure_TAN_remaining.xs('organic', level='prod_system', axis=1, drop_level=False)
+            # TAN requirements to be covered and manure to be used in this step
+            TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
+            manure_TAN_to_use = manure_TAN_remaining.xs('organic', level='prod_system', axis=1, drop_level=False)
 
-        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+            manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
 
-        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
-        _update_manure_TAN_frames(
-            manure_TAN_to_spread,
-            manure_TAN_remaining,
-            TAN_req_remaining, manure_TAN_application
-        )
+            manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+            _update_manure_TAN_frames(
+                manure_TAN_to_spread,
+                manure_TAN_remaining,
+                TAN_req_remaining, manure_TAN_application
+            )
 
-        # 3. ALL MANURE TO ORGANIC AREAS UP TO X% TAN --------------------->
+            # 3. ALL MANURE TO ORGANIC AREAS UP TO X% TAN --------------------->
 
-        # Calculate TAN requirements to be covered in this step
-        self.par.clear()
+            # Calculate TAN requirements to be covered in this step
+            self.par.clear()
 
-        TAN_not_to_cover = TAN_req.xs('organic', level='prod_system', drop_level=False)
-        TAN_not_to_cover = (
-            TAN_not_to_cover *
-            (1-self.par.get(
-                'manure_TAN_max',
-                **TAN_not_to_cover.index.to_frame().to_dict('list')
-            )/100)
-        )
+            TAN_not_to_cover = TAN_req.xs('organic', level='prod_system', drop_level=False)
+            TAN_not_to_cover = (
+                TAN_not_to_cover *
+                (1-self.par.get(
+                    'manure_TAN_max',
+                    **TAN_not_to_cover.index.to_frame().to_dict('list')
+                )/100)
+            )
 
-        TAN_to_cover = (
-            TAN_req_remaining.xs('organic', level='prod_system', drop_level=False) -
-            TAN_not_to_cover
-        )
-        TAN_to_cover[TAN_to_cover<0] = 0
+            TAN_to_cover = (
+                TAN_req_remaining.xs('organic', level='prod_system', drop_level=False) -
+                TAN_not_to_cover
+            )
+            TAN_to_cover[TAN_to_cover<0] = 0
 
-        manure_TAN_to_use = manure_TAN_remaining
+            manure_TAN_to_use = manure_TAN_remaining
 
-        manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
+            manure_TAN_to_spread = _distribute_manure_TAN(TAN_to_cover, manure_TAN_to_use)
 
-        manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
-        _update_manure_TAN_frames(
-            manure_TAN_to_spread,
-            manure_TAN_remaining,
-            TAN_req_remaining, manure_TAN_application
-        )
+            manure_TAN_remaining, TAN_req_remaining, manure_TAN_application = \
+            _update_manure_TAN_frames(
+                manure_TAN_to_spread,
+                manure_TAN_remaining,
+                TAN_req_remaining, manure_TAN_application
+            )
 
         # 4. MANURE PER HERD TO CROP AREAS USED AS FEED --------------------->
 
@@ -540,7 +533,11 @@ class PlantNutrientMgmt():
         # 2. ORGANIC FERTILISERS TO ORGANIC AREAS ACROSS REGIONS
         # 3. ORGANIC FERTILISERS TO CONVENTIONAL AREAS IN REGION
         # 4. ORGANIC FERTILISERS TO CONVENTIONAL AREAS ACROSS REGIONS
-        for do_step in [1,2,3,4]:
+        if 'organic' in TAN_req.index.unique('prod_system'):
+            steps = [1,2,3,4]
+        else:
+            steps = [3,4]
+        for do_step in steps:
 
             if do_step in [1,2]:
                 TAN_to_cover = TAN_req_remaining.xs('organic', level='prod_system', drop_level=False)
