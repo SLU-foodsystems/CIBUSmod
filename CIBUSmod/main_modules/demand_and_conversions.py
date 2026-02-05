@@ -650,92 +650,92 @@ def _empty_demand(demand, of):
     )
     return (prod_demand, by_prod)
 
-def _fix_cream_balance(self, animal_prod_demand, animal_by_products, by_prod_demand, induce_export_of = 'Milk powder'):
-    # Handle dairy "cream balance". As consumption of high fat dairy products and associated demand for cream exceeds
-    # the ammount of cream generated from consumption of low fat dairy products this induces an export of low fat
-    # dairy products.
-    #
-    # Note: The method currently implemented will fail to handle a situation where the opposite is true, i.e. where
-    # consumption of low fat products generates more cream than needed to cover consumption of high fat products.
-    self.par.clear()
+def _fix_cream_balance(
+        self,
+        animal_prod_demand, animal_by_products, by_prod_demand,
+        low_fat_prod = 'Milk powder',
+        high_fat_prod = 'Butter'
+    ):
+    '''Handle dairy "cream balance". If consumption of high fat dairy products and associated demand for cream exceeds
+    the ammount of cream generated from consumption of low fat dairy products this induces an export of low fat
+    dairy products. Conversely, if ammount of cream generated exceeds cream demand, exports of high fat dairy  products
+    are induced.'''
 
-    # Get food group name of skim milk
-    food_group = self.par.get_unique("food_group", f'f_food=="{induce_export_of}"')
-    if len(food_group) == 0:
-        raise ValueError(f"No food_groups for food '{induce_export_of}' found.")
-
-    # TODO: What if we have multiple different food groups here?
-    food_group = food_group[0]
-
-    cream_to_raw_milk = 1 / (
-        self.par.get(
-            "conv_factor_by",
-            food=induce_export_of,
-            species="cattle",
-            animal_prod="milk",
-            by_prod="cream",
-        )[0]
-        / 100
-    )
-
-    self.par.clear()
-    raw_milk_to_skim_milk = (
-        self.par.get(
-            "conv_factor_main",
-            food=induce_export_of,
-            species="cattle",
-            animal_prod="milk",
-        )[0]
-        / 100
-    )
-
-    # Calculate shortage of cream to satisfy demand for fat rich products
-    cream_shortage = (
+    # Calculate shortage/surpluss of cream to satisfy demand for fat rich products
+    cream_balance = (
         by_prod_demand.xs('cream', level='by_prod') -
         animal_by_products.xs('cream', level='by_prod')
     ).sum(axis=1)
 
-    # Calculate additional raw milk that needs to be produced and induced skim milk exports
-    add_raw_milk_prod = cream_shortage * cream_to_raw_milk
-    induced_skim_milk_exports = add_raw_milk_prod * raw_milk_to_skim_milk
+    # Get which dairy product to export (high or low fat)
+    export_prods = cream_balance.where(cream_balance>0,high_fat_prod).where(cream_balance<=0,low_fat_prod)
 
-    if (induced_skim_milk_exports < 0).any():
-        # Give it some slack to avoid rounding problems
-        if (induced_skim_milk_exports > -1e-4).all():
-            induced_skim_milk_exports[induced_skim_milk_exports < 0] = 0
+    # Take absolute of cream balance
+    cream_balance = cream_balance.abs()
+
+    # Create Series to store conversion factors and food groups
+    cream_to_raw_milk = pd.Series(index=cream_balance.index)
+    raw_milk_to_export_prod = pd.Series(index=cream_balance.index)
+    food_groups = pd.Series(index=cream_balance.index, dtype=str)
+
+    for i,prod in export_prods.items():
+
+        if prod == high_fat_prod:
+            hf = True
         else:
-            warnings.warn(
-                f'DemandAndConversions: Adjusting the "cream balance" resulted in a negative export of {induce_export_of}, which \
-will result in the GeoDistributor failing. This is because demand for low-fat dairy products generates \
-more cream than demanded by high-fat dairy products. This situation can`t be handled currently and demand \
-data need to be adjusted manually to avoid this situation.'
-            )
+            hf = False
+
+        # Get food group name of milk products to export
+        food_group = self.par.get_unique("food_group", f'f_food=="{prod}"')
+        if len(food_group) == 0:
+            raise ValueError(f"No food_groups for food '{prod}' found.")
+        # TODO: What if we have multiple different food groups here?
+        food_groups.loc[i] = food_group[0]
+
+        # Get conversion factors
+        # Cream deficit/surpluss --> Additional raw milk production
+        cream_to_raw_milk.loc[i] = 1 / (
+            self.par.get(
+                "conv_factor_main" if hf else "conv_factor_by",
+                food=prod,
+                prod_system=i[0],
+                species=i[1],
+                animal_prod=i[2],
+                by_prod="cream",
+            )[0]
+            / 100
+        )
+
+        # Additional raw milk --> exported dairy products
+        raw_milk_to_export_prod.loc[i] = (
+            self.par.get(
+                "conv_factor_main",
+                food=prod,
+                prod_system=i[0],
+                species=i[1],
+                animal_prod=i[2],
+            )[0]
+            / 100
+        )
+
+    # Calculate additional raw milk that needs to be produced and induced skim milk exports
+    add_raw_milk_prod = cream_balance * cream_to_raw_milk
+    induced_exports = add_raw_milk_prod * raw_milk_to_export_prod
 
     # Add additional raw milk production to demand dataframe
-    for ps in animal_prod_demand.index.unique('prod_system'):
-        animal_prod_demand.loc[(ps,'cattle','milk'), 'export'] = \
-        animal_prod_demand.loc[(ps,'cattle','milk'), 'export'] + \
-        add_raw_milk_prod.loc[ps,'cattle','milk']
+    for i in cream_balance.index:
+        animal_prod_demand.loc[i, 'export'] = \
+        animal_prod_demand.loc[i, 'export'] + \
+        add_raw_milk_prod.loc[i]
 
     # Create dataframe to add to export deamnd
-    df_to_add = pd.concat(
-        [
-            pd.concat(
-                [
-                    induced_skim_milk_exports
-                    .groupby('prod_system').sum()
-                    .to_frame()
-                    .rename(columns={0: "domestic"})
-                    .rename_axis("origin", axis=1)
-                ],
-                keys=[food_group],
-                names=["food_group"],
-            )
-        ],
-        keys=[induce_export_of],
-        names=["food"],
-    )
-    df_to_add["imported"] = 0
+    df_to_add = pd.DataFrame.from_dict({
+        'food':export_prods.values,
+        'food_group':food_groups.values,
+        'prod_system':cream_balance.index.get_level_values('prod_system'),
+        'domestic':induced_exports.values,
+        'imported':0
+    }).set_index(['food','food_group','prod_system']).rename_axis('origin', axis=1)
 
     # Add induced skim milk exports to export demand
     self.data_attr.update(
@@ -747,7 +747,11 @@ data need to be adjusted manually to avoid this situation.'
     by_prod_demand = by_prod_demand[by_prod_demand.index.get_level_values('by_prod') != 'cream']
     animal_by_products = animal_by_products[animal_by_products.index.get_level_values('by_prod') != 'cream']
 
-    print(f"Cream balance induced export of {induced_skim_milk_exports.sum()/1_000:,.0f} tonnes '{induce_export_of}'")
+    print(f"""
+Cream balance induced exports:
+{df_to_add['domestic'].map(lambda x: f"{int(x)/1_000:,.0f} tonnes")}
+    """)
+
     return (animal_prod_demand, animal_by_products, by_prod_demand)
 
 def _attribute_secondary_by_prod(self, by_products):
