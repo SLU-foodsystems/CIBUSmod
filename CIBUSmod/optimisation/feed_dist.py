@@ -991,10 +991,10 @@ class FeedDistributor(GeoDistributor):
 
         self.constraints.update(
             {
-                "C14: A14 @ x >= 0": {
-                    "left": lambda x, A14, b14: A14.M @ x - b14,
+                "C14: A14 @ x + b14 >= 0": {
+                    "left": lambda x, A14, b14: A14.M @ x + b14,
                     "right": lambda A14, b14: 0,
-                    "rel": "<=",
+                    "rel": ">=",
                     "pars": {"A14": A14, "b14": b14},
                 }
             }
