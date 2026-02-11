@@ -184,10 +184,12 @@ def get_deltaT(
 
         # Pre-compute temp response curves
         temp_curves = generate_temp_responses(n=end_year+ext-start_year, model=temp_resp_model, vers=temp_resp_version)
-        # Separate fossil and biogenic CH4 by assuming that
-        # one CO2-C is sequestered per biogenic CH4-C emitted
-        temp_curves['ch4bio'] = temp_curves['ch4'] - ((12 + 2*16) / (12 + 4*1)) * temp_curves['co2'] 
-        temp_curves['ch4fos'] = temp_curves.pop('ch4')
+
+        # Separate fossil and biogenic CH4 by assuming that one CO2-C is emitted per fossil CH4-C emitted.
+        # This is a pragmatic approach to account for the oxidation of fossil CH4 into CO2 but does not
+        # capture the true time dynamics.
+        temp_curves['ch4bio'] = temp_curves['ch4']
+        temp_curves['ch4fos'] = temp_curves.pop('ch4') + ((12 + 2*16) / (12 + 4*1)) * temp_curves['co2']
 
         for cmp in deltaT.loc[scn].columns.unique('compound'):
             # Get GHG time-series for col
