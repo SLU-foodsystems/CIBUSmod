@@ -28,7 +28,7 @@ def generate_temp_responses(n=100, vers="AR5", model="C2012"):
         -------
         dict of np.ndarray
             Dictionary with keys 'co2', 'ch4', 'n2o' and values being 1D NumPy arrays
-            of temperature response per kg of emission over `n+1` time steps.
+            of temperature response in Kelvin (K) over `n+1` years from a 1 kg pulse emission at year 0.
         """
     from copy import deepcopy
 
