@@ -186,18 +186,22 @@ Missing breed(s): '{"', '".join(dif_br)}'
         import copy
         qry_log_all = {}
         set_time_all = 0
-        for pr in cls.instances:
-            set_time_all += pr.set_time
-            for att in pr.qry_log:
-                if '.'.join([pr.name,att]) in qry_log_all:
-                    qry_log_all['.'.join([pr.name,att])]['lvls'].update(pr.qry_log[att]['lvls'])
-                    qry_log_all['.'.join([pr.name,att])]['caller'].update(pr.qry_log[att]['caller'])
-                    qry_log_all['.'.join([pr.name,att])]['n'] += pr.qry_log[att]['n']
-                    qry_log_all['.'.join([pr.name,att])]['time'] += pr.qry_log[att]['time']
+        for mod in cls.instances:
+            set_time_all += mod.set_time
+            for par in mod.qry_log:
+                if (mod.name, par) in qry_log_all:
+                    qry_log_all[(mod.name, par)]['lvls'].update(mod.qry_log[par]['lvls'])
+                    qry_log_all[(mod.name, par)]['caller'].update(mod.qry_log[par]['caller'])
+                    qry_log_all[(mod.name, par)]['n'] += mod.qry_log[par]['n']
+                    qry_log_all[(mod.name, par)]['time'] += mod.qry_log[par]['time']
                 else:
-                    qry_log_all['.'.join([pr.name,att])] = copy.deepcopy(pr.qry_log[att])
+                    qry_log_all[(mod.name, par)] = copy.deepcopy(mod.qry_log[par])
 
-        df = pd.DataFrame.from_dict(qry_log_all, orient='index').sort_values('time', ascending=False)
+        df = (
+            pd.DataFrame.from_dict(qry_log_all, orient='index')
+            .sort_values('time', ascending=False)
+            .rename_axis(['module','parameter'])
+            )
         df['%-of-time'] = df['time'] / df['time'].sum() * 100
         qt = df['time'].sum()
         qm = round(np.floor(qt/60))
@@ -208,7 +212,7 @@ Missing breed(s): '{"', '".join(dif_br)}'
 
         print(f"Total time setting filters: {sm} min {ss} sec")
         print(f"Total time querying parameters: {qm} min {qs} sec")
-        print(df.iloc[:10,1:].round(1))
+
         return df
 
     def __init__(self, name, **kwargs):
