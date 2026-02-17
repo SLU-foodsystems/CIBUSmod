@@ -914,14 +914,16 @@ def _read_xl(path,sheet):
 
     # Raise error if duplicates found and print some usefull info
     if 'val_is' in df.index.names:
-        dup = df.droplevel('val_is').index[df.droplevel('val_is').index.duplicated()].get_level_values("parameter")
+        dup = df.droplevel('val_is').index[df.droplevel('val_is').index.duplicated()] \
+            .to_frame(index=False).dropna(axis=1)
     else:
-        dup = df.index[df.index.duplicated()].get_level_values("parameter")
+        dup = df.index[df.index.duplicated()] \
+            .to_frame(index=False).dropna(axis=1)
     if len(dup)>0:
-        n = min(len(dup),5)
-        str1 = f"One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}): "
-        str2 = ", ".join(["'"+d+"'" for d in dup]) + (", ..." if n<len(dup) else "")
-        raise ValueError(str1+str2)
+        raise ValueError(f"""
+One or more parameter(s) in '{path}' have identical filter columns (n={len(dup)}):
+{dup}
+        """)
 
 
     return df
