@@ -711,9 +711,9 @@ Constraint C2 was omitted!
     def make_C6(self):
         """Creates C6: A6 @ x <= 0
 
-        Constrain the minimum and/or maximum share of cropland devoted to a given crop
-        group in a given region in a given production system. The maximum share is set
-        on 'crop_group' level via the parameters 'min_in_rot' and 'max_in_rot' in the
+        Constrain the minimum and/or maximum share of cropland devoted to a given crop/
+        crop group in a given region in a given production system. The maximum share is set
+        on any level via the parameters 'min_in_rot' and 'max_in_rot' in the
         'CropProduction' module.
 
         Note: This constraint only applies to crops with 'cropland' as 'land_use' in the
@@ -723,24 +723,33 @@ Constraint C2 was omitted!
         # Note to future:
         # - Deal with crops assumed not to be in rotation by putting 0 in the matrix
 
+        # Get possible levels for which 'min/max_in_rot' could be defined
+        lvls = self.crops.par.relation_tables['crop'].columns
+
         for minmax in ['min', 'max']:
-            if self.crops.par.get_unique(
-                'crop_group',
-                qry=f'parameter == "{minmax}_in_rot"'
-            ).shape[0] > 0:
-
-                A6 = self.make_A6(minmax)
-                A6.extend_cols(self.x_idx)
-
-                sign = '<=' if minmax == 'max' else '>='
-
-                # Append constraint
-                self.constraints.update({f'C6_{minmax}: A6 @ x {sign} 0' : {
-                    'left' : lambda x,A6: A6.M @ x,
-                    'right' : lambda A6: 0,
-                    'rel' : sign,
-                    'pars' : {f'A6':A6}
-                }})
+            for i,lvl in enumerate(lvls):
+                try:
+                    unique_items = self.crops.par.get_unique(
+                        lvl,
+                        qry=f'parameter == "{minmax}_in_rot"'
+                    )
+                except KeyError:
+                    continue
+                    
+                if unique_items.shape[0] > 0:
+            
+                    A6 = self.make_A6(minmax, lvl)
+                    A6.extend_cols(self.x_idx)
+            
+                    sign = '<=' if minmax == 'max' else '>='
+            
+                    # Append constraint
+                    self.constraints.update({f'C6_{minmax}_{i}: A6 @ x {sign} 0' : {
+                        'left' : lambda x,A6: A6.M @ x,
+                        'right' : lambda A6: 0,
+                        'rel' : sign,
+                        'pars' : {f'A6':A6}
+                    }})
 
     def make_C7(self) -> None:
         '''Creates C7: Drops variables
@@ -1534,19 +1543,19 @@ Constraint C2 was omitted!
 
         return M
 
-    def make_A6(self, minmax):
+    def make_A6(self, minmax, lvl):
 
         self.crops.par.clear()
 
-        # Get crop groups with min/max inclusion in rotation constraint
-        cgs = self.crops.par.get_unique('crop_group', qry=f'parameter == "{minmax}_in_rot"')
+        # Get crops/crop groups with min/max inclusion in rotation constraint
+        cgs = self.crops.par.get_unique(lvl, qry=f'parameter == "{minmax}_in_rot"')
         pss = self.x_idx['crp'].get_level_values('prod_system').unique()
         res = self.x_idx['crp'].get_level_values('region').unique()
 
         # Get row index from (cg,ps,re)
         row_idx = pd.MultiIndex.from_tuples(
             [(cg,ps,re) for cg in cgs for ps in pss for re in res],
-            names = ['crop_group','prod_system','region']
+            names = [lvl,'prod_system','region']
         )
         # Get col index from crops (cr,ps,re)
         col_idx = self.x_idx['crp'].copy()
@@ -1554,7 +1563,14 @@ Constraint C2 was omitted!
         # Get dict for translating crop --> land use
         lu_rel = self.par.get_rel('crop','land_use')
         # Get dict for translating crop --> crop group
-        cg_rel = self.par.get_rel('crop','crop_group')
+        if lvl != 'crop':
+            cg_rel = self.par.get_rel('crop',lvl)
+        else:
+            # Make identity map crop --> crop
+            class IdentityMap:
+                def __getitem__(self, key):
+                    return key
+            cg_rel = IdentityMap()
 
         # To store data and corresponding row/col numbers for constructing matrix
         val = []
@@ -1566,7 +1582,7 @@ Constraint C2 was omitted!
             # Create Series of 'min/max_in_rot' factors for crop_group = cg
             # and prod_system = ps for each region
             f = pd.Series(
-                self.crops.par.get(f'{minmax}_in_rot', crop_group=cg, prod_system=ps, region=list(res))/100,
+                self.crops.par.get(f'{minmax}_in_rot', **{lvl:cg, 'prod_system':ps, 'region':list(res)})/100,
                 index = res
             )
 
