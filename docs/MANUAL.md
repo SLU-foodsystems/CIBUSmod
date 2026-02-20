@@ -14,6 +14,7 @@
     - [Initialising CIBUSmod modules and performing the calculations](#initialising-cibusmod-modules-and-performing-the-calculations)
     - [Storing model output](#storing-model-output)
 1. [Retrieving model output](#retrieving-model-output)
+1. [Modules](#modules)
 
 # Introduction
 Intro here
@@ -230,9 +231,48 @@ This section gives a breif overview of running the model. See the example notebo
 
 As previously indicated CIBUSmod is built up of several modules responsible for performing different parts of the calculations. The modules are subdivided into *main modules* and *management (mgmt) modules*, where the main modules store all output and mgmt modules perform specific calculations and add/adjust data stored on the main modules. All modules take a `ParameterRetriever` object as an input. In addition, many modules require other modules as input and some modules also take additional settings as input.
 
-The figure below shows all modules currently included in CIBUSmod. The order from top to bottom (1-14), is the order in which modules should be run and the numbers to the right indicate which other module that module require as input. 
+The figure below shows all modules currently included in CIBUSmod. The order from top to bottom (1-14), is the order in which modules should be run and the numbers below indicate which other module that module require as input. Green, blue and grey boxes represent main modules, management modules and optimisation module, respectively.
 
-<img src="figs/manual/calc_order.png">
+```mermaid
+flowchart TB
+
+
+  R["**(1)Regions**
+  Input: -"]:::main -.-
+  DAC["**(2)DemandAndConversions**
+  Input: -"]:::main -.-
+  CP["**(3)CropProduction**
+  Input: 1"]:::main -.-
+  AH["**(4)AnimalHerd**
+  Input: 1"]:::main -.-
+  FM["**(5)FeedMgmt**
+  Input: 4"]:::mgmt -.-
+  GD["**(6)GeoDistributor**
+  Input: 1,2,3,4,5"]:::opt -.-
+  FM2["**(7)FeedMgmt**
+  Input: 4"]:::mgmt
+
+  BPM["**(8)ByProductMgmt**
+  Input: 2,4"]:::mgmt -.- 
+  MM["**(9)ManureMgmt**
+  Input: 4,5"]:::mgmt -.-
+  CRM["**(10)CropResidueMgmt**
+  Input: 2,3,4"]:::mgmt -.-
+  WAC["**(11)WasteAndCircularity**
+  Input: 2,3,4"]:::main -.-
+  PNM["**(12)PlantNutrientMgmt**
+  Input: 1,2,3,4,11"]:::mgmt -.-
+  MAEM["**(13)MachineryAndEnergyMgmt**
+  Input: 1,2,4,11"]:::mgmt -.-
+  IM["**(14)InputsMgmt**
+  Input: 1,2,4,11"]:::mgmt
+
+
+
+  classDef main fill:#509e2f,stroke:#203f13,stroke-width:2px,color:#203f13;
+  classDef mgmt fill:#6ad1e3,stroke:#125560,stroke-width:2px,color:#125560;
+  classDef opt fill:#d9d9d6,stroke:#43433e,stroke-width:2px,color:#43433e;
+```
 
 To get more information on a module write the module name followed by a questionmark in a Jupyter notebook cell.
 
@@ -277,3 +317,12 @@ session.get_attr(
 ```
 
 This returns a `pandas.DataFrame` with scenario and year as index and the group by levels as columns.
+
+# Modules
+
+Below are a number of flow charts aiming to clarify the main logic of each module.
+
+- [Regions](module_flow_charts/Regions.md)
+- [DemandAndConversions](module_flow_charts/DemandAndConversions.md)
+- [CropProduction](module_flow_charts/CropProduction.md)
+- [AnimalHerd](module_flow_charts/AnimalHerd.md)
