@@ -297,7 +297,7 @@ class GoatHerd(AnimalHerd):
                 p('milk_prod'),
                 self.data_attr.get('milk_to_kids').sum(axis=1).values
             )
-            milk = milk_prod * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7) / 365.25
+            milk = milk_prod * (0.25 + p('milk_fat')/100*12.2 + p('milk_protein')/100*7.7)
             E_lactation = p('lactation_energy_factor') * milk
 
             # ME req. for gestation [MJ/year]
