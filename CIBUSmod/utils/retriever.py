@@ -184,25 +184,16 @@ Missing breed(s): '{"', '".join(dif_br)}'
     @classmethod
     def qry_stats(cls):
         import copy
-        qry_log_all = {}
+        sub_dfs = []
         set_time_all = 0
         for mod in cls.instances:
             set_time_all += mod.set_time
-            for par in mod.qry_log:
-                if (mod.name, par) in qry_log_all:
-                    qry_log_all[(mod.name, par)]['lvls'].update(mod.qry_log[par]['lvls'])
-                    qry_log_all[(mod.name, par)]['caller'].update(mod.qry_log[par]['caller'])
-                    qry_log_all[(mod.name, par)]['n'] += mod.qry_log[par]['n']
-                    qry_log_all[(mod.name, par)]['time'] += mod.qry_log[par]['time']
-                else:
-                    qry_log_all[(mod.name, par)] = copy.deepcopy(mod.qry_log[par])
+            sub_df = pd.DataFrame(mod.qry_log)
+            sub_df.insert(0, 'module', mod.name)
+            sub_dfs += [sub_df]
 
-        df = (
-            pd.DataFrame.from_dict(qry_log_all, orient='index')
-            .sort_values('time', ascending=False)
-            .rename_axis(['module','parameter'])
-            )
-        df['%-of-time'] = df['time'] / df['time'].sum() * 100
+        df = pd.concat(sub_dfs).set_index(['module','param'])
+
         qt = df['time'].sum()
         qm = round(np.floor(qt/60))
         qs = round(qt - qm*60)
@@ -225,7 +216,7 @@ Missing breed(s): '{"', '".join(dif_br)}'
         self.data = _read_xl(path,'default')
 
         self.filters = {}
-        self.qry_log = {}
+        self.qry_log = []
         self.set_time = 0
 
         self.set(**kwargs)
@@ -350,12 +341,7 @@ Parameters
         else:
             caller_str = caller_name
 
-        if parameter in self.qry_log:
-            self.qry_log[parameter]['lvls'].update(set(self.filters))
-            self.qry_log[parameter]['caller'].update({caller_str,})
-            self.qry_log[parameter]['n'] += 1
-        else:
-            self.qry_log.update({parameter : {'lvls' : set(self.filters), 'caller':{caller_str,}, 'n' : 1, 'time' : 0}})
+        self.qry_log += [{'param' : parameter, 'lvls' : list(self.filters), 'caller':caller_str, 'time' : np.nan}]
 
         result = _get_parameter_values(self.data, self.selection, parameter)
 
@@ -395,7 +381,9 @@ Parameters
                 assert len(result) == 1
                 result = np.repeat(result, sel_len)
 
-        self.qry_log[parameter]['time'] += time.process_time() - t0
+        # Add time to qry log
+        self.qry_log[-1]['time'] = time.process_time() - t0
+        
         return result
 
     def get_from_frame(self,parameter,df,**kwargs):
