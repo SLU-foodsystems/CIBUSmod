@@ -1,0 +1,69 @@
+site_name: CIBUSmod
+site_description: CIBUSmod documentation
+site_url: https://SLU-foodsystems.github.io/CIBUSmod/
+repo_url: https://github.com/SLU-foodsystems/CIBUSmod
+repo_name: CIBUSmod
+
+theme:
+  name: material
+  features:
+    - navigation.indexes
+    # - navigation.tabs
+    # - navigation.sections
+    - navigation.expand
+    - toc.integrate
+    - content.code.copy
+    - search.highlight
+    - search.share
+
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+    #   toggle:
+    #     icon: material/brightness-7
+    #     name: Switch to dark mode
+
+    # - scheme: slate
+    #   primary: blue
+    #   accent: blue
+    #   toggle:
+    #     icon: material/brightness-4
+    #     name: Switch to light mode
+
+nav:
+  - Getting started: index.md
+  - Modules:
+    - modules/index.md
+    - Main modules:
+      - modules/demand_and_conversions.md
+      - modules/regions.md
+      - modules/crop_prod.md
+      - modules/animal_herd.md
+    - Mgmt modules:
+      - modules/manure_mgmt.md
+      - modules/plant_nutrient_mgmt.md
+    - Optimisation modules:
+      - GeoDistributor: modules/geo_dist.md
+      - FeedDistributor: modules/feed_dist.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.details
+  - pymdownx.tabbed
+
+extra_css:
+  - stylesheets/panzoom.css
+
+plugins:
+  - search
+  - macros:
+      module_name: docs/python/main
+  - panzoom:
+      full_screen: True

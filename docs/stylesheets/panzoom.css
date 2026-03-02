@@ -1,0 +1,7 @@
+/* Remove grey background added by mkdocs-panzoom-plugin */
+.panzoom-box {
+  background: var(--md-default-bg-color) !important;
+  padding: 20px !important;
+  border-radius: 12px !important;     /* Rounded corners */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15) !important; /* Shadow */
+}
