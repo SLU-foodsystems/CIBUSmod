@@ -1,0 +1,4 @@
+# `InputsMgmt`
+
+!!! warning
+    Due to a change in the Ecoinvent API the `ecoinvent-interface` package used to access Ecoinvent data no longer works. The solution for now is to manually download LCI data from [https://ecoquery.ecoinvent.org/](https://ecoquery.ecoinvent.org/) and place it in the `data/ecoinvent` folder renamed in the structure "ecoinvent-**[V]**-**[SM]**-lci-**[ID]**.xml", where **[V]** is the ecoinvent database version (e.g. 3.10), **[SM]** is the system model (e.g. cutoff), and **[ID]** is the ID number of the specific activity shown in the URL of each dataset. Note that the file extension must be changed from *.spold* to *.xlm*. The *version* and *system model* must match the version and system model specified in the `ecoinvent_settings` when initialising the `InputsMgmt` module.

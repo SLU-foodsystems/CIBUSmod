@@ -43,6 +43,7 @@ nav:
     - Mgmt modules:
       - modules/manure_mgmt.md
       - modules/plant_nutrient_mgmt.md
+      - modules/inputs_mgmt.md
     - Optimisation modules:
       - GeoDistributor: modules/geo_dist.md
       - FeedDistributor: modules/feed_dist.md
