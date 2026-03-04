@@ -65,3 +65,5 @@ seed_demand"]:::data
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.main_modules.crop_prod.CropProduction", "CIBUSmod/main_modules/crop_prod.py") }}

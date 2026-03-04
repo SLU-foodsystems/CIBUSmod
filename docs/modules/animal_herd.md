@@ -69,6 +69,9 @@ production"]:::data
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.main_modules.animal_herd.AnimalHerd", "CIBUSmod/main_modules/animal_herd.py") }}
+
 ## Specific `AnimalHerd` child modules
 
 ### `CattleHerd`
@@ -93,4 +96,8 @@ production"]:::data
 
 ### `make_herds()`
 
+{{ docstring("CIBUSmod.main_modules.animal_herd.make_herds", "CIBUSmod/main_modules/animal_herd.py") }}
+
 ### `concat_herds()`
+
+{{ docstring("CIBUSmod.main_modules.animal_herd.concat_herds", "CIBUSmod/main_modules/animal_herd.py") }}

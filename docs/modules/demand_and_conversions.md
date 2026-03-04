@@ -106,3 +106,5 @@ conv_factor_main, conv_factor_by"]:::param --> PD
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.main_modules.demand_and_conversions.DemandAndConversions", "CIBUSmod/main_modules/demand_and_conversions.py") }}

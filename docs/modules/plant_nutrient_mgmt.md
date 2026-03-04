@@ -119,3 +119,5 @@ graph TD
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.mgmt_modules.plant_nutrient_mgmt.PlantNutrientMgmt", "CIBUSmod/mgmt_modules/plant_nutrient_mgmt.py") }}

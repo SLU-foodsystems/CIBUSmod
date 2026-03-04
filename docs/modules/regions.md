@@ -85,3 +85,5 @@ max_land_use"]:::data
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.main_modules.regions.Regions", "CIBUSmod/main_modules/regions.py") }}

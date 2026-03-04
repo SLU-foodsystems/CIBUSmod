@@ -134,3 +134,5 @@ graph TD
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.mgmt_modules.manure_mgmt.ManureMgmt", "CIBUSmod/mgmt_modules/manure_mgmt.py") }}

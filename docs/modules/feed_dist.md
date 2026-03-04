@@ -1,51 +1,65 @@
 # `FeedDistributor`
 
-## Overview
-
 ```mermaid
 {{ mermaid_init() }}
 
 flowchart TD
+  subgraph I[" "]
+    I1["**DemandAndConversions**"]:::mod_main
+    I2["**Regions**"]:::mod_main
+    I3["**CropProduction**"]:::mod_main
+    I4["pd.Series(**AnimalHerd**)"]:::mod_main
+  end
 
-  %% -------------------------
-  %% Main
-  %% -------------------------
+  A["**FeedDistributor**"]:::mod_opt
 
-  A["**FeedDistributor**"]:::module
+  I --> A
 
-  R["**Regions**"]:::helper
-  CP["**CropProduction**"]:::helper
-  DAC["**DemandAndConversions**"]:::helper
-  FM["**FeedMgmt**"]:::helper
-  AH["AnimalHerd modules
-  (list: self.herds)"]:::helper
-
-  A --> mM[".make()"]
-  A --> mS[".solve()"]
+  A --> M[".make()"]:::method
+  A ----> S[".solve()"]:::method
 
   %% -------------------------
   %% x0
   %% -------------------------
 
-  mGX0[".get_x0()"]:::method
+  M --> GX0[".get_x0()"]:::method
 
   %% -------------------------
-  %% SCaling
+  %% Scaling
   %% -------------------------
 
-  mM --> mSF[".calculate_scaling_factors()"]:::method
+  M --> SF[".calculate_scaling_factors()"]:::method
 
   %% -------------------------
   %% Constraints
   %% -------------------------
 
-  mM --> mC[".maxe_C1() ... C16()"]:::method
+  M --> MC[".make_C1() ... C16()"]:::method
+
+  S --> CVX[".define_cvx_problem()"]:::method
+  S --> OUT["**FeedDistributor.data_attr.**
+  x_crops, x_animals, x_feeds"]:::data
+  OUT --> AS[".apply_solution()"]:::method
+  AS --> AHS["**AnimalHerd**.scale()"]:::mod_main
+  AS --> CPS["**CropProduction**.scale()"]:::mod_main
 
 {{ mermaid_style() }}
 ```
+
+{{ docstring("CIBUSmod.optimisation.feed_dist.FeedDistributor", "CIBUSmod/optimisation/feed_dist.py") }}
+
+## `.make()`
+
+{{ docstring("CIBUSmod.optimisation.feed_dist.FeedDistributor.make", "CIBUSmod/optimisation/feed_dist.py") }}
+
+
+## `.solve()`
+
+{{ docstring("CIBUSmod.optimisation.feed_dist.FeedDistributor.solve", "CIBUSmod/optimisation/feed_dist.py") }}
+
 ## Constraints
 
-### .make_C1()
+### `.make_C1()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -87,7 +101,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C2()
+### `.make_C2()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -116,7 +130,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C3()
+### `.make_C3()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -141,7 +155,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C4()
+### `.make_C4()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -163,7 +177,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C5()
+### `.make_C5()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -196,7 +210,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C6()
+### `.make_C6()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -232,7 +246,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C7()
+### `.make_C7()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -260,7 +274,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C8()
+### `.make_C8()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -288,7 +302,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C9()
+### `.make_C9()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -315,7 +329,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C10()
+### `.make_C10()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -343,7 +357,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C11()
+### `.make_C11()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -388,7 +402,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C12()
+### `.make_C12()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -434,7 +448,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C13()
+### `.make_C13()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -471,7 +485,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C14()
+### `.make_C14()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -512,7 +526,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C15()
+### `.make_C15()`
 ```mermaid
 {{ mermaid_init() }}
 
@@ -552,7 +566,7 @@ flowchart TD
 {{ mermaid_style() }}
 ```
 
-### .make_C16()
+### `.make_C16()`
 ```mermaid
 {{ mermaid_init() }}
 

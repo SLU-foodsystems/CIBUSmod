@@ -2,6 +2,9 @@
 
 CIBUSmod is built in a modular fashion, with independent modules handling different parts of the calculations, The modules are organised into “main modules”, which store all model output, and “management (mgmt) modules” that perform specific calculations without storing output data. The flowchart below provides an overview of all main modules (green) and some of the central mgmt modules (blue) and how they are interconnected. When running the model each module is calculated in consecutive order by calling its `.calculate()` method. The modules need to be run in a specific order, which is indicated by numbers in brackets in the flow chart.
 
+!!! tip
+    It is possible to zoom and pan in the flowcharts by holding down the **Alt** or **Option** (:material-apple-keyboard-option:) key.
+
 ```mermaid
 {{ mermaid_init() }}
 
