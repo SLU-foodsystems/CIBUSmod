@@ -50,12 +50,12 @@ flowchart TD
 
 ## `.make()`
 
-{{ docstring("CIBUSmod.optimisation.feed_dist.FeedDistributor.make", "CIBUSmod/optimisation/feed_dist.py") }}
+{{ docstring("CIBUSmod.optimisation.geo_dist.GeoDistributor.make", "CIBUSmod/optimisation/geo_dist.py") }}
 
 
 ## `.solve()`
 
-{{ docstring("CIBUSmod.optimisation.feed_dist.FeedDistributor.solve", "CIBUSmod/optimisation/feed_dist.py") }}
+{{ docstring("CIBUSmod.optimisation.geo_dist.GeoDistributor.solve", "CIBUSmod/optimisation/geo_dist.py") }}
 
 ## Constraints
 

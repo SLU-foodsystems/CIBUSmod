@@ -1,20 +1,14 @@
-from __future__ import annotations
 
-import os
-import sys
-import importlib
-import inspect
 import textwrap
 from typing import Any, Optional
+import re
 from pathlib import Path
-import html
+import ast
 
 # repo root
 ROOT = Path(__file__).resolve().parents[2]
 
-# add repo root so `import CIBUSmod` works
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+_DOTTED = re.compile(r"([A-Za-z_]\w*\.)+([A-Za-z_]\w*)")
 
 def define_env(env):
     # Shared Mermaid header (init directive + styles)
@@ -78,21 +72,15 @@ def define_env(env):
             Optional override for the File: line (useful if you want to display
             a repo-relative path instead of an absolute path).
         """
-        target = _resolve_obj(obj)
 
-        # Prefer showing constructor signature for classes, else call signature
-        init_sig = _init_signature_string(target)
+        kind, node, class_name = _resolve_ast_obj(obj, file)
 
-        # Docstring (cleaned like help())
-        doc = inspect.getdoc(target) or ""
-        doc = doc.rstrip()
-
-        # File path (try to be robust)
-        src_file = file or _safe_source_file(target)
+        sig = _signature_from_ast(kind, node, class_name)
+        doc = _docstring_from_ast(node)
 
         # Assemble the output like a help() summary, but inside a code block
         lines = []
-        lines.append(f"<b>Signature:</b>\n{init_sig}\n")
+        lines.append(f"<b>Signature:</b>\n{sig}\n")
         lines.append("<b>Docstring:</b>")
         if doc:
             # Indent docstring body a bit to resemble help() formatting
@@ -100,121 +88,133 @@ def define_env(env):
         else:
             lines.append("    (No docstring.)")
         lines.append("")
-        lines.append(f"<b>File:</b> {src_file}")
+        lines.append(f"<b>File:</b> {file}")
 
         body = "\n".join(lines).rstrip() + "\n"
         return f"<pre class='ds-pre'>\n{body}</pre>"
 
-def _resolve_obj(obj: Any) -> Any:
-    if not isinstance(obj, str):
-        return obj
+def _resolve_ast_obj(path: str, file: str):
+    """
+    Resolve a class/function/method from `file` using AST.
 
-    path = obj.strip()
+    Supports:
+      - pkg.mod.Class
+      - pkg.mod.func
+      - pkg.mod.Class.method
+      - ...method()  (trailing () ignored)
 
+    Returns: (kind, node, class_name)
+      kind: "class" | "function" | "method" | "init"
+      node: ast node to extract docstring from
+      class_name: str | None (used for init signature naming)
+    """
     if path.endswith("()"):
         path = path[:-2]
 
+    # Make file path absolute relative to repo root if needed
+    fpath = Path(file)
+    if not fpath.is_absolute():
+        fpath = ROOT / fpath
+
+    with open(fpath, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=str(fpath))
+
     parts = path.split(".")
+    last = parts[-1]
 
-    # progressively try to import module
-    for i in range(len(parts), 0, -1):
-        mod_name = ".".join(parts[:i])
-        try:
-            mod = importlib.import_module(mod_name)
-            attr_parts = parts[i:]
-            return _deep_getattr(mod, ".".join(attr_parts)) if attr_parts else mod
-        except ImportError:
+    # 1) module-level function?
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == last:
+            return "function", node, None
+
+    # 2) class?
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == last:
+            # Prefer __init__ if present for signature, but docstring should be the class docstring
+            init_node = None
+            for sub in node.body:
+                if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)) and sub.name == "__init__":
+                    init_node = sub
+                    break
+            # Return class node for docstring, init node for signature handled later
+            # We'll return kind "class" and attach init_node via attribute
+            node._ds_init_node = init_node  # harmless dynamic attr for our macro
+            return "class", node, node.name
+
+    # 3) method: ...Class.method
+    if len(parts) >= 2:
+        class_name = parts[-2]
+        method_name = parts[-1]
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef) and node.name == class_name:
+                for sub in node.body:
+                    if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)) and sub.name == method_name:
+                        kind = "init" if method_name == "__init__" else "method"
+                        return kind, sub, class_name
+
+    raise ValueError(f"Object {path} not found in {file}")
+
+def _docstring_from_ast(node):
+    return ast.get_docstring(node) or ""
+
+def _shorten_type(s: str) -> str:
+    # Turn "CIBUSmod.x.y.Regions" -> "Regions" (also inside generics)
+    return _DOTTED.sub(r"\2", s)
+
+def _signature_from_ast(kind, node, class_name=None, width=50):
+    """
+    kind/node from _resolve_ast_obj.
+    If kind == "class", node is ClassDef (docstring), and node._ds_init_node may exist.
+    """
+    # choose which function node to signature-print
+    if kind == "class":
+        init_node = getattr(node, "_ds_init_node", None)
+        if init_node is None:
+            return f"{class_name}()"
+        func_node = init_node
+        display_name = class_name
+    elif kind == "init":
+        func_node = node
+        display_name = class_name
+    else:
+        func_node = node
+        display_name = func_node.name
+
+    params = []
+    args = func_node.args
+
+    # positional args
+    for arg in args.args:
+        if arg.arg in ("self", "cls"):
             continue
+        ann = _shorten_type(ast.unparse(arg.annotation)) if arg.annotation else None
+        params.append(f"{arg.arg}: {ann}" if ann else arg.arg)
 
-    raise ImportError(f"Could not resolve object: {path}")
+    # varargs (*args)
+    if args.vararg:
+        ann = _shorten_type(ast.unparse(args.vararg.annotation)) if args.vararg.annotation else None
+        params.append(f"*{args.vararg.arg}: {ann}" if ann else f"*{args.vararg.arg}")
 
+    # kwonly args
+    if args.kwonlyargs:
+        if not args.vararg:
+            params.append("*")
+        for i, arg in enumerate(args.kwonlyargs):
+            ann = _shorten_type(ast.unparse(arg.annotation)) if arg.annotation else None
+            default = args.kw_defaults[i]
+            part = f"{arg.arg}: {ann}" if ann else arg.arg
+            if default is not None:
+                part += f" = {_shorten_type(ast.unparse(default))}"
+            params.append(part)
 
-def _deep_getattr(root: Any, attr_path: str) -> Any:
-    cur = root
-    for part in attr_path.split("."):
-        cur = getattr(cur, part)
-    return cur
+    # kwargs (**kwargs)
+    if args.kwarg:
+        ann = _shorten_type(ast.unparse(args.kwarg.annotation)) if args.kwarg.annotation else None
+        params.append(f"**{args.kwarg.arg}: {ann}" if ann else f"**{args.kwarg.arg}")
 
-
-def _init_signature_string(target: Any, width: int = 50) -> str:
-    """
-    For classes: show ClassName(<init params>).
-    For callables: show name(<params>).
-    Fall back gracefully if signature can't be obtained.
-    """
-    name = getattr(target, "__name__", target.__class__.__name__)
-
-    # obtain signature
-    try:
-        if inspect.isclass(target):
-            sig = inspect.signature(target.__init__)
-            params = list(sig.parameters.values())
-
-            # drop self / cls
-            if params and params[0].name in ("self", "cls"):
-                params = params[1:]
-
-        else:
-            sig = inspect.signature(target)
-            params = list(sig.parameters.values())
-
-    except (TypeError, ValueError):
-        return f"{name}(*args, **kwargs)"
-
-    param_strings = []
-
-    for p in params:
-        part = p.name
-
-        ann = _short_annotation(p.annotation)
-        if ann:
-            part += f": {ann}"
-
-        if p.default is not inspect._empty:
-            part += f" = {p.default}"
-
-        param_strings.append(part)
-
-    single = f"{name}({', '.join(param_strings)})"
+    single = f"{display_name}({', '.join(params)})"
     if len(single) <= width:
         return single
 
-    # multiline format
-    indent = " " * 4
-    body = ",\n".join(f"{indent}{p}" for p in param_strings)
-
-    return f"{name}(\n{body}\n)"
-
-def _safe_source_file(target: Any) -> str:
-    """
-    Try best-effort source file resolution; return '(unknown)' if not available.
-    """
-    try:
-        f = inspect.getsourcefile(target) or inspect.getfile(target)
-        if not f:
-            return "(unknown)"
-        # normalize path a bit
-        return os.path.normpath(f)
-    except Exception:
-        return "(unknown)"
-    
-def _short_annotation(ann):
-    """Return short type name for annotations."""
-    if ann is inspect._empty:
-        return None
-
-    # class types
-    if hasattr(ann, "__name__"):
-        return ann.__name__
-
-    # typing / forward refs like 'CIBUSmod...Regions'
-    s = str(ann)
-
-    # remove quotes
-    s = s.strip("'")
-
-    # keep only last dotted name
-    if "." in s:
-        s = s.split(".")[-1]
-
-    return s
+    body = ",\n".join(f"    {p}" for p in params)
+    return f"{display_name}(\n{body}\n)"
