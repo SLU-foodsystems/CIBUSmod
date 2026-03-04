@@ -849,6 +849,154 @@ Constraint C2 was omitted!
 
         return None
 
+    def _make_C89_boiler(
+        self,
+        # C8_crp: pd.Series | None = None,
+        # C8_ani: pd.Series | None = None,
+        # C8_fds: pd.Series | None = None,
+        # C8_rel: list[str] | Literal["==", ">=", "<="] = "==",
+        # C8_tol: float = 1e-4,
+        C_type = "C8",
+        **kwargs
+    ):
+        """Generic make method for both C8 and C9 type constraints. Called from the specific
+        make_C8/9 methods to allow explicitly listing arguments and specific docstrings"""
+
+        pars = kwargs
+        # pars = {
+        #     "C8_crp": C8_crp,
+        #     "C8_ani": C8_ani,
+        #     "C8_fds": C8_fds,
+        #     "C8_rel": C8_rel,
+        #     "C8_tol": C8_tol,
+        # }
+        pars_len = {p: len(pars[p]) if isinstance(pars[p], list) else 0 for p in pars}
+        pars_len_max = max(max(pars_len.values()), 1)
+
+        if any([p_len > 1 and p_len < pars_len_max for p_len in pars_len.values()]):
+            raise ValueError("Supplied lists must have the same length")
+
+        # Align lists, e.g. ensuring that C8/9_rel is a list of relations rather than one
+        for p in pars:
+            if pars_len[p] < pars_len_max:
+                if pars_len[p] == 1:
+                    pars[p] = pars[p] * pars_len_max
+                else:
+                    pars[p] = [pars[p]] * pars_len_max
+
+        if all([v is None for k in [f"{C_type}_{lab}" for lab in self.x_idx.keys()] for v in pars[k]]):
+            raise ValueError(
+                f"At least one of {', '.join([f'{C_type}_{lab}' for lab in self.x_idx.keys()])} must be given to use constraint {C_type}"
+            )
+        if any([v not in ["==", ">=", "<="] for v in pars[f"{C_type}_rel"]]):
+            raise ValueError(f"All '{C_type}_rel' must be one of '==', '>=' or '<='")
+
+        if "==" in pars[f"{C_type}_rel"] and pars[f"{C_type}_tol"] is None:
+            raise ValueError(
+                f"The {C_type}_tol parameter was missing, but is required for {C_type} equality constraints."
+            )
+
+        # Get number of previously defined C8/9 constraints
+        try:
+            n_def = (
+                max(
+                    [
+                        int(regex.search(r"_(\d+)", s).group(1))
+                        for s in self.constraints.keys()
+                        if C_type in s
+                    ]
+                )
+                + 1
+            )
+        except Exception:
+            n_def = 0
+
+        for i in range(pars_len_max):
+            # Select A matrix make method
+            if C_type == "C8":
+                make_A = self.make_A8
+            elif C_type == "C9":
+                make_A = self.make_A9
+            
+            # Make matrix (A8/9)
+            A = make_A(
+                **{
+                    par:v[i]
+                    for par,v in pars.items()
+                    if par.strip(f"{C_type}_") in self.x_idx.keys()
+                }
+            )
+
+            if C_type == "C8":
+                # Make right hand vector (b8)
+                b = np.concatenate(
+                    [
+                        pars[k][i].values
+                        for k in [f"{C_type}_{lab}" for lab in self.x_idx.keys()]
+                        if pars[k][i] is not None
+                    ]
+                )
+            elif C_type == "C9":
+                # Make right hand vector (b9)
+                b = sum(
+                    [
+                        pars[k][i].sum() if pars[k][i] is not None else 0
+                        for k in [f"{C_type}_{lab}" for lab in self.x_idx.keys()]
+                    ]
+                )
+
+            rel = pars[f"{C_type}_rel"][i]
+
+            # Append constraint
+            if rel == "==":
+                tol = pars[f"{C_type}_tol"][i]
+
+                rel_tol = tol
+                abs_tol = 1e-6
+
+                # Create upper and lower bounds while avoiding 0 <= x <= 0 constraints
+                # for cases where elements in b8/9=0
+                band = np.maximum(abs_tol, rel_tol * np.abs(b))
+                b_low = b - band
+                b_upp = b + band
+
+                # Lower bound constraint
+                self.constraints.update(
+                    {
+                        f"{C_type}_{str(i + n_def)}(low): A8 @ x >= b8 * (1-tol)": {
+                            "left": lambda x, A, b, tol: A.M @ x,
+                            "right": lambda A, b, tol: b,
+                            "rel": ">=",
+                            "pars": {"A": A, "b": b_low, "tol": tol},
+                        }
+                    }
+                )
+                # Upper bound constraint
+                self.constraints.update(
+                    {
+                        f"{C_type}_{str(i + n_def)}(upp): A @ x <= b * (1+tol)": {
+                            "left": lambda x, A, b, tol: A.M @ x,
+                            "right": lambda A, b, tol: b,
+                            "rel": "<=",
+                            "pars": {"A": A, "b": b_upp, "tol": tol},
+                        }
+                    }
+                )
+
+            else:
+                self.constraints.update(
+                    {
+                        f"{C_type}_{str(i + n_def)}: A @ x {rel} b": {
+                            "left": lambda x, A, b: A.M @ x,
+                            "right": lambda A, b: b,
+                            "rel": rel,
+                            "pars": {"A": A, "b": b},
+                        }
+                    }
+                )
+
+        return None
+
     def make_C8(
             self,
             C8_crp: pd.Series | None = None ,
@@ -886,71 +1034,8 @@ Constraint C2 was omitted!
             'C8_rel' : C8_rel,
             'C8_tol' : C8_tol
         }
-        pars_len = {p : len(pars[p]) if isinstance(pars[p],list) else 0 for p in pars}
-        pars_len_max = max(max(pars_len.values()),1)
-
-        if any([x>1 and x<pars_len_max for x in pars_len.values()]):
-            raise ValueError('Supplied lists must have the same length')
-
-        # Align lists
-        for p in pars:
-            if pars_len[p]<pars_len_max:
-                if pars_len[p]==1:
-                    pars[p] = pars[p] * pars_len_max
-                else:
-                    pars[p] = [pars[p]] * pars_len_max
-
-        if all([v is None for v in pars['C8_crp']]) and all([v is None for v in pars['C8_ani']]):
-            raise ValueError("At least one of 'C8_crp' or 'C8_ani' must be given to use constraint C8")
-        if any([v not in ['==','>=','<='] for v in pars['C8_rel']]):
-            raise ValueError("All 'C8_rel' must be one of '==', '>=' or '<='")
-
-        # Get number of previously defined C8 constraints
-        try:
-            n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C8' in s]) + 1
-        except Exception:
-            n_def = 0
-
-        for i in range(pars_len_max):
-            # Make matrix (A8)
-            A8 = self.make_A8(pars['C8_crp'][i], pars['C8_ani'][i])
-
-            # Make right hand vector (b8)
-            if (pars['C8_crp'][i] is not None) & (pars['C8_ani'][i] is not None):
-                b8 = np.concatenate((pars['C8_ani'][i].values,pars['C8_crp'][i].values))
-            elif pars['C8_crp'][i] is not None:
-                b8 = pars['C8_crp'][i].values
-            else:
-                b8 = pars['C8_ani'][i].values
-
-            rel = pars["C8_rel"][i]
-
-            # Append constraint
-            if rel == '==':
-                tol = pars["C8_tol"][i]
-
-                # Lower bound
-                self.constraints.update({f'C8_{str(i+n_def)}(low): A8 @ x >= b8 * (1-tol)' : {
-                    'left' : lambda x,A8,b8,tol: A8.M @ x,
-                    'right' : lambda A8,b8,tol: b8 * (1-tol),
-                    'rel' : '>=',
-                    'pars' : {'A8':A8, 'b8':b8, 'tol':tol}
-                }})
-                # Upper bound
-                self.constraints.update({f'C8_{str(i+n_def)}(upp): A8 @ x <= b8 * (1+tol)' : {
-                    'left' : lambda x,A8,b8,tol: A8.M @ x,
-                    'right' : lambda A8,b8,tol: b8 * (1+tol),
-                    'rel' : '<=',
-                    'pars' : {'A8':A8, 'b8':b8, 'tol':tol}
-                }})
-
-            else:
-                self.constraints.update({f'C8_{str(i+n_def)}: A8 @ x {rel} b8' : {
-                    'left' : lambda x,A8,b8: A8.M @ x,
-                    'right' : lambda A8,b8: b8,
-                    'rel' : rel,
-                    'pars' : {'A8':A8, 'b8':b8}
-                }})
+        # Call generic make function
+        self._make_C89_boiler(C_type = "C8", **pars)
 
         return None
 
@@ -991,72 +1076,8 @@ Constraint C2 was omitted!
             'C9_rel' : C9_rel,
             'C9_tol' : C9_tol
         }
-        pars_len = {p : len(pars[p]) if isinstance(pars[p],list) else 0 for p in pars}
-        pars_len_max = max(max(pars_len.values()),1)
-
-        if any([x>1 and x<pars_len_max for x in pars_len.values()]):
-            raise ValueError('Supplied lists must have the same length')
-
-        # Align lists
-        for p in pars:
-            if pars_len[p]<pars_len_max:
-                if pars_len[p]==1:
-                    pars[p] = pars[p] * pars_len_max
-                else:
-                    pars[p] = [pars[p]] * pars_len_max
-
-        if all([v is None for v in pars['C9_crp']]) and all([v is None for v in pars['C9_ani']]):
-            raise ValueError("At least one of 'C9_crp' or 'C9_ani' must be given to use constraint C9")
-        if any([v not in ['==','>=','<='] for v in pars['C9_rel']]):
-            raise ValueError("All 'C9_rel' must be one of '==', '>=' or '<='")
-
-        # Get number of previously defined C9 constraints
-        try:
-            n_def = max([int(regex.search(r'_(\d+)', s).group(1)) for s in self.constraints.keys() if 'C9' in s]) + 1
-        except Exception:
-            n_def = 0
-
-        for i in range(pars_len_max):
-            if not ((pars['C9_crp'][i] is None) & (pars['C9_ani'][i] is None)):
-                # Make matrix (A9)
-                A9 = self.make_A9(pars['C9_crp'][i], pars['C9_ani'][i])
-
-                # Make right hand vector (b9)
-                b9 = sum([
-                    pars['C9_ani'][i].sum() if pars['C9_ani'][i] is not None else 0,
-                    pars['C9_crp'][i].sum() if pars['C9_crp'][i] is not None else 0
-                ])
-
-                rel = pars["C9_rel"][i]
-
-                # Append constraint
-                if rel == '==':
-                    tol = pars["C9_tol"][i]
-
-                    # Lower bound
-                    self.constraints.update({f'C9_{str(i+n_def)}(low): A9 @ x >= b9 * (1-tol)' : {
-                        'left' : lambda x,A9,b9,tol: A9.M @ x,
-                        'right' : lambda A9,b9,tol: b9 * (1-tol),
-                        'rel' : '>=',
-                        'pars' : {'A9':A9, 'b9':b9, 'tol':tol}
-                    }})
-                    # Upper bound
-                    self.constraints.update({f'C9_{str(i+n_def)}(upp): A9 @ x <= b9 * (1+tol)' : {
-                        'left' : lambda x,A9,b9,tol: A9.M @ x,
-                        'right' : lambda A9,b9,tol: b9 * (1+tol),
-                        'rel' : '<=',
-                        'pars' : {'A9':A9, 'b9':b9, 'tol':tol}
-                    }})
-
-                else:
-                    self.constraints.update({f'C9_{str(i+n_def)}: A9 @ x {rel} b9' : {
-                        'left' : lambda x,A9,b9: A9.M @ x,
-                        'right' : lambda A9,b9: b9,
-                        'rel' : rel,
-                        'pars' : {'A9':A9, 'b9':b9}
-                    }})
-            else:
-                raise ValueError("Both 'C9_crp' and 'C9_ani' were None")
+        # Call generic make function
+        self._make_C89_boiler(C_type = "C9", **pars)
 
         return None
 
@@ -1604,69 +1625,61 @@ Constraint C2 was omitted!
         )
 
         return M
-
-    def make_A8(self, C8_crp, C8_ani):
-
-        # Get row index (cr,ps,re), (sp,br,ps,ss,re)
+    
+    def make_A8(self, **kwargs):
+        # Store the row_index for ani, crp and fds
         row_idx = {}
-        # Get col index (cr,ps,re), (sp,br,ps,ss,re)
-        col_idx = {k:v.copy() for k,v in self.x_idx.items()}
+        # Get col indexes from x_idx for ani, crp and fds
+        col_idx = {k: v.copy() for k, v in self.x_idx.items()}
 
+        # Vertically stack identity matrices for each of the categories that are not
+        # None, and fill horizontally with zeroes.
         MS = []
-        for ac in ['ani','crp']:
-            if eval('C8_'+ac) is not None:
-                row_idx[ac] = eval('C8_'+ac).index
-                # Create identity matrix from col_idx
-                n = len(col_idx[ac])
-                M = scipy.sparse.identity(n, format='csc')
-                # Drop rows to match row index
-                sel_rows = [col_idx[ac].get_loc(i) for i in row_idx[ac]]
-                M = M[sel_rows,:]
-                # Create zero matrix and hstack
-                if ac == 'ani':
-                    Z = scipy.sparse.csc_matrix((M.shape[0],len(col_idx['crp'])))
-                    MS.append(scipy.sparse.hstack([M,Z], format='csc'))
-                else:
-                    Z = scipy.sparse.csc_matrix((M.shape[0],len(col_idx['ani'])))
-                    MS.append(scipy.sparse.hstack([Z,M], format='csc'))
+        for label, A in [(k.strip("C8_"), v) for k,v in kwargs.items()]:
+            if A is None:
+                continue
+            # Assign index
+            row_idx[label] = A.index
+            # Create identity matrix from col_idx
+            n = len(col_idx[label])
+            M = scipy.sparse.identity(n, format="csc")
+            # Drop rows to match row index
+            sel_rows = [col_idx[label].get_loc(i) for i in row_idx[label]]
+            M = M[sel_rows, :]
+            # Create zero matrices and hstack
+            ZS = {lab: scipy.sparse.csc_array((M.shape[0], len(col_idx[lab]))) for lab in col_idx.keys()}
+            # Extend M with zeroes
+            M = scipy.sparse.hstack([M if lab==label else ZS[lab] for lab in col_idx.keys()], format="csc")
+
+            MS.append(M)
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.vstack(MS),
-            row_idx,
-            col_idx
-        )
+        M = IndexedMatrix(scipy.sparse.vstack(MS), row_idx, col_idx)
 
         return M
 
-    def make_A9(self, C9_crp, C9_ani):
-
+    def make_A9(self, **kwargs):
         # No row index, only one row
         row_idx = None
-        # Get col index (cr,ps,re), (sp,br,ps,ss,re)
+        # Get col index (cr,ps,re), (sp,br,ps,ss,re), (f,ani,br,ps,ss,re)
         col_idx = self.x_idx.copy()
 
-        MS = []
-        for ac in ['ani','crp']:
-            if eval('C9_'+ac) is not None:
-                idx = eval('C9_'+ac).index
-                # Create a 1-by-len(col_idx) matrix
-                # and set cols corresponding to index to 1
-                M = scipy.sparse.lil_matrix((1, len(col_idx[ac])))
-                sel_cols = [col_idx[ac].get_loc(i) for i in idx]
-                M[:,sel_cols] = 1
-                MS.append(M)
+        MS = {}
+        for label, A in [(k.strip("C9_"), v) for k,v in kwargs.items()]:
+            if A is not None:
+                # Create a 1-by-len(col_idx) matrix and set cols corresponding to
+                # index to 1
+                M = scipy.sparse.lil_array((1, len(col_idx[label])))
+                sel_cols = [col_idx[label].get_loc(i) for i in A.index]
+                M[:, sel_cols] = 1
+                MS[label] = M
             else:
                 # Append zero matrix
-                Z = scipy.sparse.csc_matrix((1, len(col_idx[ac])))
-                MS.append(Z)
+                Z = scipy.sparse.csc_array((1, len(col_idx[label])))
+                MS[label] = Z
 
         # Create Compressed Sparse Column matrix
-        M = IndexedMatrix(
-            scipy.sparse.hstack(MS, format='csc'),
-            row_idx,
-            col_idx
-        )
+        M = IndexedMatrix(scipy.sparse.hstack([MS[lab] for lab in col_idx.keys()], format="csc"), row_idx, col_idx)
 
         return M
 
