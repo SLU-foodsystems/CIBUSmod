@@ -86,8 +86,8 @@ graph TD
 | -------------------- | -------------------- |
 | [`FeedMgmt`](feed_mgmt.md)             | Handles feed production and composition                  |
 | [`ManureMgmt`](manure_mgmt.md)           | Handles manure generation and losses                  |
-| [`ByProductMgmt`](by_prod_mgmt.md)        | Balances supply and demand for by-products                  |
-| [`CropResidueMgmt`](crop_resid_mgmt.md)      | Handles crop residues                  |
+| [`ByProductMgmt`](byprod_mgmt.md)        | Balances supply and demand for by-products                  |
+| [`CropResidueMgmt`](crop_residue_mgmt.md)      | Handles crop residues                  |
 | [`CoverCropsMgmt`](cover_crops_mgmt.md)       | Handles cover crops                  |
 | [`PlantNutrientMgmt`](plant_nutrient_mgmt.md)         | Handles crop nutrient requirements and allocation of manure and other fertilisers                  |
 | [`MachineryAndEnergyMgmt`](machinery_and_energy_mgmt.md)         | Handles energy use and emissions                  |

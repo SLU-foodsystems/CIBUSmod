@@ -40,9 +40,15 @@ nav:
       - modules/regions.md
       - modules/crop_prod.md
       - modules/animal_herd.md
+      - modules/waste_and_circularity.md
     - Mgmt modules:
+      - modules/feed_mgmt.md
+      - modules/byprod_mgmt.md
       - modules/manure_mgmt.md
+      - modules/crop_residue_mgmt.md
+      - modules/cover_crops_mgmt.md
       - modules/plant_nutrient_mgmt.md
+      - modules/machinery_and_energy_mgmt.md
       - modules/inputs_mgmt.md
     - Optimisation modules:
       - GeoDistributor: modules/geo_dist.md

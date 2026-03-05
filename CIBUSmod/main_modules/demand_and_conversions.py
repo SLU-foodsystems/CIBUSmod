@@ -40,7 +40,10 @@ class DemandAndConversions(object):
 
     module_name = "DemandAndConversions"
 
-    def __init__(self, par: ParameterRetriever):
+    def __init__(
+            self,
+            par: ParameterRetriever
+        ):
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
 

@@ -26,7 +26,12 @@ class CropProduction(object):
 
     module_name = 'CropProduction'
 
-    def __init__(self, par: ParameterRetriever, regions: Regions = None, index: pd.MultiIndex = None):
+    def __init__(
+            self,
+            par: ParameterRetriever,
+            regions: Regions = None,
+            index: pd.MultiIndex = None
+        ):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)

@@ -48,14 +48,14 @@ class InputsMgmt(object):
         waste: "WasteAndCircularity",
         herds: pd.Series,
         par: "ParameterRetriever",
-        ecoinvent_settings = {
+        ecoinvent_settings: dict = {
             'version' : '3.7.1',
             'system_model' : 'cutoff'
         },
         # This dict is used to translate ecoinvent elementary flow names to
         # compound names used in CIBUSmod. Only elementary flows in this
         # dict will be used.
-        ecoinvent_compounds_dict = {
+        ecoinvent_compounds_dict: dict = {
             'Carbon dioxide, fossil' : 'CO2',
             'Methane, non-fossil' : 'CH4bio',
             'Methane, fossil' : 'CH4fos',

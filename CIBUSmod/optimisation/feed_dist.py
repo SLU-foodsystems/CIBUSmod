@@ -14,6 +14,8 @@ from .. import (
     DemandAndConversions,
     CropProduction,
     FeedMgmt,
+    ManureMgmt,
+    CropResidueMgmt,
     ParameterRetriever,
 )
 
@@ -32,9 +34,10 @@ from typing import Literal
 
 
 class FeedDistributor(GeoDistributor):
-    """Class that handles the distribution of animals (and their feed rations) and
-    crops across regions for a given demand and a number of constraints by minimising
-    deviation from an initial distribution of crop areas and animal heads (x0).
+    """Main optimisation module that handles the distribution of animals and crops across regions
+    as well as the construction of livestock feed rations for a given demand and a number of
+    constraints by minimising deviation from an initial distribution of crop areas and animal
+    heads (x0_crops, x0_animals).
 
     Parameters
     ----------
@@ -44,11 +47,36 @@ class FeedDistributor(GeoDistributor):
     crops : CropProduction object
     herds : pandas.Series of AnimalHerd objects
     feed_mgmt : FeedMgmt object
+    manure_mgmt : ManureMgmt object
+    crop_residue_mgmt : CropResidueMgmt object
     par : ParameterRetriever object
     """
 
     module_name = "FeedDistributor"
     feed_mgmt_type = FeedDistFeedMgmt
+
+    def __init__(
+            self,
+            regions:Regions,
+            demand:DemandAndConversions,
+            crops:CropProduction,
+            herds:pd.Series,
+            feed_mgmt:FeedMgmt,
+            manure_mgmt:ManureMgmt,
+            crop_residue_mgmt:CropResidueMgmt,
+            par:ParameterRetriever,
+        ):
+        super().__init__(
+            regions=regions,
+            demand=demand,
+            crops=crops,
+            herds=herds,
+            feed_mgmt=feed_mgmt,
+            par=par
+        )
+
+        self.manure_mgmt = manure_mgmt
+        self.crop_residue_mgmt = crop_residue_mgmt
 
     def allocate_feed_demand(self):
         """

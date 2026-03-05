@@ -58,7 +58,7 @@ def define_env(env):
         return MERMAID_STYLE
     
     @env.macro
-    def docstring(obj: Any, file: Optional[str] = None) -> str:
+    def docstring(obj: Any, file: Optional[str] = None, child_class_name: Optional[str] = None) -> str:
         """
         Emit a py codeblock that shows Init signature and docstring of object,
         similar to Jupyter's `?` output.
@@ -75,7 +75,7 @@ def define_env(env):
 
         kind, node, class_name = _resolve_ast_obj(obj, file)
 
-        sig = _signature_from_ast(kind, node, class_name)
+        sig = _signature_from_ast(kind, node, class_name, child_class_name)
         doc = _docstring_from_ast(node)
 
         # Assemble the output like a help() summary, but inside a code block
@@ -157,15 +157,13 @@ def _resolve_ast_obj(path: str, file: str):
 def _docstring_from_ast(node):
     return ast.get_docstring(node) or ""
 
-def _shorten_type(s: str) -> str:
-    # Turn "CIBUSmod.x.y.Regions" -> "Regions" (also inside generics)
-    return _DOTTED.sub(r"\2", s)
-
-def _signature_from_ast(kind, node, class_name=None, width=50):
+def _signature_from_ast(kind, node, class_name=None, child_class_name=None, width=50):
     """
     kind/node from _resolve_ast_obj.
     If kind == "class", node is ClassDef (docstring), and node._ds_init_node may exist.
     """
+    if child_class_name is not None:
+        class_name = child_class_name
     # choose which function node to signature-print
     if kind == "class":
         init_node = getattr(node, "_ds_init_node", None)
@@ -176,6 +174,9 @@ def _signature_from_ast(kind, node, class_name=None, width=50):
     elif kind == "init":
         func_node = node
         display_name = class_name
+    elif kind == "method":
+        func_node = node
+        display_name = f"{class_name}.{func_node.name}"
     else:
         func_node = node
         display_name = func_node.name
@@ -187,12 +188,12 @@ def _signature_from_ast(kind, node, class_name=None, width=50):
     for arg in args.args:
         if arg.arg in ("self", "cls"):
             continue
-        ann = _shorten_type(ast.unparse(arg.annotation)) if arg.annotation else None
+        ann = ast.unparse(arg.annotation) if arg.annotation else None
         params.append(f"{arg.arg}: {ann}" if ann else arg.arg)
 
     # varargs (*args)
     if args.vararg:
-        ann = _shorten_type(ast.unparse(args.vararg.annotation)) if args.vararg.annotation else None
+        ann = ast.unparse(args.vararg.annotation) if args.vararg.annotation else None
         params.append(f"*{args.vararg.arg}: {ann}" if ann else f"*{args.vararg.arg}")
 
     # kwonly args
@@ -200,16 +201,16 @@ def _signature_from_ast(kind, node, class_name=None, width=50):
         if not args.vararg:
             params.append("*")
         for i, arg in enumerate(args.kwonlyargs):
-            ann = _shorten_type(ast.unparse(arg.annotation)) if arg.annotation else None
+            ann = ast.unparse(arg.annotation) if arg.annotation else None
             default = args.kw_defaults[i]
             part = f"{arg.arg}: {ann}" if ann else arg.arg
             if default is not None:
-                part += f" = {_shorten_type(ast.unparse(default))}"
+                part += f" = {ast.unparse(default)}"
             params.append(part)
 
     # kwargs (**kwargs)
     if args.kwarg:
-        ann = _shorten_type(ast.unparse(args.kwarg.annotation)) if args.kwarg.annotation else None
+        ann = ast.unparse(args.kwarg.annotation) if args.kwarg.annotation else None
         params.append(f"**{args.kwarg.arg}: {ann}" if ann else f"**{args.kwarg.arg}")
 
     single = f"{display_name}({', '.join(params)})"

@@ -26,9 +26,9 @@ from .indexed_matrix import IndexedMatrix
 from .utils import Constraint, make_cvxpy_constraint
 
 class GeoDistributor:
-    '''Class that handles the distribution of animals and crops across regions for a given
-    demand and a number of constraints by minimising deviation from an initial distribution
-    of crop areas and animal heads (x0).
+    '''Main optimisation module that handles the distribution of animals and crops across regions
+    for a given demand and a number of constraints by minimising deviation from an initial distribution
+    of crop areas and animal heads (x0_crops, x0_animals).
 
     Parameters
     ----------
@@ -57,9 +57,7 @@ class GeoDistributor:
             crops:CropProduction,
             herds:pd.Series,
             feed_mgmt:FeedMgmt,
-            par:ParameterRetriever,
-            manure_mgmt:ManureMgmt = None,
-            crop_residue_mgmt:CropResidueMgmt = None
+            par:ParameterRetriever
         ):
 
         self.par = par
@@ -70,8 +68,6 @@ class GeoDistributor:
         self.crops = crops
         self.herds = fix_herds(herds)
         self.feed_mgmt = feed_mgmt
-        self.manure_mgmt = manure_mgmt
-        self.crop_residue_mgmt = crop_residue_mgmt
 
         # Check FeedMgmt type
         if not isinstance(feed_mgmt, self.feed_mgmt_type):

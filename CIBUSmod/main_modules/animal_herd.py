@@ -55,7 +55,12 @@ class AnimalHerd(ABC):
     # Defines if manure should be calculated for AnimalHerd
     has_manure = True
 
-    def __init__(self,par,index,**kwargs):
+    def __init__(
+            self,
+            par: ParameterRetriever,
+            index: pd.Index,
+            **kwargs
+        ):
 
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)

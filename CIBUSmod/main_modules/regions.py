@@ -3,6 +3,7 @@ import numpy as np
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
+from ..utils.retriever import ParameterRetriever
 
 
 class Regions(object):
@@ -31,7 +32,11 @@ class Regions(object):
 
     module_name = "Regions"
 
-    def __init__(self, par, settings={}):
+    def __init__(
+            self,
+            par: ParameterRetriever,
+            settings: dict = {}
+        ):
         # Set to keep track of data attributes that have been assigned
         self.data_attr = DataAttr(self)
 
