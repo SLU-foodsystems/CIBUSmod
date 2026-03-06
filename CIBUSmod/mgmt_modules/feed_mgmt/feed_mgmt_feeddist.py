@@ -2,7 +2,7 @@ import warnings
 
 from ...utils.verbose_print import verbose_init
 
-from .feed_mgmt import FeedMgmt
+from . import FeedMgmt
 
 class FeedDistFeedMgmt(FeedMgmt):
     """

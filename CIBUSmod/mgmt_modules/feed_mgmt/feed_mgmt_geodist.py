@@ -6,7 +6,7 @@ import numpy as np
 from ...utils.verbose_print import verbose_init
 from ...utils.misc import multiply_aligned
 
-from .feed_mgmt import FeedMgmt
+from . import FeedMgmt
 
 class GeoDistFeedMgmt(FeedMgmt):
     '''
