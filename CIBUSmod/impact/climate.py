@@ -17,6 +17,15 @@ def get_GHG(
     '''Function to get greenhouse gas emissions from Session. Emissions are expressed in kg or kg CO2-eq
     depending on 'CO2eq' setting.
     
+    This function relies on impact.get_emissions() to collect all emissions and then uses the file
+    'CIBUSmod/impact/data/emi_to_ghg.csv' to 1) select only greenhouse gas emissions, 2) convert units if
+    necessary (e.g. N2O-N --> N2O), and 3) calculate indirect N2O emissions from other nitrogen emissions
+    and leaching.
+    
+    Characterization factors are defined in 'CIBUSmod/impact/data/ghg_to_CO2eq.csv' where the method column
+    corresponds to the allowable settings for 'CO2eq'. It is possible to add additional characterization methods
+    by adding rows in this file.
+    
     Parameters
     ----------
     session : Session object

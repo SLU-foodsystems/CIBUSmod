@@ -8,10 +8,15 @@ from ..utils.retriever import ParameterRetriever
 from ..utils.misc import inv_dict
 
 def get_emissions(session, scn='all', years='all', interpolate=False):
-    # Define emissions processes and corresponding modules
-    # and data attributes
     '''Collect emissions to the environment stored in various data attributes
-    and modules. 
+    and modules. The data attributes from where emissions are collected are defined
+    in the 'CIBUSmod/impact/data/emissions_attrs.csv' file. This file also group
+    emissions into a 'process' and a 'sub-process', which can be adjusted by changing
+    this file.
+
+    Output are grouped by process, sub-process, prod_system, item, region, and compound.
+    The 'item' level uses the 'crop_group2' aggregation for CropProduction emissions, 'species, breed' for
+    AnimalHerd emissions and 'treatment' for WasteAndCircularity emissions.
 
     Parameters
     ----------

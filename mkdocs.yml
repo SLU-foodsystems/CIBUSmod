@@ -53,6 +53,8 @@ nav:
     - Optimisation modules:
       - GeoDistributor: modules/geo_dist.md
       - FeedDistributor: modules/feed_dist.md
+  - Impact assessment: impact.md
+  - Plotting functions: plot.md
 
 markdown_extensions:
   - admonition

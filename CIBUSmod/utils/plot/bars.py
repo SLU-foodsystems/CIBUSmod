@@ -42,9 +42,9 @@ def bar(
 
     ylim = None
 ):
-    '''Plots a grouped and stacked bar chart from a pandas.DataFrame. Columns are taken
-    as categories (i.e. color), inner most index level as groups and remaining index levels
-    as x labels'''
+    '''Plots a bar chart from a pandas.DataFrame. Columns are taken as categories (i.e. color).
+    Bars can be grouped by specifying an index level in 'group_level'. Remaining index levels are
+    used as x labels.'''
 
     if ax is None:
         fig = plt.gcf()
