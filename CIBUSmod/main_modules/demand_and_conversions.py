@@ -76,11 +76,6 @@ class DemandAndConversions(object):
         self.calculate_food_demand()
         self.get_non_food_and_export_demand()
 
-        # Resolve food recipies
-        vprint("Resolving recipies for compound foods ...")
-        for at in ["food_demand", "non_food_demand", "export_demand"]:
-            self.resolve_recipies(at)
-
         # Calculate generated food waste [kg/year]
         vprint("Calculating waste ...")
         self.calculate_waste()
@@ -320,21 +315,21 @@ class DemandAndConversions(object):
             desc="Demand for exports",
         )
 
-    def resolve_recipies(self, attr):
+    def resolve_recipes(self, attr):
         # Get original df
         orig_df = self.data_attr.get(attr)
 
-        # Get compound foods (i.e. foods defined by a recipie of food ingrediets)
-        fos = self.par.get_unique("food", 'parameter == "recipie"')
+        # Get compound foods (i.e. foods defined by a recipe of food ingredients)
+        fos = self.par.get_unique("food", 'parameter == "recipe"')
 
-        # Get food ingreadients
+        # Get food ingredients
         try:
             fis = self.par.get_unique(
-                ["food", "food_ingr"], 'parameter == "recipie"'
+                ["food", "food_ingr"], 'parameter == "recipe"'
             ).set_index(["food", "food_ingr"])
         except KeyError:
-            # If 'food_ingr' not in columns do nothing
-            return None
+            # If 'food_ingr' not in columns return original df
+            return orig_df
 
         # Slice compound foods from original df
         resolved_df = orig_df.loc[
@@ -343,23 +338,23 @@ class DemandAndConversions(object):
             )
         ]
         if len(resolved_df) == 0:
-            return None
+            return orig_df
 
         # Add food ingredients as index
         resolved_df = resolved_df.join(fis).rename_axis("origin", axis=1)
 
-        # Get recipies
+        # Get recipes
         resolved_df = resolved_df * (
-            self.par.get_from_frame("recipie", resolved_df) / 100
+            self.par.get_from_frame("recipe", resolved_df) / 100
         )
-        # Resolve recipies
+        # Resolve recipes
         resolved_df = (
             resolved_df.groupby(["food_ingr", "food_group", "prod_system"])
             .sum()
             .rename_axis(["food", "food_group", "prod_system"])
         )
 
-        # Get food groups for the resolved ingrediets
+        # Get food groups for the resolved ingredients
         fgs = (
             self.par.get_unique(["food", "food_group"]).set_index(["food"])
             # .loc[resolved_df.index.unique('food')]
@@ -387,7 +382,7 @@ class DemandAndConversions(object):
         resolved_df.loc[:, "imported"] += resolved_df.loc[:, "domestic"] * imp_shares
         resolved_df.loc[:, "domestic"] *= 1 - imp_shares
 
-        # Append resolved recipies and drop compound foods
+        # Append resolved recipes and drop compound foods
         res_df = (
             pd.concat(
                 [
@@ -399,24 +394,21 @@ class DemandAndConversions(object):
             .sum()
         )
 
-        # Update data
-        self.data_attr.update(attr, res_df)
-
-        return None
+        return res_df
 
     def calculate_product_demand_and_by_products(self):
         self.par.clear()
 
-        # Get demand for food + non-food + exports
+        # Get demand for food + non-food + exports while resolving recipes for 
+        # compound foods
+        demand_dfs = []
+        for name, attr in zip(
+            ["food", "non-food", "export"],
+            ["food_demand_to_processing", "non_food_demand", "export_demand"]
+        ):
+            demand_dfs += [self.resolve_recipes(attr)["domestic"].rename(name)]
         demand = pd.concat(
-            (
-                self.data_attr.get("food_demand_to_processing")
-                ["domestic"].rename("food"),
-                self.data_attr.get("non_food_demand")
-                ["domestic"].rename("non-food"),
-                self.data_attr.get("export_demand")
-                ["domestic"].rename("export"),
-            ),
+            demand_dfs,
             axis=1,
         ).rename_axis("demand", axis=1)
 
@@ -584,8 +576,6 @@ def _get_demand(self, demand, of):
         return _empty_demand(demand, of)
 
     # Check for only one 'conv_factor_main' per 'food'
-    # NOTE: Might be a good idea to make it possible to have compound 'food' items
-    # but will likely require a rethink of how the conversion factors are defined...
     if not prs.index.is_unique:
         dups = prs.index[prs.index.duplicated()]
         raise ValueError(
@@ -610,7 +600,7 @@ def _get_demand(self, demand, of):
         return _empty_demand(demand, of)
     prod_demand = (prod_demand * (1 / CF_main)).dropna(how="all")
 
-    # Custruct dataframe, get conversion factors and calculate by-products generated
+    # Construct dataframe, get conversion factors and calculate by-products generated
     if not of[0] == "by_prod":
         by_prod = (
             prod_demand.join(prs.join(bps).set_index(of, append=True))
