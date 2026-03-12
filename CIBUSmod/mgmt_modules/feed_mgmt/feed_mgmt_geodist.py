@@ -53,9 +53,6 @@ class GeoDistFeedMgmt(FeedMgmt):
         # Define functions to print progress messages if verbose==True
         vprint = verbose_init(verbose, id_str='FeedMgmt')
 
-        vprint('Adjusting feed rations (not implemented) ...')
-        self.redistribute_feeds()
-
         vprint('Calculating feed ration characteristics ...')
         self.calculate_ration_characteristics()
 
