@@ -13,54 +13,54 @@ flowchart TD
   %% Main
   %% -------------------------
 
-  A["**CropProduction**"]:::mod_main
-  A --> C["**.calculate()**"]:::method
-  A --> SC["**.scale()**"]:::method
+  A["<b>CropProduction</b>"]:::mod_main
+  A --> C["<b>.calculate()</b>"]:::method
+  A --> SC["<b>.scale()</b>"]:::method
 
-  R["**Regions**"]:::mod_main --> A
+  R["<b>Regions</b>"]:::mod_main --> A
 
   %% -------------------------
   %% Calculate() sequence
   %% -------------------------
 
-  P_Y["**CropProduction.par.**
+  P_Y["<b>CropProduction.par.</b>
 yield, crop_dm"]:::param --> C
 
-  C --> DA_C["**CropProduction.data_attr.**
+  C --> DA_C["<b>CropProduction.data_attr.</b>
 area, harvest, harvest_dm"]:::data
 
-  CP["**.calculate_production()**"]:::method
-  CR["**.calculate_crop_residues()**"]:::method
-  SD["**.calculate_seed_demand()**"]:::method
+  CP["<b>.calculate_production()</b>"]:::method
+  CR["<b>.calculate_crop_residues()</b>"]:::method
+  SD["<b>.calculate_seed_demand()</b>"]:::method
 
   %% -------------------------
   %% Production (crop -> crop_prod mapping)
   %% -------------------------
 
-  P_C2P["**CropProduction.par.**
+  P_C2P["<b>CropProduction.par.</b>
 crop_to_prod"]:::param --> CP
   DA_C ---> CP
-  CP --> DA_P["**CropProduction.data_attr.**
+  CP --> DA_P["<b>CropProduction.data_attr.</b>
 production"]:::data
 
   %% -------------------------
   %% Crop residues (above/below ground)
   %% -------------------------
 
-  P_RES["**CropProduction.par.**
+  P_RES["<b>CropProduction.par.</b>
 ag_resid, bg_resid, frac_renew, crop_dm"]:::param --> CR
   DA_C ---> CR
-  CR --> DA_CR["**CropProduction.data_attr.**
-crop_residues"]:::data
+  CR --> DA_CR["<b>CropProduction.data_attr.</b>
+crop_residues, below_ground_biomass_C"]:::data
 
   %% -------------------------
   %% Seed demand
   %% -------------------------
 
-  P_SEED["**CropProduction.par.**
+  P_SEED["<b>CropProduction.par.</b>
 seed"]:::param --> SD
   DA_C ---> SD
-  SD --> DA_SD["**CropProduction.data_attr.**
+  SD --> DA_SD["<b>CropProduction.data_attr.</b>
 seed_demand"]:::data
 
 {{ mermaid_style() }}

@@ -193,7 +193,7 @@ class CropProduction(object):
 
         # Calculate above and below ground crop residues from
         # share of harvested DM that are residues multiplied
-        # by DM-fraction and harvest
+        # by harvest DM
         self.par.set(**self.index.to_frame().to_dict('list'))
         crop_residues = (
             pd.DataFrame(
@@ -213,8 +213,15 @@ class CropProduction(object):
                 index = self.index,
                 columns = pd.Index(['above ground','below ground'], name='residue')
             )
-            .mul(p('crop_dm'), axis=0)
-            .mul(self.data_attr.get('harvest'), axis=0)
+            .mul(self.data_attr.get('harvest_dm'), axis=0)
+        )
+
+        # Calculate the below ground biomass C (i.e. same as below ground residues but
+        # not accounting for the frac_renew)
+        below_ground_biomass_C = (
+            self.data_attr.get('harvest_dm') *
+            ((1 + p('ag_resid')) * p('bg_resid')) *
+            p('bg_resid_C')
         )
 
         # Add data attribute
@@ -224,6 +231,13 @@ class CropProduction(object):
             unit = 'kg DM/year',
             orig = 'CropProduction',
             desc = 'Generated above and below ground crop residues whether or not harvested'
+        )
+        self.data_attr.add(
+            below_ground_biomass_C,
+            name = 'below_ground_biomass_C',
+            unit = 'kg DM',
+            orig = 'CropProduction',
+            desc = 'C in below ground crop biomass. Greater than C in below ground crop residues for crops that are not renewed annually.'
         )
 
     def calculate_seed_demand(self):
