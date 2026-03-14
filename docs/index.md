@@ -227,28 +227,28 @@ The figure below shows all modules currently included in CIBUSmod. The order fro
 
 flowchart TB
 
-  R["**Regions**
+  R["<b>Regions"</b>
   na"]:::mod_main -.-
-  DAC["**DemandAndConversions**
+  DAC["<b>DemandAndConversions"</b>
   na"]:::mod_main -.-
-  CP["**CropProduction**
+  CP["<b>CropProduction"</b>
   R"]:::mod_main -.-
-  AH["**AnimalHerd**
+  AH["<b>AnimalHerd"</b>
   R"]:::mod_main
 
-  AH -.- FMG["**FeedMgmt**
+  AH -.- FMG["<b>FeedMgmt"</b>
   AH"]:::mod_mgmt -.-
-  GD["**GeoDistributor**
+  GD["<b>GeoDistributor"</b>
   R,DAC,CP,AH,FM"]:::mod_opt -.-
-  FMG2["**FeedMgmt**
+  FMG2["<b>FeedMgmt"</b>
   AH"]:::mod_mgmt -.- BPM
 
-  AH -.- FD["**FeedDistributor**
+  AH -.- FD["<b>FeedDistributor"</b>
   R,DAC,CP,AH,FM,MM,CRM"]:::mod_opt -.-
-  FMF["**FeedMgmt**
+  FMF["<b>FeedMgmt"</b>
   AH"]:::mod_mgmt -.- BPM
 
-  BPM["**ByProductMgmt**
+  BPM["<b>ByProductMgmt"</b>
   DAC,AH"]:::mod_mgmt
 
   %% Make two columns ---------------
@@ -257,19 +257,19 @@ flowchart TB
   classDef hid fill:none,stroke:none
   %% --------------------------------
 
-  MM["**ManureMgmt**
+  MM["<b>ManureMgmt"</b>
   AH,FM"]:::mod_mgmt -.-
-  CRM["**CropResidueMgmt**
+  CRM["<b>CropResidueMgmt"</b>
   DAC,CP,AH"]:::mod_mgmt -.-
-  CCM["**CoverCropsMgmt**
+  CCM["<b>CoverCropsMgmt"</b>
   CP"]:::mod_mgmt -.-
-  WAC["**WasteAndCircularity**
+  WAC["<b>WasteAndCircularity"</b>
   DAC,CP,AH"]:::mod_main -.-
-  PNM["**PlantNutrientMgmt**
+  PNM["<b>PlantNutrientMgmt"</b>
   R,DAC,CP,AH,WAC,(CCM)"]:::mod_mgmt -.-
-  MAEM["**MachineryAndEnergyMgmt**
+  MAEM["<b>MachineryAndEnergyMgmt"</b>
   R,CP,AH,WAC"]:::mod_mgmt -.-
-  IM["**InputsMgmt**
+  IM["<b>InputsMgmt"</b>
   DAC,CP,AH,WAC"]:::mod_mgmt
 
 {{ mermaid_style() }}
@@ -310,11 +310,24 @@ The main method for accessing model output is `cm.Session.get_attr()`. It requir
 It also takes a `groupby` argument that allows to group outputs by selected "levels". The levels may be supplied as a list or a dict with level name as keys and aggregated level names (as specified in 'relation_tables.xlsx') as values. For example the below code will access crop areas grouped by production system and crop group.
 
 ```Python
-session.get_attr(
-    'C',                                       # 'C' uniquely identifies the 'CropProduction' module
-    'area',                                    # Get the 'area' attribute table
-    {'crop':'crop_group', 'prod_system':None}  # Group by 'crop' (translated to 'crop_group') and 'prod_system'
+my_session.get_attr(
+    module = 'C',                                        # 'C' uniquely identifies the 'CropProduction' module
+    attr = 'area',                                       # Get the 'area' attribute table
+    groupby = {'crop':'crop_group', 'prod_system':None}  # Group by 'crop' (translated to 'crop_group') and 'prod_system'
 )
 ```
 
 This returns a `pandas.DataFrame` with scenario and year as index and the group by levels as columns.
+
+The available modules and data attribute tables can be viewed by calling the `Session` object in a code block.
+
+```python
+my_Session
+```
+
+<img src="figs/manual/session_repr_example2.png"><br>
+*Example of displaying a `Session` object in a jupyter notebook where the DemandAndConversions module and 'crop_prod_demand' data attribute have been expanded.*
+
+In the `Session` display, modules can be expanded to show available data attribute tables and each data attribute can be expanded to show metadata in the form of a short description, unit, and module where it was calculated. It also shows the available aggregation levels, which can be used in the `groupby` argument to `cm.Session.get_attr()`.
+
+Optionally a (list of) scenario name(s) and year(s) can be supplied using the arguments `scn` and `years`, respectively to only retrieve data for selected scenarios and years. It is also possible to linearly interpolated between the calculated years and output yearly data from the first to last calculated year by setting the argument `interpolate` to *True*.

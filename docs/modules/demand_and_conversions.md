@@ -12,27 +12,27 @@ flowchart TD
   %% -------------------------
   %% Main orchestration
   %% -------------------------
-  A["**DemandAndConversions**"]:::mod_main --> C["**.calculate()**"]:::method
+  A["<b>DemandAndConversions</b>"]:::mod_main --> C["<b>.calculate()</b>"]:::method
 
-  C --> GP["**.get_population()**"]:::method
-  FD["**.calculate_food_demand()**"]:::method
-  NFX["**.get_non_food_and_export_demand()**"]:::method
+  C --> GP["<b>.get_population()</b>"]:::method
+  FD["<b>.calculate_food_demand()</b>"]:::method
+  NFX["<b>.get_non_food_and_export_demand()</b>"]:::method
 
   %% Resolve recipes for multiple demand tables
-  RR["**.resolve_recipies()**"]:::method
+  RR["<b>.resolve_recipies()</b>"]:::method
 
-  W["**.calculate_waste()**"]:::method
-  NS["**.calculate_nutrient_supply()**"]:::method
-  PD["**.calculate_product_demand_and_by_products()**"]:::method
+  W["<b>.calculate_waste()</b>"]:::method
+  NS["<b>.calculate_nutrient_supply()</b>"]:::method
+  PD["<b>.calculate_product_demand_and_by_products()</b>"]:::method
 
 
   %% -------------------------
   %% Population
   %% -------------------------
-  P_POP["**DemandAndConversions.par.**
+  P_POP["<b>DemandAndConversions.par.</b>
   population, population_region"]:::param --> GP
 
-  GP --> DA_POP["**DemandAndConversions.data_attr.**
+  GP --> DA_POP["<b>DemandAndConversions.data_attr.</b>
   population, population_per_region"]:::data
   DA_POP --> FD
 
@@ -40,10 +40,10 @@ flowchart TD
   %% -------------------------
   %% Food demand (diet -> kg/year by origin & production system)
   %% -------------------------
-  P_CONS["**DemandAndConversions.par.**
+  P_CONS["<b>DemandAndConversions.par.</b>
 consumption, share_imported, share_in_prod_system"]:::param --> FD
 
-  FD --> DA_FD["**DemandAndConversions.data_attr.**
+  FD --> DA_FD["<b>DemandAndConversions.data_attr.</b>
   food_demand"]:::data
   DA_FD ---> W
   DA_FD ---> NS
@@ -51,42 +51,39 @@ consumption, share_imported, share_in_prod_system"]:::param --> FD
   %% -------------------------
   %% Non-food + Export demand
   %% -------------------------
-  P_NFX["**DemandAndConversions.par.**
+  P_NFX["<b>DemandAndConversions.par.</b>
 non_food_demand, export_demand"]:::param --> NFX
 
-  NFX --> DA_NFX["**DemandAndConversions.data_attr.**
+  NFX ---> DA_NFX["<b>DemandAndConversions.data_attr.</b>
   non_food_demand, export_demand"]:::data
-
-
-  %% -------------------------
-  %% Recipe resolution (compound foods -> ingredients)
-  %% -------------------------
-  RR --> DA_FD
-  RR --> DA_NFX
-  P_REC["**DemandAndConversions.par.**
-recipie"]:::param --> RR
 
   %% -------------------------
   %% Waste calculation (stage losses)
   %% -------------------------
-  P_WASTE["**DemandAndConversions.par.**
+  P_WASTE["<b>DemandAndConversions.par.</b>
 waste_share"]:::param --> W
-  W --> DA_FTP["**DemandAndConversions.data_attr.**
+  W ---> DA_FTP["<b>DemandAndConversions.data_attr.</b>
   food_demand_to_processing, waste"]:::data
 
   %% -------------------------
   %% Nutrient supply (diet composition)
   %% -------------------------
-  P_COMP["**DemandAndConversions.par.**
+  P_COMP["<b>DemandAndConversions.par.</b>
 composition"]:::param --> NS
-  NS --> DA_NDA_NS["**DemandAndConversions.data_attr.**
+  NS --> DA_NDA_NS["<b>DemandAndConversions.data_attr.</b>
   nutrient_supply"]:::data
 
+  %% -------------------------
+  %% Recipe resolution (compound foods -> ingredients)
+  %% -------------------------
+  RR --> PD
+  P_REC["<b>DemandAndConversions.par.</b>
+recipie"]:::param --> RR
 
   %% -------------------------
   %% Product demand & by-products
   %% -------------------------
-  P_CF["**DemandAndConversions.par.**
+  P_CF["<b>DemandAndConversions.par.</b>
 conv_factor_main, conv_factor_by"]:::param --> PD
 
   %% Inputs to demand aggregation
@@ -94,7 +91,7 @@ conv_factor_main, conv_factor_by"]:::param --> PD
   DA_NFX --> PD
 
   %% Outputs
-  PD --> DA_CPD["**DemandAndConversions.data_attr.**
+  PD ---> DA_CPD["<b>DemandAndConversions.data_attr.</b>
   crop_prod_demand, animal_prod_demand, crop_resid_demand, by_prod_demand,
   by_products, by_prod_per_crop_prod, by_prod_per_animal_prod"]:::data
 
@@ -103,6 +100,7 @@ conv_factor_main, conv_factor_by"]:::param --> PD
   _fix_cream_balance()
   _attribute_secondary_by_prod()
   "]:::helper --> PD
+
 
 {{ mermaid_style() }}
 ```
