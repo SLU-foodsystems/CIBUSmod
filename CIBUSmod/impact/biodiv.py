@@ -50,6 +50,9 @@ def get_crop_div(session, groupby='all', scn='all', years = 'all', method='Shann
                     groupby_after_get += [k]
                 else:
                     groupby_after_get += [v]
+    if len(groupby_after_get)==0:
+        # If no groupby create function to group everything
+        groupby_after_get = lambda x: True
 
     if method == 'Shannon':
         fun = _shannon
