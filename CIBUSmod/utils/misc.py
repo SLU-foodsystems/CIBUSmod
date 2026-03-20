@@ -60,33 +60,39 @@ def inv_dict(x : dict) -> dict:
     return inv_x
 
 def index_to_multi(
-        obj: pd.Index | pd.DataFrame | pd.Series,
+        obj: pd.Index | pd.MultiIndex | pd.DataFrame | pd.Series,
         axis:int = 0
     ) -> pd.MultiIndex | pd.DataFrame | pd.Series:
-    '''Converts pandas.Index/DataFrame/Series to (have) a 1 level pandas.MultiIndex'''
+    '''Converts pandas.Index/DataFrame/Series to (have) a 1 level pandas.MultiIndex.
+    If already MultiIndex a copy of obj is returned'''
     if isinstance(obj, pd.Index):
-        return pd.MultiIndex.from_tuples(
-            [(i,) for i in obj],
-            names=obj.names
-        )
+        if not isinstance(obj, pd.MultiIndex):
+            return pd.MultiIndex.from_tuples(
+                [(i,) for i in obj],
+                names=obj.names
+            )
+        else:
+            return obj.copy()
     elif isinstance(obj, pd.DataFrame) or isinstance(obj, pd.Series):
-        if not isinstance(obj.index, pd.Index):
-            raise TypeError('DataFrame or Series must have a pandas.Index, not a pandas.MultiIndex')
         obj = obj.copy()
         if axis == 1:
             if isinstance(obj, pd.DataFrame):
-                obj.columns = pd.MultiIndex.from_tuples(
-                    [(i,) for i in obj.columns],
-                    names=obj.columns.names
-                )
+                if not isinstance(obj.columns, pd.MultiIndex):
+                    obj.columns = pd.MultiIndex.from_tuples(
+                        [(i,) for i in obj.columns],
+                        names=obj.columns.names
+                    )
             else:
                 raise ValueError("Only axis=0 allowed for pd.Series")
         else:
-            obj.index = pd.MultiIndex.from_tuples(
-                [(i,) for i in obj.index],
-                names=obj.index.names
-            )
+            if not isinstance(obj.index, pd.MultiIndex):
+                obj.index = pd.MultiIndex.from_tuples(
+                    [(i,) for i in obj.index],
+                    names=obj.index.names
+                )
         return obj
+    else:
+        raise TypeError("obj must be pd.Index, pd.MultiIndex, pd.DataFrame, or pd.Series")
 
 def fix_herds(herds : "AnimalHerd | list | pd.Series") -> pd.Series:
     '''Convert herds to pd.Series if list or AnimalHerd object supplied and check index
