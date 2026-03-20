@@ -27,6 +27,9 @@ from .mgmt_modules.crop_residue_mgmt import CropResidueMgmt
 from .mgmt_modules.byprod_mgmt import ByProductMgmt
 from .mgmt_modules.cover_crops_mgmt import CoverCropsMgmt
 
+# Import LULUC modules
+from .LULUC_modules.soil_C import SoilC
+
 # Import geo distiributor
 from .optimisation.geo_dist import GeoDistributor
 from .optimisation.feed_dist import FeedDistributor
