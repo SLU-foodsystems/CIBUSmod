@@ -53,6 +53,8 @@ nav:
     - Optimisation modules:
       - GeoDistributor: modules/geo_dist.md
       - FeedDistributor: modules/feed_dist.md
+    - Special modules:
+      - LULUC modules: modules/LULUC.md
   - Impact assessment: impact.md
   - Plotting functions: plot.md
 
@@ -66,10 +68,16 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.details
   - pymdownx.tabbed
+  - pymdownx.arithmatex:
+      generic: true
   - attr_list
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:
   - stylesheets/panzoom.css

@@ -9,19 +9,19 @@ CIBUSmod is built in a modular fashion, with independent modules handling differ
 {{ mermaid_init() }}
 
 graph TD
-  R["**(1) Regions**"]:::mod_main
-  DAC["**(2) DemandAndConversions**"]:::mod_main
-  CP["**(3) CropProduction**"]:::mod_main
-  AH["**(4) AnimalHerd**"]:::mod_main
+  R["<b>(1) Regions</b>"]:::mod_main
+  DAC["<b>(2) DemandAndConversions</b>"]:::mod_main
+  CP["<b>(3) CropProduction</b>"]:::mod_main
+  AH["<b>(4) AnimalHerd</b>"]:::mod_main
 
-  FD["**(5) FeedDistributor**"]:::mod_opt
+  FD["<b>(5) FeedDistributor</b>"]:::mod_opt
 
-  CPsc["**CropProduction**.scale()"]:::mod_main
-  AHsc["**AnimalHerd**.scale()"]:::mod_main
-  FM["**(6) FeedMgmt**"]:::mod_mgmt
-  MM["**(7) ManureMgmt**"]:::mod_mgmt
-  WAC["**(8) WasteAndCircularity**"]:::mod_main
-  PNM["**(9) PlantNutrientMgmt**"]:::mod_mgmt
+  CPsc["<b>CropProduction</b>.scale()"]:::mod_main
+  AHsc["<b>AnimalHerd</b>.scale()"]:::mod_main
+  FM["<b>(6) FeedMgmt</b>"]:::mod_mgmt
+  MM["<b>(7) ManureMgmt</b>"]:::mod_mgmt
+  WAC["<b>(8) WasteAndCircularity</b>"]:::mod_main
+  PNM["<b>(9) PlantNutrientMgmt</b>"]:::mod_mgmt
 
 
   R --> dR1["Index for

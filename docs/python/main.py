@@ -91,7 +91,14 @@ def define_env(env):
         lines.append(f"<b>File:</b> {file}")
 
         body = "\n".join(lines).rstrip() + "\n"
-        return f"<pre class='ds-pre'>\n{body}</pre>"
+        return f"""
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre">{body}</pre>
+  </div>
+</details>
+""".strip()
 
 def _resolve_ast_obj(path: str, file: str):
     """

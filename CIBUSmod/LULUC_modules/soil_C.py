@@ -263,12 +263,12 @@ def icbm_vec(
 
 class SoilC:
     """
-    Soil carbon input preparation and ICBM simulation workflow.
-
-    This class prepares carbon inputs from several agricultural sources,
-    computes environmental and humification parameters, runs the ICBM model
-    for each input source, and provides utilities to retrieve aggregated
-    soil carbon stocks.
+    Module that estimates soil organic carbon stock changes by collecting
+    soil carbon inputs from a Session object, calculating the environmental
+    modifier (re) and humification coefficients (h), and running the ICBM
+    model for each input source.
+    It also provides utilities to retrieve aggregated soil carbon stocks
+    and fluxes.
 
     Parameters
     ----------

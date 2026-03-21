@@ -1,3 +1,13 @@
+.admonition-content {
+  padding: 0 0.8rem 0.8rem 0.8rem;
+}
+
+.admonition pre.ds-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 .ds-help {
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: 8px;
