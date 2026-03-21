@@ -280,9 +280,12 @@ class SoilC:
     inputs : dict[str, str]
         Mapping from user-facing input names to session attribute keys.
     agg_cols : list[str]
-        Column levels used as the default aggregation dimensions.
+        Column levels used as the aggregation dimensions.
+        Default is ["region"], and should likely not be changed.
     lu : str
         Land-use category used throughout the class.
+        Default is "cropland". May be changed if calculations are to
+        be performed for another land-use category.
     data_attr : DataAttr
         Container for derived model inputs and outputs.
     par : ParameterRetriever
@@ -291,10 +294,10 @@ class SoilC:
         Session/database interface for retrieving source data.
     crop_areas : pd.DataFrame
         Cropland area by aggregation dimensions and crop. Created by
-        :meth:`make_input`.
+        `.make_input()`.
     total_area : pd.DataFrame
-        Total cropland area aggregated over ``agg_cols``. Created by
-        :meth:`make_input`.
+        Total cropland area aggregated over regions. Created by
+        `.make_input()`.
     """
 
     inputs = {
@@ -503,8 +506,6 @@ class SoilC:
             desc = f're-values for {self.lu} aggregated over ({", ".join(agg_cols)})'
         )
         
-        cr_to_lu = self.par.get_rel('crop','land_use')
-        
         for input_name in self.inputs:
             
             vprint(f"Getting {input_name} C input and h-values ...")
@@ -553,6 +554,18 @@ class SoilC:
                 desc = f'h-values for {input_name}'
             )
 
+        # Update areas to exclude organic soils as these should not be
+        # included in flux calculations.
+        org_soils = self.session.get_attr(
+            'C',
+            'organic_soil_area',
+            {'crop':'land_use','region':None},
+            interpolate=True
+        ).loc[:,self.lu]
+        share_mineral_soil = (self.total_area - org_soils) / self.total_area
+        self.total_area *= share_mineral_soil
+        self.crop_areas *= index_to_multi(share_mineral_soil, axis=1).reindex(self.crop_areas.columns, axis=1)
+
         vprint(type='end')
 
     def run_ICBM(self, extend: int = 0) -> None:
@@ -561,7 +574,8 @@ class SoilC:
 
         For each input source and scenario, this method simulates the young pool
         ``Y``, old pool ``O``, and total stock ``C = Y + O``. Results are stored
-        in ``self.data_attr``.
+        in ``.data_attr`` and can be retrieved with the methods ``.get_data()``
+        and ``.get_flux()``.
 
         Parameters
         ----------
@@ -602,9 +616,9 @@ class SoilC:
                 O_dfs += [pd.concat({scn: O}, names=['scn'])]
                 C_dfs += [pd.concat({scn: C}, names=['scn'])]
 
-            Y_final = pd.concat(Y_dfs)
-            O_final = pd.concat(O_dfs)
-            C_final = pd.concat(C_dfs)
+            Y_final = pd.concat(Y_dfs).rename_axis(['scn','year'])
+            O_final = pd.concat(O_dfs).rename_axis(['scn','year'])
+            C_final = pd.concat(C_dfs).rename_axis(['scn','year'])
             
             self.data_attr.add(
                 Y_final,
@@ -653,7 +667,16 @@ class SoilC:
         groupby: str | list[str] | dict[str, str | None] | None = "none"
     ) -> pd.Series | pd.DataFrame:
         """
-        Return soil carbon stocks or inputs optionally aggregated across dimensions.
+        Return per-hectare (kg C/ha) soil carbon stocks or inputs.
+        
+        If ``"region"`` is supplied to ``groupby``, stocks or inputs are expressed
+        per hectare of total land use in each region. If region is not used to
+        group, stocks or inputs represent the area-weighted national value. As such,
+        the area-weighted national stock can increase even if all regional stocks
+        decrease if land use in regions with high stocks increase, and vice versa.
+        If other ``groupby`` levels are used, those represent the fraction of regional
+        or national stocks/inputs derived from that source.
+
 
         Parameters
         ----------
@@ -673,18 +696,13 @@ class SoilC:
             - ``list[str]``: group by multiple column levels
             - ``dict[str, str | None]``: group and optionally remap levels
               before aggregation; values of ``None`` mean no remapping
-        flux
-            If True return the CO2 flux calculated from the year-to-year
-            difference in C stocks (kg C/ha) multiplied by total land-use
-            area.
 
         Returns
         -------
         pd.Series | pd.DataFrame
-            Area-weighted soil carbon stocks. A Series is returned when no
-            grouping is requested; otherwise a DataFrame is returned.
-            Results are expressed as kg C/ha of total land-use aggregated
-            over ``self.agg_cols``
+            Per-hectare Soil carbon stocks or inputs. A Series is returned
+            when no grouping is requested; otherwise a DataFrame is returned.
+            Results are expressed as kg C/ha of total land-use.
         """
         
         groupby, aggregate = self._normalize_groupby(groupby)
@@ -694,10 +712,17 @@ class SoilC:
 
         if input_name == 'all':
             dfs = []
+            # Get column levels shared across all DataFrames
+            shared_lvls = list(set.intersection(
+                *[
+                    set(self.data_attr.get(f'{pool} ({inp})').columns.names)
+                    for inp in self.inputs
+                ]
+            ) - set(self.agg_cols))
             for inp in self.inputs:
                 part_df = (
                     self.data_attr.get(f'{pool} ({inp})')
-                    .T.groupby(self.agg_cols).sum().T
+                    .T.groupby(self.agg_cols + shared_lvls).sum().T
                 )
                 part_df.columns = multiindex_product([part_df.columns,pd.Index([inp], name='input')])
                 dfs += [part_df]
@@ -757,6 +782,9 @@ class SoilC:
                         weighted_df / area_grouped
                     )
 
+        # Fix
+        final_df.index.names = df.index.names
+
         return final_df
     
     def get_flux(
@@ -769,15 +797,12 @@ class SoilC:
         """
         Return flux derived from year-to-year changes in per-hectare stocks.
 
-        Flux is defined as:
+        Flux is defined as the year-to-year change in stock density (kg C/ha)
+        within each region multiplied by the total land-use area in the same
+        region.
 
-        1. compute the year-to-year change in stock density (kg C/ha)
-           within each region
-        2. multiply that change by total land-use area in the same region
-        3. optionally aggregate across other dimensions
-
-        This means that pure changes in area do not create flux when
-        per-hectare stocks are constant.
+        This means that pure changes in area do not create flux when per-hectare
+        stocks are constant.
 
         Parameters
         ----------
@@ -785,10 +810,10 @@ class SoilC:
             Carbon pool to use. Must be one of ``"Y"``, ``"O"``, or ``"C"``.
         input_name
             Input source to retrieve. Use ``"all"`` to aggregate across all
-            configured input sources, or pass one of ``self.inputs``.
+            configured input sources, or pass one of ``.inputs``.
         groupby
             Grouping specification, interpreted in the same way as in
-            :meth:`get_data`.
+            `.get_data()`.
 
             Important:
             - flux is always computed at least at ``region`` level
@@ -840,7 +865,7 @@ class SoilC:
         # Year-to-year change in per-hectare stocks within each scenario
         ha_flux = -stock_ha.groupby("scn").diff()
 
-        # Region area aligned to the same rows
+        # Region area aligned to the same rows (applies if extend > 0 was used in run_ICBM)
         total_area = self.total_area.reindex(stock_ha.index, axis=0).ffill()
 
         # Multiply by regional area. If extra dimensions are present, broadcast
@@ -873,3 +898,20 @@ class SoilC:
             return result.iloc[:, 0] if result.shape[1] == 1 else result.sum(axis=1)
 
         return result
+
+    def get_flux_to_deltaT(self):
+        """
+        Convenience method to return SOC flux suitable to pass to
+        impact.get_deltaT()
+        """
+        flux = self.get_flux(groupby=['prod_system','region'])
+        flux.columns = multiindex_product([
+            flux.columns,
+            pd.MultiIndex.from_tuples(
+                [('SOC flux','SOC flux','mineral soils','CO2')],
+                names=['process','sub-process','item','compound']
+            )
+        ]).reorder_levels(
+            ['process','sub-process','prod_system','item','region','compound']
+        )
+        return flux
