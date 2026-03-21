@@ -6,6 +6,7 @@ from . import  IMPACT_DATA_PATH
 from .general import get_emissions
 from .temp_funcs import generate_temp_responses
 from ..utils.session_db import Session
+from ..utils.verbose_print import verbose_init
 
 def get_GHG(
         session : Session,
@@ -131,8 +132,10 @@ def get_deltaT(
     -------
     pandas.DataFrame of temperature response in Kelvin (K)'''
 
+    vprint = verbose_init(True, id_str='get_deltaT')
+
     # Get greenhouse gas emissions
-    print('Getting GHG emissions ...')
+    vprint('Getting GHG emissions ...')
     if isinstance(session, Session):
         ghg = get_GHG(session, scn, years, CO2eq=None, interpolate=True)
     elif isinstance(session, pd.DataFrame):
@@ -166,7 +169,7 @@ def get_deltaT(
     # Group and sum
     ghg = ghg.T.groupby(groupby).sum().T
     
-    print('Calculating temperature response ...')
+    vprint('Calculating temperature response ...')
     deltaTs = []
 
     for scn in ghg.index.unique('scn'):
@@ -225,6 +228,8 @@ def get_deltaT(
     if groupby != groupby_orig:
         if len(groupby_orig)>0:
             deltaT_combined = deltaT_combined.T.groupby(groupby_orig).sum().T
+
+    vprint(type='end')
 
     return deltaT_combined
 
