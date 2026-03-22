@@ -43,14 +43,6 @@ from .utils import helpers
 # Import module with plotting functions
 from .utils import plot
 
-# Import soil_modules functions and SoilData class
-from .soil_modules import data_processing
-from .soil_modules import icbm_funcs
-from .soil_modules.soil_class import SoilData
-from .soil_modules.soil_class import SoilDataExplore
-from .soil_modules.soil_class import ScenarioTempCalc
-from .soil_modules import soil_utils
-
 from .utils.misc import get_git_info
 print("""
  -----------------------

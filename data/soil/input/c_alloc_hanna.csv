@@ -1,6 +1,0 @@
-Crop,HI,SR_ratio,i_ag,i_bg,source
-common_bean,"0,4",5,"1,5","0,5",Bolinder2007(HI);Palouso2015(SR)
-broad_bean_and_lupin,"0,43",5,"1,32558139534884","0,465116279069768",Jensen2010(HI);Palouso2015(SR)
-dry_peas,"0,51",5,"0,96078431372549","0,392156862745098",Jensen2010(HI);Palouso2015(SR)
-green_peas,"0,51",5,"0,96078431372549","0,392156862745098",Jensen2010(HI);Palouso2015(SR)
-semi-natural_grasslands,"0,6",2,"0,666666666666667","0,833333333333333",Unkovich2010(HI);Hammar2121(SR)
