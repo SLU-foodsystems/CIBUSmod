@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from ..utils.verbose_print import verbose_init
 from ..utils.data_attr import DataAttr
-from ..utils.misc import multiply_aligned, fix_herds
+from ..utils.misc import multiply_aligned, fix_herds, multiindex_product
 from ..main_modules.animal_herd import concat_herds
 
 if TYPE_CHECKING:
@@ -190,29 +190,69 @@ class WasteAndCircularity(object):
         # ENERGY USE #
         ##############
 
-        energy_use = pd.DataFrame(index=in_total.index, columns=in_total.columns)
+        try:
+            energy_sources = self.par.get_unique("energy_source", qry="parameter == 'wastewater_energy_use'")
+        except KeyError:
+            # If f_energy_source columns missing in data
+            energy_sources = []
+        # Create dataframe for energy use
+        energy_use = pd.DataFrame(
+            index = in_total.index,
+            columns = multiindex_product([
+                in_total.columns,
+                pd.Index(energy_sources, name='energy_source')
+            ])
+        )
+        # Calculate energy use and sum by energy source
+        energy_use = (
+            (pf("wastewater_energy_use", energy_use) * in_total)
+            .T.groupby('energy_source').sum().T
+        )
 
         #############
         # INPUT USE #
         #############
 
-        input_use = pd.DataFrame(index=in_total.index, columns=in_total.columns)
+        try:
+            inputs = self.par.get_unique("input", qry="parameter == 'wastewater_input_use'")
+        except KeyError:
+            # If f_input columns missing in data
+            inputs = []
+        # Create dataframe for input use
+        input_use = pd.DataFrame(
+            index = in_total.index,
+            columns = multiindex_product([
+                in_total.columns,
+                pd.Index(inputs, name='input')
+            ])
+        )
+        # Calculate input use and sum by input
+        input_use = (
+            (pf("wastewater_input_use", input_use) * in_total)
+            .T.groupby('input').sum().T
+        )
 
         ##############
         # EMISSIONS #
         #############
 
         # Get emitted compounds
-        cmps = self.par.get_unique('compound', qry="parameter=='wastewater_emissions'")
+        try:
+            cmps = self.par.get_unique('compound', qry="parameter=='wastewater_emissions'")
+        except KeyError:
+            # If f_compounds columns missing in data
+            cmps = []
         # Create dataframe for emissions
-        emissions = in_total.reindex(
-            pd.MultiIndex.from_product([in_total.columns, cmps], names=['element','compound']),
-            level = 'element',
-            axis=1
+        emissions = pd.DataFrame(
+            index = in_total.index,
+            columns = multiindex_product([
+                in_total.columns,
+                pd.Index(cmps, name='compound')
+            ])
         )
         # Calculate emissions and sum by compound
         emissions = (
-            (emissions * pf('wastewater_emissions', emissions))
+            (pf("wastewater_emissions", emissions) * in_total)
             .T.groupby('compound').sum().T
         )
 
@@ -235,21 +275,21 @@ class WasteAndCircularity(object):
             desc = 'VS, COD, N, P, and K in incoming wastewater'
         )
         self.data_attr.add(
-            energy_use,
+            pd.concat([energy_use], keys=['wastewater treatment'], names=['treatment'], axis=1), # Add treatment level
             name = 'wastewater.energy_use',
-            unit = 'kg',
+            unit = 'kWh',
             orig = 'WasteAndCircularity',
             desc = 'Energy use in wastewater treatment'
         )
         self.data_attr.add(
-            input_use,
+            pd.concat([input_use], keys=['wastewater treatment'], names=['treatment'], axis=1), # Add treatment level
             name = 'wastewater.input_use',
             unit = 'kg',
             orig = 'WasteAndCircularity',
             desc = 'Inputs used in wastewater treatment'
         )
         self.data_attr.add(
-            emissions,
+            pd.concat([emissions], keys=['wastewater treatment'], names=['treatment'], axis=1), # Add treatment level
             name = 'wastewater.emissions',
             unit = 'kg',
             orig = 'WasteAndCircularity',
@@ -429,7 +469,7 @@ class WasteAndCircularity(object):
                 else:
                     s_df = self.data_attr.get('wastewater.sludge').loc[:,i].to_frame()
                     s_df.columns = pd.MultiIndex.from_tuples(
-                        [('wastewater sludge',)*3],
+                        [('Wastewater sludge',)+('wastewater sludge',)*2],
                         names=['feedstock','feedstock_group','feedstock_type']
                         )
                     sludge_dfs.update({i : s_df})
@@ -723,6 +763,7 @@ def anaerobic_digestion(waste:WasteAndCircularity):
         digestate_to_landfill[k] = (
             df.mul(1-frac_to_spread, axis=1)
             .rename(lambda x: 'digestate', axis=1)
+            .rename(lambda x: 'Digestate', level='feedstock', axis=1)
             .rename(lambda x: 'landfill', level='treatment', axis=1)
             .T.groupby(df.columns.names).sum().T
         )
