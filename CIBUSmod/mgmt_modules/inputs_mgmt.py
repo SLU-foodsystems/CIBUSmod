@@ -17,13 +17,13 @@ if TYPE_CHECKING:
 
 class InputsMgmt(object):
     '''
-    Management mondule that handles the calculation of emissions in the supply
+    Management module that handles the calculation of emissions in the supply
     chain of inputs. Emissions are either manually specified or retrieved from
     Ecoinvent.
 
     Parameters
     ----------
-    demand : DemandAndConverions object
+    demand : DemandAndConversions object
     crops : CropProduction object
     herds : (pandas.Series of) AnimalHerd object(s)
     par : ParameterRetriever object
@@ -139,7 +139,7 @@ class InputsMgmt(object):
             activity_name, geography_name, reference_unit, ee = \
                 _read_xml(os.path.join(path,file))
 
-            # Create dataframe and sum flows of the same compund and compartment
+            # Create dataframe and sum flows of the same compound and compartment
             df = (
                 pd.DataFrame(ee)
                 .groupby(['ecoinvent_compartment','compound','ecoinvent_unit'])
@@ -218,6 +218,16 @@ class InputsMgmt(object):
             attr = 'energy_use',
             inputs_in_col = 'energy_source'
         )
+        self.calculate_emissions(
+            module = self.waste,
+            attr = 'wastewater.energy_use',
+            inputs_in_col = 'energy_source'
+        )
+        self.calculate_emissions(
+            module = self.waste,
+            attr = 'wastewater.input_use',
+            inputs_in_col = 'input'
+        )
 
         vprint('Calculating supply chain emissions for animal herd inputs ...')
         for h in self.herds:
@@ -235,7 +245,7 @@ class InputsMgmt(object):
         if type(data.columns) is pd.Index:
             data.columns = index_to_multi(data.columns)
 
-        # Add compunds to input use dataframe
+        # Add compounds to input use dataframe
         res = data.reindex(
             pd.MultiIndex.from_tuples(
                 [idx+tuple([cp]) for idx in data.columns for cp in self.data.index.get_level_values('compound').unique()],
@@ -252,7 +262,7 @@ class InputsMgmt(object):
         )
         lci.index = res.columns
 
-        # Multiply input use by emissins
+        # Multiply input use by emissions
         res = res.mul(lci, axis=1)
 
         # Add data attribute
@@ -304,7 +314,7 @@ def _read_xml(file_path):
     ])
 
     elementary_exchange = xml.getElementsByTagName('elementaryExchange')
-    ee = [] # List to store elemantary exchanges
+    ee = [] # List to store elementary exchanges
     for element in elementary_exchange:
         # Get 'outputGroup' element
         output_group = element.getElementsByTagName('outputGroup')
