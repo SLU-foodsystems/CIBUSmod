@@ -77,6 +77,10 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
                     names = ['prod_system', 'item',
                                 'region', 'compound']
                 )
+            else:
+                # If md none of above, continue. This should reflect md=NaN due to
+                # empty rows in csv.
+                continue
         except ValueError as e:
             if 'No match for module' in str(e):
                 # If Session.get_attr() raises ValueError due to module and data attribute not found
@@ -100,52 +104,4 @@ def get_emissions(session, scn='all', years='all', interpolate=False):
         ).sum().T
     )
 
-    return res
-
-def to_ICBM(session):
-    '''Create data for soil carbon modelling.
-
-    Parameters
-    ----------
-    session : Session object
-    
-    Returns
-    -------
-    pandas.DataFrame'''
-
-    ats = ['area','harvest_dm','crop_residues_harvest','fertiliser.manure_C', 'fertiliser.organic_C']
-    d = []
-    for at in ats:
-        df = (
-            session.get_attr(
-                module = 'CropProduction',
-                attr = at,
-                groupby = ['crop','prod_system','region']
-                + (['species'] if 'manure' in at else [])
-                + (['treatment'] if 'organic' in at else []),
-                interpolate=True
-            )
-            .stack(['crop','prod_system','region'])
-            .reorder_levels(['scn','crop','prod_system','region','year'])
-            .sort_index()
-        )
-        if at == 'area':
-            df = df.rename('area_ha')
-        if at == 'harvest_dm':
-            df = df.rename('harvest_kgdm')
-        if at == 'crop_residues_harvest':
-            df = df.rename('crop_residues_harvest_kgdm')
-        if at == 'fertiliser.manure_C':
-            df = df.rename({sp:'manure_'+sp+'_kgC' for sp in df.columns}, axis=1)
-        if at == 'fertiliser.organic_C':
-            df = df.rename({tr:'organic_'+tr+'_kgC' for tr in df.columns}, axis=1)
-            
-        d += [df]
-    
-    res = pd.concat(d, axis=1)
-
-    # Only select cropland
-    sel_crops = inv_dict(ParameterRetriever.get_rel('crop','land_use'))['cropland']
-    res = res.loc[(slice(None), sel_crops),:]
-    
     return res
