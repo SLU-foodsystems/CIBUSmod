@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def get_crop_div(session, groupby='all', scn='all', years = 'all', method='Shannon', crop_group='crop_group', land_use='cropland', interpolate=False):
     '''Gives crop diversity index
@@ -16,6 +17,7 @@ def get_crop_div(session, groupby='all', scn='all', years = 'all', method='Shann
     method : str, default 'factors'
         Method to calculate crop diversity
             'Shannon' = Shannon Diversity Index
+            'Hill' = Hill numbers of order q=1 (i.e. exp(Shannon))
     crop_group : str, default 'crop_group'
         Aggregation level to use in calculating diversity
     land_use : str, default 'cropland'
@@ -56,9 +58,10 @@ def get_crop_div(session, groupby='all', scn='all', years = 'all', method='Shann
 
     if method == 'Shannon':
         fun = _shannon
+    elif method == 'Hill':
+        fun = _hill
     else:
-        raise ValueError("Only method='Shannon' allowed")
-
+        raise ValueError("Only method='Shannon' or 'Hill' allowed")
 
     res = (
         session.get_attr(
@@ -70,13 +73,84 @@ def get_crop_div(session, groupby='all', scn='all', years = 'all', method='Shann
             interpolate = interpolate
         )
         .loc[:,land_use]
-        # Calculate proportion of cropland use per crop_group in for each group
-        .T.groupby(groupby_after_get).transform(lambda x: x/x.sum()).T
-        # Calculate Shannon Diversity Index for each region
+        # Calculate Diversity Index for each group level
         .T.groupby(groupby_after_get).apply(fun).T
     )
+
+    if res.shape[1] == 1:
+        return res.iloc[:,0]
 
     return res
 
 def _shannon(x):
-    return -(x * np.log(x.replace({0:np.nan}))).sum()
+    """
+    Shannon diversity index
+
+    Parameters
+    ----------
+    x : pd.DataFrame | pd.Series
+        Land use by crop(group)
+
+    Returns
+    -------
+    float
+    """
+    
+    if isinstance(x, pd.Series):
+        total = x.sum()
+        if total <= 0:
+            return np.nan
+    
+        p = x / total
+        p = p[p > 0]
+    
+        if len(p) == 0:
+            return np.nan
+        return -(p * np.log(p)).sum()
+
+    if isinstance(x, pd.DataFrame):
+        # apply to each (scn, year) column
+        return x.apply(_shannon, axis=0)
+
+    raise TypeError("x must be a pandas Series or DataFrame")
+
+def _hill(x, q=1):
+    """
+    Hill numbers / Effective number of species
+
+    Parameters
+    ----------
+    x : pd.DataFrame | pd.Series
+        Land use by crop(group)
+    q : float, default 1
+        Order of diversity.
+        q = 0 -> richness
+        q = 1 -> exp(Shannon)
+        q = 2 -> inverse Simpson
+
+    Returns
+    -------
+    float
+    """
+
+    if isinstance(x, pd.Series):
+        total = x.sum()
+        if total <= 0:
+            return np.nan
+    
+        p = x / total
+        p = p[p > 0]
+    
+        if len(p) == 0:
+            return np.nan
+    
+        if np.isclose(q, 1.0):
+            return np.exp(-(p * np.log(p)).sum())
+    
+        return (p.pow(q).sum()) ** (1.0 / (1.0 - q))
+
+    if isinstance(x, pd.DataFrame):
+        # apply to each (scn, year) column
+        return x.apply(lambda col: _hill(col, q=q), axis=0)
+
+    raise TypeError("x must be a pandas Series or DataFrame")
