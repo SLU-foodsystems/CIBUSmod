@@ -22,23 +22,43 @@ class ManureMgmt():
         Dict with <setting name> : <value>
         Allowed settings are:
             'MMS_grazing_from_feed' : bool, default False
-                If True, use share of dry matter in ration
-                from grazing to estimate the share of manure
-                deposited on pasture.
-                If False, share of manure deposited on pastures are
-                estimated from the parameters 'grazing_period' and
-                'indoors_during_grazing'.
-                Warning! Setting this to True may yield unreliable
-                results.
+                If True,
+                    use share of dry matter in ration from
+                    grazing to estimate the share of manure
+                    deposited on pasture.
+                If False,
+                    share of manure deposited on pastures are
+                    estimated from the parameters 'grazing_period'
+                    and 'indoors_during_grazing'.
+                    Warning! Setting this to True may yield unreliable
+                    results.
             'NPK_excretion_from_balance' : bool, default True
-                If True, calculate N, P and K excretion from nutrients
-                in feed minus nutrients incorporated in live weight gain
-                and animal products. Only applies to AnimalHerds where
-                the data attribute 'lwg' is calculated and relies on
-                parameters '<N/P/K>_in_LW' and '<N/P/K>_in_prod'.
-                If False, and for AnimalHerds where 'lwg' is not calculated
-                N, P and K excretion is calculated from the parameter
-                'manure_excr_<N/P/K>'
+                If True,
+                    calculate N, P and K excretion from nutrients in
+                    feed minus nutrients incorporated in live weight gain
+                    and animal products. Only applies to AnimalHerds where
+                    the data attribute 'lwg' is calculated and relies on
+                    parameters '<N/P/K>_in_LW' and '<N/P/K>_in_prod'.
+                If False,
+                    and for AnimalHerds where 'lwg' is not calculated
+                    N, P and K excretion is calculated from the parameter
+                    'manure_excr_<N/P/K>'
+            'MMS_TAN_balance' : bool, default False
+                If True,
+                    N losses in stables are calculated from total N using
+                    the parameter 'loss_stable', while losses in storage
+                    are calculated from either total N or TAN using the
+                    parameters 'loss_storage' or 'loss_storage_of_TAN'.
+                    The TAN share is assumed to remain constant throughout
+                    the storage period and is set with the 'TAN_share'
+                    parameter.
+                If True,
+                    TAN in excretion is calculated based on the 'TAN_share'
+                    parameter, whereafter all losses are assumed to only
+                    affect the TAN component of total N such that TAN share
+                    increases. Losses in stables and storage are calculated
+                    with the parameters 'loss_stable_of_TAN' and
+                    'loss_storage_of_TAN', respectively.
     '''
 
     def __init__(
@@ -54,7 +74,8 @@ class ManureMgmt():
         # Default settings
         self.settings = {
             'MMS_grazing_from_feed' : False,
-            'NPK_excretion_from_balance' : True
+            'NPK_excretion_from_balance' : True,
+            'MMS_TAN_balance' : False,
         }
         # Update settings if valid input
         for k,v in settings.items():
@@ -585,6 +606,8 @@ class ManureMgmt():
         # Get compounds emitted
         cmps = self.par.get_unique('compound', qry=f'f_element == "{element}"')
 
+        TAN_balance = self.settings['MMS_TAN_balance'] and (element=='N')
+
         for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
@@ -607,47 +630,67 @@ class ManureMgmt():
 
             # Get excretion and propagate values to all compound columns
             excr = herd.data_attr.get(f'manure.{element}_excr')
+            if TAN_balance:
+                TAN_excr = excr * (self.par.get_from_frame('TAN_share', excr)/100)
 
             # Calculate losses in stables
-            if (self.par.data.xs((element,'loss_stable'),level=('f_element','parameter'))>0).any():
-                loss_factors_stable = self.par.get_from_frame('loss_stable', df)/100
-                loss_stable = multiply_aligned(loss_factors_stable, excr)
+            if TAN_balance:
+                loss_factors_stable = self.par.get_from_frame('loss_stable_of_TAN', df)/100
+                loss_stable = multiply_aligned(loss_factors_stable, TAN_excr)
             else:
-                loss_stable = df * 0.0
-
+                if (self.par.data.xs((element,'loss_stable'),level=('f_element','parameter'))>0).any():
+                    loss_factors_stable = self.par.get_from_frame('loss_stable', df)/100
+                    loss_stable = multiply_aligned(loss_factors_stable, excr)
+                else:
+                    loss_stable = df * 0.0
 
             # Calculate remaining after stable losses
             to_storage = \
                 excr - loss_stable.T.groupby(['prod_system','animal','MMS']).sum().T
+            if TAN_balance:
+                TAN_to_storage = \
+                    TAN_excr - loss_stable.T.groupby(['prod_system','animal','MMS']).sum().T
 
             # Separate manure destined for off-farm treatment
+            frac_off_farm = (self.par.get_from_frame('off-farm_treatment', to_storage)/100)
             to_treatment = \
-                to_storage * (self.par.get_from_frame('off-farm_treatment', to_storage)/100)
+                to_storage * frac_off_farm
             to_storage = to_storage - to_treatment
+            if TAN_balance:
+                TAN_to_treatment = \
+                    TAN_to_storage * frac_off_farm
+                TAN_to_storage = TAN_to_storage - TAN_to_treatment
 
             # Calculate losses in storage
-            if (self.par.data.xs((element,'loss_storage'),level=('f_element','parameter'))>0).any():
-                loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
-                loss_storage = multiply_aligned(loss_factors_storage, to_storage)
-
-                if element == 'N' and (self.par.data.xs(('N','loss_storage_of_TAN'),level=('f_element','parameter'))>0).any():
-                    # Calculate storage losses expressed as share of TAN
-                    loss_factors_storage_of_TAN = self.par.get_from_frame('loss_storage_of_TAN', df)/100
-                    loss_storage_of_TAN = (
-                        multiply_aligned(loss_factors_storage_of_TAN, to_storage) *
-                        (self.par.get_from_frame('TAN_share', df)/100)
-                    )
-
-                    if ((loss_factors_storage>0) & (loss_factors_storage_of_TAN>0)).any().any():
-                        warnings.warn('ManureMgmt: Storage losses for N expressed per total N and TAN for same item. Check data!')
-                    
-                loss_storage += loss_storage_of_TAN
+            if TAN_balance:
+                loss_factors_storage = self.par.get_from_frame('loss_storage_of_TAN', df)/100
+                loss_storage = multiply_aligned(loss_factors_storage, TAN_to_storage)
             else:
-                loss_storage = df * 0.0
+                if (self.par.data.xs((element,'loss_storage'),level=('f_element','parameter'))>0).any():
+                    loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
+                    loss_storage = multiply_aligned(loss_factors_storage, to_storage)
 
+                    if element == 'N' and (self.par.data.xs(('N','loss_storage_of_TAN'),level=('f_element','parameter'))>0).any():
+                        # Calculate storage losses expressed as share of TAN
+                        loss_factors_storage_of_TAN = self.par.get_from_frame('loss_storage_of_TAN', df)/100
+                        loss_storage_of_TAN = (
+                            multiply_aligned(loss_factors_storage_of_TAN, to_storage) *
+                            (self.par.get_from_frame('TAN_share', df)/100)
+                        )
+
+                        if ((loss_factors_storage>0) & (loss_factors_storage_of_TAN>0)).any().any():
+                            warnings.warn('ManureMgmt: Storage losses for N expressed per total N and TAN for same item. Check data!')
+                        
+                    loss_storage += loss_storage_of_TAN
+                else:
+                    loss_storage = df * 0.0
+
+            # Calculate remaining after storage losses
             available_to_spread = \
                 to_storage - loss_storage.T.groupby(['prod_system','animal','MMS']).sum().T
-
+            if TAN_balance:
+                TAN_to_spread = \
+                    TAN_to_storage - loss_storage.T.groupby(['prod_system','animal','MMS']).sum().T
 
             # Add data attribute
             herd.data_attr.add(
@@ -674,15 +717,17 @@ class ManureMgmt():
 
             if element=='N':
                 # For nitrogen, also calculate and store plant available nitrogen available to spread
-                # and going to off-farm treatment
-                TAN_to_spread = (
-                    available_to_spread *
-                    (self.par.get_from_frame('TAN_share', available_to_spread)/100)
-                ).T.groupby(['prod_system','animal','MMS']).sum().T
-                TAN_to_treatment = (
-                    to_treatment *
-                    (self.par.get_from_frame('TAN_share', to_treatment)/100)
-                ).T.groupby(['prod_system','animal','MMS']).sum().T
+                # and going to off-farm treatment. If setting 'MMS_TAN_balance' is True these have
+                # already been calculated.
+                if not TAN_balance:
+                    TAN_to_spread = (
+                        available_to_spread *
+                        (self.par.get_from_frame('TAN_share', available_to_spread)/100)
+                    ).T.groupby(['prod_system','animal','MMS']).sum().T
+                    TAN_to_treatment = (
+                        to_treatment *
+                        (self.par.get_from_frame('TAN_share', to_treatment)/100)
+                    ).T.groupby(['prod_system','animal','MMS']).sum().T
 
                 herd.data_attr.add(
                     TAN_to_spread,
