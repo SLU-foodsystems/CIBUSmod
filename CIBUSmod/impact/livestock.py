@@ -82,13 +82,13 @@ def _LSU_from_factors(x):
                 return 1
             else:
                 return 0.8
-        elif an == 'calves':
+        elif 'calves' in an:
             return 0.4
         elif an == 'breeding bulls':
             return 1
         else:
-            return 0.8
-    elif sp == 'sheep':
+            return 0.7
+    elif sp in ['sheep','goats']:
         return 0.1
     elif sp == 'pigs':
         if an == 'piglets':
