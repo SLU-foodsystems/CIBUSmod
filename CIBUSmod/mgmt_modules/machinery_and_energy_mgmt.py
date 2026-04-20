@@ -373,34 +373,41 @@ class MachineryAndEnergyMgmt(object):
 
     def calculate_combustion_emissions(self):
 
+        # Get compounds emitted
+        cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')
+
         for module in [self.crops, self.waste] + list(self.herds):
-            self.par.clear()
 
-            # Get energy use. kWh --> TJ
-            energy_use = module.data_attr.get('energy_use') * 1000 * 3600 / 1e12
+            # Get attributes with energy use
+            energy_use_attrs = ['energy_use']
+            if module.module_name == 'WasteAndCircularity':
+                energy_use_attrs += ['wastewater.energy_use']
+            
+            for attr in energy_use_attrs:
+                self.par.clear()
 
-            # Get compounds
-            cps = self.par.get_unique('compound', qry='parameter == "combustion_EF"')
+                # Get energy use. kWh --> TJ
+                energy_use = module.data_attr.get('energy_use') * 1000 * 3600 / 1e12
 
-            energy_use = energy_use.reindex(
-                pd.MultiIndex.from_tuples(
-                    [cols + (cp,) for cols in energy_use.columns for cp in cps],
-                    names = energy_use.columns.names + ['compound'],
-                ),
-                axis=1
-            )
+                energy_use = energy_use.reindex(
+                    pd.MultiIndex.from_tuples(
+                        [cols + (cp,) for cols in energy_use.columns for cp in cps],
+                        names = energy_use.columns.names + ['compound'],
+                    ),
+                    axis=1
+                )
 
-            # Calculate emissions
-            emissions = energy_use.mul(
-                self.par.get('combustion_EF', **energy_use.columns.to_frame().to_dict('list')),
-                axis=1
-            )
+                # Calculate emissions
+                emissions = energy_use.mul(
+                    self.par.get('combustion_EF', **energy_use.columns.to_frame().to_dict('list')),
+                    axis=1
+                )
 
-            # Add data attribute
-            module.data_attr.add(
-                emissions,
-                name = 'energy_use_emissions',
-                unit = 'kg/year',
-                orig = 'MachineryAndEnergyMgmt',
-                desc = 'Direct combustion emissions from energy use (excl. supply chain)'
-            )
+                # Add data attribute
+                module.data_attr.add(
+                    emissions,
+                    name = f'{attr}_emissions',
+                    unit = 'kg/year',
+                    orig = 'MachineryAndEnergyMgmt',
+                    desc = 'Direct combustion emissions from energy use (excl. supply chain)'
+                )

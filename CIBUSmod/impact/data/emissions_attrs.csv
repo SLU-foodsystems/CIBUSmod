@@ -10,16 +10,17 @@ AnimalHerd,manure.VS_loss,manure management,manure management
 AnimalHerd,energy_use_emissions,energy use,energy use
 CropProduction,energy_use_emissions,energy use,energy use
 WasteAndCircularity,energy_use_emissions,energy use,energy use
+WasteAndCircularity,wastewater.energy_use_emissions,energy use,energy use
 AnimalHerd,energy_use_supply_chain_emissions,energy use,energy use
 CropProduction,energy_use_supply_chain_emissions,energy use,energy use
 WasteAndCircularity,energy_use_supply_chain_emissions,energy use,energy use
 WasteAndCircularity,wastewater.energy_use_supply_chain_emissions,energy use,energy use
-WasteAndCircularity,wastewater.input_use_supply_chain_emissions,energy use,energy use
 ,,,
 CropProduction,fertiliser.mineral_N_supply_chain_emissions,input production,fertiliser production
 CropProduction,fertiliser.mineral_P_supply_chain_emissions,input production,fertiliser production
 CropProduction,fertiliser.mineral_K_supply_chain_emissions,input production,fertiliser production
 CropProduction,fertiliser.liming_supply_chain_emissions,input production,lime production
+WasteAndCircularity,wastewater.input_use_supply_chain_emissions,input production,wastewater treatment inputs
 ,,,
 CropProduction,fertiliser.manure_N_application_loss,agricultural soils,fertiliser application
 CropProduction,fertiliser.organic_N_application_loss,agricultural soils,fertiliser application
