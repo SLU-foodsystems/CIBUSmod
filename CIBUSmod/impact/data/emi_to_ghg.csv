@@ -2,9 +2,9 @@ compound,ghg,factor,comment
 CO2,CO2,1,
 CH4bio,CH4bio,1,
 CH4fos,CH4fos,1,
-N2O-N,N2O,1.571428571,(44/28) N2O-N -> N2O
-NH3,N2Oind,0.129411765,(14/17) * 0.10 * (44/28) NH3 -> NH3-N -> N2O-N -> N2O
-NH3-N,N2Oind,0.015714286,0.010 * (44/28) NH3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)
-NOx,N2Oind,0.073333333,(14/30) * 0.10 * (44/28) NOx -> NOx-N -> N2O-N -> N2O (Assumes NOx = NO)
-NOx-N,N2Oind,0.015714286,0.010 * (44/28) NOx-N -> N2O-N -> N2O (IPCC 2006 Guidelines Table 11.3)
-NO3-N,N2Oind,0.011785714,0.0075 * (44/28) NO3-N -> N2O-N -> N2O (IPCC 2006 Guidelines Table 11.3)
+N2O-N,N2O,1.571429,"(44/28) N2O-N -> N2O"
+NH3,N2Oind,0.018118,"(14/17) * 0.014 * (44/28) NH3 -> NH3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3, wet climate)"
+NH3-N,N2Oind,0.022000,"0.014 * (44/28) NH3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3, wet climate)"
+NOx,N2Oind,0.010267,"(14/30) * 0.014 * (44/28) NOx -> NOx-N -> N2O-N -> N2O (Assumes NOx = NO) (IPCC 2019 Guidelines Table 11.3, wet climate)"
+NOx-N,N2Oind,0.022000,"0.014 * (44/28) NOx-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3, wet climate)"
+NO3-N,N2Oind,0.017286,"0.011 * (44/28) NO3-N -> N2O-N -> N2O (IPCC 2019 Guidelines Table 11.3)"
