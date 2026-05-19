@@ -101,6 +101,8 @@ class Session(object):
             closing(con.cursor()) as cur:
 
             con.execute("PRAGMA foreign_keys = 1;")
+            con.execute("PRAGMA journal_mode=WAL;")
+            con.execute("PRAGMA synchronous=NORMAL;")
 
             res = cur.execute("""
                 SELECT name FROM sqlite_schema
@@ -775,9 +777,13 @@ class Session(object):
             
         '''
 
-        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
-            closing(con.cursor()) as cur:
-            
+        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con:
+
+            con.execute("PRAGMA journal_mode=WAL;")
+            con.execute("PRAGMA synchronous=NORMAL;")
+            con.execute("PRAGMA foreign_keys = 1;")
+            cur = con.cursor()
+
             res = cur.execute("""
                 SELECT run_id
                     FROM runs
@@ -791,118 +797,94 @@ class Session(object):
             except TypeError:
                 raise ValueError(f'Scenario "{scn}" and year {year} not defined')
 
-            # Get aggregation rules
             res = cur.execute("""
                 SELECT module, attr, agg_lvls
                 FROM aggregation_rules
             """)
             aggregation_rules = {(i[0], i[1]) : json.loads(i[2]) for i in res.fetchall()}
-        
-        print(f"Writing outputs to '{self.db_path}'")
-       
-        for arg in args:
 
-            if _isiterable(arg):
-                if len(arg)>0 and np.all([isinstance(h,AnimalHerd) for h in arg]):
-                    arg = concat_herds(arg)
-                else:
-                    warnings.warn('Passed iterable of non-AnimalHerd objects ignored')
-                    continue
+            print(f"Writing outputs to '{self.db_path}'")
 
-            if hasattr(arg, 'module_name') and hasattr(arg, 'data_attr'):
+            for arg in args:
 
-                module = arg.module_name
-                
-                # Only include 'scalable' data attributes (i.e. those that can be aggregated)
-                data_attr_dict = {k : v for k, v in arg.data_attr.items() if v['scalable']}
+                if _isiterable(arg):
+                    if len(arg)>0 and np.all([isinstance(h,AnimalHerd) for h in arg]):
+                        arg = concat_herds(arg)
+                    else:
+                        warnings.warn('Passed iterable of non-AnimalHerd objects ignored')
+                        continue
 
-                with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
-                    closing(con.cursor()) as cur:
+                if hasattr(arg, 'module_name') and hasattr(arg, 'data_attr'):
+
+                    module = arg.module_name
+
+                    # Only include 'scalable' data attributes (i.e. those that can be aggregated)
+                    data_attr_dict = {k : v for k, v in arg.data_attr.items() if v['scalable']}
 
                     data = [(module, attr, json.dumps(meta)) for attr, meta in data_attr_dict.items()]
-                    
                     cur.executemany("""
                         INSERT OR IGNORE
                             INTO data_attributes(module, attr, metadata)
                             VALUES(?,?,?);
                     """, data)
 
-                for attr in data_attr_dict:
+                    for attr in data_attr_dict:
 
-                    data_to_write = _get_check_and_clean_data(arg, module, attr)
+                        data_to_write = _get_check_and_clean_data(arg, module, attr)
 
-                    # Aggregate data according to aggregation rules
-                    if (module, attr) in aggregation_rules:
-                        if isinstance(data_to_write, pd.DataFrame):
-                            agg_lvls = aggregation_rules[(module, attr)]
-                            agg_lvls = [lvl for lvl in agg_lvls if lvl in data_to_write.columns.names]
-                            data_to_write = data_to_write.T.groupby(agg_lvls).sum().T
+                        # Aggregate data according to aggregation rules
+                        if (module, attr) in aggregation_rules:
+                            if isinstance(data_to_write, pd.DataFrame):
+                                agg_lvls = aggregation_rules[(module, attr)]
+                                agg_lvls = [lvl for lvl in agg_lvls if lvl in data_to_write.columns.names]
+                                data_to_write = data_to_write.T.groupby(agg_lvls).sum().T
 
-
-                    with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
-                        closing(con.cursor()) as cur:
-    
                         res = cur.execute("""
                             SELECT attr_id FROM data_attributes
                                 WHERE module=? AND attr=?;
                         """, (module, attr))
                         attr_id = res.fetchone()[0]
-                    
-                    if isinstance(data_to_write, pd.DataFrame|pd.Series):
-                        data_to_write = _level_names_to_integer_key(data_to_write, self.db_path, self.db_timeout)
-                        
-                        lvl_cols = data_to_write.index.names
-                        data = pd.concat(
-                            {run_id: data_to_write},
-                            names=['run_id']
-                        ).rename('value').to_frame()
-                    else:
-                        lvl_cols = []
-                        data = pd.DataFrame(
-                            [(run_id,data_to_write)],
-                            columns=['run_id','value']
-                        ).set_index('run_id')
 
-                    # Table creation SQL query
-                    create_qry = f"""
-                        CREATE TABLE IF NOT EXISTS attr_{attr_id} (
-                            run_id INTEGER,"""
-                    for lvl_col in lvl_cols:
+                        if isinstance(data_to_write, pd.DataFrame|pd.Series):
+                            data_to_write = _level_names_to_integer_key(data_to_write, self.db_path, self.db_timeout, con=con)
+
+                            lvl_cols = data_to_write.index.names
+                            data = pd.concat(
+                                {run_id: data_to_write},
+                                names=['run_id']
+                            ).rename('value').to_frame()
+                        else:
+                            lvl_cols = []
+                            data = pd.DataFrame(
+                                [(run_id,data_to_write)],
+                                columns=['run_id','value']
+                            ).set_index('run_id')
+
+                        # Table creation SQL query
+                        create_qry = f"""
+                            CREATE TABLE IF NOT EXISTS attr_{attr_id} (
+                                run_id INTEGER,"""
+                        for lvl_col in lvl_cols:
+                            create_qry += f"""
+                                {lvl_col} INTEGER NOT NULL,"""
+                        create_qry += """
+                                value NUMERIC,
+                                """
                         create_qry += f"""
-                            {lvl_col} INTEGER NOT NULL,"""
-                    create_qry += """
-                            value NUMERIC,
-                            """
-                    create_qry += f"""
-                            PRIMARY KEY({', '.join(['run_id']+lvl_cols)}),
-                    """
+                                PRIMARY KEY({', '.join(['run_id']+lvl_cols)}),
+                        """
 
-                    create_qry += """
-                            CONSTRAINT fk_runs
-                                FOREIGN KEY (run_id)
-                                REFERENCES runs(run_id)
-                                ON DELETE CASCADE
-                                ON UPDATE CASCADE
-                        ) WITHOUT ROWID;
-                    """
+                        create_qry += """
+                                CONSTRAINT fk_runs
+                                    FOREIGN KEY (run_id)
+                                    REFERENCES runs(run_id)
+                                    ON DELETE CASCADE
+                                    ON UPDATE CASCADE
+                            ) WITHOUT ROWID;
+                        """
 
-                    # Row deletion SQL query
-                    delete_qry = f"""
-                        DELETE FROM attr_{attr_id} WHERE run_id = ?
-                    """
-
-                    with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
-                        closing(con.cursor()) as cur:
-
-                        con.execute("PRAGMA foreign_keys = 1;")
-
-                        # Create table if it does not exists
                         cur.execute(create_qry)
-
-                        # Drop any existing data with the same run_id
-                        cur.execute(delete_qry, (run_id,))
-                            
-                        # Insert data
+                        cur.execute(f"DELETE FROM attr_{attr_id} WHERE run_id = ?", (run_id,))
                         data.to_sql(
                             name = f"attr_{attr_id}",
                             con = con,
@@ -910,23 +892,20 @@ class Session(object):
                             index = True,
                             method = None # 'multi' does not work
                         )
-                   
-            else:
-                warnings.warn(f'Passed object of type {type(arg)} ignored')
 
-        with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
-            closing(con.cursor()) as cur:
+                else:
+                    warnings.warn(f'Passed object of type {type(arg)} ignored')
 
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
             cur.execute("""
                 UPDATE runs
                     SET calculated = ?
                 WHERE run_id = ?
             """, (timestamp, run_id))
+            con.commit()
 
         self.cache.clear()
-        
+
         print("Outputs stored!")
 
         return None
@@ -1114,7 +1093,7 @@ class Session(object):
         
         with closing(sqlite3.connect(self.db_path, timeout=self.db_timeout)) as con, con,  \
             closing(con.cursor()) as cur:
-      
+
             res = cur.execute(f"""
                 SELECT attr_id, module, attr FROM data_attributes
                     WHERE module LIKE '{module}%' AND attr LIKE '{attr}%'
@@ -1228,9 +1207,9 @@ class Session(object):
                         qry_where += " AND "
                 if isinstance(years, list):
                     qry_where += f"""year IN ({', '.join(f'"{y}"' for y in years)})"""
-                
+
             qry = f"""
-                SELECT 
+                SELECT
                     s.name AS scn,
                     year,
                     {qry_lvls_sel}
@@ -1429,108 +1408,111 @@ def _isiterable(obj):
     except TypeError:
         return False
 
-def _level_names_to_integer_key(data, db_path, timeout):
+def _level_names_to_integer_key(data, db_path, timeout, con=None):
 
     data = data.copy()
-    
+
     # Get index and columns levels
     lvls_axs = [(lvl, 0) for lvl in data.index.names]
     if isinstance(data, pd.DataFrame):
         lvls_axs += [(lvl, 1) for lvl in data.columns.names]
 
-    with closing(sqlite3.connect(db_path, timeout=timeout)) as con, con,  \
-        closing(con.cursor()) as cur:
+    own_con = con is None
+    if own_con:
+        con = sqlite3.connect(db_path, timeout=timeout)
 
-        lvl_keys = []
-        for lvl, ax in lvls_axs:
+    try:
+        with con:
+            cur = con.cursor()
 
-            cur.execute("""
-                INSERT OR IGNORE
-                    INTO levels(name)
-                    VALUES(?)
-            """, (lvl,))
+            lvl_keys = []
+            for lvl, ax in lvls_axs:
 
-            res = cur.execute("""
-                SELECT lvl_id FROM levels
-                    WHERE name = ?
-            """, (lvl,))
+                cur.execute("""
+                    INSERT OR IGNORE
+                        INTO levels(name)
+                        VALUES(?)
+                """, (lvl,))
 
-            lvl_id = res.fetchone()[0]
-            lvl_keys += ['lvl_'+str(lvl_id)]
-            
-            cur.execute(f"""
-                CREATE TABLE IF NOT EXISTS lvl_{lvl_id} (
-                    lvl_value_id INTEGER PRIMARY KEY,
-                    value TEXT UNIQUE
-                );
-            """)
+                res = cur.execute("""
+                    SELECT lvl_id FROM levels
+                        WHERE name = ?
+                """, (lvl,))
 
-            while True:
-                res = cur.execute(f"""
-                    SELECT value, lvl_value_id FROM lvl_{lvl_id}
+                lvl_id = res.fetchone()[0]
+                lvl_keys += ['lvl_'+str(lvl_id)]
+
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS lvl_{lvl_id} (
+                        lvl_value_id INTEGER PRIMARY KEY,
+                        value TEXT UNIQUE
+                    );
                 """)
-                txt_to_int = dict(res.fetchall())
 
+                # Pass 1: rename using existing DB mappings
+                res = cur.execute(f"SELECT value, lvl_value_id FROM lvl_{lvl_id}")
+                txt_to_int = dict(res.fetchall())
                 data = data.rename(txt_to_int, axis=ax, level=lvl)
 
                 if ax == 0:
-                    if len(data.index) == 0:
-                        lvl_dtype = int
-                    else:
-                        lvl_dtype = data.index.get_level_values(lvl).dtype
+                    lvl_dtype = data.index.get_level_values(lvl).dtype if len(data.index) > 0 else np.dtype('int64')
                 else:
-                    if len(data.columns) == 0:
-                        lvl_dtype = int
-                    else:
-                        lvl_dtype = data.columns.get_level_values(lvl).dtype
-                    
-                if pd.api.types.is_integer_dtype(lvl_dtype):
-                    break
-                    
-                if ax == 0:
-                    unique_lvl_values = data.index.unique(lvl)
-                else:
-                    unique_lvl_values = data.columns.unique(lvl)
-                
-                to_write = [(v,) for v in unique_lvl_values]
-                cur.executemany(f"""
-                    INSERT OR IGNORE
-                        INTO lvl_{lvl_id}(value)
-                        VALUES(?)
-                """, to_write)
-                
-        if isinstance(data, pd.DataFrame):
-            # Stack to series (take shortest way)
-            data = data.dropna(axis=1, how='all')
-            if data.shape[1] == 0:
-                # If no columns remain (i.e. all values in dataframe were NaN)
-                # return an empty pd.Series with the correct levels
-                return pd.Series(
-                        index = pd.MultiIndex.from_tuples(
-                            [],
-                            names = lvl_keys
-                        )
-                    )
-            if data.columns.nlevels > data.index.nlevels:
-                data = (
-                    data.unstack(data.index.names)
-                    .reorder_levels(data.index.names+data.columns.names)
-                    .sort_index()
-                )
-            else:
-                if data.columns.nlevels == 1 and isinstance(data.columns, pd.MultiIndex):
-                    # Fix problem with single-level MultiIndex stacking by
-                    # converting to Index
-                    data.columns = data.columns.get_level_values(0)
-                data = data.stack(data.columns.names)
-            
-        data = data.rename_axis(index = lvl_keys)
-        data = data.dropna()
-        
-        assert isinstance(data, pd.Series)
-        assert not data.isna().any()
+                    lvl_dtype = data.columns.get_level_values(lvl).dtype if len(data.columns) > 0 else np.dtype('int64')
 
-        return data
+                if not pd.api.types.is_integer_dtype(lvl_dtype):
+                    # Some labels not yet in DB; insert only remaining strings, then rename
+                    if ax == 0:
+                        new_vals = [v for v in data.index.unique(lvl) if not isinstance(v, (int, np.integer))]
+                    else:
+                        new_vals = [v for v in data.columns.unique(lvl) if not isinstance(v, (int, np.integer))]
+                    cur.executemany(
+                        f"INSERT OR IGNORE INTO lvl_{lvl_id}(value) VALUES(?)",
+                        [(v,) for v in new_vals]
+                    )
+                    # Pass 2: fetch only the newly inserted mappings
+                    placeholders = ','.join('?' * len(new_vals))
+                    res = cur.execute(
+                        f"SELECT value, lvl_value_id FROM lvl_{lvl_id} WHERE value IN ({placeholders})",
+                        new_vals
+                    )
+                    data = data.rename(dict(res.fetchall()), axis=ax, level=lvl)
+
+            if isinstance(data, pd.DataFrame):
+                # Stack to series (take shortest way)
+                data = data.dropna(axis=1, how='all')
+                if data.shape[1] == 0:
+                    # If no columns remain (i.e. all values in dataframe were NaN)
+                    # return an empty pd.Series with the correct levels
+                    return pd.Series(
+                            index = pd.MultiIndex.from_tuples(
+                                [],
+                                names = lvl_keys
+                            )
+                        )
+                if data.columns.nlevels > data.index.nlevels:
+                    data = (
+                        data.unstack(data.index.names)
+                        .reorder_levels(data.index.names+data.columns.names)
+                        .sort_index()
+                    )
+                else:
+                    if data.columns.nlevels == 1 and isinstance(data.columns, pd.MultiIndex):
+                        # Fix problem with single-level MultiIndex stacking by
+                        # converting to Index
+                        data.columns = data.columns.get_level_values(0)
+                    data = data.stack(data.columns.names)
+
+            data = data.rename_axis(index = lvl_keys)
+            data = data.dropna()
+
+            assert isinstance(data, pd.Series)
+            assert not data.isna().any()
+
+    finally:
+        if own_con:
+            con.close()
+
+    return data
     
 
 def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
