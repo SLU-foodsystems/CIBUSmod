@@ -105,7 +105,7 @@ class ManureMgmt():
 
         Returns
         -------
-        Nothing. Stores output in pandas.DataFrames in the attrubutes: '<element>_excr', '<element>_loss' and '<element>_to_spread'.
+        Nothing. Stores output in pandas.DataFrames in the attributes: '<element>_excr', '<element>_loss' and '<element>_to_spread'.
         <element> is VS (volatile solids), N (nitrogen), P (phosphorus) and K (potassium).
         '''
 
@@ -126,7 +126,7 @@ class ManureMgmt():
         vprint('Calculating VS losses ...')
         self.calculate_VS_losses()
 
-        # Nitrogen (N), Phosphorus (P) and Potassioum (K)
+        # Nitrogen (N), Phosphorus (P) and Potassium (K)
         vprint('Calculating manure excretion ...')
         self.calculate_NPK_excretion(element = 'N')
         self.calculate_NPK_excretion(element = 'P')
@@ -334,6 +334,33 @@ class ManureMgmt():
                     unit = f'kg {element}/year',
                     orig = 'ManureMgmt',
                     desc = 'Bedding material use' + ((' in terms of ' + element) if not element=='DM' else '')
+                )
+
+            # Compute bedding demand expressed as domestic crop residue demand
+            # Sum DM over MMS: columns become (prod_system, animal, feed)
+            DM_by_feed = DM.T.groupby(['prod_system', 'animal', 'feed']).sum().T
+
+            self.feed_mgmt.par.clear()
+            crop_resids = self.feed_mgmt.par.get_unique('crop_resid', qry='parameter == "feed_to_prod"')
+
+            cr_cols = {}
+            for cr in crop_resids:
+                self.feed_mgmt.par.set(crop_resid=cr)
+                f2p = self.feed_mgmt.par.get_from_frame('feed_to_prod', DM_by_feed).fillna(0)
+                sd = self.feed_mgmt.par.get_from_frame('share_domestic', DM_by_feed).fillna(100) / 100
+                # Sum over animal and feed, keep prod_system
+                cr_cols[cr] = (DM_by_feed * f2p * sd).T.groupby('prod_system').sum().T
+
+            if cr_cols:
+                bedding_crop_resid = pd.concat(cr_cols, axis=1)
+                bedding_crop_resid.columns.names = ['crop_resid', 'prod_system']
+                bedding_crop_resid.columns = bedding_crop_resid.columns.reorder_levels(['prod_system', 'crop_resid'])
+                herd.data_attr.add(
+                    bedding_crop_resid,
+                    name = 'bedding_material_crop_resid',
+                    unit = 'kg DM/year',
+                    orig = 'ManureMgmt',
+                    desc = 'Bedding material demand in domestic crop residue terms'
                 )
 
     def calculate_VS_excretion(self):

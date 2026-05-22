@@ -477,7 +477,7 @@ class FeedDistributor(GeoDistributor):
         """Creates C8: A8 @ x <rel> b8
 
         Flexible constraint that constrains crop areas and/or animal numbers corresponding
-        to the given Series in relation to the Series' values. Constraints can be eiter
+        to the given Series in relation to the Series' values. Constraints can be either
         equality or max/min. Equality constraints (C8_rel = '==') are implemented as min
         and max constraints with a relative tolerance of +/- C8_tol.
 
@@ -689,7 +689,7 @@ class FeedDistributor(GeoDistributor):
 
         def make_A12(rel):
             A12_1 = self.make_A12_1(row_idx, rel)
-            # Drop rows where we lack constriants
+            # Drop rows where we lack constraints
             A12_1.prune_rows()
             # Create an A12_2 which only contains the rows for which we have data for
             # the given herd, animal and feed_par.
@@ -911,15 +911,17 @@ class FeedDistributor(GeoDistributor):
             )
         )
         
-        # Make sure there are no "feed" used for bedding that are not
-        # connected to a crop crop residue in the FeedMgmt module
+        # Warn if there are "feed"s used for bedding that are not
+        # connected to a crop residue in the FeedMgmt module
         # NOTE: Potentially we may want to allow feeds
         # connected to other products (i.e. crop_prod, by_prod)
-        assert set(feeds_for_bedding) - set(feed_to_resid_idx.get_level_values("feed")) == set(), \
-        "Feed used for bedding not connected to crop residue in FeedMgmt module"
+        # to be used as bedding, this does not come into constraints
+        # on crop/by_prod currently.
+        if not_resid := set(feeds_for_bedding) - set(feed_to_resid_idx.get_level_values("feed")):
+            warnings.warn(f'Some feeds used for bedding not connected to crop residue in FeedMgmt module:\n{list(not_resid)}')
         
         # ani (bedding) --> crop_resid
-        A16_1 = self.make_A16_1(row_idx, feeds_for_bedding)
+        A16_1 = self.make_A16_1(row_idx)
         # crop --> crop_resid
         A16_2 = self.make_A16_2(row_idx)
         # feed --> crop_resid
@@ -1420,7 +1422,7 @@ class FeedDistributor(GeoDistributor):
         joined_df["feed_composition"] = np.nan_to_num(
             self.feed_mgmt.par.get('feed_composition', warn_if_nan=False) # <-- Warn for NaN???
         )
-        joined_df.loc[joined_df.index.get_level_values('feed_par') == 'DM', "feed_composition"] = 1 # Dry matter is allways 1
+        joined_df.loc[joined_df.index.get_level_values('feed_par') == 'DM', "feed_composition"] = 1 # Dry matter is always 1
 
         joined_df["loss_factor"] = (
             perc_to_change_factor(self.feed_mgmt.par.get('storage_losses')) *
@@ -1651,7 +1653,7 @@ class FeedDistributor(GeoDistributor):
                 row_idx, col_idx
             )
         
-        # Calculate ammount of by-products generated per crop areas
+        # Calculate amount of by-products generated per crop areas
         by_production = net_production.merge(
             by_per_cp, on=["prod_system","crop_prod"]
         )
@@ -1710,81 +1712,49 @@ class FeedDistributor(GeoDistributor):
             merged, row_idx, col_idx
         )
 
-    def make_A16_1(self, row_idx, feeds):
+    def make_A16_1(self, row_idx):
         # Get col index from animal herds (sp,br,ps,ss,re)
         col_idx = self.x_idx["ani"]
-        
-        self.manure_mgmt.par.clear()
-        self.feed_mgmt.par.clear()
-        
+
+        # Pre-compute MMS shares and bedding material use in ManureMgmt module
+        self.manure_mgmt.calculate_MMS_shares()
+        self.manure_mgmt.calculate_bedding_material_use()
+
         # To store data and corresponding row/col numbers for constructing matrix
         val = []
         row_nr = []
         col_nr = []
-        
-        # Some convenience functions for getting parameters
-        def sfv(**kwargs):
-            self.manure_mgmt.par.set(**kwargs)
-            self.feed_mgmt.par.set(**kwargs)
-        gfm = self.manure_mgmt.par.get_from_frame
-        gff = self.feed_mgmt.par.get_from_frame
-        
+
         # Go through animal herds
         for herd in self.herds:
-        
+
+            if not (herd.has_manure and herd.has_feed_demand()):
+                continue
+
             sp = herd.species
             br = herd.breed
             ps = herd.prod_system
             ss = herd.sub_system
-        
-            # Set filter values
-            sfv(
-                species = sp,
-                breed = br,
-                sub_system = ss
-            )
-        
-            # Go through animal products
+
+            # bedding_material_crop_resid: (region) x (prod_system, crop_resid)
+            # already accounts for MMS shares, feed_to_prod, share_domestic, and heads
+            bedding_cr = herd.data_attr.get('bedding_material_crop_resid')
+
             for ops, cr in row_idx:
-        
-                # Set filter values
-                sfv(
-                    prod_system = ops,
-                    crop_resid = cr,
-                )
-        
-                # Get animal heads in ops
-                heads = herd.data_attr.get('heads').loc[:,ops]
-                # Add feeds to column index
-                df = (
-                    # Columns must be MultiIndex
-                    index_to_multi(heads, axis=1)
-                    .reindex(
-                        pd.MultiIndex.from_product([heads.columns, feeds], names=["animal","feed"]),
-                        axis=1
-                    )
-                )
-        
-                # Sum of (heads * bedding material use per head * feed -> crop_resid factor * share domestic)
-                # --> Domestic demand for crop_resid per defining animal (x)
-                # Negative sign
-                res = (
-                    df
-                    .mul(gfm("bedding_material_use",df))
-                    .mul(gff("feed_to_prod",df))
-                    .mul(gff("share_domestic",df)/100)
-                    .sum(axis=1)
-                )
-        
+
+                if (ops, cr) not in bedding_cr.columns:
+                    continue
+
+                res = bedding_cr[(ops, cr)]
+
                 # We only need to store anything if there is a demand for bedding materials
-                if (res>0).any():
-                    # Store values and row/col nr
+                if (res > 0).any():
                     val.extend(-res.values) # negative sign
                     row_nr.extend([row_idx.get_loc((ops, cr))] * len(res))
                     col_nr.extend(
                         [col_idx.get_loc((sp, br, ps, ss, re)) for re in res.index]
                     )
-        
+
         # Create Compressed Sparse Column matrix
         return IndexedMatrix.from_coordinates((val, (row_nr, col_nr)), row_idx, col_idx)
 
@@ -1978,7 +1948,7 @@ class FeedDistributor(GeoDistributor):
 
         Returns
         -------
-        pd.DataFrame: with row-index corresonding to x_fds (except for region and feed)
+        pd.DataFrame: with row-index corresponding to x_fds (except for region and feed)
             and single-level column-index "feed".
         """
 
@@ -2008,7 +1978,7 @@ class FeedDistributor(GeoDistributor):
 
     def _get_feed_compositions(self, shape: Literal["wide", "long"] = "wide"):
         """
-        Get the feed compositions, i.e. the ratio of a certan feed_par (e.g. ME, energy)
+        Get the feed compositions, i.e. the ratio of a certain feed_par (e.g. ME, energy)
         that is present in a given feed for a given species per unit of dry-mass.
 
         DM is included and set to 1 for each feed.

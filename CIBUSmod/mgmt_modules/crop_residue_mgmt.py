@@ -95,10 +95,19 @@ class CropResidueMgmt():
         )
 
         # Get crop residues used for bedding
+        # bedding_material_crop_resid is pre-computed by ManureMgmt using feed_to_prod
+        # and share_domestic so that bedding feed DM is correctly expressed as
+        # domestic crop residue demand
+        bedding_list = [
+            h.data_attr.get('bedding_material_crop_resid')
+            for h in self.herds
+            if 'bedding_material_crop_resid' in h.data_attr
+        ]
         demand_for_bedding = (
-            pd.concat([h.data_attr.get('bedding_material') for h in self.herds if 'bedding_material' in h.data_attr], axis=1)
-            .T.groupby(['feed']).sum().T
-            .rename_axis(columns={'feed':'crop_resid'})
+            pd.concat(bedding_list).groupby(level=0).sum()
+            .T.groupby(level='crop_resid').sum().T
+            if bedding_list else
+            pd.DataFrame(0.0, index=demand_for_feed.index, columns=demand_for_feed.columns)
         )
 
         # Get crop residues used for other purposes
