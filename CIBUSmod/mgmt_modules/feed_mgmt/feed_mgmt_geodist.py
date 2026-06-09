@@ -35,6 +35,9 @@ class GeoDistFeedMgmt(FeedMgmt):
         not_linked_feeds += [self.calculate_product_demand(prod_type='crop_prod')]
         self.calculate_max_crop_in_crop_prod()
 
+        vprint('Calculating feed by-product generation ...')
+        self.calculate_feed_by_product_generation()
+
         vprint('Calculating demand for by-products ...')
         not_linked_feeds += [self.calculate_product_demand(prod_type='by_prod')]
 

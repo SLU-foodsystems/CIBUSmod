@@ -61,6 +61,17 @@ class ByProductMgmt():
                 .rename_axis('origin', axis=1)
             )
 
+        # Add by-products generated from crop_prod/crop_resid feeds (domestic share already applied)
+        adj_gen_dfs = [
+            h.data_attr.get('feed.by_product_generation').sum()
+            for h in self.herds
+            if h.has_feed_demand() and 'feed.by_product_generation' in h.data_attr.metadata
+        ]
+        if adj_gen_dfs:
+            adj_gen = pd.concat(adj_gen_dfs).groupby(['prod_system', 'by_prod']).sum()
+            if len(adj_gen) > 0:
+                prod['domestic'] = prod['domestic'].add(adj_gen, fill_value=0)
+
         # Get demand for food, non-food and exports
         food_demand = self.demand.data_attr.get('by_prod_demand').copy()
 
@@ -77,6 +88,49 @@ class ByProductMgmt():
         idx_uni = prod.index.union(total_demand.index)
 
         # Reindex frames
+        prod = prod.reindex(idx_uni).fillna(0)
+        total_demand = total_demand.reindex(idx_uni).fillna(0)
+
+        # Calculate domestic fraction per by-product before adding unadjusted generation,
+        # so that by_prod feed domestic fraction reflects the primary balance
+        dom_frac = (
+            prod['domestic']
+            .div(total_demand.sum(axis=1).replace(0, np.nan))
+            .clip(upper=1.0)
+            .fillna(1.0)
+        )
+
+        # Add by-products generated from by_prod type feeds (GeoDist only).
+        # Generation is stored at 100% domestic; scale by the actual domestic fraction
+        # of the by_prod feed consumed.
+        unadj_gen_dfs = [
+            h.data_attr.get('feed.by_product_generation_from_byprod_feed').sum()
+            for h in self.herds
+            if h.has_feed_demand()
+            and 'feed.by_product_generation_from_byprod_feed' in h.data_attr.metadata
+        ]
+        if unadj_gen_dfs:
+            unadj_gen = (
+                pd.concat(unadj_gen_dfs)
+                .groupby(['prod_system', 'by_prod_generated', 'by_prod_feed']).sum()
+            )
+            if len(unadj_gen) > 0:
+                # Look up dom_frac for the by_prod being consumed as feed
+                byfeed_idx = pd.MultiIndex.from_tuples(
+                    [(ps, bp_feed) for ps, _bp_gen, bp_feed in unadj_gen.index],
+                    names=['prod_system', 'by_prod']
+                )
+                scale = dom_frac.reindex(byfeed_idx).values
+                unadj_gen_scaled = unadj_gen * scale
+                unadj_gen_actual = (
+                    unadj_gen_scaled
+                    .groupby(['prod_system', 'by_prod_generated']).sum()
+                    .rename_axis(index={'by_prod_generated': 'by_prod'})
+                )
+                prod['domestic'] = prod['domestic'].add(unadj_gen_actual, fill_value=0)
+
+        # Reindex after potentially extending prod index with new by-products
+        idx_uni = prod.index.union(total_demand.index)
         prod = prod.reindex(idx_uni).fillna(0)
         total_demand = total_demand.reindex(idx_uni).fillna(0)
 
