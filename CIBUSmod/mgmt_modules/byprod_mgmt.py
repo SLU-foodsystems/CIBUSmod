@@ -112,15 +112,16 @@ class ByProductMgmt():
         if unadj_gen_dfs:
             unadj_gen = (
                 pd.concat(unadj_gen_dfs)
-                .groupby(['prod_system', 'by_prod_generated', 'by_prod_feed']).sum()
+                .groupby(['prod_system', 'by_prod_generated', 'by_prod_source']).sum()
             )
             if len(unadj_gen) > 0:
-                # Look up dom_frac for the by_prod being consumed as feed
-                byfeed_idx = pd.MultiIndex.from_tuples(
-                    [(ps, bp_feed) for ps, _bp_gen, bp_feed in unadj_gen.index],
+                # Look up dom_frac using the source by_prod that backs the feed
+                # (e.g. "rapeseed" for "vegetable oils" feed), not the feed name itself.
+                bysource_idx = pd.MultiIndex.from_tuples(
+                    [(ps, bp_source) for ps, _bp_gen, bp_source in unadj_gen.index],
                     names=['prod_system', 'by_prod']
                 )
-                scale = dom_frac.reindex(byfeed_idx).values
+                scale = dom_frac.reindex(bysource_idx).values
                 unadj_gen_scaled = unadj_gen * scale
                 unadj_gen_actual = (
                     unadj_gen_scaled

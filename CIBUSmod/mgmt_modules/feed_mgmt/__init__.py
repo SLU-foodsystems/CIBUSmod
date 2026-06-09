@@ -353,7 +353,7 @@ class FeedMgmt(ABC):
         empty_unadj = lambda herd: pd.DataFrame(
             index=herd.index,
             columns=pd.MultiIndex.from_tuples(
-                [], names=["prod_system", "animal", "by_prod_generated", "by_prod_feed"]
+                [], names=["prod_system", "animal", "by_prod_generated", "by_prod_source"]
             ),
             dtype=float,
         )
@@ -378,10 +378,10 @@ class FeedMgmt(ABC):
 
         bpg = bpg_index.set_index("feed")["by_prod"]
 
-        # Feeds linked to a by_prod via feed_to_prod (no share_domestic in GeoDist)
-        byprod_type_feeds = set(
-            self.par.get_unique(["feed", "by_prod"], 'parameter == "feed_to_prod"')["feed"].tolist()
-        )
+        # Feeds linked to a by_prod source via feed_to_prod (no share_domestic in GeoDist).
+        # Maps feed name → source by_prod name for the domestic fraction lookup in ByProductMgmt.
+        _feed_to_prod_df = self.par.get_unique(["feed", "by_prod"], 'parameter == "feed_to_prod"')
+        byprod_type_feeds = dict(zip(_feed_to_prod_df["feed"], _feed_to_prod_df["by_prod"]))
 
         for herd in (h for h in self.herds if h.has_feed_demand()):
             self.par.clear()
@@ -397,6 +397,9 @@ class FeedMgmt(ABC):
                     if is_feeddist or (fe not in byprod_type_feeds):
                         adj_cols.append((ps, ani, bp_gen, fe))
                     else:
+                        # Keep feed name in the column tuple so get_from_frame can look up
+                        # feed_to_by_prod; the feed→source_by_prod remapping happens after
+                        # the multiplication step below.
                         unadj_cols.append((ps, ani, bp_gen, fe))
 
             # --- Adjusted generation: share_domestic applied ---
@@ -462,11 +465,24 @@ class FeedMgmt(ABC):
                         .T.groupby(["prod_system", "animal", "by_prod", "feed"], sort=False)
                         .sum().T
                     )
-                    unadj_result = unadj_result.loc[:, unadj_result.sum() > 0]
-                    # Rename levels so ByProductMgmt can identify the by_prod feed source
-                    unadj_result.columns = unadj_result.columns.rename(
-                        {"by_prod": "by_prod_generated", "feed": "by_prod_feed"}
+                    # Replace feed names with the source by_prod names so ByProductMgmt
+                    # can look up the correct domestic fraction from the supply-demand
+                    # balance (e.g. "vegetable oils" → "rapeseed").
+                    unadj_result.columns = pd.MultiIndex.from_tuples(
+                        [
+                            (ps, ani, bp_gen, byprod_type_feeds.get(fe, fe))
+                            for ps, ani, bp_gen, fe in unadj_result.columns
+                        ],
+                        names=["prod_system", "animal", "by_prod_generated", "by_prod_source"],
                     )
+                    unadj_result = (
+                        unadj_result
+                        .T.groupby(
+                            ["prod_system", "animal", "by_prod_generated", "by_prod_source"],
+                            sort=False,
+                        ).sum().T
+                    )
+                    unadj_result = unadj_result.loc[:, unadj_result.sum() > 0]
                 else:
                     unadj_result = empty_unadj(herd)
 
