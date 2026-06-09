@@ -409,7 +409,28 @@ class FeedMgmt(ABC):
             )
             if adj_df.shape[1] > 0:
                 factors = self.par.get_from_frame("feed_to_by_prod", adj_df)
-                share_dom = self.par.get_from_frame("share_domestic", adj_df) / 100
+
+                # Fetch share_domestic without the by_prod level: get_from_frame
+                # passes ALL column levels as filters, and share_domestic has no
+                # f_by_prod filter column, which would produce NaN.
+                share_dom_retrieve = pd.DataFrame(
+                    index=herd.index,
+                    columns=pd.MultiIndex.from_tuples(
+                        list(dict.fromkeys(
+                            (ps, ani, fe) for ps, ani, _bp, fe in adj_cols
+                        )),
+                        names=["prod_system", "animal", "feed"],
+                    ),
+                    dtype=float,
+                )
+                share_dom_raw = self.par.get_from_frame("share_domestic", share_dom_retrieve) / 100
+                # Broadcast to adj_df column structure
+                share_dom = pd.DataFrame(
+                    {col: share_dom_raw[(col[0], col[1], col[3])] for col in adj_df.columns},
+                    index=herd.index,
+                )
+                share_dom.columns = adj_df.columns
+
                 adj_result = (
                     multiply_aligned(factors * share_dom, herd.data_attr.get("feed.demand"))
                     .T.groupby(["prod_system", "animal", "by_prod"], sort=False).sum().T
