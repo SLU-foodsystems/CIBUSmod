@@ -383,6 +383,12 @@ class FeedMgmt(ABC):
         _feed_to_prod_df = self.par.get_unique(["feed", "by_prod"], 'parameter == "feed_to_prod"')
         byprod_type_feeds = dict(zip(_feed_to_prod_df["feed"], _feed_to_prod_df["by_prod"]))
 
+        # Feeds linked to a crop_prod source via feed_to_prod.
+        # Maps feed name → source crop_prod name so share_domestic can be looked up with
+        # the same f_crop_prod filter that calculate_product_demand("crop_prod") uses.
+        _crop_df = self.par.get_unique(["feed", "crop_prod"], 'parameter == "feed_to_prod"')
+        feed_to_crop_map = dict(zip(_crop_df["feed"], _crop_df["crop_prod"]))
+
         for herd in (h for h in self.herds if h.has_feed_demand()):
             self.par.clear()
             self.par.set(species=herd.species, breed=herd.breed, sub_system=herd.sub_system)
@@ -413,23 +419,46 @@ class FeedMgmt(ABC):
             if adj_df.shape[1] > 0:
                 factors = self.par.get_from_frame("feed_to_by_prod", adj_df)
 
-                # Fetch share_domestic without the by_prod level: get_from_frame
-                # passes ALL column levels as filters, and share_domestic has no
-                # f_by_prod filter column, which would produce NaN.
-                share_dom_retrieve = pd.DataFrame(
-                    index=herd.index,
-                    columns=pd.MultiIndex.from_tuples(
-                        list(dict.fromkeys(
-                            (ps, ani, fe) for ps, ani, _bp, fe in adj_cols
-                        )),
-                        names=["prod_system", "animal", "feed"],
-                    ),
-                    dtype=float,
-                )
-                share_dom_raw = self.par.get_from_frame("share_domestic", share_dom_retrieve) / 100
-                # Broadcast to adj_df column structure
+                # Fetch share_domestic using the SOURCE product type as the column level,
+                # mirroring how calculate_product_demand retrieves it.
+                # crop_prod-type feeds: use "crop_prod" level so f_crop_prod is the filter.
+                # by_prod-type feeds (FeedDistributor only): use "by_prod" level.
+                # Using only f_feed would miss parameters defined per source product.
+                crop_src_cols = list(dict.fromkeys(
+                    (ps, ani, feed_to_crop_map[fe], fe)
+                    for ps, ani, _bp_gen, fe in adj_cols
+                    if fe in feed_to_crop_map
+                ))
+                bp_src_cols = list(dict.fromkeys(
+                    (ps, ani, byprod_type_feeds[fe], fe)
+                    for ps, ani, _bp_gen, fe in adj_cols
+                    if fe in byprod_type_feeds
+                ))
+                share_dom_by_feed: dict = {}
+                if crop_src_cols:
+                    sd_df = pd.DataFrame(
+                        index=herd.index,
+                        columns=pd.MultiIndex.from_tuples(
+                            crop_src_cols, names=["prod_system", "animal", "crop_prod", "feed"]
+                        ),
+                        dtype=float,
+                    )
+                    sd_raw = self.par.get_from_frame("share_domestic", sd_df) / 100
+                    for ps, ani, _cp, fe in crop_src_cols:
+                        share_dom_by_feed[(ps, ani, fe)] = sd_raw[(ps, ani, _cp, fe)]
+                if bp_src_cols:
+                    sd_df = pd.DataFrame(
+                        index=herd.index,
+                        columns=pd.MultiIndex.from_tuples(
+                            bp_src_cols, names=["prod_system", "animal", "by_prod", "feed"]
+                        ),
+                        dtype=float,
+                    )
+                    sd_raw = self.par.get_from_frame("share_domestic", sd_df) / 100
+                    for ps, ani, _bp, fe in bp_src_cols:
+                        share_dom_by_feed[(ps, ani, fe)] = sd_raw[(ps, ani, _bp, fe)]
                 share_dom = pd.DataFrame(
-                    {col: share_dom_raw[(col[0], col[1], col[3])] for col in adj_df.columns},
+                    {col: share_dom_by_feed[(col[0], col[1], col[3])] for col in adj_df.columns},
                     index=herd.index,
                 )
                 share_dom.columns = adj_df.columns
