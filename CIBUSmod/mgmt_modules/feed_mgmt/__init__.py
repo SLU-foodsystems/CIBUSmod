@@ -322,70 +322,36 @@ class FeedMgmt(ABC):
     def calculate_feed_by_product_generation(self):
         """Calculate by-products generated as a result of feed demand.
 
-        For crop_prod and crop_resid type feeds the domestic share is known from the
-        'share_domestic' parameter and is applied directly. Results are stored in
-        'feed.by_product_generation' on each herd (scalable=True so GeoDistributor
-        scaling is propagated automatically).
-
-        For by_prod type feeds in GeoDistributor mode 'share_domestic' is not defined
-        in FeedMgmt (imports are handled post-hoc by ByProductMgmt). Generation is
-        therefore stored separately in 'feed.by_product_generation_from_byprod_feed'
-        indexed by [prod_system, animal, by_prod_generated, by_prod_feed] with 100%
-        domestic assumed. ByProductMgmt scales this by the actual domestic fraction
-        from the supply-demand balance.
-
-        In FeedDistributor mode 'share_domestic' is defined for all feed types so all
-        generation goes into 'feed.by_product_generation'.
+        Only applies to crop_prod-type feeds. The domestic share of the source crop_prod
+        is applied so that only domestically-sourced feed contributes to by-product
+        generation. Results are stored in 'feed.by_product_generation' on each herd
+        (scalable=True so GeoDistributor scaling is propagated automatically).
         """
-        from .feed_mgmt_feeddist import FeedDistFeedMgmt
-        is_feeddist = isinstance(self, FeedDistFeedMgmt)
-
         # Get all (feed, by_prod_generated) pairs defined for feed_to_by_prod
         bpg_index = self.par.get_unique(
             ["feed", "by_prod"], 'parameter == "feed_to_by_prod"'
         )
 
-        empty_adj = lambda herd: pd.DataFrame(
+        empty_result = lambda herd: pd.DataFrame(
             index=herd.index,
             columns=pd.MultiIndex.from_tuples([], names=["prod_system", "animal", "by_prod"]),
-            dtype=float,
-        )
-        empty_unadj = lambda herd: pd.DataFrame(
-            index=herd.index,
-            columns=pd.MultiIndex.from_tuples(
-                [], names=["prod_system", "animal", "by_prod_generated", "by_prod_source"]
-            ),
             dtype=float,
         )
 
         if len(bpg_index) == 0:
             for herd in (h for h in self.herds if h.has_feed_demand()):
                 herd.data_attr.add(
-                    empty_adj(herd), name="feed.by_product_generation",
+                    empty_result(herd), name="feed.by_product_generation",
                     unit="kg/year", orig="FeedMgmt",
-                    desc="By-products generated from feed demand",
-                    scalable=True,
+                    desc="By-products generated from feed demand", scalable=True,
                 )
-                if not is_feeddist:
-                    herd.data_attr.add(
-                        empty_unadj(herd),
-                        name="feed.by_product_generation_from_byprod_feed",
-                        unit="kg/year", orig="FeedMgmt",
-                        desc="By-products generated from by_prod feed demand (domestic fraction not applied)",
-                        scalable=True,
-                    )
             return
 
         bpg = bpg_index.set_index("feed")["by_prod"]
 
-        # Feeds linked to a by_prod source via feed_to_prod (no share_domestic in GeoDist).
-        # Maps feed name → source by_prod name for the domestic fraction lookup in ByProductMgmt.
-        _feed_to_prod_df = self.par.get_unique(["feed", "by_prod"], 'parameter == "feed_to_prod"')
-        byprod_type_feeds = dict(zip(_feed_to_prod_df["feed"], _feed_to_prod_df["by_prod"]))
-
-        # Feeds linked to a crop_prod source via feed_to_prod.
-        # Maps feed name → source crop_prod name so share_domestic can be looked up with
-        # the same f_crop_prod filter that calculate_product_demand("crop_prod") uses.
+        # Feed → source crop_prod mapping from feed_to_prod (crop_prod-type feeds only).
+        # share_domestic is defined per f_crop_prod, so we need the source crop_prod
+        # to correctly retrieve it.
         _crop_df = self.par.get_unique(["feed", "crop_prod"], 'parameter == "feed_to_prod"')
         feed_to_crop_map = dict(zip(_crop_df["feed"], _crop_df["crop_prod"]))
 
@@ -393,135 +359,73 @@ class FeedMgmt(ABC):
             self.par.clear()
             self.par.set(species=herd.species, breed=herd.breed, sub_system=herd.sub_system)
 
-            adj_cols = []    # crop_prod/crop_resid feeds (share_domestic applies)
-            unadj_cols = []  # by_prod feeds in GeoDist (no share_domestic)
-
+            # Only include crop_prod-type feeds that have feed_to_by_prod defined
+            cols = []  # (ps, ani, by_prod_generated, feed)
             for ps, ani, fe in herd.data_attr.get("feed.demand").columns:
-                if fe not in bpg.index:
+                if fe not in bpg.index or fe not in feed_to_crop_map:
                     continue
-                for bp_gen in (bpg[fe] if not isinstance(bpg[fe], str) else [bpg[fe]]):
-                    if is_feeddist or (fe not in byprod_type_feeds):
-                        adj_cols.append((ps, ani, bp_gen, fe))
-                    else:
-                        # Keep feed name in the column tuple so get_from_frame can look up
-                        # feed_to_by_prod; the feed→source_by_prod remapping happens after
-                        # the multiplication step below.
-                        unadj_cols.append((ps, ani, bp_gen, fe))
+                bp_gens = bpg[fe]
+                for bp_gen in ([bp_gens] if isinstance(bp_gens, str) else list(bp_gens)):
+                    cols.append((ps, ani, bp_gen, fe))
 
-            # --- Adjusted generation: share_domestic applied ---
-            adj_df = pd.DataFrame(
+            if not cols:
+                herd.data_attr.add(
+                    empty_result(herd), name="feed.by_product_generation",
+                    unit="kg/year", orig="FeedMgmt",
+                    desc="By-products generated from feed demand", scalable=True,
+                )
+                continue
+
+            # Step 1: Retrieve feed_to_by_prod conversion factors.
+            # Column level 'by_prod' passes f_by_prod (generated by_prod) as the filter.
+            factors_df = pd.DataFrame(
                 index=herd.index,
                 columns=pd.MultiIndex.from_tuples(
-                    adj_cols, names=["prod_system", "animal", "by_prod", "feed"]
+                    cols, names=["prod_system", "animal", "by_prod", "feed"]
                 ),
                 dtype=float,
             )
-            if adj_df.shape[1] > 0:
-                factors = self.par.get_from_frame("feed_to_by_prod", adj_df)
+            factors = self.par.get_from_frame("feed_to_by_prod", factors_df)
 
-                # Fetch share_domestic using the SOURCE product type as the column level,
-                # mirroring how calculate_product_demand retrieves it.
-                # crop_prod-type feeds: use "crop_prod" level so f_crop_prod is the filter.
-                # by_prod-type feeds (FeedDistributor only): use "by_prod" level.
-                # Using only f_feed would miss parameters defined per source product.
-                crop_src_cols = list(dict.fromkeys(
-                    (ps, ani, feed_to_crop_map[fe], fe)
-                    for ps, ani, _bp_gen, fe in adj_cols
-                    if fe in feed_to_crop_map
-                ))
-                bp_src_cols = list(dict.fromkeys(
-                    (ps, ani, byprod_type_feeds[fe], fe)
-                    for ps, ani, _bp_gen, fe in adj_cols
-                    if fe in byprod_type_feeds
-                ))
-                share_dom_by_feed: dict = {}
-                if crop_src_cols:
-                    sd_df = pd.DataFrame(
-                        index=herd.index,
-                        columns=pd.MultiIndex.from_tuples(
-                            crop_src_cols, names=["prod_system", "animal", "crop_prod", "feed"]
-                        ),
-                        dtype=float,
-                    )
-                    sd_raw = self.par.get_from_frame("share_domestic", sd_df) / 100
-                    for ps, ani, _cp, fe in crop_src_cols:
-                        share_dom_by_feed[(ps, ani, fe)] = sd_raw[(ps, ani, _cp, fe)]
-                if bp_src_cols:
-                    sd_df = pd.DataFrame(
-                        index=herd.index,
-                        columns=pd.MultiIndex.from_tuples(
-                            bp_src_cols, names=["prod_system", "animal", "by_prod", "feed"]
-                        ),
-                        dtype=float,
-                    )
-                    sd_raw = self.par.get_from_frame("share_domestic", sd_df) / 100
-                    for ps, ani, _bp, fe in bp_src_cols:
-                        share_dom_by_feed[(ps, ani, fe)] = sd_raw[(ps, ani, _bp, fe)]
-                share_dom = pd.DataFrame(
-                    {col: share_dom_by_feed[(col[0], col[1], col[3])] for col in adj_df.columns},
-                    index=herd.index,
-                )
-                share_dom.columns = adj_df.columns
+            # Step 2: Retrieve share_domestic for the source crop_prod.
+            # IMPORTANT: clear filter state so that f_by_prod accumulated in step 1 does
+            # not bleed into this lookup. share_domestic is defined per f_crop_prod and
+            # should be looked up using the source crop_prod, not the generated by_prod.
+            self.par.clear()
+            self.par.set(species=herd.species, breed=herd.breed, sub_system=herd.sub_system)
 
-                adj_result = (
-                    multiply_aligned(factors * share_dom, herd.data_attr.get("feed.demand"))
-                    .T.groupby(["prod_system", "animal", "by_prod"], sort=False).sum().T
-                )
-                adj_result = adj_result.loc[:, adj_result.sum() > 0]
-            else:
-                adj_result = empty_adj(herd)
+            sd_cols = list(dict.fromkeys(
+                (ps, ani, feed_to_crop_map[fe], fe) for ps, ani, _bp, fe in cols
+            ))
+            sd_df = pd.DataFrame(
+                index=herd.index,
+                columns=pd.MultiIndex.from_tuples(
+                    sd_cols, names=["prod_system", "animal", "crop_prod", "feed"]
+                ),
+                dtype=float,
+            )
+            share_dom_raw = self.par.get_from_frame("share_domestic", sd_df) / 100
+
+            # Broadcast share_dom to the factors_df column structure
+            share_dom = pd.DataFrame(
+                {col: share_dom_raw[(col[0], col[1], feed_to_crop_map[col[3]], col[3])]
+                 for col in factors_df.columns},
+                index=herd.index,
+            )
+            share_dom.columns = factors_df.columns
+
+            # Step 3: Compute by-product generation and aggregate by (ps, ani, by_prod)
+            result = (
+                multiply_aligned(factors * share_dom, herd.data_attr.get("feed.demand"))
+                .T.groupby(["prod_system", "animal", "by_prod"], sort=False).sum().T
+            )
+            result = result.loc[:, result.sum() > 0]
 
             herd.data_attr.add(
-                adj_result, name="feed.by_product_generation",
+                result, name="feed.by_product_generation",
                 unit="kg/year", orig="FeedMgmt",
-                desc="By-products generated from feed demand",
-                scalable=True,
+                desc="By-products generated from feed demand", scalable=True,
             )
-
-            if not is_feeddist:
-                # --- Unadjusted generation: by_prod feeds, 100% domestic assumed ---
-                unadj_df = pd.DataFrame(
-                    index=herd.index,
-                    columns=pd.MultiIndex.from_tuples(
-                        unadj_cols, names=["prod_system", "animal", "by_prod", "feed"]
-                    ),
-                    dtype=float,
-                )
-                if unadj_df.shape[1] > 0:
-                    unadj_factors = self.par.get_from_frame("feed_to_by_prod", unadj_df)
-                    unadj_result = (
-                        multiply_aligned(unadj_factors, herd.data_attr.get("feed.demand"))
-                        .T.groupby(["prod_system", "animal", "by_prod", "feed"], sort=False)
-                        .sum().T
-                    )
-                    # Replace feed names with the source by_prod names so ByProductMgmt
-                    # can look up the correct domestic fraction from the supply-demand
-                    # balance (e.g. "vegetable oils" → "rapeseed").
-                    unadj_result.columns = pd.MultiIndex.from_tuples(
-                        [
-                            (ps, ani, bp_gen, byprod_type_feeds.get(fe, fe))
-                            for ps, ani, bp_gen, fe in unadj_result.columns
-                        ],
-                        names=["prod_system", "animal", "by_prod_generated", "by_prod_source"],
-                    )
-                    unadj_result = (
-                        unadj_result
-                        .T.groupby(
-                            ["prod_system", "animal", "by_prod_generated", "by_prod_source"],
-                            sort=False,
-                        ).sum().T
-                    )
-                    unadj_result = unadj_result.loc[:, unadj_result.sum() > 0]
-                else:
-                    unadj_result = empty_unadj(herd)
-
-                herd.data_attr.add(
-                    unadj_result,
-                    name="feed.by_product_generation_from_byprod_feed",
-                    unit="kg/year", orig="FeedMgmt",
-                    desc="By-products generated from by_prod feed demand (domestic fraction not applied)",
-                    scalable=True,
-                )
 
     def calculate_enteric_methane(self):
         idx = pd.IndexSlice

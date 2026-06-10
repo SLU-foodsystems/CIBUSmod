@@ -91,45 +91,6 @@ class ByProductMgmt():
         prod = prod.reindex(idx_uni).fillna(0)
         total_demand = total_demand.reindex(idx_uni).fillna(0)
 
-        # Calculate domestic fraction per by-product before adding unadjusted generation,
-        # so that by_prod feed domestic fraction reflects the primary balance
-        dom_frac = (
-            prod['domestic']
-            .div(total_demand.sum(axis=1).replace(0, np.nan))
-            .clip(upper=1.0)
-            .fillna(1.0)
-        )
-
-        # Add by-products generated from by_prod type feeds (GeoDist only).
-        # Generation is stored at 100% domestic; scale by the actual domestic fraction
-        # of the by_prod feed consumed.
-        unadj_gen_dfs = [
-            h.data_attr.get('feed.by_product_generation_from_byprod_feed').sum()
-            for h in self.herds
-            if h.has_feed_demand()
-            and 'feed.by_product_generation_from_byprod_feed' in h.data_attr.metadata
-        ]
-        if unadj_gen_dfs:
-            unadj_gen = (
-                pd.concat(unadj_gen_dfs)
-                .groupby(['prod_system', 'by_prod_generated', 'by_prod_source']).sum()
-            )
-            if len(unadj_gen) > 0:
-                # Look up dom_frac using the source by_prod that backs the feed
-                # (e.g. "rapeseed" for "vegetable oils" feed), not the feed name itself.
-                bysource_idx = pd.MultiIndex.from_tuples(
-                    [(ps, bp_source) for ps, _bp_gen, bp_source in unadj_gen.index],
-                    names=['prod_system', 'by_prod']
-                )
-                scale = dom_frac.reindex(bysource_idx).values
-                unadj_gen_scaled = unadj_gen * scale
-                unadj_gen_actual = (
-                    unadj_gen_scaled
-                    .groupby(['prod_system', 'by_prod_generated']).sum()
-                    .rename_axis(index={'by_prod_generated': 'by_prod'})
-                )
-                prod['domestic'] = prod['domestic'].add(unadj_gen_actual, fill_value=0)
-
         # Reindex after potentially extending prod index with new by-products
         idx_uni = prod.index.union(total_demand.index)
         prod = prod.reindex(idx_uni).fillna(0)
