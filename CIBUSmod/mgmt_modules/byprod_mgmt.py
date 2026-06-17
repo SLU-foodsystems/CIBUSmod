@@ -70,6 +70,7 @@ class ByProductMgmt():
         if adj_gen_dfs:
             adj_gen = pd.concat(adj_gen_dfs).groupby(['prod_system', 'by_prod']).sum()
             if len(adj_gen) > 0:
+                prod = prod.reindex(prod.index.union(adj_gen.index)).fillna(0)
                 prod['domestic'] = prod['domestic'].add(adj_gen, fill_value=0)
 
         # Get demand for food, non-food and exports
@@ -88,11 +89,6 @@ class ByProductMgmt():
         idx_uni = prod.index.union(total_demand.index)
 
         # Reindex frames
-        prod = prod.reindex(idx_uni).fillna(0)
-        total_demand = total_demand.reindex(idx_uni).fillna(0)
-
-        # Reindex after potentially extending prod index with new by-products
-        idx_uni = prod.index.union(total_demand.index)
         prod = prod.reindex(idx_uni).fillna(0)
         total_demand = total_demand.reindex(idx_uni).fillna(0)
 
