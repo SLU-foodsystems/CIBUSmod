@@ -61,6 +61,18 @@ class ByProductMgmt():
                 .rename_axis('origin', axis=1)
             )
 
+        # Add by-products generated from crop_prod/crop_resid feeds (domestic share already applied)
+        adj_gen_dfs = [
+            h.data_attr.get('feed.by_product_generation').sum()
+            for h in self.herds
+            if h.has_feed_demand() and 'feed.by_product_generation' in h.data_attr.metadata
+        ]
+        if adj_gen_dfs:
+            adj_gen = pd.concat(adj_gen_dfs).groupby(['prod_system', 'by_prod']).sum()
+            if len(adj_gen) > 0:
+                prod = prod.reindex(prod.index.union(adj_gen.index)).fillna(0)
+                prod['domestic'] = prod['domestic'].add(adj_gen, fill_value=0)
+
         # Get demand for food, non-food and exports
         food_demand = self.demand.data_attr.get('by_prod_demand').copy()
 

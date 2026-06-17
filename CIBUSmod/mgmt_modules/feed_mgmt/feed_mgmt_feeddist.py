@@ -23,6 +23,9 @@ class FeedDistFeedMgmt(FeedMgmt):
         vprint("Calculating feed consumption and losses ...")
         self.calculate_consumption_and_losses()
 
+        vprint("Calculating feed by-product generation ...")
+        self.calculate_feed_by_product_generation()
+
         not_linked_feeds = []
         vprint("Calculating demand for crop products ...")
         not_linked_feeds += [self.calculate_product_demand(prod_type="crop_prod")]
