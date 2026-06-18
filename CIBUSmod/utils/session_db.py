@@ -830,6 +830,10 @@ class Session(object):
 
                     for attr in data_attr_dict:
 
+                        if arg.data_attr.get(attr) is None:
+                            # Skip any data attribute that is None
+                            continue
+
                         data_to_write = _get_check_and_clean_data(arg, module, attr)
 
                         # Aggregate data according to aggregation rules
