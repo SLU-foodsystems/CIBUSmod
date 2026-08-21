@@ -1009,7 +1009,7 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         crop_resid_CaO = self.crops.data_attr.get('crop_residues_harvest')
         crop_resid_CaO = crop_resid_CaO.mul(
             self.par.get_from_frame(
-                'lime_effect_crops',
+                'lime_effect_crop_resids',
                 crop_resid_CaO
             )
         )
@@ -1021,6 +1021,16 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             self.par.get(
                 'lime_effect_manure',
                 **manure_CaO.columns.to_frame().to_dict('list')
+            ), axis = 1
+        )
+
+        # Calculate lime effect of non-manure organic fertiliser application
+        self.par.clear()
+        organic_CaO = self.crops.data_attr.get('fertiliser.organic_N')
+        organic_CaO = organic_CaO.mul(
+            self.par.get(
+                'lime_effect_organic',
+                **organic_CaO.columns.to_frame().to_dict('list')
             ), axis = 1
         )
 
@@ -1053,14 +1063,6 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
                 **fert_K_CaO.columns.to_frame().to_dict('list')
             ), axis = 1
         )
-
-        print(crops_CaO.sum())
-        print(crop_resid_CaO.sum(axis=1).sum())
-        print(fert_N_CaO.sum(axis=1).sum())
-        print(fert_P_CaO.sum(axis=1).sum())
-        print(fert_K_CaO.sum(axis=1).sum())
-        print(manure_CaO.sum(axis=1).sum())
-        print(organic_CaO.sum(axis=1).sum())
 
         # Calculate total lime effect
         total_CaO = (
