@@ -5,13 +5,13 @@
 
 flowchart TD
   subgraph I[" "]
-    I1["**DemandAndConversions**"]:::mod_main
-    I2["**Regions**"]:::mod_main
-    I3["**CropProduction**"]:::mod_main
-    I4["pd.Series(**AnimalHerd**)"]:::mod_main
+    I1["<b>DemandAndConversions</b>"]:::mod_main
+    I2["<b>Regions</b>"]:::mod_main
+    I3["<b>CropProduction</b>"]:::mod_main
+    I4["pd.Series(<b>AnimalHerd</b>)"]:::mod_main
   end
 
-  A["**FeedDistributor**"]:::mod_opt
+  A["<b>FeedDistributor</b>"]:::mod_opt
 
   I --> A
 
@@ -37,11 +37,11 @@ flowchart TD
   M --> MC[".make_C1() ... C16()"]:::method
 
   S --> CVX[".define_cvx_problem()"]:::method
-  S --> OUT["**FeedDistributor.data_attr.**
+  S --> OUT["<b>FeedDistributor.data_attr.</b>
   x_crops, x_animals, x_feeds"]:::data
   OUT --> AS[".apply_solution()"]:::method
-  AS --> AHS["**AnimalHerd**.scale()"]:::mod_main
-  AS --> CPS["**CropProduction**.scale()"]:::mod_main
+  AS --> AHS["<b>AnimalHerd</b>.scale()"]:::mod_main
+  AS --> CPS["<b>CropProduction</b>.scale()"]:::mod_main
 
 {{ mermaid_style() }}
 ```
@@ -75,19 +75,19 @@ flowchart TD
 
   dDAC["DemandAndConversions.data_attr.
   crop_prod_demand, animal_prod_demand"]:::data --> mGD -->
-  mb1["**b1:** demand for crop_prod and animal_prod"]:::matrix
+  mb1["<b>b1:</b> demand for crop_prod and animal_prod"]:::matrix
 
   dAH["AnimalHerd.data_attr.
   production"]:::data --> mA1_1
-  --> A1_1["**A1<sub>1</sub>:** animal (x_ani) → animal_prod (national level)"]:::matrix
+  --> A1_1["<b>A1<sub>1</sub>:</b> animal (x_ani) → animal_prod (national level)"]:::matrix
 
   dCP["CropProduction.data_attr.
   production, seed_demand"]:::data --> mA1_2
-  --> A1_2["**A1<sub>2</sub>:** crop (x_crp) → crop_prod (national level)"]:::matrix
+  --> A1_2["<b>A1<sub>2</sub>:</b> crop (x_crp) → crop_prod (national level)"]:::matrix
 
   pFM["FeedMgmt.par.
   feed_to_prod, share_domestic"]:::param --> mA1_3
-  --> A1_3["**A1<sub>3</sub>:** feed (x_fds) → crop_prod demand (national level; negative)"]:::matrix
+  --> A1_3["<b>A1<sub>3</sub>:</b> feed (x_fds) → crop_prod demand (national level; negative)"]:::matrix
   
   C1["<u>Constraint C1</u>
   Main constraint to ensure that production exactly meets demand. Crop and animal products without any demand remain unconstrained.
@@ -114,11 +114,11 @@ flowchart TD
 
   dCP["CropProduction.data_attr.
   production"]:::data --> mA2_1
-  --> A2_1["**A2<sub>1</sub>:** crops (x_crp) → crop_prod supply (per prod_system, region)"]:::matrix
+  --> A2_1["<b>A2<sub>1</sub>:</b> crops (x_crp) → crop_prod supply (per prod_system, region)"]:::matrix
 
   pFM["FeedMgmt.par.
   feed_to_prod, share_domestic, share_regional"]:::param --> mA2_2
-  --> A2_2["**A2<sub>2</sub>:** feeds (x_fds) → crop_prod demand
+  --> A2_2["<b>A2<sub>2</sub>:</b> feeds (x_fds) → crop_prod demand
   (domestic × regional share; negative)"]:::matrix
 
   C2["<u>Constraint C2</u>
@@ -139,12 +139,12 @@ flowchart TD
   mC3[".make_C3()"]:::method
   mC3 ---> mA3[".make_A3()"]:::method
 
-  pREL["**Rel:** crop → land_use"]:::param --> mA3
+  pREL["<b>Rel:</b> crop → land_use"]:::param --> mA3
   dMLU["Regions.data_attr.
   max_land_use"]:::data --> mA3
-  --> A3["**A3:** crops (x_crp) → land_use totals (per region)"]:::matrix
+  --> A3["<b>A3:</b> crops (x_crp) → land_use totals (per region)"]:::matrix
 
-  dMLU --> b3["**b3:** max_land_use ceilings (per land_use, region)"]:::matrix
+  dMLU --> b3["<b>b3:</b> max_land_use ceilings (per land_use, region)"]:::matrix
 
   C3["<u>Constraint C3</u>
   Max land_use area per region.
@@ -166,7 +166,7 @@ flowchart TD
 
   pH["AnimalHerd.par.
   max_share_sub_system"]:::param --> mA4
-  --> A4["**A4:** animals (x_ani) → sub_system share constraint
+  --> A4["<b>A4:</b> animals (x_ani) → sub_system share constraint
   (national, per sp/br/ps/ss)"]:::matrix
 
   C4["<u>Constraint C4</u>
@@ -188,16 +188,16 @@ flowchart TD
   mC5 ---> mA5_1[".make_A5_1()"]:::method
   mC5 ---> mA5_2[".make_A5_2()"]:::method
 
-  pREL["**Rel:** crop → crop_group"]:::param --> mA5_1
+  pREL["<b>Rel:</b> crop → crop_group"]:::param --> mA5_1
   dCP["CropProduction.data_attr.
   production"]:::data --> mA5_1
-  --> A5_1["**A5<sub>1</sub>:** crops (x_crp) → crop_prod supply
+  --> A5_1["<b>A5<sub>1</sub>:</b> crops (x_crp) → crop_prod supply
   (per crop_group, region)"]:::matrix
 
   pFM["FeedMgmt.par.
   max_crop_in_crop_prod,
   feed_to_prod, share_domestic"]:::param --> mA5_2
-  --> A5_2["**A5<sub>2</sub>:** feeds (x_fds) → crop_prod demand ceiling
+  --> A5_2["<b>A5<sub>2</sub>:</b> feeds (x_fds) → crop_prod demand ceiling
   (max share by crop_group; negative)"]:::matrix
 
   C5["<u>Constraint C5</u>
@@ -220,18 +220,18 @@ flowchart TD
   mC6 ---> mA6min[".make_A6('min')"]:::method
   mC6 ---> mA6max[".make_A6('max')"]:::method
 
-  pCPmin["**CropProduction.par.**
+  pCPmin["<b>CropProduction.par.</b>
   min_in_rot"]:::param --> mA6min
-  pREL["**Rel:** crop → land_use,
-  **Rel:** crop → (crop_group)<sup>* </sup>
+  pREL["<b>Rel:</b> crop → land_use,
+  <b>Rel:</b> crop → (crop_group)<sup>* </sup>
   <sup> *</sup>Can be defined on different levels"]:::param --> mA6min
-  --> A6min["**A6<sub>min</sub>:** crops (x_crp) → crop_group rotation share
+  --> A6min["<b>A6<sub>min</sub>:</b> crops (x_crp) → crop_group rotation share
   (min)"]:::matrix
 
-  pCPmax["**CropProduction.par.**
+  pCPmax["<b>CropProduction.par.</b>
   max_in_rot"]:::param --> mA6max
   pREL --> mA6max
-  --> A6max["**A6<sub>max</sub>:** crops (x_crp) → crop_group rotation share
+  --> A6max["<b>A6<sub>max</sub>:</b> crops (x_crp) → crop_group rotation share
   (max)"]:::matrix
 
   C6min["<u>Constraint C6_min</u>
@@ -254,9 +254,9 @@ flowchart TD
 
   mC7[".make_C7()"]:::method
 
-  pR["**Regions.par.**
+  pR["<b>Regions.par.</b>
   GDD5"]:::param --> mC7
-  pCP["**CropProduction.par.**
+  pCP["<b>CropProduction.par.</b>
   min_GDD5"]:::param --> mC7
 
   mC7 --> XSHORT["x_idx_short
@@ -287,9 +287,9 @@ flowchart TD
   C8_rel, C8_tol"]:::param --> mC8
   pC8 --> mA8
 
-  mA8 --> A8["**A8:** select variables by identity rows
+  mA8 --> A8["<b>A8:</b> select variables by identity rows
   (per-index element constraint)"]:::matrix
-  mC8 --> b8["**b8:** concatenated target values
+  mC8 --> b8["<b>b8:</b> concatenated target values
   (from Series values)"]:::matrix
 
   C8["<u>Constraint C8</u>
@@ -315,9 +315,9 @@ flowchart TD
   C9_rel, C9_tol"]:::param --> mC9
   pC9 --> mA9
 
-  mA9 --> A9["**A9:** 1×N selector row
+  mA9 --> A9["<b>A9:</b> 1×N selector row
   (sum over specified indices)"]:::matrix
-  mC9 --> b9["**b9:** sum(target Series values)"]:::matrix
+  mC9 --> b9["<b>b9:</b> sum(target Series values)"]:::matrix
 
   C9["<u>Constraint C9</u>
   Flexible sum constraint(s).
@@ -345,7 +345,7 @@ flowchart TD
 
   pFM["FeedMgmt.par.
   feed_to_prod, share_domestic"]:::param --> mA1_3
-  --> A10["**A10:** feeds (x_fds) → by_prod demand
+  --> A10["<b>A10:</b> feeds (x_fds) → by_prod demand
   (domestic; negative)"]:::matrix
 
   C10["<u>Constraint C10</u>
@@ -382,13 +382,13 @@ flowchart TD
   pFM --> mA11min
   pFM --> mA11max
 
-  mA11eq --> A11eq["**A11<sub>eq</sub>:** feeds (x_fds) → deviation from feed ration share equality
+  mA11eq --> A11eq["<b>A11<sub>eq</sub>:</b> feeds (x_fds) → deviation from feed ration share equality
   (per feed, animal)
   A11 @ x == 0"]:::matrix
-  mA11min --> A11min["**A11<sub>min</sub>:** feeds (x_fds) → deviation from feed ration share minimum
+  mA11min --> A11min["<b>A11<sub>min</sub>:</b> feeds (x_fds) → deviation from feed ration share minimum
   (per feed, animal)
   A11 @ x >= 0"]:::matrix
-  mA11max --> A11max["**A11<sub>max</sub>:** feeds (x_fds) → deviation from feed ration share maximum
+  mA11max --> A11max["<b>A11<sub>max</sub>:</b> feeds (x_fds) → deviation from feed ration share maximum
   (per feed, animal)
   A11 @ x <= 0"]:::matrix
 
@@ -420,17 +420,17 @@ flowchart TD
   dH --> mA12_1eq
   dH --> mA12_1max
 
-  mA12_1min --> A12_1min["**A12<sub>1,min</sub>:** animals (x_ani) → feed_par demand (min)
+  mA12_1min --> A12_1min["<b>A12<sub>1,min</sub>:</b> animals (x_ani) → feed_par demand (min)
   (negative)"]:::matrix
-  mA12_1eq --> A12_1eq["**A12<sub>1,eq</sub>:** animals (x_ani) → feed_par demand (eq)
+  mA12_1eq --> A12_1eq["<b>A12<sub>1,eq</sub>:</b> animals (x_ani) → feed_par demand (eq)
   (negative)"]:::matrix
-  mA12_1max --> A12_1max["**A12<sub>1,max</sub>:** animals (x_ani) → feed_par demand (max)
+  mA12_1max --> A12_1max["<b>A12<sub>1,max</sub>:</b> animals (x_ani) → feed_par demand (max)
   (negative)"]:::matrix
 
   pFM["FeedMgmt.par.
   feed_composition,
   storage_losses, feeding_losses"]:::param --> mA12_2
-  --> A12_2["**A12<sub>2</sub>:** feeds (x_fds) → feed_par supply
+  --> A12_2["<b>A12<sub>2</sub>:</b> feeds (x_fds) → feed_par supply
   (composition × loss_factor)"]:::matrix
 
   C12["<u>Constraint C12</u>
@@ -468,10 +468,10 @@ flowchart TD
   storage_losses, feeding_losses"]:::param ---> mA13min
   pFM ---> mA13max
 
-  mA13min --> A13min["**A13<sub>min</sub>:** feeds (x_fds) → (feed_par - req_share_of_DM)
+  mA13min --> A13min["<b>A13<sub>min</sub>:</b> feeds (x_fds) → (feed_par - req_share_of_DM)
   × losses_factor
   (min)"]:::matrix
-  mA13max --> A13max["**A13<sub>max</sub>:** feeds (x_fds) → (feed_par - req_share_of_DM)
+  mA13max --> A13max["<b>A13<sub>max</sub>:</b> feeds (x_fds) → (feed_par - req_share_of_DM)
   × losses_factor
   (max)"]:::matrix
 
@@ -502,9 +502,9 @@ flowchart TD
   max_total_imported"]:::param --> mb14cp
   pFM1 --> mb14by
 
-  mb14cp --> b14cp["**b14<sub>cp</sub>:** ceilings (tonnes→kg)
+  mb14cp --> b14cp["<b>b14<sub>cp</sub>:</b> ceilings (tonnes→kg)
   (prod_system, crop_prod)"]:::matrix
-  mb14by --> b14by["**b14<sub>by</sub>:** ceilings (tonnes→kg)
+  mb14by --> b14by["<b>b14<sub>by</sub>:</b> ceilings (tonnes→kg)
   (prod_system, by_prod)"]:::matrix
 
   pFM2["FeedMgmt.par.
@@ -512,8 +512,8 @@ flowchart TD
   (used to compute imported share when domestic=False)"]:::param --> mA1_3cp
   pFM2 --> mA1_3by
 
-  mA1_3cp --> A14cp["**A14<sub>cp</sub>:** feeds (x_fds) → imported crop_prod volume"]:::matrix
-  mA1_3by --> A14by["**A14<sub>bp</sub>:** feeds (x_fds) → imported by_prod volume"]:::matrix
+  mA1_3cp --> A14cp["<b>A14<sub>cp</sub>:</b> feeds (x_fds) → imported crop_prod volume"]:::matrix
+  mA1_3by --> A14by["<b>A14<sub>bp</sub>:</b> feeds (x_fds) → imported by_prod volume"]:::matrix
 
   C14["<u>Constraint C14</u>
   Total imported feed does not exceed max_total_imported.
@@ -541,19 +541,19 @@ flowchart TD
   by_prod_per_animal_prod"]:::data --> mA15_1
   dAH["AnimalHerd.data_attr.
   production"]:::data --> mA15_1
-  --> A15_1["**A15<sub>1</sub>:** animals (x_ani) → regionally generated by-products
+  --> A15_1["<b>A15<sub>1</sub>:</b> animals (x_ani) → regionally generated by-products
   (from animal products)"]:::matrix
 
   dDC2["DemandAndConversions.data_attr.
   by_prod_per_crop_prod"]:::data --> mA15_2
   dCP["CropProduction.data_attr.
   (production via internal net_production helper)"]:::data --> mA15_2
-  --> A15_2["**A15<sub>2</sub>:** crops (x_crp) → regionally generated by-products
+  --> A15_2["<b>A15<sub>2</sub>:</b> crops (x_crp) → regionally generated by-products
   (from crop products)"]:::matrix
 
   pFM["FeedMgmt.par.
   feed_to_prod, share_domestic, share_regional"]:::param --> mA15_3
-  --> A15_3["**A15<sub>3</sub>:** feeds (x_fds) → regional by-product demand
+  --> A15_3["<b>A15<sub>3</sub>:</b> feeds (x_fds) → regional by-product demand
   (domestic × regional; negative)"]:::matrix
 
   C15["<u>Constraint C15</u>
@@ -580,7 +580,7 @@ flowchart TD
 
   dD["DemandAndConversions.data_attr.
   crop_resid_demand"]:::data --> mC16
-  mC16 --> b16["**b16:** crop_resid demand for food/energy"]:::matrix
+  mC16 --> b16["<b>b16:</b> crop_resid demand for food/energy"]:::matrix
 
   dAH["AnimalHerd.data_attr.
   heads"]:::data --> mA16_1
@@ -588,17 +588,17 @@ flowchart TD
   bedding_material_use"]:::param --> mA16_1
   pFM["FeedMgmt.par.
   feed_to_prod, share_domestic"]:::param ---> mA16_1
-  --> A16_1["**A16<sub>1</sub>:** animals (x_ani) → crop_resid demand for bedding
+  --> A16_1["<b>A16<sub>1</sub>:</b> animals (x_ani) → crop_resid demand for bedding
   (negative)"]:::matrix
 
   dCP["CropProduction.data_attr.
   crop_residues (above ground)"]:::data --> mA16_2
   pCRM["CropResidueMgmt.par.
   crop_resid_harvestable"]:::param --> mA16_2
-  --> A16_2["**A16<sub>2</sub>:** crops (x_crp) → harvestable crop residues supply"]:::matrix
+  --> A16_2["<b>A16<sub>2</sub>:</b> crops (x_crp) → harvestable crop residues supply"]:::matrix
 
   pFM ---> mA1_3
-  --> A16_3["**A16<sub>3</sub>:** feeds (x_fds) → crop_resid demand
+  --> A16_3["<b>A16<sub>3</sub>:</b> feeds (x_fds) → crop_resid demand
   (domestic; negative)"]:::matrix
 
   C16["<u>Constraint C16</u>

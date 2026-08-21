@@ -13,32 +13,32 @@ flowchart TD
   %% Main (module family)
   %% -------------------------
 
-  A["**AnimalHerd**"]:::mod_main
-  A --> C["**.calculate()**"]:::method
-  A --> SC["**.scale()**"]:::method
+  A["<b>AnimalHerd</b>"]:::mod_main
+  A --> C["<b>.calculate()</b>"]:::method
+  A --> SC["<b>.scale()</b>"]:::method
 
   %% Typical upstream source of x0 and region structure
-  R["**Regions**"]:::mod_main --> A
+  R["<b>Regions</b>"]:::mod_main --> A
 
 
   %% -------------------------
   %% Calculate() – typical sequence
   %% -------------------------
 
-  C --> HS["**.calculate_herd()**"]:::method
-  FEED["**.calculate_feed_req()**"]:::method
-  PROD["**.calculate_production()**"]:::method
+  C --> HS["<b>.calculate_herd()</b>"]:::method
+  FEED["<b>.calculate_feed_req()</b>"]:::method
+  PROD["<b>.calculate_production()</b>"]:::method
 
   %% -------------------------
   %% Herd structure
   %% -------------------------
   P_HS["
-  **AnimalHerd.par.**
+  <b>AnimalHerd.par.</b>
   Many different parameters depending on animal species (and breed)
   "]:::param
   P_HS --> HS
 
-  HS --> DA_HS["**AnimalHerd.data_attr.**
+  HS --> DA_HS["<b>AnimalHerd.data_attr.</b>
 heads, lwg, slaughtered_n, lost_n, lost_lw"]:::data
 
   DA_HS ---> PROD
@@ -49,22 +49,22 @@ heads, lwg, slaughtered_n, lost_n, lost_lw"]:::data
 
   DA_HS ---> FEED
   P_FEED["
-  **AnimalHerd.par.**
+  <b>AnimalHerd.par.</b>
   Different parameters depending on animal species (and breed)
   "]:::param --> FEED
 
-  FEED --> DA_FEED["**AnimalHerd.data_attr.**
+  FEED --> DA_FEED["<b>AnimalHerd.data_attr.</b>
 feed_req_eq, feed_req_min, feed_req_max, feed_req_of_DM_min, feed_req_of_DM_max"]:::data
 
   %% -------------------------
   %% Livestock product outputs
   %% -------------------------
   P_PROD["
-  **AnimalHerd.par.**
+  <b>AnimalHerd.par.</b>
   slaughter_weight, milk_prod, milk_loss, milk_protein, milk_fat
   "]:::param --> PROD
 
-  PROD --> DA_PROD["**AnimalHerd.data_attr.**
+  PROD --> DA_PROD["<b>AnimalHerd.data_attr.</b>
 production"]:::data
 
 {{ mermaid_style() }}

@@ -11,76 +11,76 @@ flowchart TD
   %% Main
   %% -------------------------
 
-  A["**Regions**"]:::mod_main
+  A["<b>Regions</b>"]:::mod_main
 
-  A --> C["**.calculate()**"]:::method
+  A --> C["<b>.calculate()</b>"]:::method
 
   S["
-  **<u>Settings</u>**
+  <b><u>Settings</u></b>
   max_land_use_from_x0 = True
   max_land_use_from_scenario_x0 = False
   "]:::settings --> A
 
-  A --> GX0_1["**.get_x0()**"]:::method
-  C --> GX0_2["**.get_x0()**"]:::method
-  C --> CL["**.get_climate()**"]:::method
-  C --> SL["**.get_soil()**"]:::method
-  SL_T["**.classify_soil_texture()**"]:::method
-  SL_PK["**.classify_soil_PK()**"]:::method
-  MLU["**.calculate_max_land_use()**"]:::method
+  A --> GX0_1["<b>.get_x0()</b>"]:::method
+  C --> GX0_2["<b>.get_x0()</b>"]:::method
+  C --> CL["<b>.get_climate()</b>"]:::method
+  C --> SL["<b>.get_soil()</b>"]:::method
+  SL_T["<b>.classify_soil_texture()</b>"]:::method
+  SL_PK["<b>.classify_soil_PK()</b>"]:::method
+  MLU["<b>.calculate_max_land_use()</b>"]:::method
 
   %% -------------------------
   %% Get x0
   %% -------------------------
   
-  P_X0_1["**Regions.par.**
+  P_X0_1["<b>Regions.par.</b>
 x0_crops, x0_animals"]:::param --> GX0_1
-  GX0_1 --> DA_X0_1["**Regions.data_attr.**
+  GX0_1 --> DA_X0_1["<b>Regions.data_attr.</b>
 x0_crops_init, x0_animals_init"]:::data
 
-  P_X0_2["**Regions.par.**
+  P_X0_2["<b>Regions.par.</b>
 x0_crops, x0_animals"]:::param --> GX0_2
-  GX0_2 --> DA_X0_2["**Regions.data_attr.**
+  GX0_2 --> DA_X0_2["<b>Regions.data_attr.</b>
 x0_crops, x0_animals"]:::data
 
   %% -------------------------
   %% Climate
   %% -------------------------
 
-  P_CL["**Regions.par.**
+  P_CL["<b>Regions.par.</b>
 GDD5"]:::param --> CL
-  CL --> DA_CL["**Regions.data_attr.**
+  CL --> DA_CL["<b>Regions.data_attr.</b>
 climate"]:::data
 
   %% -------------------------
   %% Soil
   %% -------------------------
 
-  P_SL["**Regions.par.**
+  P_SL["<b>Regions.par.</b>
 soil_clay, soil_silt, soil_sand, soil_OM, soil_pH, soil_P_AL, soil_K_AL"]:::param --> SL
-  SL --> DA_SL["**Regions.data_attr.**
+  SL --> DA_SL["<b>Regions.data_attr.</b>
 soil"]:::data
 
   DA_SL --> SL_T
   DA_SL --> SL_PK
 
-  SL_T --> DA_SL_T["**Regions.data_attr.**
+  SL_T --> DA_SL_T["<b>Regions.data_attr.</b>
 soil_texture"]:::data
 
-  SL_PK --> D_SL_PK["**Regions.data_attr.**
+  SL_PK --> D_SL_PK["<b>Regions.data_attr.</b>
 soil_P_class, soil_K_class"]:::data
 
   %% -------------------------
   %% Max land use
   %% -------------------------
 
-  P_MLU["**Regions.par.**
+  P_MLU["<b>Regions.par.</b>
 max_land_use, max_land_use_factor"]:::param --> MLU
 
   DA_X0_1 --> MLU
   DA_X0_2 --> MLU
 
-  MLU --> DA_MLU["**Regions.data_attr.**
+  MLU --> DA_MLU["<b>Regions.data_attr.</b>
 max_land_use"]:::data
 
 {{ mermaid_style() }}
