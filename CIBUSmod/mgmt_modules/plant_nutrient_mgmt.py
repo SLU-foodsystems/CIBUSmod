@@ -1054,6 +1054,14 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             ), axis = 1
         )
 
+        print(crops_CaO.sum())
+        print(crop_resid_CaO.sum(axis=1).sum())
+        print(fert_N_CaO.sum(axis=1).sum())
+        print(fert_P_CaO.sum(axis=1).sum())
+        print(fert_K_CaO.sum(axis=1).sum())
+        print(manure_CaO.sum(axis=1).sum())
+        print(organic_CaO.sum(axis=1).sum())
+
         # Calculate total lime effect
         total_CaO = (
             crops_CaO +
@@ -1061,7 +1069,8 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             fert_N_CaO.sum(axis=1) +
             fert_P_CaO.sum(axis=1) +
             fert_K_CaO.sum(axis=1) +
-            manure_CaO.sum(axis=1)
+            manure_CaO.sum(axis=1) +
+            organic_CaO.sum(axis=1)
         )
 
         # Create DF for lime application
