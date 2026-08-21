@@ -1,14 +1,14 @@
 # `PlantNutrientMgmt`
 
-The `PlantNutrientMgmt` module calculates crop plant available nitrogen (TAN), phosphorus (P) and potassium (K) requirements, distributes manure and other organic fertilisers to meet these requirements, and calculates any remaining mineral fertiliser requirements. It also calculates NH<sub>3</sub> losses from fertiliser and manure application, N losses from soil processes, losses from organic soils, N leaching, and lime requirements together with the resulting CO<sub>2</sub> emissions.
+The `PlantNutrientMgmt` module calculates crop plant available nitrogen (N), phosphorus (P) and potassium (K) requirements, distributes manure and other organic fertilisers to meet these requirements, and calculates any remaining mineral fertiliser requirements. Total ammoniacal nitrogen (TAN) assumed to equal plant available N for manure and other organic fertilisers. It also calculates NH<sub>3</sub> losses from fertiliser and manure application, N losses from soil processes, losses from organic soils, N leaching, and lime requirements together with the resulting CO<sub>2</sub> emissions.
 
-The `.calculate()` method runs all calculations in sequence. First, `.calculate_TAN_req()` and `.calculate_PK_req(element)` (called once each for `P` and `K`) calculate crop nutrient requirements (see *Part 1* below). Generated manure and other organic fertilisers are then distributed to crop areas with `.distribute_manure()` and `.distribute_organic_fertilisers()` to cover as much of the TAN requirement as possible (see *Distributing manure* and *Distributing other organic fertilisers* below). `.calculate_mineral_NPK_application(element)` (called once each for `N`, `P` and `K`) then calculates any remaining mineral fertiliser requirement, and `.calculate_manure_application_area()` estimates the field area receiving manure (see *Part 2* below). Ammonia losses from fertiliser and manure application are calculated with `.calculate_N_application_losses(of)`, and other soil N losses with `.calculate_N_soil_losses(of)`, both called once for each fertiliser/manure/residue source (`of`). Finally, `.calculate_organic_soil_losses()`, `.calculate_leaching_N()`, `.calculate_lime_application()` and `.calculate_liming_emissions()` calculate losses from organic soils, N leaching, and the lime required to counteract the acidifying effect of nutrient removal and fertiliser/manure application, together with the resulting CO<sub>2</sub> emissions (see *Part 3* below).
+The `.calculate()` method runs all calculations in sequence. First, `.calculate_TAN_req()` and `.calculate_PK_req(element)` (called once each for `P` and `K`) calculate crop nutrient requirements. Generated manure and other organic fertilisers are then distributed to crop areas with `.distribute_manure()` and `.distribute_organic_fertilisers()` to cover as much of the N requirement as possible (see *Distributing manure* and *Distributing other organic fertilisers* below). `.calculate_mineral_NPK_application(element)` (called once each for `N`, `P` and `K`) then calculates any remaining mineral fertiliser requirement, and `.calculate_manure_application_area()` estimates the field area receiving manure (used to estimate energy use for manure application in the `MachineryAndEnergyMgmt` module). Ammonia losses from fertiliser and manure application are calculated with `.calculate_N_application_losses(of)`, and other soil N losses with `.calculate_N_soil_losses(of)`, both called once for each fertiliser/manure/residue source (`of`). Finally, `.calculate_organic_soil_losses()`, `.calculate_leaching_N()`, `.calculate_lime_application()` and `.calculate_liming_emissions()` calculate losses from organic soils, N leaching, and the lime required to counteract the acidifying effect of nutrient removal and fertiliser/manure application, together with the resulting CO<sub>2</sub> emissions.
 
 If a `CoverCropsMgmt` module is supplied, residual N from cover crop residues is included in `.calculate_TAN_req()`, `.calculate_N_soil_losses()` also accounts for soil N losses from cover crop residues and applies a cover-crop adjustment factor to all soil N losses, and `.calculate_leaching_N()` accounts for N in cover crop residues and applies a cover-crop adjustment factor to N leaching.
 
 ## Distributing manure
 
-Manure available to spread (`manure.<TAN/N/P/K/C>_to_spread`, calculated by `ManureMgmt`) is allocated to crop areas by `.distribute_manure()` in the following order, primarily based on plant available nitrogen (TAN) requirements (`fertiliser.TAN_req`):
+Manure available to spread (`manure.<TAN/N/P/K/C>_to_spread`, calculated by `ManureMgmt`) is allocated to crop areas by `.distribute_manure()` in the following order, primarily based on plant available N requirements (`fertiliser.TAN_req`):
 
 1. Manure deposited while grazing is distributed to the "grazing crops" grazed by the depositing herd, in proportion to the share of grazed biomass produced by each grazing crop and used by that herd.
 2. Manure originating from organic production is distributed to organic crop areas, up to 100% of their TAN requirement.
@@ -251,7 +251,8 @@ graph TD
   harvest_dm, crop_residues_harvest"]:::data --> LIME
   LIME_REL["<b>Rel:</b> crop → land_use"]:::param --> LIME
   LIME_P["<b>PlantNutrientMgmt.par.</b>
-  lime_effect_crops, lime_effect_manure,
+  lime_effect_crops, lime_effect_crop_resids,
+  lime_effect_manure, lime_effect_organic
   lime_effect_fertiliser_N/P/K,
   liming_agent_share, liming_agent_CaO_value"]:::param --> LIME
 
