@@ -133,6 +133,82 @@ class ParameterRetriever:
         cls.check_data_integrity()
 
     @classmethod
+    def compare_scenarios(
+        cls,
+        scn1: dict | None = None,
+        scn2: dict | None = None,
+        year1: str | int | None = None,
+        year2: str | int | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """Class method to compare parameter values between two scenarios across all
+        ParameterRetriever instances.
+
+        Parameters values are first updated according to 'scn1'/'year1' (using
+        ParameterRetriever.update_all_parameter_values()) and the resulting data is
+        temporarily stored for each instance. Parameter values are then updated
+        according to 'scn2'/'year2' and compared against the stored 'scn1' data.
+
+        Differences in the set of index (filter) levels between 'scn1' and 'scn2' data
+        (e.g. new filter columns or rows added in 'scn2') are handled by aligning on
+        whatever index levels are shared between the two, so rows/levels only present
+        in one of the two scenarios are still included in the comparison.
+
+        Parameters
+        ----------
+        scn1 : dict or None, default None
+            Scenario definition as returned by Session.__getitem__() (i.e. Session[<scn name>]),
+            i.e. a dict with keys 'scenario_workbooks', 'modules' and 'pars', see
+            ParameterRetriever.update_all_parameter_values(). If None, default parameter
+            values are used as baseline.
+        scn2 : dict or None, default None
+            see 'scn1'.
+        year1 : str or int or None, default None
+            Year to update parameter values to for 'scn1'. Ignored if 'scn1' is None.
+            Must be str or int if 'scn1' is not None.
+        year2 : str or int or None, default None
+            see 'year1'
+
+        Returns
+        -------
+        dict
+            Dict with ParameterRetriever module name(s) as keys and pandas.DataFrame(s) of
+            changed parameter values as values, with columns 'scn1' and 'scn2' holding the
+            respective values and the remaining (filter/parameter) columns forming the index.
+            Modules with no differences between 'scn1' and 'scn2' are not included.
+            
+        Note
+        ----
+        Only parameter changes in instantiated modules can be compared."""
+
+        # Update to scn1 and temporarily store resulting data for all instances
+        scn1 = scn1 or {}
+        cls.update_all_parameter_values(
+            scenario_workbooks=scn1.get('scenario_workbooks'),
+            year=year1,
+            modules=scn1.get('modules', 'all'),
+            pars=scn1.get('pars', 'all'),
+        )
+        scn1_data = {pr.name: pr.data for pr in cls.instances}
+
+        # Update to scn2
+        scn2 = scn2 or {}
+        cls.update_all_parameter_values(
+            scenario_workbooks=scn2.get('scenario_workbooks'),
+            year=year2,
+            modules=scn2.get('modules', 'all'),
+            pars=scn2.get('pars', 'all'),
+        )
+
+        # Compare scn1 and scn2 data for each instance
+        result = {}
+        for pr in cls.instances:
+            diff = _diff_parameter_data(scn1_data[pr.name], pr.data)
+            if len(diff) > 0:
+                result[pr.name] = diff
+
+        return result
+
+    @classmethod
     def check_data_integrity(cls):
         '''Class method to check data integrity across all ParameteRetriever instances and warn if problems are detected'''
 
@@ -143,7 +219,7 @@ class ParameterRetriever:
         levels_in_rel_tables = cls.relation_tables.keys()
         difs = {}
         for lvl in levels_in_rel_tables:
-            values_in_data = levels_and_values_in_data[lvl]
+            values_in_data = levels_and_values_in_data.get(lvl, set())
             values_in_rel_tables = cls.relation_tables[lvl][lvl]
             dif = set(values_in_data) - set(values_in_rel_tables)
             if len(dif)>0:
@@ -157,10 +233,14 @@ Some filter values included in data were not available in relation_tables.xlsx.
 ------------------------------------------------------------------------------""")
 
         # Check for crops/ species, breeds not in x0_crops/ x0_animals
-        regions_pr = [pr for pr in cls.instances if pr.name == 'Regions'][0]
+        # (skipped if the Regions module has not been instantiated)
+        regions_prs = [pr for pr in cls.instances if pr.name == 'Regions']
+        if len(regions_prs) == 0:
+            return None
+        regions_pr = regions_prs[0]
 
         # crops not in x0_crops
-        dif = levels_and_values_in_data['crop'] - set(regions_pr.get_unique('crop', qry="parameter == 'x0_crops'"))
+        dif = levels_and_values_in_data.get('crop', set()) - set(regions_pr.get_unique('crop', qry="parameter == 'x0_crops'"))
         if len(dif)>0:
                 warnings.warn(f"""
 --------------------------------------------------------------------------------------------
@@ -169,8 +249,8 @@ Missing: '{"', '".join(dif)}'
 --------------------------------------------------------------------------------------------""")
 
         # species/breed not in x0_animals
-        dif_sp = levels_and_values_in_data['species'] - set(regions_pr.get_unique('species', qry="parameter == 'x0_animals'"))
-        dif_br = levels_and_values_in_data['breed'] - set(regions_pr.get_unique('breed', qry="parameter == 'x0_animals'"))
+        dif_sp = levels_and_values_in_data.get('species', set()) - set(regions_pr.get_unique('species', qry="parameter == 'x0_animals'"))
+        dif_br = levels_and_values_in_data.get('breed', set()) - set(regions_pr.get_unique('breed', qry="parameter == 'x0_animals'"))
         if len(dif_sp)>0 | len(dif_br)>0:
                 warnings.warn(f"""
 ---------------------------------------------------------------------------------------------------------------
@@ -1043,6 +1123,40 @@ def _get_parameter_values(data, selection, parameter):
     result = _select_with_least_defaults(selection_unique, problem_data).reindex(selection)
 
     return result.values
+
+def _diff_parameter_data(s1, s2):
+    '''Compare two pandas.Series of parameter values (as stored in ParameterRetriever.data,
+    i.e. with a MultiIndex of filter columns and 'parameter', and float values) and return
+    a pandas.DataFrame with the rows that differ between them.
+
+    The two series are allowed to have different index levels (e.g. if 's2' has additional
+    filter columns not present in 's1', or rows not present in 's1' and vice versa). Levels
+    shared between the two are used to align them; any level only present in one of the two
+    is included as-is (with NaN for rows coming only from the other series).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Index of filter/parameter columns (union of levels in 's1' and 's2') and columns
+        'scn1' and 'scn2' with the corresponding values. Only rows that differ (including
+        rows only present in one of the two series) are included.'''
+
+    df1 = s1.rename('scn1').reset_index()
+    df2 = s2.rename('scn2').reset_index()
+
+    cols1 = [c for c in df1.columns if c != 'scn1']
+    cols2 = [c for c in df2.columns if c != 'scn2']
+    common_cols = [c for c in cols1 if c in cols2]
+
+    merged = pd.merge(df1, df2, how='outer', on=common_cols)
+
+    index_cols = [c for c in merged.columns if c not in ('scn1', 'scn2')]
+    merged = merged.set_index(index_cols).sort_index()
+
+    # Rows are unchanged if values are identical, or both are missing/NaN
+    unchanged = (merged['scn1'] == merged['scn2']) | (merged['scn1'].isna() & merged['scn2'].isna())
+
+    return merged.loc[~unchanged]
 
 def _get_filter_levels_and_values(prs):
     '''Get dict of all filter levels (keys) and available values (values) in data
