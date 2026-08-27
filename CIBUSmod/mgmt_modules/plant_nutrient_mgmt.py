@@ -493,12 +493,12 @@ class PlantNutrientMgmt():
         )
         TAN_req = (
             self.crops.data_attr.get('fertiliser.TAN_req') -
-            (manure_TAN + manure_long).sum(axis=1)
+            (manure_TAN + manure_long).drop('grazing', level='MMS', axis=1).sum(axis=1)
         ).clip(lower=0)
 
         # Get N and TAN available in organic fertilisers and 
         # add non-TAN N assumed to become plant available long term
-        org_N = self.waste.data_attr.get('organic_fertiliser_TAN')
+        org_N = self.waste.data_attr.get('organic_fertiliser_N')
         org_TAN = self.waste.data_attr.get('organic_fertiliser_TAN')
         self.par.clear()
         org_long = (
@@ -632,7 +632,7 @@ class PlantNutrientMgmt():
             ).mul(
                 self.par.get('N_resid_manure', **self.crops.data_attr.get('fertiliser.manure_N').columns.to_frame().to_dict('list'))/100,
                 axis = 1
-            ).sum(axis=1)
+            ).drop('grazing', level='MMS', axis=1).sum(axis=1)
 
             self.par.clear()
             org_fert_long = (
