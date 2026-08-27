@@ -464,26 +464,26 @@ class FeedMgmt(ABC):
 
                     # Get fat in ration [g/kg DM]
                     fat_in_ration = herd.data_attr.get("feed.ration_fat")
-                    # Get concentrate share [% of DM]
-                    concentrate_share = herd.data_attr.get("feed.ration_rough")
+                    # Get concentrate share [frac of DM]
+                    concentrate_share = (1 - herd.data_attr.get("feed.ration_rough"))
 
                     # Calculate Ym (i.e. % of gross energy intake resulting in mtehane emissions)
                     Ym = -0.046 * concentrate_share + 7.1379
 
                     # Update values using specific method for cows
-                    Ym.update(
+                    Ym_cows = (
                         (
-                            (
-                                1.39 * dry_matter_intake
-                                - 0.091
-                                * fat_in_ration
-                                * herd.data_attr.get("heads")
-                                * 365.25
-                            )
-                            / GE_intake
-                            * 100
-                        ).xs("cows", level="animal", axis=1, drop_level=False)
-                    )
+                            1.39 * dry_matter_intake
+                            - 0.091
+                            * fat_in_ration
+                            * herd.data_attr.get("heads")
+                            * 365.25
+                        )
+                        / GE_intake
+                        * 100
+                    ).xs("cows", level="animal", axis=1, drop_level=False)
+                    
+                    Ym.update(Ym_cows)
                 else:
                     # Get specified Ym factors per animal
                     Ym = self.par.get_from_frame(
