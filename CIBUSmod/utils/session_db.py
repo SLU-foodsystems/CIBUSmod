@@ -1522,27 +1522,35 @@ def _level_names_to_integer_key(data, db_path, timeout, con=None):
 def _get_check_and_clean_data(module, module_name, attr, zero_tol=1e-6):
 
     data = module.data_attr.get(attr).copy()
-    
+    allow_neg = module.data_attr[attr]["allow_neg"]
+
     if isinstance(data, pd.Series|pd.DataFrame):
-            
+
         if data.isna().any().any():
             warnings.warn(f'NaNs in {module.par.name}.{attr}.')
-        if (data < -zero_tol).any().any() and not module.data_attr[attr]["allow_neg"]:
+        if (data < -zero_tol).any().any() and not allow_neg:
             warnings.warn(f'Negative values of down to {data.min().min()} {module.data_attr[attr]["unit"]} in {module_name}.{attr}.')
-        
-        # Set zeros to NaN
-        data = data.where(data >= zero_tol, np.nan)
-        
+
+        # Set (near-)zero values to NaN. For attributes with allow_neg=True, only
+        # collapse values within zero_tol of exactly 0, NOT every negative value
+        if allow_neg:
+            data = data.where(data.abs() >= zero_tol, np.nan)
+        else:
+            data = data.where(data >= zero_tol, np.nan)
+
     elif isinstance(data, float) or isinstance(data, np.float64):
-        
+
         if np.isnan(data):
             warnings.warn(f'NaNs in {module.par.name}.{attr}.')
             data = 0
-        if (data < -zero_tol) and not module.data_attr[attr]["allow_neg"]:
+        if (data < -zero_tol) and not allow_neg:
             warnings.warn(f'Negative value of {data} {module.data_attr[attr]["unit"]} in {module_name}.{attr}.')
-        if data < zero_tol:
+        if allow_neg:
+            if abs(data) < zero_tol:
+                data = 0
+        elif data < zero_tol:
             data = 0
-    
+
     else:
         raise TypeError(f"Data attribute '{attr}' not a pandas.Series, pandas.DataFrame or numpy.float")
 
