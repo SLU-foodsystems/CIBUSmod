@@ -40,6 +40,10 @@ from . import impact
 # Import module with helper functions
 from .utils import helpers
 
+# Import module with helper functions for optimising towards a custom production goal
+# (e.g. maximising the supply of a given nutrient), rather than the default objective
+from .utils import maximise_nutrient_supply
+
 # Import module with plotting functions
 from .utils import plot
 

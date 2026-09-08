@@ -60,15 +60,15 @@ def check_constraints(geodist):
             ax.text(0.05, 0.95, f'min: {df.min():.1e}', verticalalignment='center', transform=ax.transAxes)
         elif '<=' in df.name:
             ax.text(0.05, 0.05, f'max: {df.max():.1e}', verticalalignment='center', transform=ax.transAxes)
-            
-        
+
+
         ax.set_ylabel('left - right')
         ax.set_xticks([])
         wrapText(ax.set_title(df.name, size=9))
-        
+
 
     plt.tight_layout()
-    
+
     return plot_dfs
 
 def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and products', tol=1e-2):
@@ -84,7 +84,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
 
     This function should be run after `DemandAndConversion` and `AnimalHerd`s
     have been calculated but before running `GeoDistributor`
-    
+
     Parameters
     ----------
     demand : DemandAndConversions object
@@ -94,11 +94,11 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     tol : float, default 1e-2
         Induced beef exports are multiplied by 1+tol to make sure
         that the problem is feasible
-    
+
     Returns
     -------
     None
-    '''  
+    '''
 
     # Get food group name
     food_group =  demand.par.get_unique('food_group', f'f_food=="{beef_food_name}"')[0]
@@ -128,7 +128,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     else:
         warnings.warn('meat/milk from dairy herds not equal across all sub_systems. median(meat/milk) is used but this is likely to induce more beef exports than strictly needed')
         meat_per_milk = meat_per_milk.T.groupby(['herd_prod_system', 'prod_system']).median().T
-    
+
     # Check that meat/milk is equal across regions and take mean
     # otherwise take median and warn
     if meat_per_milk.transform(lambda x: abs(x-x.mean()) < 1e-6).all().all():
@@ -144,7 +144,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
     meat_from_dairy = milk_demand * 0
     for ps in milk_demand.index:
         meat_from_dairy = meat_from_dairy.add(milk_demand.loc[ps] * meat_per_milk.loc[ps], fill_value=0)
-    
+
     # Calculate beef exports needed
     induced_beef_exports = meat_from_dairy-meat_demand
     induced_beef_exports = induced_beef_exports.where(induced_beef_exports > 0, 0)
@@ -169,7 +169,7 @@ def induce_beef_exports(demand, herds, beef_food_name = 'Bovine meat and product
         # Fix df to add to export_demand
         df_add = induced_beef_exports.to_frame().rename_axis('origin', axis=1).rename(columns={0:'domestic'})
         df_add['imported'] = 0
-        
+
         # Add induced beef exports to export demand
         demand.data_attr.update(
             name = 'export_demand',
@@ -191,7 +191,7 @@ def drop_from_objective(geodist, which, key, level=0):
 
     This function must be run after running GeoDistributor.make() and before
     running GeoDistributor.solve()
-    
+
     Parameters
     ----------
     geodist : GeoDistributor object
@@ -204,41 +204,41 @@ def drop_from_objective(geodist, which, key, level=0):
     -------
     pandas.MultiIndex corresponding to the dropped items
     '''
-    
+
     try:
         idx = geodist.x0_idx[which]
     except KeyError:
         raise ValueError("which must be one of 'ani' and 'crp'")
-    
+
     assert (geodist.P1.rows[which] == idx).all()
     assert (geodist.x0[which].index == idx).all()
     assert (geodist.scale_f[which].index == idx).all()
-    
+
     def _to_bool_array(locs, n):
         bool_array = np.zeros(n, dtype=bool)
         bool_array[np.r_[locs]] = True
         return bool_array
-    
+
     def _get_locs(idx, key, level):
         drop_locs, drop_idx = idx.get_loc_level(key, level=level, drop_level=False)
         if not isinstance(drop_locs, np.ndarray):
             drop_locs = _to_bool_array(drop_locs, len(idx))
         locs = np.invert(drop_locs)
         return locs, drop_idx
-    
+
     part_locs, drop_idx = _get_locs(idx, key, level)
     new_idx = idx[part_locs]
-    
+
     if which == 'ani':
         locs = np.concatenate([part_locs, np.ones(len(geodist.x0_idx['crp']), dtype=bool)])
     else:
         locs = np.concatenate([np.ones(len(geodist.x0_idx['ani']), dtype=bool), part_locs])
-    
+
     # Drop items from P1 and x0 and scale_f
     geodist.P1.M = geodist.P1.M[locs, :]
     geodist.P1.rows[which] = new_idx
     geodist.x0[which] = geodist.x0[which].loc[new_idx]
     geodist.x0_idx[which] = new_idx
     geodist.scale_f[which] = geodist.scale_f[which].loc[new_idx]
-    
+
     return drop_idx
