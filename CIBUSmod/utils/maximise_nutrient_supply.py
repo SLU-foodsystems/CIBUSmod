@@ -862,6 +862,61 @@ def _warn_c15_regional_gap(dist, crp_floor, ani_floor):
 
     return None
 
+def _prune_to_x_idx_short(dist, mat):
+    '''Slices 'mat's columns down to 'dist.x_idx_short', mirroring
+    'FeedDistributor.make_C7()''s own column-dropping exactly (same 'isel'
+    construction). This is needed because C7 -- which drops crop-region
+    combinations below 'min_GDD5' (and so indirectly the animals/feeds that
+    depend on them) from every constraint matrix built so far -- runs ONCE, near
+    the end of 'dist.make()', over whatever matrices exist in 'dist.constraints'
+    AT THAT TIME (see its docstring: "This must be run after all other
+    constraints have been defined!"). '_rebuild_C10()'/'_rebuild_C15()' build
+    fresh A10/A15 matrices AFTER 'dist.make()' has already finished (and so after
+    C7 already ran once), using 'dist.x_idx' (the FULL, un-dropped index, since
+    that is all 'dist.make_A10_ani()' etc. know how to build against) -- so
+    without reapplying C7's slice here, these rebuilt matrices come out WIDER
+    than the 'x' variable '_set_maximise_objective()' builds (which is sized to
+    'dist.x_idx_short'), causing a cvxpy dimension-mismatch error the moment the
+    constraint is used.
+
+    No-ops if 'mat' is already the short width (e.g. 'crp' happened to have
+    nothing dropped for this dataset).
+
+    Parameters
+    ----------
+    dist : FeedDistributor object
+    mat : IndexedMatrix
+        Must have a column dict with 'ani'/'crp'/'fds' keys stacked in that
+        order (as built by '_rebuild_C10()'/'_rebuild_C15()').
+
+    Returns
+    -------
+    IndexedMatrix
+        'mat', modified in place (also returned for convenience).
+    '''
+
+    ani_idx = dist.x_idx['ani']
+    crp_idx = dist.x_idx['crp']
+    fds_idx = dist.x_idx['fds']
+    sel_crp = dist.x_idx_short['crp']
+
+    n_ani = len(ani_idx)
+    n_crp = len(crp_idx)
+    isel = (
+        list(range(0, n_ani))
+        + [crp_idx.get_loc(s) + n_ani for s in sel_crp]
+        + list(range(n_ani + n_crp, n_ani + n_crp + len(fds_idx)))
+    )
+
+    if mat.M.shape[1] <= len(isel):
+        return mat
+
+    mat.M = mat.M[:, isel]
+    mat.cols['ani'] = ani_idx.copy()
+    mat.cols['crp'] = sel_crp.copy()
+    mat.cols['fds'] = fds_idx.copy()
+    return mat
+
 def _rebuild_C10(dist, floor_supply):
     '''Rebuilds 'C10: A10 @ x >= b10' using whatever 'by_prod_per_crop_prod'/
     'by_prod_per_animal_prod' is CURRENTLY set on 'dist.demand.data_attr' (the
@@ -909,6 +964,7 @@ def _rebuild_C10(dist, floor_supply):
             'fds': dist.x_idx['fds'],
         },
     )
+    A10 = _prune_to_x_idx_short(dist, A10)
 
     # C10 reads '[supply] >= [demand]'. The frozen floor's by-product generation is
     # real SUPPLY that the substituted (food-only) A10_ani/A10_crp no longer credit
@@ -964,6 +1020,7 @@ def _rebuild_C15(dist):
             'fds': dist.x_idx['fds'],
         },
     )
+    A15 = _prune_to_x_idx_short(dist, A15)
 
     dist.constraints[_C15_KEY] = {
         'left': lambda x, A15: A15.M @ x,
