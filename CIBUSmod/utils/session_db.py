@@ -836,6 +836,13 @@ class Session(object):
 
                         data_to_write = _get_check_and_clean_data(arg, module, attr)
 
+                        if isinstance(data_to_write, pd.DataFrame|pd.Series) and data_to_write.empty:
+                            # Skip data attributes with no data (e.g. concat_herds() can
+                            # produce an empty DataFrame with unnamed levels when none of
+                            # the constituent herds have this attribute set, which would
+                            # otherwise break level/attribute-table creation below)
+                            continue
+
                         # Aggregate data according to aggregation rules
                         if (module, attr) in aggregation_rules:
                             if isinstance(data_to_write, pd.DataFrame):
