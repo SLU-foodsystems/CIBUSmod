@@ -74,22 +74,29 @@ def subplots(
     
     fig, axs = plt.subplots(nrows,ncols, figsize=(size[0]*ncols,size[1]*nrows))
     
+    prev_idx = None
+    idx_df = data
     for idx_col,ax in zip(product(idxs, cols), axs.flatten()):
         idx, col = idx_col
         if isinstance(idx, str):
             idx = (idx,)
         if isinstance(col, str):
             col = (col,)
-    
-        plot_df = data
-        
-        if len(index)>0:
-            for i, lvl in enumerate(index):
-                if plot_df.index.nlevels>1:
-                    plot_df = plot_df.xs(key=idx[i], level=lvl, axis=0)
-                else:
-                    plot_df = plot_df.xs(key=idx[i], axis=0)
-    
+
+        # Slicing by index only depends on idx, not col, so it only needs to
+        # be redone when idx changes rather than on every (idx, col) panel.
+        if idx != prev_idx:
+            idx_df = data
+            if len(index)>0:
+                for i, lvl in enumerate(index):
+                    if idx_df.index.nlevels>1:
+                        idx_df = idx_df.xs(key=idx[i], level=lvl, axis=0)
+                    else:
+                        idx_df = idx_df.xs(key=idx[i], axis=0)
+            prev_idx = idx
+
+        plot_df = idx_df
+
         if len(columns)>0:
             axis = 1 if isinstance(plot_df, pd.DataFrame) else 0
             for i, lvl in enumerate(columns):
