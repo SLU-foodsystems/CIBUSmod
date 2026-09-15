@@ -23,7 +23,7 @@ from ..main_modules.animal_herd import concat_herds
 from ..mgmt_modules.feed_mgmt.feed_mgmt_geodist import GeoDistFeedMgmt
 
 from .indexed_matrix import IndexedMatrix
-from .utils import Constraint, make_cvxpy_constraint
+from .utils import Constraint, make_cvxpy_constraint, scale_constraints_by_row
 
 class GeoDistributor:
     '''Main optimisation module that handles the distribution of animals and crops across regions
@@ -190,7 +190,8 @@ class GeoDistributor:
                 # }
             ],
             apply_solution:bool = True,
-            verbose:bool = False
+            verbose:bool = False,
+            scale_constraints:bool = False
             ) -> None:
         '''Solve optimisation problem
 
@@ -206,6 +207,14 @@ class GeoDistributor:
             solution via the the method GeoDistributor.apply_solution()
         verbose : bool, default False
             Print progress messages
+        scale_constraints : bool, default False
+            Passed through to 'define_cvx_problem()' -- rescales every constraint
+            row to a maximum absolute coefficient of 1 before solving (same
+            feasible region and optimum, purely a numerical-conditioning aid; see
+            'CIBUSmod.optimisation.utils.scale_constraints_by_row()'). Only takes
+            effect if 'self.problem' is not already defined (e.g. a prior call to
+            'CIBUSmod.utils.maximise_nutrient_supply.change_objective()' already
+            built 'self.problem' itself, with its own 'scale_constraints' option).
 
         Returns
         -------
@@ -221,7 +230,7 @@ class GeoDistributor:
 
         if self.problem is None:
             vprint('Defining problem ...')
-            self.define_cvx_problem()
+            self.define_cvx_problem(scale_constraints=scale_constraints)
 
         # Try to find a solution with (potentially) different solver/settings
         # If an optimal solution is found break and do not try next solver/settings
@@ -483,7 +492,27 @@ class GeoDistributor:
         scale_f['crp'].iloc[:] = f[len(scale_f['ani']):]
         self.scale_f = scale_f
 
-    def define_cvx_problem(self):
+    def define_cvx_problem(self, scale_constraints: bool = False):
+        '''Builds 'self.problem' (a cvxpy.Problem minimising deviation from x0,
+        subject to 'self.constraints').
+
+        Parameters
+        ----------
+        scale_constraints : bool, default False
+            If True, rescales every constraint row to a maximum absolute
+            coefficient of 1 before building the problem (see
+            'CIBUSmod.optimisation.utils.scale_constraints_by_row()') -- a pure
+            numerical-conditioning improvement (same feasible region, same
+            optimum) that can help the solver on large/tightly-constrained
+            problems where raw coefficients span many orders of magnitude within
+            a single row. Defaults to False to leave existing behaviour
+            unchanged; opt in per-solve via 'GeoDistributor.solve(...,
+            scale_constraints=True)'.
+
+        Returns
+        -------
+        None
+        '''
 
         # Apply scaling factors to x0
         x0s = cvxpy.Constant(
@@ -518,8 +547,12 @@ class GeoDistributor:
         )
 
         # Append constraints
+        cons_dict = (
+            scale_constraints_by_row(self.constraints)
+            if scale_constraints else self.constraints
+        )
         constraints = [
-            make_cvxpy_constraint(cons, x) for cons in self.constraints.values()
+            make_cvxpy_constraint(cons, x) for cons in cons_dict.values()
         ]
 
         # Define problem

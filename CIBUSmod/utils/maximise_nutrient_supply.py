@@ -20,7 +20,7 @@ import pandas as pd
 import scipy.sparse
 
 from ..optimisation.indexed_matrix import IndexedMatrix
-from ..optimisation.utils import make_cvxpy_constraint
+from ..optimisation.utils import make_cvxpy_constraint, scale_constraints_by_row
 
 # Constraint keys as built by FeedDistributor.make_C10()/make_C15() -- shared
 # between _split_byprod_supply_for_selected_products() and its two helpers so they
@@ -49,6 +49,7 @@ def change_objective(
         lambda_reg=1e-6,
         lambda_ridge=None,
         keep_linear=False,
+        scale_constraints=False,
     ):
     '''Changes a GeoDistributor/FeedDistributor's optimisation problem (in place) from
     the default objective (minimising deviation of crop areas/animal numbers from x0)
@@ -150,6 +151,15 @@ def change_objective(
         growth of the selected products too.
     keep_linear : bool, default False
         If True, use a linear (L1) instead of quadratic (L2) regularisation term.
+    scale_constraints : bool, default False
+        If True, rescales every constraint row to a maximum absolute coefficient
+        of 1 before building 'dist.problem' (see
+        'CIBUSmod.optimisation.utils.scale_constraints_by_row()') -- a pure
+        numerical-conditioning improvement (same feasible region, same optimum),
+        not an approximation. Can help 'dist.solve()' avoid a generic SolverError
+        (or an incorrect 'infeasible' report) on large/tightly-constrained
+        problems -- try this before reaching for a larger 'lambda_ridge'. Defaults
+        to False to leave existing behaviour unchanged.
 
     Returns
     -------
@@ -195,7 +205,8 @@ def change_objective(
 
     # 4) Replace dist.problem with one that maximises the mapped nutrient supply
     _set_maximise_objective(
-        dist, mapper, lambda_reg=lambda_reg, lambda_ridge=lambda_ridge, keep_linear=keep_linear
+        dist, mapper, lambda_reg=lambda_reg, lambda_ridge=lambda_ridge,
+        keep_linear=keep_linear, scale_constraints=scale_constraints,
     )
 
     return mapper
@@ -1031,7 +1042,10 @@ def _rebuild_C15(dist):
 
     return None
 
-def _set_maximise_objective(dist, mapper, lambda_reg=1e-6, lambda_ridge=None, keep_linear=False):
+def _set_maximise_objective(
+        dist, mapper, lambda_reg=1e-6, lambda_ridge=None, keep_linear=False,
+        scale_constraints=False,
+    ):
     '''Replaces 'dist.problem' with a cvxpy.Problem that maximises
     sum(mapper['crp'] * x['crp']) + sum(mapper['ani'] * x['ani'])
     + sum(mapper['fds'] * x['fds']) (implemented as minimising its negative, since
@@ -1108,6 +1122,16 @@ def _set_maximise_objective(dist, mapper, lambda_reg=1e-6, lambda_ridge=None, ke
     lambda_ridge : float, default None
         If None, uses 'lambda_reg * 1e-3'.
     keep_linear : bool, default False
+    scale_constraints : bool, default False
+        If True, rescales every constraint row to a maximum absolute coefficient
+        of 1 before building the problem (see
+        'CIBUSmod.optimisation.utils.scale_constraints_by_row()') -- a pure
+        numerical-conditioning improvement (same feasible region, same optimum),
+        applied here as the LAST step before 'cvxpy.Problem(...)' so it reflects
+        whatever 'dist.constraints' looks like after 'change_objective()''s own
+        C1/C10/C15 rebuilding (see '_relax_C1_for_selected_products()' and
+        '_split_byprod_supply_for_selected_products()'). Defaults to False to
+        leave existing behaviour unchanged.
 
     Returns
     -------
@@ -1207,8 +1231,12 @@ def _set_maximise_objective(dist, mapper, lambda_reg=1e-6, lambda_ridge=None, ke
 
     objective = cvxpy.Minimize(obj_fun + reg_fun + ridge_fun)
 
+    cons_dict = (
+        scale_constraints_by_row(dist.constraints)
+        if scale_constraints else dist.constraints
+    )
     constraints = [
-        make_cvxpy_constraint(cons, x) for cons in dist.constraints.values()
+        make_cvxpy_constraint(cons, x) for cons in cons_dict.values()
     ]
 
     dist.problem = cvxpy.Problem(objective=objective, constraints=constraints)
