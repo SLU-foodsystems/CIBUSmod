@@ -1,0 +1,1597 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CIBUSmod documentation">
+      
+      
+      
+        <link rel="canonical" href="https://SLU-foodsystems.github.io/CIBUSmod/modules/LULUC/">
+      
+      
+        <link rel="prev" href="../feed_dist/">
+      
+      
+        <link rel="next" href="../../impact/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>LULUC modules - CIBUSmod</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/panzoom.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/docstring.css">
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/panzoom.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <meta name="panzoom-theme" content="material">
+<meta name="panzoom-data" content='{"selectors": [".mermaid", ".d2"], "initial_zoom_level": 1.0}'> </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#luluc-modules" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="CIBUSmod" class="md-header__button md-logo" aria-label="CIBUSmod" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CIBUSmod
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LULUC modules
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/SLU-foodsystems/CIBUSmod" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CIBUSmod
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="CIBUSmod" class="md-nav__button md-logo" aria-label="CIBUSmod" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CIBUSmod
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SLU-foodsystems/CIBUSmod" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CIBUSmod
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Main modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Main modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demand_and_conversions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DemandAndConversions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crop_prod/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CropProduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../animal_herd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnimalHerd
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../waste_and_circularity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WasteAndCircularity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mgmt modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Mgmt modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feed_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FeedMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../byprod_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ByProductMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manure_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ManureMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crop_residue_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CropResidueMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cover_crops_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CoverCropsMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plant_nutrient_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PlantNutrientMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../machinery_and_energy_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MachineryAndEnergyMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inputs_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    InputsMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optimisation modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Optimisation modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geo_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GeoDistributor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feed_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FeedDistributor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Special modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Special modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LULUC modules
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LULUC modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#soilc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SoilC
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SoilC">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#make_input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .make_input()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run_icbm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .run_ICBM()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .get_data()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_flux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .get_flux()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Impact assessment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="luluc-modules">LULUC modules</h1>
+<p>Currently only one module (<code>SoilC</code>) is included here, but additional modules are to be added to account for all land use and land use change related emissions associated with different scenarios.</p>
+<h2 id="soilc"><code>SoilC</code></h2>
+<p><strong>Module for estimating soil organic carbon stocks in mineral soils</strong></p>
+<p>The <code>SoilC</code> module uses the Introductory Carbon Balance Model (ICBM; <em>Kätterer &amp; Andrén, 2001</em>) to estimate changes in soil organic carbon (SOC) stocks in mineral soils. This module is run after running the main model and data has been stored in the <code>Session</code> database.</p>
+<p><code>SoilC</code> implements the step-wise ICBM equations for the young (<span class="arithmatex">\(Y\)</span>) and old (<span class="arithmatex">\(O\)</span>) soil carbon pools as presented in <em>Menichetti et al. (2024)</em></p>
+<div class="arithmatex">\[
+Y_{t+1} = (Y_t + I_t) e^{-k_y re_t} 
+\]</div>
+<div class="arithmatex">\[
+O_{t+1} = (O_t - h \frac{k_y (Y_t+I_t)}{k_o - k_y}) e^{-k_o re_t} + h \frac{k_y (Y_t+I_t)}{k_o - k_y} e^{-k_y re_t}
+\]</div>
+<p>where <span class="arithmatex">\(I_t\)</span> is carbon input to the soil at year <span class="arithmatex">\(t\)</span>, <span class="arithmatex">\(h\)</span> is the humification coefficient for the present carbon input, <span class="arithmatex">\(k_y\)</span> and <span class="arithmatex">\(k_o\)</span> are the decay rates for the young and old carbon pool respectively, and <span class="arithmatex">\(re_t\)</span> is the environmental modifier at year <span class="arithmatex">\(t\)</span>.</p>
+<p>The starting values (i.e. at <span class="arithmatex">\(t = 0\)</span>) for the young and old pool (<span class="arithmatex">\(Y_0\)</span> and <span class="arithmatex">\(O_0\)</span>) are found by analytically solving the steady states (<span class="arithmatex">\(Y^*\)</span> and <span class="arithmatex">\(O^*\)</span>) assuming constant <span class="arithmatex">\(I=I_0\)</span> and <span class="arithmatex">\(r=re_0\)</span> equal to the the first year in the modelled scenario.</p>
+<div class="arithmatex">\[
+Y^* = \frac{I_0 \times e^{-k_y re_0}}{1 - e^{-k_y * re_0}}
+\]</div>
+<div class="arithmatex">\[
+O^* = h \frac{k_y \times I_0}{(k_o - k_y) (1 - e^{-k_y * re_0})} \times \frac{e^{-k_y * re_0} - e^{-k_o re_0}}{1 - e^{-k_o re_0}}
+\]</div>
+<p>The <code>SoilC</code> module is instantiated with a <code>ParameterRetriever</code> and a <code>Session</code> object containing the scenarios to be modelled. The ICBM calculations are performed by first calling the <code>.make_input()</code> method, which gathers all the required inputs from the <code>Session</code> object (i.e. cropland areas and carbon inputs), followed by the <code>.run_ICBM()</code> method.</p>
+<div class="highlight"><pre><span></span><code><span class="n">soil</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">SoilC</span><span class="p">(</span>
+    <span class="n">par</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ParameterRetriever</span><span class="p">(</span><span class="s1">'SoilC'</span><span class="p">),</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">my_session</span>
+<span class="p">)</span>
+<span class="n">soil</span><span class="o">.</span><span class="n">make_input</span><span class="p">()</span>
+<span class="n">soil</span><span class="o">.</span><span class="n">run_ICBM</span><span class="p">()</span>
+</code></pre></div>
+<p>ICBM is run for each region and input separately on a per-hectare basis. Results are retrieved with the <code>.get_data()</code> method, where SOC stocks can be retrieved for separate inputs or aggregated to regional or national totals. The module can also calculate the CO<sub>2</sub> flux associated with changes in SOC stocks via the <code>.get_flux()</code> method.</p>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+SoilC(par: ParameterRetriever, session: Session)
+
+<b>Docstring:</b>
+Module that estimates soil organic carbon stock changes by collecting
+soil carbon inputs from a Session object, calculating the environmental
+modifier (re) and humification coefficients (h), and running the ICBM
+model for each input source.
+It also provides utilities to retrieve aggregated soil carbon stocks
+and fluxes.
+
+Parameters
+----------
+par : ParameterRetriever
+session : Session
+
+Attributes
+----------
+inputs : dict[str, str]
+    Mapping from user-facing input names to session attribute keys.
+agg_cols : list[str]
+    Column levels used as the aggregation dimensions.
+    Default is ["region"], and should likely not be changed.
+lu : str
+    Land-use category used throughout the class.
+    Default is "cropland". May be changed if calculations are to
+    be performed for another land-use category.
+data_attr : DataAttr
+    Container for derived model inputs and outputs.
+par : ParameterRetriever
+    Parameter access helper.
+session : Session
+    Session/database interface for retrieving source data.
+crop_areas : pd.DataFrame
+    Cropland area by aggregation dimensions and crop. Created by
+    `.make_input()`.
+total_area : pd.DataFrame
+    Total cropland area aggregated over regions. Created by
+    `.make_input()`.
+
+<b>File:</b> CIBUSmod/LULUC_modules/soil_C.py
+</pre>
+  </div>
+</details>
+
+<div class="admonition abstract">
+<p class="admonition-title"><strong>References</strong></p>
+<p><a href="https://doi.org/10.1016/j.agee.2006.05.013" target="_blank" rel="noopener">
+Bolinder et al. (2007). An approach for estimating net primary productivity and annual carbon inputs to soil for common agricultural crops in Canada. https://doi.org/10.1016/j.agee.2006.05.013
+</a></p>
+<p><a href="https://doi.org/10.1016/S0304-3800(00)00420-8" target="_blank" rel="noopener">
+Kätterer &amp; Andrén (2001). The ICBM family of analytically solved models of soil carbon, nitrogen and microbial biomass dynamics — descriptions and application examples. https://doi.org/10.1016/S0304-3800(00)00420-8
+</a></p>
+<p><a href="https://doi.org/10.1080/17583004.2024.2304749" target="_blank" rel="noopener">
+Menichetti et al. (2024). Bayesian calibration of the ICBM/3 soil organic carbon model constrained by data from long-term experiments and uncertainties of C inputs. https://doi.org/10.1080/17583004.2024.2304749
+</a></p>
+</div>
+<h3 id="make_input"><code>.make_input()</code></h3>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+SoilC.make_input(
+    crop_residue_method: Literal['Bolinder', 'CIBUSmod']
+)
+
+<b>Docstring:</b>
+Prepare ICBM input data in terms of re-values, C input and humification coefficients
+for all input sources.
+
+This method computes:
+
+- crop areas and total land-use area
+- aggregated environmental modifiers ``re``
+- annual carbon inputs per hectare for each configured input source
+- humification coefficients ``h`` for each input source
+
+All generated datasets are stored in ``self.data_attr``.
+
+Parameters
+----------
+crop_residue_method
+    Method used to derive crop residue inputs. Must be either
+    ``"Bolinder"`` or ``"CIBUSmod"``.
+
+Returns
+-------
+None
+
+<b>File:</b> CIBUSmod/LULUC_modules/soil_C.py
+</pre>
+  </div>
+</details>
+
+<h3 id="run_icbm"><code>.run_ICBM()</code></h3>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+SoilC.run_ICBM(extend: int)
+
+<b>Docstring:</b>
+Run the ICBM model for all configured carbon input sources.
+
+For each input source and scenario, this method simulates the young pool
+``Y``, old pool ``O``, and total stock ``C = Y + O``. Results are stored
+in ``.data_attr`` and can be retrieved with the methods ``.get_data()``
+and ``.get_flux()``.
+
+Parameters
+----------
+extend
+    Number of additional years to append to the simulation using
+    forward-filled input data. Defaults to ``0``.
+
+Returns
+-------
+None
+
+<b>File:</b> CIBUSmod/LULUC_modules/soil_C.py
+</pre>
+  </div>
+</details>
+
+<h3 id="get_data"><code>.get_data()</code></h3>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+SoilC.get_data(
+    pool: Literal['Y', 'O', 'C', 'C_in'],
+    input_name: str,
+    groupby: str | list[str] | dict[str, str | None] | None
+)
+
+<b>Docstring:</b>
+Return per-hectare (kg C/ha) soil carbon stocks or inputs.
+
+If ``"region"`` is supplied to ``groupby``, stocks or inputs are expressed
+per hectare of total land use in each region. If region is not used to
+group, stocks or inputs represent the area-weighted national value. As such,
+the area-weighted national stock can increase even if all regional stocks
+decrease if land use in regions with high stocks increase, and vice versa.
+If other ``groupby`` levels are used, those represent the fraction of regional
+or national stocks/inputs derived from that source.
+
+
+Parameters
+----------
+pool
+    Carbon pool to retrieve. Must be one of ``"Y"``, ``"O"``, ``"C"``,
+    or ``"C_in"`` to retrieve carbon inputs to soils
+input_name
+    Input source to retrieve. Use ``"all"`` to aggregate across all
+    configured input sources, or pass one of ``self.inputs``.
+groupby
+    Grouping specification for output aggregation.
+
+    Supported forms are:
+
+    - ``"none"`` or ``None``: return a total area-weighted Series
+    - ``str``: group by one column level
+    - ``list[str]``: group by multiple column levels
+    - ``dict[str, str | None]``: group and optionally remap levels
+      before aggregation; values of ``None`` mean no remapping
+
+Returns
+-------
+pd.Series | pd.DataFrame
+    Per-hectare Soil carbon stocks or inputs. A Series is returned
+    when no grouping is requested; otherwise a DataFrame is returned.
+    Results are expressed as kg C/ha of total land-use.
+
+<b>File:</b> CIBUSmod/LULUC_modules/soil_C.py
+</pre>
+  </div>
+</details>
+
+<h3 id="get_flux"><code>.get_flux()</code></h3>
+<p>The flux (<span class="arithmatex">\(E\)</span>) is calculated based on year-to-year changes in per-hectare SOC stock in each region multiplied by the total (crop)land use in the region to get the total flux of CO<sub>2</sub> to and from the atmosphere</p>
+<div class="arithmatex">\[
+E_{i,t} = -(SOC_{i,t} - SOC_{i,t-1})A_{i,t} \times (\frac{44}{12})
+\]</div>
+<p>where <span class="arithmatex">\(E_{i,t}\)</span> is the flux of CO<sub>2</sub> (kg CO<sub>2</sub>) for region <span class="arithmatex">\(i\)</span> in year <span class="arithmatex">\(t\)</span>, <span class="arithmatex">\(SOC\)</span> is the per-hectare SOC stock (kg C/ha), and <span class="arithmatex">\(A\)</span> is the (crop)land area. The total national flux can then be obtain by summing all regional fluxes.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Since the flux is calculated from per-hectare changes in SOC stocks in each region, and only after that multiplied by the area in each region, the flux will always be zero if per-hectare stocks are steady even if the national average SOC stock may change due to changes in regional areas (i.e. if area increase in a region with a high SOC stock, the national SOC stock will increase even if per-hectare stocks are constant across all regions).</p>
+</div>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+SoilC.get_flux(
+    pool: Literal['Y', 'O', 'C'],
+    input_name: str,
+    groupby: str | list[str] | dict[str, str | None] | None,
+    as_CO2: bool
+)
+
+<b>Docstring:</b>
+Return flux derived from year-to-year changes in per-hectare stocks.
+
+Flux is defined as the year-to-year change in stock density (kg C/ha)
+within each region multiplied by the total land-use area in the same
+region.
+
+This means that pure changes in area do not create flux when per-hectare
+stocks are constant.
+
+Parameters
+----------
+pool
+    Carbon pool to use. Must be one of ``"Y"``, ``"O"``, or ``"C"``.
+input_name
+    Input source to retrieve. Use ``"all"`` to aggregate across all
+    configured input sources, or pass one of ``.inputs``.
+groupby
+    Grouping specification, interpreted in the same way as in
+    `.get_data()`.
+
+    Important:
+    - flux is always computed at least at ``region`` level
+    - if ``region`` is not included in the requested output grouping,
+      regional fluxes are summed
+as_CO2
+    If ``True`` convert from kg C/year to kg CO2/year using ``44/12``.
+
+Returns
+-------
+pd.Series | pd.DataFrame
+    Flux time series. A Series is returned when no grouping is
+    requested; otherwise a DataFrame is returned.
+
+    Units are:
+    - kg C/year if ``as_CO2=False``
+    - kg CO2/year if ``as_CO2=True``
+
+<b>File:</b> CIBUSmod/LULUC_modules/soil_C.py
+</pre>
+  </div>
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.indexes", "navigation.expand", "toc.integrate", "content.code.copy", "search.highlight", "search.share"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../assets/javascripts/panzoom.min.js"></script>
+      
+        <script src="../../assets/javascripts/zoompan.js"></script>
+      
+    
+  </body>
+</html>
