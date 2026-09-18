@@ -218,16 +218,23 @@ class InputsMgmt(object):
             attr = 'energy_use',
             inputs_in_col = 'energy_source'
         )
-        self.calculate_emissions(
-            module = self.waste,
-            attr = 'wastewater.energy_use',
-            inputs_in_col = 'energy_source'
-        )
-        self.calculate_emissions(
-            module = self.waste,
-            attr = 'wastewater.input_use',
-            inputs_in_col = 'input'
-        )
+        try:
+            self.calculate_emissions(
+                module = self.waste,
+                attr = 'wastewater.energy_use',
+                inputs_in_col = 'energy_source'
+            )
+            self.calculate_emissions(
+                module = self.waste,
+                attr = 'wastewater.input_use',
+                inputs_in_col = 'input'
+            )
+        except KeyError:
+            # If wastewater data attributes not present
+            # silently continue as these are not created
+            # if wastewater treatment was not parametrized
+            # in dataset.
+            pass
 
         vprint('Calculating supply chain emissions for animal herd inputs ...')
         for h in self.herds:
