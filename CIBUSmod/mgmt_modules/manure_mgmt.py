@@ -44,7 +44,7 @@ class ManureMgmt():
                     N, P and K excretion is calculated from the parameter
                     'manure_excr_<N/P/K>'
             'MMS_TAN_balance' : bool, default False
-                If True,
+                If False,
                     N losses in stables are calculated from total N using
                     the parameter 'loss_stable', while losses in storage
                     are calculated from either total N or TAN using the
@@ -55,10 +55,17 @@ class ManureMgmt():
                 If True,
                     TAN in excretion is calculated based on the 'TAN_share'
                     parameter, whereafter all losses are assumed to only
-                    affect the TAN component of total N such that TAN share
-                    increases. Losses in stables and storage are calculated
-                    with the parameters 'loss_stable_of_TAN' and
-                    'loss_storage_of_TAN', respectively.
+                    affect the TAN component of total N. Losses in stables
+                    and storage are calculated with the parameters
+                    'loss_stable_of_TAN' and 'loss_storage_of_TAN',
+                    respectively. In addition, following Carbon Limits (2020):
+                    TAN entering storage is reduced by immobilisation in
+                    bedding material (parameter 'immobilisation_bedding') and
+                    increased by mineralisation of the remaining organic N
+                    during storage (parameter 'mineralisation_storage'), both
+                    queried by filter levels species/breed/prod_system/animal/MMS,
+                    so that the TAN share need not remain constant throughout
+                    storage.
     '''
 
     def __init__(
@@ -525,6 +532,12 @@ class ManureMgmt():
 
     def calculate_NPK_excretion(self, element):
 
+        # For N with 'MMS_TAN_balance' True, N in bedding material is added in
+        # calculate_NPK_losses() instead of here (see below), following Carbon Limits (2020)
+        # Step 7, where bedding N is added after stable (housing) losses and is not subject to
+        # the animal-excretion TAN_share.
+        TAN_balance = self.settings['MMS_TAN_balance'] and (element == 'N')
+
         for herd in (h for h in self.herds if h.has_manure and h.has_feed_demand()):
 
             # Set species and breed filters for ParameterRetriever
@@ -604,11 +617,17 @@ class ManureMgmt():
                     (feed - lwg - prod + milk_to_calves)
                 )
 
-                # Add nutrients in bedding materials
-                excr_df = excr_df + bedding
+                # Add nutrients in bedding materials. Not done here if 'TAN_balance' (N only, see
+                # calculate_NPK_losses()); for P and K, and for N if not 'TAN_balance', bedding
+                # nutrients are always added here.
+                if not TAN_balance:
+                    excr_df = excr_df + bedding
 
             else:
-                # Calculate N excretion from fixed factor per head
+                # Calculate N excretion from fixed factor per head. Note: the parameter
+                # 'manure_excr_<element>' is assumed to already include bedding material nutrients
+                # if not 'TAN_balance', but to exclude them (added instead in
+                # calculate_NPK_losses(), N only) if 'TAN_balance'.
                 excr_df = multiply_aligned(
                     (
                         herd.data_attr.get('manure.mms_shares')/100 *
@@ -678,6 +697,24 @@ class ManureMgmt():
                 TAN_to_storage = \
                     TAN_excr - loss_stable.T.groupby(['prod_system','animal','MMS']).sum().T
 
+                # Immobilisation of TAN in bedding material (Carbon Limits 2020, Step 7).
+                # The parameter 'immobilisation_bedding' is queried by filter levels species,
+                # breed, prod_system, animal and MMS (same as 'mineralisation_storage' below),
+                # and applied to the TAN entering storage.
+                if 'immobilisation_bedding' in self.par.data.index.get_level_values('parameter'):
+                    frac_immobilised = self.par.get_from_frame('immobilisation_bedding', TAN_to_storage)/100
+                    TAN_to_storage = TAN_to_storage - multiply_aligned(
+                        frac_immobilised,
+                        TAN_to_storage
+                    )
+
+                # Addition of N in bedding material (Carbon Limits 2020, Step 7). Added after
+                # stable losses and TAN immobilisation, since bedding N is not subject to either.
+                # Bedding N is assumed to be fully organic (no direct contribution to TAN),
+                # matching Carbon Limits (2020); it will still be available for mineralisation
+                # to TAN during storage (see below) together with the rest of the organic N.
+                to_storage = to_storage + herd.data_attr.get('bedding_material_N')
+
             # Separate manure destined for off-farm treatment
             frac_off_farm = (self.par.get_from_frame('off-farm_treatment', to_storage)/100)
             to_treatment = \
@@ -688,10 +725,33 @@ class ManureMgmt():
                     TAN_to_storage * frac_off_farm
                 TAN_to_storage = TAN_to_storage - TAN_to_treatment
 
+                # Mineralisation of organic N to TAN during storage (Carbon Limits 2020, Step 9).
+                # The parameter 'mineralisation_storage' is queried by filter levels species, breed,
+                # prod_system, animal and MMS, and applied to the organic-N fraction (total N minus
+                # TAN) entering storage.
+                if 'mineralisation_storage' in self.par.data.index.get_level_values('parameter'):
+                    frac_mineralised = self.par.get_from_frame('mineralisation_storage', to_storage)/100
+                    TAN_to_storage = TAN_to_storage + multiply_aligned(
+                        frac_mineralised,
+                        to_storage - TAN_to_storage
+                    )
+
             # Calculate losses in storage
             if TAN_balance:
-                loss_factors_storage = self.par.get_from_frame('loss_storage_of_TAN', df)/100
-                loss_storage = multiply_aligned(loss_factors_storage, TAN_to_storage)
+                # Following Carbon Limits (2020) Step 10, NH3-N, NOx-N and N2 losses from storage
+                # are expressed as a share of TAN ('loss_storage_of_TAN'), while N2O-N losses are
+                # expressed as a share of total N ('loss_storage'). Both bases are combined here,
+                # each applied to the relevant (TAN or total N) pool entering storage.
+                loss_factors_storage_of_TAN = self.par.get_from_frame('loss_storage_of_TAN', df)/100
+                loss_storage_of_TAN = multiply_aligned(loss_factors_storage_of_TAN, TAN_to_storage).fillna(0)
+
+                loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
+                loss_storage_of_totN = multiply_aligned(loss_factors_storage, to_storage).fillna(0)
+
+                if ((loss_storage_of_TAN>0) & (loss_storage_of_totN>0)).any().any():
+                    warnings.warn('ManureMgmt: Storage losses for N expressed per total N and TAN for same item. Check data!')
+
+                loss_storage = loss_storage_of_TAN + loss_storage_of_totN
             else:
                 if (self.par.data.xs((element,'loss_storage'),level=('f_element','parameter'))>0).any():
                     loss_factors_storage = self.par.get_from_frame('loss_storage', df)/100
