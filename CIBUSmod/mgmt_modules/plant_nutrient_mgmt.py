@@ -1106,6 +1106,10 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
         lime_application = lime_application.where(lime_application>0,0)
         lime_application = lime_application.div(lime_application.sum(), axis=1).mul(total_appl, axis=1)
 
+        # Cap final lime application at zero (an overall liming effect from
+        # other inputs should not result in negative lime application)
+        lime_application = lime_application.clip(lower=0)
+
         # Add data attribute
         self.crops.data_attr.add(
             lime_application,
