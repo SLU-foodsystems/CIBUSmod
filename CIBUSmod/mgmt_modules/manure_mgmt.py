@@ -30,8 +30,12 @@ class ManureMgmt():
                     share of manure deposited on pastures are
                     estimated from the parameters 'grazing_period'
                     and 'indoors_during_grazing'.
-                    Warning! Setting this to True may yield unreliable
-                    results.
+                    
+                    Note: When called before feed consumption is known
+                    (e.g. from FeedDistributor.make_C16() prior to
+                    solving), this falls back to the 'grazing_period'/
+                    'indoors_during_grazing' parameters instead, or to
+                    assuming no grazing if those are unavailable too.
             'NPK_excretion_from_balance' : bool, default True
                 If True,
                     calculate N, P and K excretion from nutrients in
@@ -191,16 +195,31 @@ class ManureMgmt():
                 warnings.warn(f'MMS shares did not add up to 100% for species: {herd.species}, breed: {herd.breed}. MMS shares were corrected.')
                 mms_shares = mms_shares.T.groupby(['prod_system','animal']).transform(lambda x: x/x.sum()).T
 
-            if self.settings['MMS_grazing_from_feed']:
-                # Calculate share in MMS='grazing' from share of dry matter feed intake from grazing
+            if self.settings['MMS_grazing_from_feed'] and 'feed.consumption' in herd.data_attr:
+                # Calculate share in MMS='grazing' from share of dry matter feed intake from grazing.
+                # Feeds are aggregated to 'feed_group' level (via relation_tables.xlsx) since
+                # the individual feed items belonging to grazing are not necessarily named
+                # 'grazing' themselves (e.g. 'grazing, infield'/'grazing, outfield'). Feeds
+                # not covered by the relation table fall back to matching on their own name,
+                # preserving behaviour for datasets without a 'feed'->'feed_group' relation.
 
                 # Get feed intake
                 feed_cons = herd.data_attr.get('feed.consumption')
-                if 'grazing' in feed_cons.columns.get_level_values('feed'):
+
+                try:
+                    feed_to_group = self.par.get_rel(from_col='feed', to_col='feed_group')
+                except (KeyError, AttributeError):
+                    feed_to_group = {}
+                is_grazing = (
+                    feed_cons.columns.get_level_values('feed')
+                    .map(lambda f: feed_to_group.get(f, f)) == 'grazing'
+                )
+
+                if is_grazing.any():
 
                     # Calculate share of feed intake from grazing
                     grazing_share = (
-                        feed_cons.xs('grazing', level='feed', axis=1) /
+                        feed_cons.loc[:, is_grazing].T.groupby(['prod_system','animal']).sum().T /
                         feed_cons.T.groupby(['prod_system','animal']).sum().T.replace({0:np.nan})
                     )
 
@@ -220,7 +239,19 @@ class ManureMgmt():
                     mms_shares.update(grazing_share)
 
             else:
-                # Calculate share in MMS='grazing' from 'grazing_period' parameter
+                # Calculate share in MMS='grazing' from 'grazing_period' parameter.
+                # This is also used as a fallback for 'MMS_grazing_from_feed'=True when
+                # 'feed.consumption' is not yet available (e.g. when called from
+                # FeedDistributor.make_C16() prior to solving, since feed composition
+                # is only known once the ration optimisation has been solved).
+
+                if self.settings['MMS_grazing_from_feed']:
+                    warnings.warn(
+                        "'MMS_grazing_from_feed' is True, but 'feed.consumption' is not yet "
+                        f"available for species: {herd.species}, breed: {herd.breed}. "
+                        "Falling back to the 'grazing_period' parameter to estimate the "
+                        "share of manure deposited on pasture."
+                    )
 
                 if 'grazing_period' in herd.par.data.index.get_level_values('parameter'):
 
@@ -246,6 +277,13 @@ class ManureMgmt():
 
                     # Update DataFrame
                     mms_shares.update(grazing_share)
+
+                elif self.settings['MMS_grazing_from_feed']:
+                    warnings.warn(
+                        "'grazing_period' parameter not available as a fallback for "
+                        f"species: {herd.species}, breed: {herd.breed}. Assuming no "
+                        "manure is deposited via grazing (share = 0)."
+                    )
 
             # Adjust non-grazing MMS shares
             mms_shares.loc[:, (slice(None), slice(None), mmss)] = (
