@@ -261,11 +261,15 @@ class InputsMgmt(object):
             axis = 1
         )
 
-        # Get LCI data (emissions per unit input) and reindex to match input use dataframe
+        # Get LCI data (emissions per unit input) and reindex to match input use dataframe.
+        # Inputs/compounds without an emission factor defined (e.g. not connected to
+        # ecoinvent and no user-defined 'emission' override) are treated as zero rather
+        # than unknown, so they don't turn otherwise valid results into NaNs.
         lci = (
             self.data
             .rename_axis([inputs_in_col,'compound'])
             .reindex(res.columns.droplevel([c for c in res.columns.names if c not in [inputs_in_col,'compound'] ]))
+            .fillna(0)
         )
         lci.index = res.columns
 
