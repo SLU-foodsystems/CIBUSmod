@@ -161,9 +161,9 @@ def get_deltaT(
 
     rename_ghg = {
         'CO2' : 'co2',
-        'CH4bio' : 'ch4',
-        'CH4fos' : 'ch4',
-        'CH4' : 'ch4',
+        'CH4bio' : 'ch4bio',
+        'CH4fos' : 'ch4fos',
+        'CH4' : 'ch4fos',
         'N2O' : 'n2o',
         'N2Oind' : 'n2o'
     }
