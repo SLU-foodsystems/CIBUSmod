@@ -325,6 +325,17 @@ Parameters
     def __len__(self):
         return self.max_filter_length
 
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        # Clear cache of parameter subsets used by _get_parameter_values()
+        # whenever data is replaced
+        self._data = value
+        self._problem_data_cache = {}
+
     def set(self, **kwargs):
         '''Method to set filter values. Filters are supplied as keyword arguments and applies to columns in the Excel sheet
         named 'f_<key>'. If filters not present in the Excel sheet columns are supplied those are ignored and a warning is
@@ -423,7 +434,7 @@ Parameters
 
         self.qry_log += [{'param' : parameter, 'lvls' : list(self.filters), 'caller':caller_str, 'time' : np.nan}]
 
-        result = _get_parameter_values(self.data, self.selection, parameter)
+        result = _get_parameter_values(self.data, self.selection, parameter, self._problem_data_cache)
 
         # If NaNs are return print warning and some useful information
         if warn_if_nan and np.isnan(result).any():
@@ -1053,12 +1064,22 @@ def _select_with_defaults(data, index, columns_to_take_default):
     return partial_result
 
 
-def _select_allowing_any_k_defaults(data, index, k):
+def _select_allowing_any_k_defaults(data, index, k, patterns=None):
     # Generate all the (n choose k) ways to have k default columns
+    # (if patterns is supplied, only those matching an empty-pattern in data)
+    combinations = [
+        default_cols
+        for default_cols in itertools.combinations(index.names, k)
+        if patterns is None or tuple(n in default_cols for n in index.names) in patterns
+    ]
+    if len(combinations) == 0:
+        # No combination can match anything
+        return pd.Series(dtype=float)
+
     results = pd.concat(
         [
             _select_with_defaults(data, index, default_cols)
-            for default_cols in itertools.combinations(index.names, k)
+            for default_cols in combinations
         ],
         axis=1,
     )
@@ -1073,22 +1094,49 @@ def _select_with_least_defaults(selection, problem_data):
     # Start with an empty result
     result = pd.Series(data=EMPTY, index=selection)
 
+    # A combination of default (empty) columns can only match rows in problem_data
+    # that are empty in exactly those columns, since the remaining columns are matched
+    # against the (non-empty) selection values. Only combinations present as such
+    # empty-patterns in problem_data therefore need to be evaluated. If the selection
+    # itself contains empty values this does not hold, and all combinations are evaluated.
+    if isinstance(selection, pd.MultiIndex):
+        selection_has_empty = any((c == -1).any() for c in selection.codes)
+    else:
+        selection_has_empty = bool(pd.isna(selection).any())
+
+    if selection_has_empty:
+        patterns = None
+    else:
+        pd_index = problem_data.index
+        if isinstance(pd_index, pd.MultiIndex):
+            empty_mask = np.column_stack([c == -1 for c in pd_index.codes])
+        else:
+            empty_mask = np.asarray(pd.isna(pd_index)).reshape(-1, 1)
+        patterns = {tuple(r) for r in np.unique(empty_mask, axis=0)}
+
     # Fill in the blanks by successively using k = 0, ..., n default values,
     # where n is the number of index columns in the full problem..
     for k in range(len(selection.names) + 1):
-        index_remainder = result[result.isnull()].index
+        is_null = result.isnull()
+        if not is_null.any():
+            # Nothing left to fill
+            break
+        index_remainder = result[is_null].index
         result = result.fillna(
-            _select_allowing_any_k_defaults(problem_data, index_remainder, k)
+            _select_allowing_any_k_defaults(problem_data, index_remainder, k, patterns)
         )
 
     return result
 
-def _get_parameter_values(data, selection, parameter):
+def _get_parameter_values(data, selection, parameter, problem_data_cache=None):
+    '''If a dict is supplied as problem_data_cache, data subsets for parameter/filter
+    combinations are stored and reused. The dict must be emptied if data changes.'''
 
     if selection is not None:
         selection = selection.copy()
         # Drop filters not in data
-        for lvl in set(selection.names)-set(data.droplevel('parameter').index.names):
+        data_names = [n for n in data.index.names if n != 'parameter']
+        for lvl in set(selection.names)-set(data_names):
             if (selection.nlevels > 1):
                 selection = selection.droplevel(lvl)
             else:
@@ -1107,7 +1155,15 @@ def _get_parameter_values(data, selection, parameter):
 
     # Get the data subset for the parameter in question,
     # and use the default for each dimension not specified in the selection.
-    problem_data = _get_problem_data(data, selection.names, parameter)
+    if problem_data_cache is not None:
+        key = (parameter, tuple(selection.names))
+        if key in problem_data_cache:
+            problem_data = problem_data_cache[key]
+        else:
+            problem_data = _get_problem_data(data, selection.names, parameter)
+            problem_data_cache[key] = problem_data
+    else:
+        problem_data = _get_problem_data(data, selection.names, parameter)
     if problem_data is None:
         return np.array([EMPTY]*len(selection))
 
