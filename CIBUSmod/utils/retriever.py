@@ -334,7 +334,30 @@ Parameters
         # Clear cache of parameter subsets used by _get_parameter_values()
         # whenever data is replaced
         self._data = value
+        self._reset_cache()
+
+    def _reset_cache(self):
+        '''Clear cache of parameter subsets used by _get_parameter_values() and
+        store a snapshot of data used to detect in-place edits'''
         self._problem_data_cache = {}
+        self._cache_index = self._data.index
+        self._cache_values = self._data.to_numpy().copy()
+
+    def _validate_cache(self):
+        '''Clear cache if data has been edited in place since the cache was built.
+        Value edits (e.g. data.loc[...] = x, data.update()) are detected by comparing
+        values with the snapshot and structural edits (e.g. drop(inplace=True) or
+        adding rows) by the index object being replaced.'''
+        try:
+            unchanged = (
+                self._data.index is self._cache_index
+                and np.array_equal(self._data.to_numpy(), self._cache_values, equal_nan=True)
+            )
+        except TypeError:
+            # E.g. values changed to non-numeric dtype
+            unchanged = False
+        if not unchanged:
+            self._reset_cache()
 
     def set(self, **kwargs):
         '''Method to set filter values. Filters are supplied as keyword arguments and applies to columns in the Excel sheet
@@ -434,6 +457,7 @@ Parameters
 
         self.qry_log += [{'param' : parameter, 'lvls' : list(self.filters), 'caller':caller_str, 'time' : np.nan}]
 
+        self._validate_cache()
         result = _get_parameter_values(self.data, self.selection, parameter, self._problem_data_cache)
 
         # If NaNs are return print warning and some useful information
