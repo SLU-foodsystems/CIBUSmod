@@ -762,20 +762,11 @@ Total deficit: {warn_df.sum()/1000:,.0f} tonnes {element}
             axis=1
         )
 
-        # Get application losses (% of TAN) per fertiliser or animal/MMS
-        application_losses = pd.Series(
-            self.par.get(
-                'application_losses',
-                **TAN_appl.columns.to_frame().to_dict('list')
-            )/100,
-            index = TAN_appl.columns
-        )
+        # Get application losses (% of TAN) per region, crop, prod_system x fertiliser or animal/MMS
+        application_losses = (self.par.get_from_frame('application_losses', TAN_appl)/100)
 
         # Calculate N loss
-        N_loss = TAN_appl.mul(
-            application_losses,
-            axis=1
-        )
+        N_loss = TAN_appl * application_losses
 
         # Store resulting N application losses [kg N]
         attr_name = 'fertiliser.' + of.replace('TA','') + '_application_loss'
