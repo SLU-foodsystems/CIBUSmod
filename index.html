@@ -1,0 +1,1780 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CIBUSmod documentation">
+      
+      
+      
+        <link rel="canonical" href="https://SLU-foodsystems.github.io/CIBUSmod/">
+      
+      
+      
+        <link rel="next" href="modules/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>CIBUSmod</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="stylesheets/panzoom.css">
+    
+      <link rel="stylesheet" href="stylesheets/docstring.css">
+    
+      <link rel="stylesheet" href="assets/stylesheets/panzoom.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <meta name="panzoom-theme" content="material">
+<meta name="panzoom-data" content='{"selectors": [".mermaid", ".d2"], "initial_zoom_level": 1.0}'> </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#getting-started" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="CIBUSmod" class="md-header__button md-logo" aria-label="CIBUSmod" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CIBUSmod
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Getting started
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/SLU-foodsystems/CIBUSmod" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CIBUSmod
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="CIBUSmod" class="md-nav__button md-logo" aria-label="CIBUSmod" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CIBUSmod
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SLU-foodsystems/CIBUSmod" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CIBUSmod
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installing-python-and-git" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing Python and Git
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installing Python and Git">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-cibusmod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing CIBUSmod
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-license-for-gurobi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding license for Gurobi
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#importing-cibusmod-in-a-jupyter-notebook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Importing CIBUSmod in a Jupyter notebook
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setting-data-folder-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setting data folder path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-data-workbooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default data workbooks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default data workbooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-external-csv-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using external .csv-files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scenario-data-workbooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario data workbooks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defining-and-running-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Defining and running scenarios
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Defining and running scenarios">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-scenarios-to-a-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding scenarios to a Session
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#initialising-cibusmod-modules-and-performing-the-calculations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initialising CIBUSmod modules and performing the calculations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storing-model-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storing model output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retrieving-model-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retrieving model output
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Main modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Main modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/demand_and_conversions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DemandAndConversions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/regions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/crop_prod/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CropProduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/animal_herd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnimalHerd
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/waste_and_circularity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WasteAndCircularity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mgmt modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Mgmt modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/feed_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FeedMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/byprod_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ByProductMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/manure_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ManureMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/crop_residue_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CropResidueMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/cover_crops_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CoverCropsMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/plant_nutrient_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PlantNutrientMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/machinery_and_energy_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MachineryAndEnergyMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/inputs_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    InputsMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optimisation modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Optimisation modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/geo_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GeoDistributor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/feed_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FeedDistributor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Special modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Special modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="modules/LULUC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LULUC modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="impact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Impact assessment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="plot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="getting-started">Getting started</h1>
+<center><img src="figs/CIBUSmod overview.png", style="width: 90%; max-width: 800px"></center>
+
+<p><code>CIBUSmod</code> is an open-source, spatially disaggregated biophysical model designed to evaluate resource use and environmental impacts in agri-food systems on national and sub-national level under future scenarios involving changes in demand and agricultural production systems. It provides a flexible, modular framework that can integrate regionalised data on crop and livestock production systems at the spatial resolution and aggregation level available. In the model agricultural production is distributed regionally to meet an exogenous demand, while enforcing several constraints that ensure internally consistent scenarios that are biophysically and agronomically feasible.</p>
+<div class="admonition abstract">
+<p class="admonition-title"><strong>Key papers</strong></p>
+<p><a href="https://doi.org/10.5194/gmd-18-8589-2025" target="_blank" rel="noopener">
+Karlsson, J.O., Karlsson-Potter, H., Lagnelöv, O., Ericsson, N., Einarsson, R. &amp; Hansson, P.A. (2025). CIBUSmod 25.09: a spatially disaggregated biophysical agri-food systems model for studying national-level demand- and production-side intervention scenarios. Geosci. Model Dev., 18(22), 8589-8611.
+</a></p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This users guide assumes that <code>CIBUSmod</code> is run in a Jupyter notebook (i.e. a <em>.ipynb</em> file).</p>
+</div>
+<h2 id="installation">Installation</h2>
+<p>Here step-by-step instructions for installing CIBUSmod and other required software are provided for Windows users. For other operating systems it should be possible to use a similar procedure.</p>
+<h3 id="installing-python-and-git">Installing Python and Git</h3>
+<p>CIBUSmod requires working installations of Python and Git. So, if these are not already installed, do so first.</p>
+<h4 id="python">Python</h4>
+<ul>
+<li>Download python from here: https://www.python.org/downloads/windows/</li>
+<li>CIBUSmod has been tested on version ´3.11.6´, so use that version to be safe</li>
+<li>Run the installer. In the installer check “Add python.exe to PATH”</li>
+</ul>
+<h4 id="git">Git</h4>
+<ul>
+<li>Download Git from here: https://git-scm.com/download/win</li>
+<li>Latest version should be fine</li>
+<li>Run the installer and leave all settings at default values, except changing default branch name to “main” if you want.</li>
+</ul>
+<h3 id="installing-cibusmod">Installing CIBUSmod</h3>
+<p>Open a new <code>Command Prompt</code> and <code>cd</code> to the directory where you want to place CIBUSmod and download the CIBUSmod code from github.</p>
+<p><div class="highlight"><pre><span></span><code>git clone https://github.com/SLU-foodsystems/CIBUSmod
+cd CIBUSmod
+</code></pre></div>
+Next, create and activate a new virtual environment to keep Python packages needed for CIBUSmod separate from your base Python installation.
+<div class="highlight"><pre><span></span><code>python -m venv .venv --clear --upgrade-deps --prompt 'CIBUSmod-venv'
+.venv\Scripts\activate
+</code></pre></div>
+After activating the virtual environment, make sure that you see <code>('CIBUSmod-venv')</code> at the beginning of the command line, which indicates that the virtual environment is active. Now it´s time to install all python packages needed to run CIBUSmod and start jupyter lab.
+<div class="highlight"><pre><span></span><code>pip install --upgrade pip
+pip install --require-virtualenv -r requirements.txt
+ipython kernel install --user --name="CIBUSmod-venv"
+jupyter lab
+</code></pre></div>
+Once jupyter lab is started, navigate to the <code>notebooks</code> folder and open one of the notebooks. Make sure that the <code>CIBUSmod-venv</code> kernel is selected via <code>Kernel &gt; Change kernel &gt; CIBUSmod-venv</code>. Run the notebook. That's it!</p>
+<p>After quitting jupyter lab and returning to the <code>Command Prompt</code>, type <code>deactivate</code>, or simply close the <code>Command Prompt</code>, to exit the virtual environment,</p>
+<p>Next time, you open a new <code>Command Prompt</code>, <code>cd</code> to the <code>CIBUSmod</code> directory and activate the virtual environment before starting <code>jupyter lab</code>.
+<div class="highlight"><pre><span></span><code>.venv\Scripts\activate
+jupyter lab
+</code></pre></div></p>
+<h3 id="adding-license-for-gurobi">Adding license for Gurobi</h3>
+<p>Gurobi is the back-end solver used in CIBUSmod to solve the convex optimisation problem involved in regionally distributing crops and animals. This is a commercial software and therefore require a license to run, but free academic licenses are provided. 
+- Create an account at https://www.gurobi.com using your university e-mail
+- Go to: https://portal.gurobi.com/iam/licenses/request/?type=academic
+  and generate a “Named-User Academic” license. You must be connected to the internet via your university (VPN should work). Copy the grbgetkey line you receive and keep it.
+- Get the license manager “grbgetkey” from here: https://support.gurobi.com/hc/en-us/articles/360059842732-How-do-I-set-up-a-license-without-installing-the-full-Gurobi-package
+- Unpack the “grbgetkey.exe” file in any folder. Open the command prompt and go to that folder. Copy and run the grbgetkey command you got earlier. You should now see some messages and get to decide where to put the license file.</p>
+<h2 id="importing-cibusmod-in-a-jupyter-notebook">Importing CIBUSmod in a Jupyter notebook</h2>
+<p>To be able to import <code>CIBUSmod</code> in a Jupyter notebook, it first needs to be added to the system path. This is done via Python's <code>sys</code> module:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">'C:/path/to/CIBUSmod'</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">CIBUSmod</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cm</span>
+</code></pre></div>
+<p>or using a path relative to the current working directory (i.e. the directory of the present notebook)</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span><span class="s1">'..'</span><span class="p">))</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">CIBUSmod</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cm</span>
+</code></pre></div>
+<p>The above code assumes that the notebook is located in a folder contained in the main <code>CIBUSmod</code> folder.</p>
+<h2 id="data-structure">Data structure</h2>
+<p>All data used to run the model and outputs produced are stored in a data folder with the folder structure shown below. The <code>default</code> and <code>scenarios</code> folders stores all default input data and data used to define different scenarios in the form of Excel workbooks. The <code>output</code> folder stores model outputs in SQLite database files and the <code>ecoinvent</code> folder stores ecoinvent activity data use by the <code>InputsMgmt</code> module.</p>
+<div class="highlight"><pre><span></span><code><span class="w"> </span>data
+<span class="w"> </span><span class="p">|</span>
+<span class="w"> </span>├──<span class="w"> </span>default
+<span class="w"> </span>│<span class="w">   </span>├──<span class="w"> </span>*.xlsx
+<span class="w"> </span>│<span class="w">   </span>└──<span class="w"> </span>*.csv
+<span class="w"> </span>├──<span class="w"> </span>ecoinvent
+<span class="w"> </span>│<span class="w">   </span>└──<span class="w"> </span>*.xml
+<span class="w"> </span>├──<span class="w"> </span>output
+<span class="w"> </span>│<span class="w">   </span>└──<span class="w"> </span>*.sqlite
+<span class="w"> </span>├──<span class="w"> </span>scenarios
+<span class="w"> </span>│<span class="w">   </span>└──<span class="w"> </span>*.xlsx
+<span class="w"> </span>└──<span class="w"> </span>relation_tables.xlsx
+</code></pre></div>
+<h3 id="setting-data-folder-path">Setting data folder path</h3>
+<p>The path to the data folder is set by initialising a new <code>Session</code> object with a <code>name</code> and a <code>data_path</code>. This also sets the <code>ParameterRetriever.data_path</code> class attribute which is used by all modules when accessing default and scenario data workbooks.</p>
+<div class="highlight"><pre><span></span><code><span class="n">my_session</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">Session</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s1">'name_of_session'</span><span class="p">,</span>
+    <span class="n">data_path</span> <span class="o">=</span> <span class="s1">'../path/to/data'</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>my_session</code> then connects to the SQLite database file in <code>data/output/name_of_session.sqlite</code> or creates it if it does not already exist. This database file stores all scenario definitions and model outputs. If the database already contains model outputs these will become directly available through the <code>my_session</code> object (see <a href="#retrieving-model-output">Retrieving model outputs</a>).</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>When instantiating a <code>Session</code> object, it's also possible to independently set the paths to the <em>default</em>, <em>scenarios</em> and <em>output</em> data folders via the arguments <code>data_path_default</code>, <code>data_path_scenarios</code> and <code>data_path_output</code>.</p>
+</div>
+<h3 id="default-data-workbooks">Default data workbooks</h3>
+<p>All data used to run the model (referred to as parameters) are stored in Excel workbooks in <code>data/default/</code>. This folder contains one Excel workbook for each CIBUSmod module. When a module is initialised it is done so with a <code>ParameterRetriever</code> object that is responsible for accessing parameters. The name defined for the <code>ParameterRetriever</code> object correspond to the name of the Excel workbook where it will access parameters.</p>
+<p>Below the <code>Regions</code> module is initialised and uses parameters in <code>data/default/Regions.xlsx</code></p>
+<div class="highlight"><pre><span></span><code><span class="n">regions</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">Regions</span><span class="p">(</span>
+    <span class="n">par</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">ParameterRetriever</span><span class="p">(</span><span class="s1">'Regions'</span><span class="p">)</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The Excel workbooks should contain one sheet named <code>default</code> where all data is stored. All other sheets in the workbook are ignored and may be used freely to e.g. document data collection.</p>
+<p>The first row in the <code>default</code> sheet contains column headings. When the <code>ParameterRetriever</code> reads the Excel file only columns with the headings <code>parameter</code>, <code>value</code> and all starting with <code>f_</code> are retained. Other columns can again be used for documentation. All rows that do not have anything in the <code>parameter</code> column are also skipped, allowing for e.g. headings separating different groups of parameters in the Excel sheet (see example below).</p>
+<p>The <code>parameter</code> columns is used for the parameter names and the <code>value</code> columns for the corresponding value. A parameter value can only be a number (equations and references are OK) or the name of an external .csv file containing additional parameter values (more on that later).</p>
+<p>All columns starting with <code>f_</code> are interpreted as "filter levels". When the model tries to access a parameter value it does so by providing a set of filters. The <code>ParameterRetriever</code> then tries to find the single parameter value that most closely matches the supplied filter. If a single value can't be returned, <code>NaN</code> is returned and a warning with some additional information is printed.</p>
+<p>For example, when the <code>CropProduction</code> module accesses the parameter <code>seed</code> (defining the seeding density in kg/ha) it does so with the filter levels <code>crop</code>, <code>prod_system</code>, <code>region</code> and <code>crop_prod</code> (e.g. <code>crop='Wheat, winter'</code>, <code>prod_system='conventional'</code>, <code>region='111'</code> and <code>crop_prod='wheat'</code>). Assuming that the parameter sheet looks like below the value <code>210</code> would be returned as <code>crop='Wheat, winter'</code>, <code>prod_system='conventional'</code> and <code>crop_prod='wheat'</code> represents a unique match as no other value is equally well defined (i.e. with the same number of matching filters).  As the <code>f_region</code> column was left blank for the rows representing 'Wheat, winter' the <code>region</code> filter level could be ignored.</p>
+<p><img src="figs/manual/default_data_example1.png"><br>
+<em>Example of default Excel data sheet</em></p>
+<p>However, trying to access the <code>seed</code> parameter for <code>crop='Rye'</code>,<code>prod_system='organic'</code>, <code>region='111'</code> and <code>crop_prod='rye'</code> would yield <code>NaN</code> and a warning since there are two equally well defined matches on either <code>crop</code>, <code>prod_system</code> and <code>crop_prod</code> or <code>crop</code>, <code>crop_prod</code> and <code>region</code>. This represents an error in the parameter Excel sheet and would need to be corrected there.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The filter levels used in the model when accessing different parameters are stored in the <code>.qry_log</code> attribute of each <code>ParameterRetriever</code> object and can be summarised with the <code>ParameterRetriever.qry_stats()</code> class method.</p>
+</div>
+<h4 id="using-external-csv-files">Using external .csv-files</h4>
+<p>The Excel workbooks for default parameters can be extended with .csv-files. This is done by writing the file name of a .csv-file in the default data workbook under the <code>value</code> column instead of a parameter value. The csv files needs to be located in <code>data/default</code> (see example below). Filter values specified for that row are ignored, instead these need to be specified in the .csv-file.</p>
+<p><img src="figs/manual/default_data_ref_csv.png"><br>
+<em>Example of how to read data from external .csv-file via default workbooks</em></p>
+<p>The .csv-files can be structured in two ways, either with <em>parameters as columns</em> or with <em>filter values as columns</em>. In the first case (i.e. <em>parameters as columns</em>) the first row in the .csv-file is interpreted as column headings and any column heading preceded by <code>f_</code> is interpreted as a filter level in a similar way as in the default data workbooks. Other column headings are interpreted as parameter names (see example below). Only columns corresponding to the parameter names specified in the default workbook are retrieved (see example above where the same .csv-file is defined for multiple parameters).</p>
+<p><img src="figs/manual/default_data_csv_par.png"><br>
+<em>Example of .csv-file with </em><em>parameters as columns</em><em> structure</em></p>
+<p>The second structure (i.e. <em>filter values as columns</em>) is invoked by writing <code>cols_as_filter: &lt;filter level&gt;</code> in the first cell of the .csv-file, where <code>&lt;filter level&gt;</code> is a filter level name preceded by <code>f_</code>. The second row is then interpreted as column names and any column name preceded by <code>f_</code> are assumed to represent filter levels and all other columns are assumed to represent filter values on the level specified in the first cell of the .csv-file (see example below). The parameter name is inferred from the parameter name stated in the default data workbook on the row referring to the .csv-file.</p>
+<p><img src="figs/manual/default_data_csv_filter.png"><br>
+<em>Example of .csv-file with </em><em>filter values as columns</em><em> structure</em></p>
+<h3 id="scenario-data-workbooks">Scenario data workbooks</h3>
+<p>Scenarios are defined in Excel workbooks located in <code>data/scenarios/</code>. When defining scenarios only parameters that are to be changed compared to the default values need to be specified. Any parameters not defined in a scenario data workbook are retained with their default values. The scenario data workbooks should contain one sheet per module where parameters are to be changed in the scenario (see example below). Sheet names need to match the filenames of corresponding default data workbooks (without the .xlsx file extension). Each sheet needs to include the column headings <code>parameter</code> and <code>val_is</code> as well as at least one defined year (column headings starting with <code>y_</code>). They may also include column headings for filter levels (starting with <code>f_</code>).</p>
+<p><img src="figs/manual/scenario_data_example1.png"><br>
+<em>Example of scenario Excel data sheet</em></p>
+<p>Changes in parameter values can be specified in absolute or relative terms by writing <code>'abs'</code> or <code>'rel'</code> in the <code>val_is</code> column, respectively. When specifying parameter values in relative terms a factor to be multiplied by the parameter's default value is specified. So, in the above example the yield of all crops are increased by 25% (factor 1.25) to 2050 compared to their respective default yields, except if <code>crop</code> equals <code>'Ley for fodder'</code> in which case the yield is increased by 30% (factor 1.3). When specifying scenario parameter values in absolute terms these will directly replace the corresponding default parameter values. Values specified in absolute terms directly replace corresponding default values.</p>
+<p>When the model updates parameter values it goes through all default parameter values and tries to find the one scenario parameter value with the largest number of matching filter levels analogously with how parameter values are located when running the model (as described above). This means that parameter values to change in a scenario can only be defined at the same level of specificity or in more general terms than default parameter values (i.e. applying to one or several default parameter values, such as in the case of yield above) but never more precise. So, if the default value for the parameter <code>seed</code> from the earlier example is defined for the filter levels <code>crop</code>, <code>crop_prod</code> and <code>prod_system</code> a scenario can't change this parameter independently on the <code>region</code> level using <code>'abs'</code> or <code>'rel'</code> in the <code>val_is</code> column.</p>
+<p>To add more precise definitions to parameters (or e.g. define a new crop) in a scenario the keyword <code>'new'</code> is used in the <code>val_is</code> column. These values are always supplied in absolute terms and will be appended to the data exactly as specified in the scenario data workbook (i.e. with the same filter levels and values).</p>
+<p>In some cases it may also be desirable to drop parameter values from the default data in a scenario. This can be achieved by using the keyword <code>'drop'</code> in the <code>val_is</code> column. To identify parameters in default data to be dropped each row with the <code>'drop'</code> keyword is matched to parameters in the default data in the same way as when using the <code>'abs'</code> or <code>'rel'</code> keywords. In order for parameters to be dropped a number (preferably 1) must be specified under the <code>y_</code> column. </p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When using the <code>abs</code> keyword in the <code>val_is</code> columns it is important to make sure that the scenario parameter value corresponds to only the desired default parameter value (i.e. by using the exact same filter levels and values in the scenario data workbook as in the default data workbook) to avoid replacing unintended parameter values.</p>
+</div>
+<p>Scenario parameter values can be specified for any chosen years by adding columns with <code>y_</code> prefix. When the model updates parameter values for a given scenario and year it will use values specified under the corresponding year if available. If that year is not specified but an earlier <strong>and</strong> a later year is available, it will linearly interpolate between those years. If only an earlier year is available it will use that value and if only a later year is available it will not update parameter values.</p>
+<h2 id="defining-and-running-scenarios">Defining and running scenarios</h2>
+<h3 id="adding-scenarios-to-a-session">Adding scenarios to a <code>Session</code></h3>
+<p>To run a scenario defined in one or more scenario data workbooks it first needs to be added to the <code>Session</code> object. This is done via the method <code>.add_scenario()</code>, which takes five arguments; <code>name</code>, <code>years</code>, <code>scenario_workbooks</code>, <code>modules</code> and <code>pars</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">my_session</span><span class="o">.</span><span class="n">add_scenario</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s1">'my_scenario'</span><span class="p">,</span>
+    <span class="n">years</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">2030</span><span class="p">,</span> <span class="mi">2040</span><span class="p">,</span> <span class="mi">2050</span><span class="p">],</span>
+    <span class="n">scenario_workbooks</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'my_scn1'</span><span class="p">,</span> <span class="s1">'my_scn2'</span><span class="p">],</span>
+    <span class="n">modules</span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span>
+    <span class="n">pars</span> <span class="o">=</span> <span class="s1">'all'</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The <code>name</code> argument gives the scenario a name which is what will be printed in output tables etc. and the <code>years</code> argument specifies the years to be run. The <code>scenario_workbooks</code> argument is the filename(s) (exuding the .xlsx extension) of the scenario data workbook(s) to use. If a list of multiple workbooks is given, as in the example above, these are handled in consecutive order. If multiple scenario data workbooks <strong>modify</strong> the same default parameter only the last one in the list will have an effect. The arguments <code>modules</code> and <code>pars</code> controls for which modules parameter values should be updated and which parameters to update, respectively. <code>pars</code> can also take a <code>dict</code> with module names as keys and parameters as values to restrict parameters to update only for certain modules. Using the keyword <code>'all'</code> means that all modules and/or parameters included in the scenario data workbooks will be updated. </p>
+<p>Displaying a <code>Session</code> object (i.e. calling it in a code block) will give an overview of the <code>Session</code> including name, path defined scenarios and available output data attributes. </p>
+<div class="highlight"><pre><span></span><code><span class="n">my_session</span>
+</code></pre></div>
+<p><img src="figs/manual/session_repr_example1.png"><br>
+<em>Example of displaying a <code>Session</code> object in a jupyter notebook</em></p>
+<p>The overview is interactive and clicking the items under <em>Scenarios</em> and <em>Data attributes</em> will show additional information. In the example above the details for 'my_scenario' has been expanded and the <code>Session</code> object does not contain any stored output data.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Additional <code>Session</code> methods for working with scenario definitions are <code>.remove_scenario()</code>, <code>.update_scenario()</code> and <code>.reorder_scenarios()</code>.</p>
+</div>
+<h3 id="initialising-cibusmod-modules-and-performing-the-calculations">Initialising CIBUSmod modules and performing the calculations</h3>
+<p>This section gives a brief overview of running the model. See the example notebooks for a more hands-on guide.</p>
+<p>As previously indicated CIBUSmod is built up of several modules responsible for performing different parts of the calculations. The modules are subdivided into <em>main modules</em> and <em>management (mgmt) modules</em>, where the main modules store all output and mgmt modules perform specific calculations and add/adjust data stored on the main modules. All modules take a <code>ParameterRetriever</code> object as an input. In addition, many modules require other modules as input and some modules also take additional settings as input.</p>
+<p>The figure below shows all modules currently included in CIBUSmod. The order from top to bottom, is the order in which modules should be run and the letters below indicate (by acronym) which other module(s) that module require as input. Green, blue and grey boxes represent main modules, management modules and optimisation module, respectively. The calculation flow is shown for the two alternative optimisation modules, <code>GeoDistributor</code> and <code>FeedDistributor</code>.</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button><button class="panzoom-max panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 32C14.3 32 0 46.3 0 64l0 96c0 17.7 14.3 32 32 32s32-14.3 32-32l0-64 64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-64zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0 0 64c0 17.7 14.3 32 32 32s32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-96 0zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 64-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0c17.7 0 32-14.3 32-32l0-96z"></path>
+    </svg>
+</button><button class="panzoom-min panzoom-button panzoom-hidden">
+    <svg class="panzoom-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 64-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0c17.7 0 32-14.3 32-32l0-96zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0 0 64c0 17.7 14.3 32 32 32s32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-96 0zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-64zM320 320c-17.7 0-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32s32-14.3 32-32l0-64 64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>
+%%{init: {
+  "flowchart": {
+    "nodeSpacing": 10,
+    "rankSpacing": 20,
+    "padding": 3,
+    "curve": "linear"
+  },
+  "themeVariables": {
+    "fontSize": "12px"
+  }
+}}%%
+
+
+flowchart TB
+
+  R["&lt;b&gt;Regions"&lt;/b&gt;
+  na"]:::mod_main -.-
+  DAC["&lt;b&gt;DemandAndConversions"&lt;/b&gt;
+  na"]:::mod_main -.-
+  CP["&lt;b&gt;CropProduction"&lt;/b&gt;
+  R"]:::mod_main -.-
+  AH["&lt;b&gt;AnimalHerd"&lt;/b&gt;
+  R"]:::mod_main
+
+  AH -.- FMG["&lt;b&gt;FeedMgmt"&lt;/b&gt;
+  AH"]:::mod_mgmt -.-
+  GD["&lt;b&gt;GeoDistributor"&lt;/b&gt;
+  R,DAC,CP,AH,FM"]:::mod_opt -.-
+  FMG2["&lt;b&gt;FeedMgmt"&lt;/b&gt;
+  AH"]:::mod_mgmt -.- BPM
+
+  AH -.- FD["&lt;b&gt;FeedDistributor"&lt;/b&gt;
+  R,DAC,CP,AH,FM,MM,CRM"]:::mod_opt -.-
+  FMF["&lt;b&gt;FeedMgmt"&lt;/b&gt;
+  AH"]:::mod_mgmt -.- BPM
+
+  BPM["&lt;b&gt;ByProductMgmt"&lt;/b&gt;
+  DAC,AH"]:::mod_mgmt
+
+  %% Make two columns ---------------
+  BPM -.-&gt; I1[" "]:::hid
+  I2[" "]:::hid -.- MM
+  classDef hid fill:none,stroke:none
+  %% --------------------------------
+
+  MM["&lt;b&gt;ManureMgmt"&lt;/b&gt;
+  AH,FM"]:::mod_mgmt -.-
+  CRM["&lt;b&gt;CropResidueMgmt"&lt;/b&gt;
+  DAC,CP,AH"]:::mod_mgmt -.-
+  CCM["&lt;b&gt;CoverCropsMgmt"&lt;/b&gt;
+  CP"]:::mod_mgmt -.-
+  WAC["&lt;b&gt;WasteAndCircularity"&lt;/b&gt;
+  DAC,CP,AH"]:::mod_main -.-
+  PNM["&lt;b&gt;PlantNutrientMgmt"&lt;/b&gt;
+  R,DAC,CP,AH,WAC,(CCM)"]:::mod_mgmt -.-
+  MAEM["&lt;b&gt;MachineryAndEnergyMgmt"&lt;/b&gt;
+  R,CP,AH,WAC"]:::mod_mgmt -.-
+  IM["&lt;b&gt;InputsMgmt"&lt;/b&gt;
+  DAC,CP,AH,WAC"]:::mod_mgmt
+
+
+  %% -------------------------
+  %% Styles
+  %% -------------------------
+  classDef mod_main fill:#509e2f80,stroke:#203f13,stroke-width:2px,font-size:13,color:#203f13;
+  classDef mod_mgmt fill:#6ad1e380,stroke:#125560,stroke-width:2px,font-size:13,color:#125560;
+  classDef mod_opt  fill:#d9d9d680,stroke:#43433e,stroke-width:2px,font-size:13,color:#43433e;
+
+  classDef data  fill:#fee8c880,stroke:#b30000,stroke-width:0.5px,font-size:11,color:#b30000;
+  classDef param fill:#d7f4ee80,stroke:#165044,stroke-width:0.5px,font-size:11,color:#165044;
+
+  classDef method   fill:#ffffff80,stroke:#000000,stroke-width:1px,font-size:12,color:#000000;
+  classDef helper   fill:#f5f5f580,stroke:#616161,stroke-width:2px,font-size:12,color:#212121;
+  classDef settings fill:#ffd5f680,stroke:#aa0088,stroke-width:1px,font-size:11,color:#aa0088;
+</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<p>Each module is described in more detail in the <a href="modules/">Modules</a> section of this documentation. Additional information can also be obtained by writing the module name followed by a question mark in a Jupyter notebook cell.</p>
+<div class="highlight"><pre><span></span><code><span class="n">cm</span><span class="o">.</span><span class="n">ManureMgmt</span><span class="err">?</span>
+</code></pre></div>
+<p>After initialising all modules, the first step in a model run is usually to update all parameters according to a specific scenario an year. This can be done for all initialised <code>ParameterRetriever</code> objects via the class method <code>ParameterRetriever.update_all_parameter_values</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">cm</span><span class="o">.</span><span class="n">ParameterRetriever</span><span class="o">.</span><span class="n">update_all_parameter_values</span><span class="p">(</span>
+    <span class="o">**</span><span class="n">my_session</span><span class="p">[</span><span class="s1">'my_scneario'</span><span class="p">],</span>
+    <span class="n">year</span> <span class="o">=</span> <span class="s1">'2030'</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>This will access the scenario definition in the <code>Session</code> object (via <code>**my_session['my_scneario']</code>) and update all modules and parameters according to the scenario workbooks specified.</p>
+<p>After updating parameters, running the model involves executing the <code>.calculate()</code> method for all modules in consecutive oreder.</p>
+<p>A special case is the <code>GeoDistributor</code> module which is the core module that solves the optimisation problem that distributes crop areas and animal numbers regionally. This module is run by first executing its <code>.make()</code> method followed by the <code>.solve()</code> method. See <code>cm.GeoDistributor.make?</code> and <code>cm.GeoDistributor.make?</code> for details.</p>
+<h3 id="storing-model-output">Storing model output</h3>
+<p>After running all modules for a specific scenario and year, results are stored by calling <code>my_session.store()</code>. This method requires the arguments <code>scn</code> and <code>year</code> which specifies under which scenario and year results should be stored. These are followed by all main modules to be included in the data (usually all of them).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The database files grows quite large in size (~120 MB per scenario <span class="arithmatex">\(\times\)</span> year) so it may be a good idea to limit the number of scenarios+years contained in one session. If many scenarios have ben added/removed, running the <code>.clean()</code> method will tidy up the database file and potentially save som space (but it's quite slow).</p>
+</div>
+<h2 id="retrieving-model-output">Retrieving model output</h2>
+<p>The main method for accessing model output is <code>cm.Session.get_attr()</code>. It requires the arguments <code>module</code> and <code>attr</code> which is the module name (e.g. 'CropProduction') and attribute table (e.g. 'area') to get data from, respectively. Both are case-insensitive and allows just writing the first letters that can uniquely identify a module.</p>
+<p>It also takes a <code>groupby</code> argument that allows to group outputs by selected "levels". The levels may be supplied as a list or a dict with level name as keys and aggregated level names (as specified in 'relation_tables.xlsx') as values. For example the below code will access crop areas grouped by production system and crop group.</p>
+<div class="highlight"><pre><span></span><code><span class="n">my_session</span><span class="o">.</span><span class="n">get_attr</span><span class="p">(</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="s1">'C'</span><span class="p">,</span>                                        <span class="c1"># 'C' uniquely identifies the 'CropProduction' module</span>
+    <span class="n">attr</span> <span class="o">=</span> <span class="s1">'area'</span><span class="p">,</span>                                       <span class="c1"># Get the 'area' attribute table</span>
+    <span class="n">groupby</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'crop'</span><span class="p">:</span><span class="s1">'crop_group'</span><span class="p">,</span> <span class="s1">'prod_system'</span><span class="p">:</span><span class="kc">None</span><span class="p">}</span>  <span class="c1"># Group by 'crop' (translated to 'crop_group') and 'prod_system'</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>This returns a <code>pandas.DataFrame</code> with scenario and year as index and the group by levels as columns.</p>
+<p>The available modules and data attribute tables can be viewed by calling the <code>Session</code> object in a code block.</p>
+<div class="highlight"><pre><span></span><code><span class="n">my_Session</span>
+</code></pre></div>
+<p><img src="figs/manual/session_repr_example2.png"><br>
+<em>Example of displaying a <code>Session</code> object in a jupyter notebook where the DemandAndConversions module and 'crop_prod_demand' data attribute have been expanded.</em></p>
+<p>In the <code>Session</code> display, modules can be expanded to show available data attribute tables and each data attribute can be expanded to show metadata in the form of a short description, unit, and module where it was calculated. It also shows the available aggregation levels, which can be used in the <code>groupby</code> argument to <code>cm.Session.get_attr()</code>.</p>
+<p>Optionally a (list of) scenario name(s) and year(s) can be supplied using the arguments <code>scn</code> and <code>years</code>, respectively to only retrieve data for selected scenarios and years. It is also possible to linearly interpolated between the calculated years and output yearly data from the first to last calculated year by setting the argument <code>interpolate</code> to <em>True</em>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.indexes", "navigation.expand", "toc.integrate", "content.code.copy", "search.highlight", "search.share"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="assets/javascripts/panzoom.min.js"></script>
+      
+        <script src="assets/javascripts/zoompan.js"></script>
+      
+    
+  </body>
+</html>
