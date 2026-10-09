@@ -30,6 +30,10 @@ from ..optimisation.utils import make_cvxpy_constraint, scale_constraints_by_row
 _C10_KEY = 'C10: A10 @ x >= b10'
 _C15_KEY = 'C15: A15 @ x >= 0'
 
+# Levels of x_fds' index other than 'region' (feed_to_prod factors don't vary by
+# region)
+_FDS_LEVELS_NO_REGION = ['feed', 'animal', 'species', 'breed', 'prod_system', 'sub_system']
+
 def _empty_byprod_series():
     '''Empty (prod_system, by_prod)-indexed float Series, i.e. the identity element
     for the '.add(..., fill_value=0)' chains combining by-product supply/generation
@@ -198,12 +202,23 @@ def change_objective(
     #    nutrient_supply_from_x means "reward every crop_prod", which would credit
     #    (and, combined with the C1 relaxation below, implicitly allow to grow)
     #    products the caller never selected.
-    mapper = nutrient_supply_from_x(
+    mapper, crp_long, fds_long = _nutrient_mapper_components(
         dist,
         nutrient,
         crop_prods=crop_prods,
         animal_prods=animal_prods,
     )
+
+    # Kept for update_demand(), which uses it to calculate each animal's/crop's
+    # contribution to the objective after solving. Stored here rather than rebuilt
+    # there, since the x_ani part of the mapper can't reliably be rebuilt once
+    # dist.apply_solution() has rescaled the herds (see nutrient_supply_from_x())
+    dist._nutrient_objective = {
+        'nutrient': nutrient,
+        'mapper': mapper,
+        'crp_long': crp_long,
+        'fds_long': fds_long,
+    }
 
     # 4) Replace dist.problem with one that maximises the mapped nutrient supply
     _set_maximise_objective(
@@ -282,6 +297,13 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
        balance" (see '_fix_cream_balance()' in DemandAndConversions) may induce
        further exports when dairy demand changes. Each iteration normally closes
        the remaining gap almost entirely.
+    5. Stores each animal's/crop's final contribution to the objective (mapper * x
+       at the solved x) on 'dist.data_attr', see '_store_objective_contributions()':
+       'nutrient_contrib_animals' (indexed like 'x_animals') and
+       'nutrient_contrib_crops' (indexed like 'x_crops', NET of the selected
+       crop_prods' use as feed via x_fds). These refer to the solution of the
+       maximise-nutrient problem, also if 'dist' is subsequently re-made and
+       re-solved with the default objective.
 
     The re-make starts from the CURRENT 'food_demand'/'export_demand' rather than
     re-calculating them from parameters, so that changes made to them after
@@ -337,7 +359,8 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
 
     Returns
     -------
-    None. Modifies 'dist.demand.data_attr' in place.
+    None. Modifies 'dist.demand.data_attr' in place and adds
+    'nutrient_contrib_animals'/'nutrient_contrib_crops' to 'dist.data_attr'.
     '''
 
     if mode not in _UPDATE_DEMAND_MODES:
@@ -485,6 +508,120 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
             "are linked to a relaxed product via a compound food or the dairy cream "
             "balance."
         ),
+    )
+
+    _store_objective_contributions(dist)
+
+    return None
+
+def _store_objective_contributions(dist):
+    '''Stores each animal's and crop's final contribution to the objective set by
+    'change_objective()' (i.e. mapper * x at the solved x) as data attributes on
+    'dist':
+    - 'nutrient_contrib_animals': mapper['ani'] * x_ani, indexed like 'x_animals'.
+    - 'nutrient_contrib_crops': mapper['crp'] * x_crp, indexed like 'x_crops', but
+      NET of the (negative) mapper['fds'] * x_fds term for feed use of the selected
+      crop_prods. Feed use is only known per crop_prod nationally (not per crop or
+      region it was grown in), so for each (prod_system, crop_prod) the total feed
+      term is allocated over the crops/regions producing that crop_prod pro rata to
+      their (positive) contribution via that crop_prod. I.e. each crop's
+      contribution via a crop_prod is scaled by
+      (production term + feed term) / production term for that crop_prod.
+
+    Summing both attributes therefore gives the objective value (excluding
+    regularisation), sum(mapper * x) over x_ani, x_crp and x_fds -- unless some
+    selected crop_prod is used as feed but not produced from any x_crp at all, in
+    which case its feed term cannot be allocated to a crop and a warning is issued.
+
+    Parameters
+    ----------
+    dist : GeoDistributor or FeedDistributor object
+        Must have been through 'change_objective()' and 'dist.solve()'.
+
+    Returns
+    -------
+    None. Adds 'nutrient_contrib_animals'/'nutrient_contrib_crops' to
+    'dist.data_attr'.
+    '''
+
+    obj = dist._nutrient_objective
+    nutrient = obj['nutrient']
+    crp_long = obj['crp_long']
+    fds_long = obj['fds_long']
+
+    contrib_ani = obj['mapper']['ani'] * dist.x['ani'].reindex(dist.x_idx['ani'], fill_value=0)
+
+    # Production term per (crop, prod_system, region, crop_prod)
+    crp_lvls = ['crop', 'prod_system', 'region']
+    x_crp = dist.x['crp'].rename('x').reset_index()
+    pos = crp_long.merge(x_crp, on=crp_lvls, how='inner')
+    pos['value'] = pos['value'] * pos['x']
+    prod_total = pos.groupby(['prod_system', 'crop_prod'])['value'].sum()
+
+    # Feed term (negative) per (prod_system, crop_prod), summed over all x_fds.
+    # 'prod_system' is matched the same way as when building mapper['fds'] (see
+    # _nutrient_mapper_components())
+    if fds_long is not None:
+        x_fds = (
+            dist.x['fds']
+            .groupby(_FDS_LEVELS_NO_REGION).sum()
+            .rename('x').reset_index()
+        )
+        neg = fds_long.merge(x_fds, on=_FDS_LEVELS_NO_REGION, how='inner')
+        neg['value'] = neg['value'] * neg['x']
+        feed_total = neg.groupby(['prod_system', 'crop_prod'])['value'].sum()
+    else:
+        feed_total = pd.Series(
+            dtype=float,
+            index=pd.MultiIndex.from_tuples([], names=['prod_system', 'crop_prod']),
+        )
+
+    # Allocate the feed term pro rata over crops/regions producing each crop_prod
+    feed_total = feed_total.reindex(prod_total.index.union(feed_total.index), fill_value=0)
+    prod_total = prod_total.reindex(feed_total.index, fill_value=0)
+    unallocated = feed_total[(prod_total <= 0) & (feed_total != 0)]
+    if len(unallocated) > 0:
+        warnings.warn(
+            "update_demand(): the feed use of some selected crop_prod(s) could not be "
+            "allocated to any crop in 'nutrient_contrib_crops', since they are not "
+            "produced from any x_crp in the solution. 'nutrient_contrib_animals' + "
+            "'nutrient_contrib_crops' will therefore not sum to the objective value. "
+            f"Unallocated '{nutrient}' (prod_system, crop_prod): {unallocated.to_dict()}"
+        )
+    net_factor = ((prod_total + feed_total) / prod_total.where(prod_total > 0)).fillna(0)
+
+    pos = pos.merge(
+        net_factor.rename('net_factor').reset_index(),
+        on=['prod_system', 'crop_prod'],
+        how='left',
+    )
+    pos['value'] = pos['value'] * pos['net_factor']
+    contrib_crp = (
+        pos.groupby(crp_lvls)['value'].sum()
+        .reindex(dist.x_idx['crp'], fill_value=0)
+    )
+
+    dist.data_attr.add(
+        contrib_ani,
+        name='nutrient_contrib_animals',
+        unit='kg*/year',
+        orig='maximise_nutrient_supply',
+        desc=(
+            f"Contribution of each animal (x_animals) to the supply of '{nutrient}' "
+            "maximised by change_objective(). *Units are kg or kcal (energy)"
+        ),
+    )
+    dist.data_attr.add(
+        contrib_crp,
+        name='nutrient_contrib_crops',
+        unit='kg*/year',
+        orig='maximise_nutrient_supply',
+        desc=(
+            f"Contribution of each crop (x_crops) to the supply of '{nutrient}' "
+            "maximised by change_objective(), net of feed use (x_feeds). "
+            "*Units are kg or kcal (energy)"
+        ),
+        allow_neg=True,
     )
 
     return None
@@ -1641,6 +1778,30 @@ def nutrient_supply_from_x(geodist, nutrient, crop_prods=None, animal_prods=None
         or kcal/year) generated per unit of that variable.
     '''
 
+    mapper, _, _ = _nutrient_mapper_components(
+        geodist, nutrient, crop_prods=crop_prods, animal_prods=animal_prods,
+    )
+    return mapper
+
+def _nutrient_mapper_components(geodist, nutrient, crop_prods=None, animal_prods=None):
+    '''Does the actual work for 'nutrient_supply_from_x()' (see that function for
+    parameters and the mapper itself), but additionally returns the per-crop_prod
+    breakdown of the crop and feed parts of the mapper, which 'update_demand()'
+    needs to net feed use of each crop_prod against the crops producing it.
+
+    Returns
+    -------
+    (mapper, crp_long, fds_long)
+        mapper : dict of pandas.Series, as returned by 'nutrient_supply_from_x()'.
+        crp_long : pandas.DataFrame with columns 'crop', 'prod_system', 'region',
+            'crop_prod' and 'value' (nutrient supply per unit of x_crp via that
+            crop_prod). Summing 'value' per x_crp row gives 'mapper['crp']'.
+        fds_long : pandas.DataFrame or None. Columns 'feed', 'animal', 'species',
+            'breed', 'prod_system', 'sub_system', 'crop_prod' and 'value'
+            (negative nutrient supply per unit of x_fds via that crop_prod, for
+            every region). None if 'geodist' has no x_fds.
+    '''
+
     if not hasattr(geodist, 'x_idx'):
         raise ValueError("geodist.x_idx is not defined. Run GeoDistributor.make() first.")
 
@@ -1685,8 +1846,9 @@ def nutrient_supply_from_x(geodist, nutrient, crop_prods=None, animal_prods=None
         how='inner',
     )
     merged['value'] = merged['rate'] * merged['nutrient_per_unit']
+    crp_long = merged[['crop', 'prod_system', 'region', 'crop_prod', 'value']]
     mapper['crp'] = (
-        merged
+        crp_long
         .groupby(['crop', 'prod_system', 'region'])['value']
         .sum()
         .reindex(geodist.x_idx['crp'], fill_value=0)
@@ -1749,6 +1911,7 @@ def nutrient_supply_from_x(geodist, nutrient, crop_prods=None, animal_prods=None
         mapper['ani'] = pd.Series(0.0, index=geodist.x_idx['ani'])
 
     # --- x_fds: feed amounts --> crop product usage --> nutrient supply (negative) ---
+    fds_long = None
     if 'fds' in geodist.x_idx:
         factors = geodist._get_feed_to_prod_factors('crop_prod', drop_region=True)
         merged = factors.merge(
@@ -1757,9 +1920,10 @@ def nutrient_supply_from_x(geodist, nutrient, crop_prods=None, animal_prods=None
             how='inner',
         )
         merged['value'] = -1 * merged['feed_to_prod'] * merged['share_domestic'] * merged['nutrient_per_unit']
+        fds_long = merged[_FDS_LEVELS_NO_REGION + ['crop_prod', 'value']]
         fds_no_region = (
-            merged
-            .groupby(['feed', 'animal', 'species', 'breed', 'prod_system', 'sub_system'])['value']
+            fds_long
+            .groupby(_FDS_LEVELS_NO_REGION)['value']
             .sum()
         )
         # 'feed_to_prod' factors don't vary by region, so broadcast across all
@@ -1771,7 +1935,7 @@ def nutrient_supply_from_x(geodist, nutrient, crop_prods=None, animal_prods=None
             .set_axis(geodist.x_idx['fds'])
         )
 
-    return mapper
+    return mapper, crp_long, fds_long
 
 def _warn_zero_nutrient_credit(
         demand, nutrient, crop_prods, animal_prods,
