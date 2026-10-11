@@ -7,7 +7,9 @@ the supply of a selected nutrient from a chosen set of crop and/or animal produc
 See 'change_objective()' for the main entry point (to be called after 'dist.make()'
 and before 'dist.solve()'), 'update_demand()' for the helper to be run after
 'dist.solve()' (and before 'dist.apply_solution()') to keep 'DemandAndConversions' consistent with
-the optimised production, and 'nutrient_supply_from_x()' for the underlying per-unit
+the optimised production, 'store_objective_contributions()' for storing each animal's
+and crop's contribution to the objective as data attributes on 'dist' (to be run
+after solving, possibly after a re-solve), and 'nutrient_supply_from_x()' for the underlying per-unit
 nutrient mapper (which can also be used on its own, e.g. for reporting "how much of
 nutrient X came from crop Y" in an already-solved model).
 '''
@@ -209,9 +211,9 @@ def change_objective(
         animal_prods=animal_prods,
     )
 
-    # Kept for update_demand(), which uses it to calculate each animal's/crop's
-    # contribution to the objective after solving. Stored here rather than rebuilt
-    # there, since the x_ani part of the mapper can't reliably be rebuilt once
+    # Kept for store_objective_contributions(), which uses it to calculate each
+    # animal's/crop's contribution to the objective after solving. Stored here
+    # rather than rebuilt there, since the x_ani part of the mapper can't reliably be rebuilt once
     # dist.apply_solution() has rescaled the herds (see nutrient_supply_from_x())
     dist._nutrient_objective = {
         'nutrient': nutrient,
@@ -297,13 +299,6 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
        balance" (see '_fix_cream_balance()' in DemandAndConversions) may induce
        further exports when dairy demand changes. Each iteration normally closes
        the remaining gap almost entirely.
-    5. Stores each animal's/crop's final contribution to the objective (mapper * x
-       at the solved x) on 'dist.data_attr', see '_store_objective_contributions()':
-       'nutrient_contrib_animals' (indexed like 'x_animals') and
-       'nutrient_contrib_crops' (indexed like 'x_crops', NET of the selected
-       crop_prods' use as feed via x_fds). These refer to the solution of the
-       maximise-nutrient problem, also if 'dist' is subsequently re-made and
-       re-solved with the default objective.
 
     The re-make starts from the CURRENT 'food_demand'/'export_demand' rather than
     re-calculating them from parameters, so that changes made to them after
@@ -359,8 +354,7 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
 
     Returns
     -------
-    None. Modifies 'dist.demand.data_attr' in place and adds
-    'nutrient_contrib_animals'/'nutrient_contrib_crops' to 'dist.data_attr'.
+    None. Modifies 'dist.demand.data_attr' in place.
     '''
 
     if mode not in _UPDATE_DEMAND_MODES:
@@ -510,14 +504,12 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
         ),
     )
 
-    _store_objective_contributions(dist)
-
     return None
 
-def _store_objective_contributions(dist):
-    '''Stores each animal's and crop's final contribution to the objective set by
-    'change_objective()' (i.e. mapper * x at the solved x) as data attributes on
-    'dist':
+def store_objective_contributions(dist):
+    '''Stores each animal's and crop's contribution to the objective set by
+    'change_objective()' (i.e. mapper * x at the current solution 'dist.x') as data
+    attributes on 'dist':
     - 'nutrient_contrib_animals': mapper['ani'] * x_ani, indexed like 'x_animals'.
     - 'nutrient_contrib_crops': mapper['crp'] * x_crp, indexed like 'x_crops', but
       NET of the (negative) mapper['fds'] * x_fds term for feed use of the selected
@@ -533,10 +525,25 @@ def _store_objective_contributions(dist):
     selected crop_prod is used as feed but not produced from any x_crp at all, in
     which case its feed term cannot be allocated to a crop and a warning is issued.
 
+    The nutrient mapper used is the one built by the most recent call to
+    'change_objective(dist, ...)', whereas the contributions are evaluated at
+    whatever 'dist.x' currently holds. This function can therefore be called either
+    right after solving the maximise-nutrient problem, or after 'update_demand()'
+    followed by re-making and re-solving 'dist' with the default objective (in
+    which case the contributions refer to that final solution). Call it before
+    'session.store()' for the attributes to be stored with the scenario.
+
+    Note that 'dist.data_attr' persists across scenarios (as do the attributes
+    stored here), so for a scenario run after one that called this function but
+    that does not call it itself, the previous scenario's contributions would be
+    stored too unless removed (e.g. 'dist.data_attr.remove(
+    'nutrient_contrib_animals')').
+
     Parameters
     ----------
     dist : GeoDistributor or FeedDistributor object
-        Must have been through 'change_objective()' and 'dist.solve()'.
+        Must have been through 'change_objective()' and 'dist.solve()' (possibly
+        followed by 'update_demand()' and a re-make/re-solve).
 
     Returns
     -------
@@ -544,12 +551,23 @@ def _store_objective_contributions(dist):
     'dist.data_attr'.
     '''
 
+    if getattr(dist, '_nutrient_objective', None) is None:
+        raise ValueError(
+            "No nutrient mapper found on 'dist'. Run change_objective(dist, ...) "
+            "(and dist.solve()) before calling store_objective_contributions()."
+        )
+    if dist.x is None:
+        raise ValueError("dist.x is not defined. Run dist.solve() first.")
+
     obj = dist._nutrient_objective
     nutrient = obj['nutrient']
     crp_long = obj['crp_long']
     fds_long = obj['fds_long']
 
-    contrib_ani = obj['mapper']['ani'] * dist.x['ani'].reindex(dist.x_idx['ani'], fill_value=0)
+    contrib_ani = (
+        obj['mapper']['ani'].reindex(dist.x_idx['ani'], fill_value=0)
+        * dist.x['ani'].reindex(dist.x_idx['ani'], fill_value=0)
+    )
 
     # Production term per (crop, prod_system, region, crop_prod)
     crp_lvls = ['crop', 'prod_system', 'region']
@@ -582,8 +600,8 @@ def _store_objective_contributions(dist):
     unallocated = feed_total[(prod_total <= 0) & (feed_total != 0)]
     if len(unallocated) > 0:
         warnings.warn(
-            "update_demand(): the feed use of some selected crop_prod(s) could not be "
-            "allocated to any crop in 'nutrient_contrib_crops', since they are not "
+            "store_objective_contributions(): the feed use of some selected crop_prod(s) "
+            "could not be allocated to any crop in 'nutrient_contrib_crops', since they are not "
             "produced from any x_crp in the solution. 'nutrient_contrib_animals' + "
             "'nutrient_contrib_crops' will therefore not sum to the objective value. "
             f"Unallocated '{nutrient}' (prod_system, crop_prod): {unallocated.to_dict()}"
