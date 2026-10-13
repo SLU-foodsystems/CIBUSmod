@@ -149,7 +149,7 @@ class GeoDistributor:
             fun = getattr(self,'make_C'+nr)
             vprint(f'Making constraint C{nr} ...')
             try:
-                fun(**{k: v for k, v in kwargs.items() if f"C{nr}" in k})
+                fun(**{k: v for k, v in kwargs.items() if k.startswith(f"C{nr}_")})
             except Exception as e:
                 print(
                     f"Exception raised when making constraint C{nr}.", file=sys.stderr
@@ -561,11 +561,19 @@ class GeoDistributor:
             constraints = constraints
         )
 
-    def make_C1(self):
+    def make_C1(self, C1_tol: float = 1e-6):
         '''Creates C1: A1 @ x == b1
 
         Main constraint to ensure that production exactly meets demand. Crop and animal products without any
         demand remain unconstrained. Demand is calculated in the 'DemandAndConversions' module.
+
+        Parameters
+        ----------
+        C1_tol : float, default 1e-6
+            Relative tolerance. If 0, production must exactly meet demand. If > 0, production may deviate
+            from demand by +/- C1_tol (relative), implemented as min and max constraints, see
+            GeoDistributor._add_C1(). A small tolerance (e.g. 1e-5) can help the solver when the problem is
+            very tight, e.g. when re-solving after CIBUSmod.utils.maximise_nutrient_supply.update_demand().
         '''
 
         # Animal product demand
@@ -595,12 +603,42 @@ class GeoDistributor:
         b1 = np.concatenate((self.D['ani'].values,self.D['crp'].values))
 
         # Append constraint
-        self.constraints.update({'C1: A1 @ x == b1' : {
-            'left' : lambda x,A1,b1: A1.M @ x,
-            'right' : lambda A1,b1: b1,
-            'rel' : '==',
-            'pars' : {'A1':A1, 'b1':b1}
-        }})
+        self._add_C1(A1, b1, C1_tol)
+
+    def _add_C1(self, A1, b1, C1_tol=1e-6):
+        '''Adds constraint C1 (A1 @ x == b1) to self.constraints. Shared by GeoDistributor.make_C1() and
+        FeedDistributor.make_C1().
+
+        If C1_tol == 0 a single equality constraint 'C1: A1 @ x == b1' is added. Otherwise min and max
+        constraints are added ('C1 (low): ...' and 'C1 (upp): ...'), with a band of
+        max(1e-6, C1_tol * |b1|) around b1 (the absolute minimum avoids 0 <= A1 @ x <= 0 for products with
+        zero demand), as for equality constraints in C8/C9. Besides 'A1' and 'b1' (the bound), the 'pars' of
+        these constraints also hold 'b1_demand' (the demand itself) and 'band', used by e.g.
+        CIBUSmod.utils.maximise_nutrient_supply.change_objective() to rebuild C1.
+        '''
+
+        if C1_tol == 0:
+            self.constraints.update({'C1: A1 @ x == b1' : {
+                'left' : lambda x,A1,b1: A1.M @ x,
+                'right' : lambda A1,b1: b1,
+                'rel' : '==',
+                'pars' : {'A1':A1, 'b1':b1}
+            }})
+            return None
+
+        band = np.maximum(1e-6, C1_tol * np.abs(b1))
+        for key, rel, bound in [
+            ('C1 (low): A1 @ x >= b1 * (1-tol)', '>=', b1 - band),
+            ('C1 (upp): A1 @ x <= b1 * (1+tol)', '<=', b1 + band),
+        ]:
+            self.constraints.update({key : {
+                'left' : lambda x,A1,b1,**_: A1.M @ x,
+                'right' : lambda A1,b1,**_: b1,
+                'rel' : rel,
+                'pars' : {'A1':A1, 'b1':bound, 'b1_demand':b1, 'band':band}
+            }})
+
+        return None
 
     def make_C2(self):
         '''Creates C2: A2 @ x >= 0

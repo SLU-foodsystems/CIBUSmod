@@ -1036,7 +1036,8 @@ def _relax_C1_for_selected_products(dist, crop_prods, animal_prods):
       cover feed use plus the original non-food and export demand, but is otherwise
       free to move -- up or down -- away from the original FOOD demand figure.
     - For all other rows: kept exactly as before, i.e. '== [demand]' (food + non-food
-      + export).
+      + export) -- or, if C1 was made with a tolerance ('dist.make(..., C1_tol=...)',
+      see 'GeoDistributor._add_C1()'), within the same tolerance of demand.
 
     This is done by row-slicing the existing 'A1'/'b1' matrices built by
     'dist.make()' rather than rebuilding them from scratch, so it automatically picks
@@ -1048,7 +1049,9 @@ def _relax_C1_for_selected_products(dist, crop_prods, animal_prods):
     only holds the food+non-food+export TOTAL with no way to recover the split.
 
     Modifies 'dist.constraints' in place: the original 'C1: A1 @ x == b1' entry is
-    replaced by up to two new entries, 'C1 (fixed): ...' and 'C1 (relaxed): ...'.
+    replaced by up to two new entries, 'C1 (fixed): ...' and 'C1 (relaxed): ...'
+    (with a tolerance, 'C1 (fixed, low)'/'C1 (fixed, upp)' instead of
+    'C1 (fixed)').
 
     Parameters
     ----------
@@ -1063,15 +1066,25 @@ def _relax_C1_for_selected_products(dist, crop_prods, animal_prods):
     None
     '''
 
+    # C1 is either a single equality constraint, or (if made with 'C1_tol' > 0, see
+    # 'GeoDistributor._add_C1()') a pair of min/max constraints around demand
     key = 'C1: A1 @ x == b1'
-    if key not in dist.constraints:
+    keys_tol = ['C1 (low): A1 @ x >= b1 * (1-tol)', 'C1 (upp): A1 @ x <= b1 * (1+tol)']
+    if key in dist.constraints:
+        c1 = dist.constraints.pop(key)
+        A1 = c1['pars']['A1']
+        b1 = c1['pars']['b1']
+        band = None
+    elif all(k in dist.constraints for k in keys_tol):
+        c1 = [dist.constraints.pop(k) for k in keys_tol][0]
+        A1 = c1['pars']['A1']
+        b1 = c1['pars']['b1_demand']
+        band = c1['pars']['band']
+    else:
         raise ValueError(
             f"Constraint '{key}' not found in dist.constraints. Make sure "
             "constraint 1 was included when calling dist.make(use_cons=...)."
         )
-    c1 = dist.constraints.pop(key)
-    A1 = c1['pars']['A1']
-    b1 = c1['pars']['b1']
 
     # Row index of A1 is a dict {'ani': (prod_system, species, animal_prod),
     # 'crp': (prod_system, crop_prod)} with rows stacked in that order (matching b1)
@@ -1131,13 +1144,25 @@ def _relax_C1_for_selected_products(dist, crop_prods, animal_prods):
     new_constraints = {}
 
     A1_rest = _sub_matrix(~sel, ~sel_ani, ~sel_crp)
-    if A1_rest.shape[0] > 0:
+    if A1_rest.shape[0] > 0 and band is None:
         new_constraints['C1 (fixed): A1 @ x == b1'] = {
             'left': lambda x, A1, b1: A1.M @ x,
             'right': lambda A1, b1: b1,
             'rel': '==',
             'pars': {'A1': A1_rest, 'b1': b1[~sel]},
         }
+    elif A1_rest.shape[0] > 0:
+        # Keep the same tolerance around demand for the rows that are not relaxed
+        for k, rel, bound in [
+            ('C1 (fixed, low): A1 @ x >= b1 * (1-tol)', '>=', b1[~sel] - band[~sel]),
+            ('C1 (fixed, upp): A1 @ x <= b1 * (1+tol)', '<=', b1[~sel] + band[~sel]),
+        ]:
+            new_constraints[k] = {
+                'left': lambda x, A1, b1: A1.M @ x,
+                'right': lambda A1, b1: b1,
+                'rel': rel,
+                'pars': {'A1': A1_rest, 'b1': bound},
+            }
 
     A1_sel = _sub_matrix(sel, sel_ani, sel_crp)
     if A1_sel.shape[0] > 0:

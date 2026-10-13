@@ -259,12 +259,21 @@ class FeedDistributor(GeoDistributor):
         # No scaling factors for feeds
         self.scale_f["fds"].iloc[:] = 1
 
-    def make_C1(self):
+    def make_C1(self, C1_tol: float = 1e-6):
         """Creates C1: A1 @ x == b1
 
         Main constraint to ensure that production exactly meets demand. Crop and animal
         products without any demand remain unconstrained. Demand is calculated in the
         'DemandAndConversions' module.
+
+        Parameters
+        ----------
+        C1_tol : float, default 1e-6
+            Relative tolerance. If 0, production must exactly meet demand. If > 0,
+            production may deviate from demand by +/- C1_tol (relative), implemented as
+            min and max constraints, see GeoDistributor._add_C1(). A small tolerance
+            (e.g. 1e-5) can help the solver when the problem is very tight, e.g. when
+            re-solving after CIBUSmod.utils.maximise_nutrient_supply.update_demand().
         """
 
         # Animal product demand
@@ -306,16 +315,7 @@ class FeedDistributor(GeoDistributor):
         b1 = np.concatenate([self.D["ani"].values, self.D["crp"].values])
 
         # Append constraint
-        self.constraints.update(
-            {
-                "C1: A1 @ x == b1": {
-                    "left": lambda x, A1, b1: A1.M @ x,
-                    "right": lambda A1, b1: b1,
-                    "rel": "==",
-                    "pars": {"A1": A1, "b1": b1},
-                }
-            }
-        )
+        self._add_C1(A1, b1, C1_tol)
 
     def make_C2(self):
         """
