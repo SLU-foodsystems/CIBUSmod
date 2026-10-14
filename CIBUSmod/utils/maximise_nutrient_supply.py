@@ -5,7 +5,9 @@ default (minimise deviation of crop areas/animal numbers from x0) to instead max
 the supply of a selected nutrient from a chosen set of crop and/or animal products.
 
 See 'change_objective()' for the main entry point (to be called after 'dist.make()'
-and before 'dist.solve()'), 'update_demand()' for the helper to be run after
+and before 'dist.solve()'), 'constrain_nutrient()' for constraining the supply of
+other nutrients relative to the maximised one (to be called after
+'change_objective()'),'update_demand()' for the helper to be run after
 'dist.solve()' (and before 'dist.apply_solution()') to keep 'DemandAndConversions' consistent with
 the optimised production, 'store_objective_contributions()' for storing each animal's
 and crop's contribution to the objective as data attributes on 'dist' (to be run
@@ -218,18 +220,128 @@ def change_objective(
     # animal's/crop's contribution to the objective after solving. Stored here
     # rather than rebuilt there, since the x_ani part of the mapper can't reliably be rebuilt once
     # dist.apply_solution() has rescaled the herds (see nutrient_supply_from_x())
+    # The product selection and objective settings are kept for constrain_nutrient(),
+    # which builds mappers for other nutrients for the same products and rebuilds
+    # dist.problem with the added constraints.
     dist._nutrient_objective = {
         'nutrient': nutrient,
         'mapper': mapper,
         'crp_long': crp_long,
         'fds_long': fds_long,
+        'crop_prods': crop_prods,
+        'animal_prods': animal_prods,
+        'objective_settings': dict(
+            lambda_reg=lambda_reg, lambda_ridge=lambda_ridge,
+            keep_linear=keep_linear, scale_constraints=scale_constraints,
+        ),
     }
 
     # 4) Replace dist.problem with one that maximises the mapped nutrient supply
-    _set_maximise_objective(
-        dist, mapper, lambda_reg=lambda_reg, lambda_ridge=lambda_ridge,
-        keep_linear=keep_linear, scale_constraints=scale_constraints,
+    _set_maximise_objective(dist, mapper, **dist._nutrient_objective['objective_settings'])
+
+    return mapper
+
+_CONSTRAIN_NUTRIENT_RELS = ('>=', '<=')
+
+def constrain_nutrient(dist, nutrient, factor, rel='>='):
+    '''Adds a constraint to a GeoDistributor/FeedDistributor whose objective has been
+    changed by 'change_objective()', requiring that the supply of another 'nutrient'
+    from the optimised crop and animal products is at least ('>=') or at most ('<=')
+    'factor' times the supply of the nutrient being maximised:
+
+        supply('nutrient') <rel> factor * supply(nutrient maximised)
+
+    Both supplies are calculated with the same type of mapper and for the same
+    selection of crop_prods/animal_prods as the objective (see
+    'nutrient_supply_from_x()'), i.e. the domestic food supply from the optimised
+    products, net of their use as feed. E.g. after
+    'change_objective(dist, "protein", ...)',
+    'constrain_nutrient(dist, "fat", 0.5, ">=")' requires the optimised products to
+    supply at least 0.5 kg fat per kg protein, and
+    'constrain_nutrient(dist, "kcal", 20_000, "<=")' at most 20,000 kcal per kg
+    protein. 'factor' is in units of 'nutrient' per unit of the maximised nutrient
+    (kg/kg, or kcal/kg for energy).
+
+    Must be called after 'change_objective()' and before 'dist.solve()'. Can be
+    called several times to constrain several nutrients (or set both a minimum and
+    a maximum for one nutrient). Calling it again for the same 'nutrient' and 'rel'
+    replaces the earlier constraint, e.g. to change 'factor'. The constraints are
+    removed when 'dist.make()' is run again.
+
+    Implemented as the single-row constraint
+    '(mapper_nutrient - factor * mapper_objective) @ x <rel> 0', scaled to a
+    maximum absolute coefficient of 1 (which doesn't change the constraint, since the
+    right-hand side is 0), after which 'dist.problem' is rebuilt with the same
+    objective settings as in 'change_objective()'.
+
+    Parameters
+    ----------
+    dist : GeoDistributor or FeedDistributor object
+        Must have been through 'change_objective()'.
+    nutrient : str
+        Nutrient to constrain, e.g. 'fat' or 'kcal' (see 'nutrient_supply_from_x()').
+    factor : float
+        Supply of 'nutrient' per unit supply of the maximised nutrient to require.
+    rel : {'>=', '<='}, default '>='
+        Whether the supply of 'nutrient' should be at least ('>=') or at most
+        ('<=') 'factor' times the supply of the maximised nutrient.
+
+    Returns
+    -------
+    dict of pandas.Series
+        The mapper for 'nutrient' (see 'nutrient_supply_from_x()'), restricted to
+        the optimised products.
+    '''
+
+    if rel not in _CONSTRAIN_NUTRIENT_RELS:
+        raise ValueError(f"'rel' must be one of {_CONSTRAIN_NUTRIENT_RELS}, got '{rel}'.")
+    obj = getattr(dist, '_nutrient_objective', None)
+    if obj is None or dist.problem is None:
+        raise ValueError(
+            "No objective set by change_objective() found on 'dist'. Run "
+            "dist.make(...) and change_objective(dist, ...) before constrain_nutrient()."
+        )
+
+    mapper, _, _ = _nutrient_mapper_components(
+        dist, nutrient, crop_prods=obj['crop_prods'], animal_prods=obj['animal_prods'],
     )
+
+    # Row vector over x (in dist.x_idx_short order, matching the problem variable)
+    row = np.concatenate([
+        (
+            mapper[k].reindex(dist.x_idx_short[k], fill_value=0).to_numpy()
+            - factor * obj['mapper'][k].reindex(dist.x_idx_short[k], fill_value=0).to_numpy()
+        ) if k in mapper else np.zeros(len(dist.x_idx_short[k]))
+        for k in dist.x_idx_short
+    ])
+    max_abs = np.abs(row).max()
+    if max_abs == 0:
+        warnings.warn(
+            f"constrain_nutrient(): neither '{nutrient}' nor '{obj['nutrient']}' is "
+            "supplied by the optimised products, so the constraint has no effect."
+        )
+    else:
+        row = row / max_abs
+
+    A = IndexedMatrix(
+        scipy.sparse.csc_matrix(row.reshape(1, -1)),
+        row_idx=pd.Index([f'{nutrient} {rel} {factor:g} x {obj["nutrient"]}'], name='nutrient_constraint'),
+        col_idx={k: dist.x_idx_short[k] for k in dist.x_idx_short},
+    )
+
+    # One constraint per nutrient and direction -- a new call with the same
+    # 'nutrient' and 'rel' replaces the earlier one
+    prefix = f"C_nutrient ({nutrient} {rel} factor x {obj['nutrient']})"
+    for k in [k for k in dist.constraints if k.startswith(prefix)]:
+        dist.constraints.pop(k)
+    dist.constraints[f'{prefix}: A @ x {rel} 0 [factor={factor:g}]'] = {
+        'left': lambda x, A: A.M @ x,
+        'right': lambda A: 0,
+        'rel': rel,
+        'pars': {'A': A},
+    }
+
+    _set_maximise_objective(dist, obj['mapper'], **obj['objective_settings'])
 
     return mapper
 
@@ -438,20 +550,34 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
         return atol + rtol * ref.abs()
 
     fell_back = []
-    bp_changed = False
+    orig_food_demand = food_demand.copy()
     for it in range(max_iter + 1):
         _remake_demand(
             demand, food_demand, base_export, extra_export.add(bp_export, fill_value=0),
         )
-        totals = _totals()
 
+        # Let consumption of the by-product food items settle at the current
+        # consumption of the other food items BEFORE measuring the gaps. Otherwise
+        # a gap would include transient demand that disappears once they follow --
+        # in particular, cutting milk food items while butter/cream still demand
+        # their old amount of cream makes the cream balance induce (temporary) milk
+        # powder exports, which would be mistaken for demand for milk and lead to
+        # milk food items being cut far too much.
         if len(bp_food) > 0:
-            gen_now = _by_prod_generation(demand)[0]
-            if bp_base is None:
-                bp_base = _by_prod_foods_base(demand, food_demand, bp_food, gen_now)
-            food_demand, bp_export, bp_changed = _set_by_prod_foods(
-                food_demand, bp_export, bp_base, gen_now, mode, _tol,
-            )
+            for _ in range(max_iter):
+                gen_now = _by_prod_generation(demand)[0]
+                if bp_base is None:
+                    bp_base = _by_prod_foods_base(demand, food_demand, bp_food, gen_now)
+                food_demand, bp_export, bp_changed = _set_by_prod_foods(
+                    food_demand, bp_export, bp_base, gen_now, mode, _tol,
+                )
+                if not bp_changed:
+                    break
+                _remake_demand(
+                    demand, food_demand, base_export, extra_export.add(bp_export, fill_value=0),
+                )
+
+        totals = _totals()
 
         if it == 0:
             _warn_demand_mismatch(
@@ -475,32 +601,25 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
             for k in target
         }
         gaps = {k: g[g.abs() > _tol(target[k])] for k, g in gaps.items()}
-        if all(len(g) == 0 for g in gaps.values()) and not bp_changed:
+        if all(len(g) == 0 for g in gaps.values()):
             break
         if it == max_iter:
             break
 
-        changed = bp_changed
+        changed = False
         for k in target:
             if len(gaps[k]) == 0:
                 continue
             food_demand, extra_export, fb, ch = _allocate_gap(
                 gaps[k], cf_map[k], food_demand, extra_export,
                 demand.data_attr.get('food_demand_to_processing'), mode,
+                orig_food_demand,
             )
             fell_back += fb
             changed = changed or ch
         if not changed:
             # Nothing more can be allocated -- remaining gaps are reported below
             break
-
-    if bp_changed:
-        # Consumption of by-product foods was changed in the last iteration but
-        # not re-made -- re-make so that all data attributes are consistent
-        _remake_demand(
-            demand, food_demand, base_export, extra_export.add(bp_export, fill_value=0),
-        )
-        totals = _totals()
 
     if mode == 'consumption' and fell_back:
         warnings.warn(
@@ -898,7 +1017,7 @@ def _set_by_prod_foods(food_demand, bp_export, base, gen, mode, tol):
 
     return food_demand, bp_export, changed
 
-def _allocate_gap(gap, cf, food_demand, extra_export, to_proc, mode):
+def _allocate_gap(gap, cf, food_demand, extra_export, to_proc, mode, orig_food_demand=None):
     '''Allocates the gap (optimised production minus current demand, at product
     level) of each relaxed product row in 'gap' to the food items mapped to it in
     'cf', see step 2 of 'update_demand()'. Any previously added exports are undone
@@ -919,6 +1038,10 @@ def _allocate_gap(gap, cf, food_demand, extra_export, to_proc, mode):
         Current 'food_demand_to_processing', used to convert 'food_demand' to
         product level (proportional to 'food_demand' row-wise).
     mode : {'consumption', 'trade'}
+    orig_food_demand : pandas.DataFrame, default None
+        'food_demand' before 'update_demand()' changed it. Used to split exports
+        of a surplus between food items in proportion to their original
+        consumption when their current consumption is zero (equal shares if None).
 
     Returns
     -------
@@ -998,6 +1121,10 @@ def _allocate_gap(gap, cf, food_demand, extra_export, to_proc, mode):
             if mode == 'consumption':
                 fell_back.append(p)
             w = food_demand.reindex(rows).sum(axis=1).fillna(0).to_numpy()
+            if w.sum() <= 0 and orig_food_demand is not None:
+                # No current consumption (e.g. all of it removed in an earlier
+                # iteration): use the original consumption mix instead
+                w = orig_food_demand.reindex(rows).sum(axis=1).fillna(0).to_numpy()
             if w.sum() <= 0:
                 w = np.ones(len(rows))
             k = g / (w / cfs).sum()
