@@ -53,6 +53,7 @@ nav:
     - Optimisation modules:
       - GeoDistributor: modules/geo_dist.md
       - FeedDistributor: modules/feed_dist.md
+      - Maximise nutrient supply: modules/maximise_nutrient_supply.md
     - Special modules:
       - LULUC modules: modules/LULUC.md
   - Impact assessment: impact.md

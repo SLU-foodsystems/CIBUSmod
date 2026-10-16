@@ -97,3 +97,4 @@ graph TD
 | -------------------- | -------------------- |
 | [`GeoDistributor`](geo_dist.md)         | Main optimisation module that distribute crop areas and animal numbers across regions                |
 | [`FeedDistributor`](feed_dist.md)         | As `GeoDistributor` but also includes feed rations as variables in the model                   |
+| [`maximise_nutrient_supply`](maximise_nutrient_supply.md)         | Helper functions to change the objective of `GeoDistributor`/`FeedDistributor` to maximise supply of a selected nutrient                   |
