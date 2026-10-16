@@ -59,9 +59,7 @@ def change_objective(
         nutrient,
         crop_prods=None,
         animal_prods=None,
-        lambda_reg=1e-9,
-        lambda_ridge=1e-9,
-        keep_linear=False,
+        lambda_ridge=1e-8,
         scale_constraints=False,
     ):
     '''Changes a GeoDistributor/FeedDistributor's optimisation problem (in place) from
@@ -71,11 +69,9 @@ def change_objective(
     ('animal_prods'). All other (non-selected) products remain constrained to exactly
     meet their baseline demand, as in the default model.
 
-    Must be called after 'dist.make(...)' and before 'dist.solve()' -- see notebook
-    'notebooks/no_test/Minimise Feed Imports.ipynb' for the general pattern this is
-    based on (there, 'make_import_opt_goal()'/'make_opt_goal()' swap in a custom
-    objective for a FeedDistributor in the same way). After solving, call
-    'update_demand()' to keep 'dist.demand' consistent with the optimised production.
+    Must be called after 'dist.make(...)' and before 'dist.solve()'. After solving,
+    call 'update_demand()' to keep 'dist.demand' consistent with the optimised
+    production.
 
     What this does, step by step
     -----------------------------
@@ -89,7 +85,7 @@ def change_objective(
        cover whatever of it is used as feed plus the original non-food and export
        demand, but is otherwise free to move -- up or down -- away from the original
        FOOD demand figure, so that the optimiser can trade off between selected
-       products purely based on which combination maximises the objective. Every
+       products based on nutrient supply and the ridge penalty. Every
        other (non-selected) product keeps its original equality constraint, i.e.
        keeps exactly meeting demand (food + non-food + export) as before.
     2. Rebuilds constraints 'C10'/'C15' (if present -- FeedDistributor only; see
@@ -106,19 +102,14 @@ def change_objective(
     3. Builds a nutrient-supply mapper restricted to the selected products (see
        'nutrient_supply_from_x()').
     4. Replaces 'dist.problem' with a new cvxpy.Problem that maximises the mapped
-       nutrient supply (implemented as minimising its negative) subject to the same
-       constraints built by 'dist.make()' (with C1, C10 and C15 modified per steps
-       1-2), plus a small regularisation term on variables that are not touched by
-       the objective, purely to keep the LP numerically well posed, and an independently weighted
-       "ridge" term on EVERY x_ani/x_crp (selected or not) -- see 'lambda_ridge'
-       below and '_set_maximise_objective()' for why this second term is needed.
+       scaled nutrient supply (implemented as minimising its negative), subject to
+       the constraints built by 'dist.make()' (with C1, C10 and C15 modified per steps
+       1-2), with one quadratic ridge penalty on scaled deviations of all crop
+       areas and animal numbers from 'dist.x0'. Feed quantities are excluded.
+       The penalty favours the initial distribution and can improve numerical
+       stability; its weight also affects the trade-off with nutrient supply.
 
-    Other constraints were reviewed for interference with allowing selected products
-    to exceed their baseline demand (requirement to check this is why this list
-    exists -- see the module/notebook this is based on):
-    - C10/C15 (by-product balance): DOES need adjusting -- see step 2 above -- since
-      it applies a demand-route-blended ratio directly to x_ani/x_crp rather than to
-      a fixed demand figure, unlike every other constraint below.
+    The remaining constraints retain their definitions:
     - C2 (regional feed demand share), C16 (crop residue balance): inequalities
       relative to actual production with no equivalent blended-ratio dependency, so
       extra production only relaxes them further, never breaks them.
@@ -128,8 +119,6 @@ def change_objective(
     - C4 (animal sub-system shares), C11-C14 (feed rations/imports): relate to
       x_ani/x_fds directly and are unaffected by relaxing C1's link between crop/
       animal PRODUCTION and demand.
-    Only C1, C10 and C15 tie production to a fixed demand figure or a demand-route-
-    blended ratio and so needed adjusting.
 
     Note on interpretation: with C1 relaxed, any production beyond baseline FOOD
     demand for the selected products has no explicit downstream disposition in the
@@ -152,17 +141,13 @@ def change_objective(
         'crop_prods'/'animal_prods' must be given.
     animal_prods : list of (species, animal_prod) tuples, default None
         Analogous to 'crop_prods' but for animal products.
-    lambda_reg : float, default 1e-9
-        Weight of the regularisation term applied to x not touched by the objective
-        (see step 3 above).
-    lambda_ridge : float, default 1e-9
-        Weight of the additional ridge term applied to EVERY x_ani/x_crp regardless
-        of selection (see '_set_maximise_objective()'). Independent of lambda_reg.
-        Only increase this if 'dist.solve()' still fails
-        numerically after the default; a value too large will noticeably discourage
-        growth of the selected products too.
-    keep_linear : bool, default False
-        If True, use a linear (L1) instead of quadratic (L2) regularisation term.
+    lambda_ridge : float, default 1e-8
+        Weight of the quadratic penalty on deviations of all crop areas and animal
+        numbers from 'dist.x0', weighted by 'dist.scale_f'. Feed quantities are
+        excluded. The penalty is added to the negative nutrient reward after its
+        coefficients are scaled to a maximum absolute value of 1. Larger weights
+        favour the initial distribution and may reduce nutrient supply. Set to 0
+        to disable the penalty.
     scale_constraints : bool, default False
         If True, rescales every constraint row to a maximum absolute coefficient
         of 1 before building 'dist.problem' (see
@@ -170,8 +155,8 @@ def change_objective(
         numerical-conditioning improvement (same feasible region, same optimum),
         not an approximation. Can help 'dist.solve()' avoid a generic SolverError
         (or an incorrect 'infeasible' report) on large/tightly-constrained
-        problems -- try this before reaching for a larger 'lambda_ridge'. Defaults
-        to False to leave existing behaviour unchanged.
+        problems. Try this before increasing 'lambda_ridge'. If False, constraint
+        rows retain the scaling supplied by 'dist.make()'.
 
     Returns
     -------
@@ -230,8 +215,7 @@ def change_objective(
         'crop_prods': crop_prods,
         'animal_prods': animal_prods,
         'objective_settings': dict(
-            lambda_reg=lambda_reg, lambda_ridge=lambda_ridge,
-            keep_linear=keep_linear, scale_constraints=scale_constraints,
+            lambda_ridge=lambda_ridge, scale_constraints=scale_constraints,
         ),
     }
 
@@ -672,10 +656,12 @@ def store_objective_contributions(dist):
       contribution via a crop_prod is scaled by
       (production term + feed term) / production term for that crop_prod.
 
-    Summing both attributes therefore gives the objective value (excluding
-    regularisation), sum(mapper * x) over x_ani, x_crp and x_fds -- unless some
-    selected crop_prod is used as feed but not produced from any x_crp at all, in
-    which case its feed term cannot be allocated to a crop and a warning is issued.
+    Summing both attributes gives the unscaled nutrient supply, sum(mapper * x)
+    over x_ani, x_crp and x_fds, in kg or kcal before the ridge penalty. The solver
+    minimises the negative scaled supply plus the penalty, so its objective value
+    has a different sign and scale. If a selected crop_prod is used as feed but
+    not produced from any x_crp, its feed term cannot be allocated to a crop and
+    a warning is issued.
 
     The nutrient mapper used is the one built by the most recent call to
     'change_objective(dist, ...)', whereas the contributions are evaluated at
@@ -755,7 +741,7 @@ def store_objective_contributions(dist):
             "store_objective_contributions(): the feed use of some selected crop_prod(s) "
             "could not be allocated to any crop in 'nutrient_contrib_crops', since they are not "
             "produced from any x_crp in the solution. 'nutrient_contrib_animals' + "
-            "'nutrient_contrib_crops' will therefore not sum to the objective value. "
+            "'nutrient_contrib_crops' will therefore omit part of the nutrient supply. "
             f"Unallocated '{nutrient}' (prod_system, crop_prod): {unallocated.to_dict()}"
         )
     net_factor = ((prod_total + feed_total) / prod_total.where(prod_total > 0)).fillna(0)
@@ -1406,18 +1392,13 @@ def _split_byprod_supply_for_selected_products(dist, crop_prods, animal_prods):
     inventing a regional allocation assumption the rest of the model doesn't make
     (e.g. pro-rata by baseline regional production share), C15 only gets the
     food-route-ratio substitution for the excess part -- the fixed floor
-    contribution is NOT subtracted from its right-hand side. This means C15 may
-    slightly UNDER-state regional by-product supply for a selected product's frozen
-    floor portion, which can at most make the model lean slightly MORE on imported
-    feed for that by-product regionally -- the safe direction, unlike the original
-    (unfixed) behaviour, which could overstate supply. C10 (national) has no such
-    ambiguity and gets the fix including the floor contribution. "Slightly" is not
-    guaranteed, though: if the missing floor credit concerns a by-product that
-    ALSO needs a genuinely REGIONAL share of feed demand met (i.e. has its own C15
-    row, meaning 'share_domestic>0' and 'share_regional>0' for it somewhere in
-    FeedMgmt), C15's regional-sourcing guarantee cannot be relied on for that
-    by-product at all -- see '_warn_c15_regional_gap()', which checks for and
-    warns about exactly this case.
+    contribution is not subtracted from its right-hand side. C15 therefore
+    understates regional by-product supply for the fixed floor portion, while C10
+    includes the full national floor contribution. If a by-product with missing
+    floor credit must meet a positive regional share of feed demand (a C15 row
+    with 'share_domestic>0' and 'share_regional>0' in FeedMgmt), the regional-sourcing
+    guarantee cannot be relied on for that by-product. '_warn_c15_regional_gap()'
+    checks for this case and issues a warning.
 
     Parameters
     ----------
@@ -1776,102 +1757,51 @@ def _rebuild_C15(dist):
     return None
 
 def _set_maximise_objective(
-        dist, mapper, lambda_reg=1e-9, lambda_ridge=1e-9, keep_linear=False,
-        scale_constraints=False,
+        dist, mapper, lambda_ridge=1e-8, scale_constraints=False,
     ):
-    '''Replaces 'dist.problem' with a cvxpy.Problem that maximises
-    sum(mapper['crp'] * x['crp']) + sum(mapper['ani'] * x['ani'])
-    + sum(mapper['fds'] * x['fds']) (implemented as minimising its negative, since
-    'mapper['fds']' is already negative-signed -- see 'nutrient_supply_from_x()'),
-    subject to the constraints currently in 'dist.constraints'.
+    """Build the scaled nutrient objective with a quadratic penalty around x0.
 
-    A small quadratic (or, if 'keep_linear', linear) regularisation term is added on
-    the DEVIATION FROM 'dist.x0' of the x-elements that are not part of the objective
-    (i.e. have a 0 coefficient in the mapper), purely to keep the LP numerically well
-    posed. Crucially this regularises towards 'dist.x0' rather than towards 0 (unlike
-    'make_opt_goal()' in 'notebooks/no_test/help_funs.py', which this otherwise
-    mirrors): although non-selected crop_prod/animal_prod remain pinned to their
-    baseline TOTAL via the (fixed, equality) part of C1, that total is often not
-    unique -- e.g. a crop_prod can be produced by more than one crop, in more than one
-    region, and a fixed animal_prod total still leaves other animal_prod from the same
-    herd (and hence its x_ani) otherwise free. Regularising raw x toward 0 would then
-    bias the solution toward whichever mix produces that fixed total with the least
-    x, silently reshuffling non-selected crops/animals/regions (e.g. shrinking
-    non-feed crops, greenhouse area, or even the selected animals' own herds, if that
-    happens to reduce OTHER unrelated x more than it reduces the reward) even though
-    nothing was actually asked to change for them. Regularising toward 'dist.x0'
-    keeps everything not explicitly selected as close as possible to the baseline
-    solution instead, matching the default GeoDistributor/FeedDistributor objective's
-    own philosophy (minimise deviation from x0) for anything the caller didn't ask to
-    optimise. x_fds ('dist.x0["fds"]' is 0 by construction, see
-    FeedDistributor.get_x0()) is excluded from this regularisation entirely rather
-    than regularised towards that 0 -- see below.
+    Replaces 'dist.problem' with a cvxpy.Problem that minimises
 
-    The deviation is additionally weighted by 'dist.scale_f' (the same per-variable
-    scaling factors the default objective uses, see
-    'GeoDistributor.calculate_scaling_factors()'), because x_ani/x_crp mix wildly
-    different absolute scales (e.g. animal head counts vs. crop hectares, or a small
-    specialised crop vs. a large-area feed crop like grazing land). Without this, an
-    unweighted sum_squares(x - x0) is dominated by whichever variables happen to have
-    the largest absolute x0 (typically large-area feed crops), so the solver would
-    rather shrink the OBJECTIVE's own animals -- to avoid needing more of that
-    large-area feed -- than grow them, even though growing them was the entire point.
+        -(m @ x) / M + lambda_ridge * sum((w * (x - x0)) ** 2)
 
-    x_fds (FeedDistributor only) is excluded from regularisation altogether, whether
-    or not it has a nonzero mapper coefficient (i.e. even when only 'animal_prods',
-    not 'crop_prods', is selected). If it were regularised towards its x0 of 0 like
-    everything else, growing a selected animal_prod -- which mechanically requires
-    growing its herd's feed intake too, via constraints C11-C13 tying x_fds to x_ani
-    -- would be fighting a penalty on every one of those feed variables for moving
-    away from 0, directly opposing the very growth the objective is trying to
-    achieve. x_fds does not need this regularisation for numerical stability either:
-    C11-C13 already tie it tightly (as ration shares) to x_ani, which is itself
-    either regularised towards x0 (if not selected) or driven directly by the
-    objective (if selected), so it cannot float independently regardless.
+    where m contains the nutrient mapper coefficients and M is their maximum
+    absolute value (or 1 when all coefficients are zero). Feed coefficients already
+    represent nutrient supply lost to feed use and retain their negative sign in m.
+    The constraints come from 'dist.constraints'.
 
-    A second, independently weighted ridge term of the same form is ALSO applied to every
-    x_ani/x_crp regardless of selection (i.e. 'not_in_obj' is replaced by an
-    all-ones mask, still excluding x_fds for the same reason as above). This is
-    needed for numerical reasons distinct from the main regularisation above: the
-    selected products get a purely LINEAR reward in 'obj_fun' with zero quadratic
-    curvature, while everything else has the (quadratic) main regularisation term.
-    Mixing zero-curvature and positive-curvature blocks in one QP, combined with
-    this model's constraint matrices already spanning an extreme coefficient range
-    (independent of anything this function does -- the same range shows up solving
-    the unmodified default objective, which tolerates it fine because it is purely
-    quadratic everywhere), can make cvxpy/GUROBI's barrier method fail outright with
-    a generic "SolverError"/"No solution found" rather than reporting infeasibility
-    -- observed in practice once enough crop_prods/animal_prods are selected at once
-    for the zero-curvature block to become large. Giving every variable a little
-    curvature can improve numerical stability. Both weights default to 1e-9 and
-    are independent: changing 'lambda_reg' does not change 'lambda_ridge'. Their
-    influence on nutrient supply and the solution mix should be checked for the
-    model being solved.
+    For all crop areas and animal numbers, w is 'dist.scale_f', using the same
+    per-variable weights as the distributor's default objective. This accounts for
+    differences in variable scales, such as hectares and animal numbers. Both
+    selected and unselected crops and animals are penalised around 'dist.x0'.
+    This favours the initial distribution and adds curvature that can improve
+    numerical stability. Increasing the weight may reduce nutrient supply, so
+    the trade-off should be assessed for the model being solved.
+
+    Feed quantities have zero penalty weight. Their x0 values are zero by
+    construction and do not represent an initial ration. Penalising deviations
+    from those zeros would introduce a separate preference for reduced feed use.
 
     Parameters
     ----------
     dist : GeoDistributor or FeedDistributor object
+        Provides variable indices, initial values, scaling factors and constraints.
     mapper : dict of pandas.Series
-        Per-unit nutrient mapper as returned by 'nutrient_supply_from_x()'
-    lambda_reg : float, default 1e-9
-    lambda_ridge : float, default 1e-9
-        Independent of lambda_reg.
-    keep_linear : bool, default False
+        Per-unit nutrient coefficients from 'nutrient_supply_from_x()', indexed
+        like 'dist.x_idx'. Missing variable groups receive zero coefficients.
+    lambda_ridge : float, default 1e-8
+        Weight of the quadratic penalty on scaled crop and animal deviations
+        from x0. Set to 0 to disable the penalty. Feed quantities are excluded.
     scale_constraints : bool, default False
-        If True, rescales every constraint row to a maximum absolute coefficient
-        of 1 before building the problem (see
-        'CIBUSmod.optimisation.utils.scale_constraints_by_row()') -- a pure
-        numerical-conditioning improvement (same feasible region, same optimum),
-        applied here as the LAST step before 'cvxpy.Problem(...)' so it reflects
-        whatever 'dist.constraints' looks like after 'change_objective()''s own
-        C1/C10/C15 rebuilding (see '_relax_C1_for_selected_products()' and
-        '_split_byprod_supply_for_selected_products()'). Defaults to False to
-        leave existing behaviour unchanged.
+        If True, rescale each constraint row to a maximum absolute coefficient
+        of 1 before constructing the problem. This preserves the feasible region
+        and includes any changes to C1, C10 and C15 made by 'change_objective()'.
 
     Returns
     -------
     None
-    '''
+        Replaces 'dist.problem' in place.
+    """
 
     # Variable order must match dist.x_idx_short's key order ('ani', 'crp', [,'fds']),
     # since GeoDistributor.solve() splits the solved x back up in that same order
@@ -1892,13 +1822,8 @@ def _set_maximise_objective(
         for k in keys
     ])
 
-    # Nutrient-supply coefficients are typically very large (e.g. kcal per hectare
-    # can be in the millions), which on its own leads to severe numerical
-    # ill-conditioning in the solver (huge objective values relative to the O(1)
-    # regularisation and constraint right-hand sides). Since minimising c^T x and
-    # minimising (c/k)^T x for any positive constant k has the same optimal x,
-    # rescaling full_map to a maximum absolute value of 1 fixes this without
-    # affecting the result.
+    # Normalise the nutrient coefficients to improve numerical conditioning.
+    # The ridge weight acts relative to this scaled reward, not raw kg or kcal.
     max_abs = np.abs(full_map).max()
     if max_abs > 0:
         full_map = full_map / max_abs
@@ -1930,38 +1855,16 @@ def _set_maximise_objective(
     x0_vec = np.concatenate([_reindex_like_x0(dist.x0[k], k) for k in keys])
     scale_f_vec = np.concatenate([_reindex_like_x0(dist.scale_f[k], k) for k in keys])
 
-    in_obj = (np.abs(full_map) > 0).astype(float)
-    not_in_obj = 1 - in_obj
-
-    # x_fds is excluded from regularisation entirely, regardless of whether it has a
-    # nonzero mapper coefficient. dist.x0['fds'] is always 0 by construction (it is
-    # not a meaningful baseline -- FeedDistributor doesn't track a "baseline" feed
-    # use), so regularising x_fds towards it directly fights any attempt to grow a
-    # SELECTED animal_prod: growing selected animals requires proportionally more of
-    # their feed (via constraints C11-C13), and every one of those feed variables
-    # would otherwise be penalised for moving away from 0. x_fds does not need its
-    # own regularisation anyway: C11-C13 already tie it tightly (as ration shares) to
-    # x_ani, which is itself regularised (if not selected) or objective-driven (if
-    # selected), so it cannot float independently.
-    if 'fds' in dist.x_idx_short:
-        not_in_obj[-sizes['fds']:] = 0
-
-    reg_weight = not_in_obj * scale_f_vec
-    if keep_linear:
-        reg_fun = lambda_reg * cvxpy.norm1(cvxpy.multiply(reg_weight, x - x0_vec))
-    else:
-        reg_fun = lambda_reg * cvxpy.sum_squares(cvxpy.multiply(reg_weight, x - x0_vec))
-
-    # Ridge term: same shape as reg_fun above, but covering ALL of x_ani/x_crp (not
-    # just the non-selected part) with a much smaller weight -- see docstring for why
-    # this is needed even for the selected (in_obj) variables.
-    ridge_mask = np.ones(n)
-    if 'fds' in dist.x_idx_short:
-        ridge_mask[-sizes['fds']:] = 0
+    # Penalise all crop/animal deviations from x0, regardless of nutrient selection.
+    # Feeds have no baseline ration in x0 and are excluded from the penalty.
+    ridge_mask = np.concatenate([
+        np.zeros(sizes[k]) if k == 'fds' else np.ones(sizes[k])
+        for k in keys
+    ])
     ridge_weight = ridge_mask * scale_f_vec
     ridge_fun = lambda_ridge * cvxpy.sum_squares(cvxpy.multiply(ridge_weight, x - x0_vec))
 
-    objective = cvxpy.Minimize(obj_fun + reg_fun + ridge_fun)
+    objective = cvxpy.Minimize(obj_fun + ridge_fun)
 
     cons_dict = (
         scale_constraints_by_row(dist.constraints)
@@ -2026,7 +1929,7 @@ def nutrient_supply_from_x(geodist, nutrient, crop_prods=None, animal_prods=None
     ----------
     geodist : GeoDistributor or FeedDistributor object
     nutrient : str
-        Nutrient to build the mapper for, e.g. one of 'DM', 'N', 'protein', 'fat',
+        Nutrient to build the mapper for, e.g. one of 'protein', 'fat',
         'fibre' or 'kcal' (see the 'nutrient' filter values for parameter
         'composition' in DemandAndConversions).
     crop_prods : list of str, default None
