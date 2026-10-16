@@ -561,7 +561,7 @@ class GeoDistributor:
             constraints = constraints
         )
 
-    def make_C1(self, C1_tol: float = 1e-6):
+    def make_C1(self, C1_tol: float = 1e-8):
         '''Creates C1: A1 @ x == b1
 
         Main constraint to ensure that production exactly meets demand. Crop and animal products without any
@@ -569,7 +569,7 @@ class GeoDistributor:
 
         Parameters
         ----------
-        C1_tol : float, default 1e-6
+        C1_tol : float, default 1e-8
             Relative tolerance. If 0, production must exactly meet demand. If > 0, production may deviate
             from demand by +/- C1_tol (relative), implemented as min and max constraints, see
             GeoDistributor._add_C1(). A small tolerance (e.g. 1e-5) can help the solver when the problem is
