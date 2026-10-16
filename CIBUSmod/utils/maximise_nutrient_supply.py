@@ -59,8 +59,8 @@ def change_objective(
         nutrient,
         crop_prods=None,
         animal_prods=None,
-        lambda_reg=1e-6,
-        lambda_ridge=None,
+        lambda_reg=1e-9,
+        lambda_ridge=1e-9,
         keep_linear=False,
         scale_constraints=False,
     ):
@@ -110,7 +110,7 @@ def change_objective(
        constraints built by 'dist.make()' (with C1, C10 and C15 modified per steps
        1-2), plus a small regularisation term on variables that are not touched by
        the objective, purely to keep the LP numerically well posed (mirrors
-       'make_opt_goal()' in 'notebooks/no_test/help_funs.py'), and a much smaller
+       'make_opt_goal()' in 'notebooks/no_test/help_funs.py'), and an independently weighted
        "ridge" term on EVERY x_ani/x_crp (selected or not) -- see 'lambda_ridge'
        below and '_set_maximise_objective()' for why this second term is needed.
 
@@ -153,13 +153,13 @@ def change_objective(
         'crop_prods'/'animal_prods' must be given.
     animal_prods : list of (species, animal_prod) tuples, default None
         Analogous to 'crop_prods' but for animal products.
-    lambda_reg : float, default 1e-6
+    lambda_reg : float, default 1e-9
         Weight of the regularisation term applied to x not touched by the objective
         (see step 3 above).
-    lambda_ridge : float, default None
+    lambda_ridge : float, default 1e-9
         Weight of the additional ridge term applied to EVERY x_ani/x_crp regardless
-        of selection (see '_set_maximise_objective()'). If None (default), uses
-        'lambda_reg * 1e-3'. Only increase this if 'dist.solve()' still fails
+        of selection (see '_set_maximise_objective()'). Independent of lambda_reg.
+        Only increase this if 'dist.solve()' still fails
         numerically after the default; a value too large will noticeably discourage
         growth of the selected products too.
     keep_linear : bool, default False
@@ -1777,7 +1777,7 @@ def _rebuild_C15(dist):
     return None
 
 def _set_maximise_objective(
-        dist, mapper, lambda_reg=1e-6, lambda_ridge=None, keep_linear=False,
+        dist, mapper, lambda_reg=1e-9, lambda_ridge=1e-9, keep_linear=False,
         scale_constraints=False,
     ):
     '''Replaces 'dist.problem' with a cvxpy.Problem that maximises
@@ -1830,7 +1830,7 @@ def _set_maximise_objective(
     either regularised towards x0 (if not selected) or driven directly by the
     objective (if selected), so it cannot float independently regardless.
 
-    A second, much smaller ridge term of the same form is ALSO applied to every
+    A second, independently weighted ridge term of the same form is ALSO applied to every
     x_ani/x_crp regardless of selection (i.e. 'not_in_obj' is replaced by an
     all-ones mask, still excluding x_fds for the same reason as above). This is
     needed for numerical reasons distinct from the main regularisation above: the
@@ -1844,17 +1844,19 @@ def _set_maximise_objective(
     a generic "SolverError"/"No solution found" rather than reporting infeasibility
     -- observed in practice once enough crop_prods/animal_prods are selected at once
     for the zero-curvature block to become large. Giving every variable a little
-    curvature restores numerical stability without perceptibly changing the
-    solution, since 'lambda_ridge' defaults to a small fraction of 'lambda_reg'.
+    curvature can improve numerical stability. Both weights default to 1e-9 and
+    are independent: changing 'lambda_reg' does not change 'lambda_ridge'. Their
+    influence on nutrient supply and the solution mix should be checked for the
+    model being solved.
 
     Parameters
     ----------
     dist : GeoDistributor or FeedDistributor object
     mapper : dict of pandas.Series
         Per-unit nutrient mapper as returned by 'nutrient_supply_from_x()'
-    lambda_reg : float, default 1e-6
-    lambda_ridge : float, default None
-        If None, uses 'lambda_reg * 1e-3'.
+    lambda_reg : float, default 1e-9
+    lambda_ridge : float, default 1e-9
+        Independent of lambda_reg.
     keep_linear : bool, default False
     scale_constraints : bool, default False
         If True, rescales every constraint row to a maximum absolute coefficient
@@ -1871,9 +1873,6 @@ def _set_maximise_objective(
     -------
     None
     '''
-
-    if lambda_ridge is None:
-        lambda_ridge = lambda_reg * 1e-3
 
     # Variable order must match dist.x_idx_short's key order ('ani', 'crp', [,'fds']),
     # since GeoDistributor.solve() splits the solved x back up in that same order
