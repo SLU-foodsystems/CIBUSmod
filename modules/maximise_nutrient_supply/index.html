@@ -1,0 +1,2145 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CIBUSmod documentation">
+      
+      
+      
+        <link rel="canonical" href="https://SLU-foodsystems.github.io/CIBUSmod/modules/maximise_nutrient_supply/">
+      
+      
+        <link rel="prev" href="../feed_dist/">
+      
+      
+        <link rel="next" href="../LULUC/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Maximise nutrient supply - CIBUSmod</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/panzoom.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/docstring.css">
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/panzoom.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <meta name="panzoom-theme" content="material">
+<meta name="panzoom-data" content='{"selectors": [".mermaid", ".d2"], "initial_zoom_level": 1.0}'> </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#maximise-nutrient-supply" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="CIBUSmod" class="md-header__button md-logo" aria-label="CIBUSmod" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CIBUSmod
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Maximise nutrient supply
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/SLU-foodsystems/CIBUSmod" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CIBUSmod
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="CIBUSmod" class="md-nav__button md-logo" aria-label="CIBUSmod" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CIBUSmod
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SLU-foodsystems/CIBUSmod" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CIBUSmod
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Main modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Main modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demand_and_conversions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DemandAndConversions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crop_prod/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CropProduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../animal_herd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnimalHerd
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../waste_and_circularity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WasteAndCircularity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mgmt modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Mgmt modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feed_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FeedMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../byprod_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ByProductMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manure_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ManureMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crop_residue_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CropResidueMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cover_crops_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CoverCropsMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plant_nutrient_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PlantNutrientMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../machinery_and_energy_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MachineryAndEnergyMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inputs_mgmt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    InputsMgmt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optimisation modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Optimisation modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../geo_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GeoDistributor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feed_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FeedDistributor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maximise nutrient supply
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maximise nutrient supply
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#changing-the-objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing the objective
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Changing the objective">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#maximise_nutrient_supplychange_objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        maximise_nutrient_supply.change_objective()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maximise_nutrient_supplyconstrain_nutrient" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        maximise_nutrient_supply.constrain_nutrient()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#after-solving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        After solving
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="After solving">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#maximise_nutrient_supplyupdate_demand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        maximise_nutrient_supply.update_demand()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maximise_nutrient_supplystore_objective_contributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        maximise_nutrient_supply.store_objective_contributions()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nutrient-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nutrient mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Nutrient mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#maximise_nutrient_supplynutrient_supply_from_x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        maximise_nutrient_supply.nutrient_supply_from_x()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Special modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Special modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LULUC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LULUC modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../impact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Impact assessment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="maximise-nutrient-supply">Maximise nutrient supply</h1>
+<p>The <code>maximise_nutrient_supply</code> module contains helper functions for changing the optimisation objective of a <a href="../geo_dist/"><code>GeoDistributor</code></a> or <a href="../feed_dist/"><code>FeedDistributor</code></a> from the default (minimise deviation of crop areas and animal numbers from <code>x0</code>) to instead <strong>maximise the domestic supply of a selected nutrient</strong> (e.g. protein) from a chosen set of crop and/or animal products. All non-selected products remain constrained to exactly meet their baseline demand.</p>
+<p>The functions are accessed via <code>cm.maximise_nutrient_supply</code> and are called in a specific order relative to the <code>.make()</code>, <code>.solve()</code> and <code>.apply_solution()</code> methods of the distributor, as shown in the flowchart below.</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button><button class="panzoom-max panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 32C14.3 32 0 46.3 0 64l0 96c0 17.7 14.3 32 32 32s32-14.3 32-32l0-64 64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-64zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0 0 64c0 17.7 14.3 32 32 32s32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-96 0zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 64-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0c17.7 0 32-14.3 32-32l0-96z"></path>
+    </svg>
+</button><button class="panzoom-min panzoom-button panzoom-hidden">
+    <svg class="panzoom-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 64-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0c17.7 0 32-14.3 32-32l0-96zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0 0 64c0 17.7 14.3 32 32 32s32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-96 0zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-64zM320 320c-17.7 0-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32s32-14.3 32-32l0-64 64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>
+%%{init: {
+  "flowchart": {
+    "nodeSpacing": 10,
+    "rankSpacing": 20,
+    "padding": 3,
+    "curve": "linear"
+  },
+  "themeVariables": {
+    "fontSize": "12px"
+  }
+}}%%
+
+
+flowchart TD
+  A["&lt;b&gt;FeedDistributor&lt;/b&gt; / &lt;b&gt;GeoDistributor&lt;/b&gt;"]:::mod_opt
+
+  A --&gt; M[".make()"]:::method
+  M --&gt; CO["change_objective()"]:::helper
+  CO --&gt; CN["constrain_nutrient()
+  (optional, repeatable)"]:::helper
+  CN --&gt; S[".solve(apply_solution=False)"]:::method
+  S --&gt; UD["update_demand()"]:::helper
+  UD --&gt; DAC["&lt;b&gt;DemandAndConversions&lt;/b&gt;.data_attr
+  re-made to match optimised production"]:::mod_main
+  UD --&gt; AS[".apply_solution()
+  (or re-make and re-solve with default objective)"]:::method
+  AS --&gt; SOC["store_objective_contributions()
+  (optional)"]:::helper
+  SOC --&gt; OUT["&lt;b&gt;FeedDistributor.data_attr.&lt;/b&gt;
+  nutrient_contrib_animals, nutrient_contrib_crops"]:::data
+
+  CO -. "uses" .-&gt; NS["nutrient_supply_from_x()"]:::helper
+
+
+  %% -------------------------
+  %% Styles
+  %% -------------------------
+  classDef mod_main fill:#509e2f80,stroke:#203f13,stroke-width:2px,font-size:13,color:#203f13;
+  classDef mod_mgmt fill:#6ad1e380,stroke:#125560,stroke-width:2px,font-size:13,color:#125560;
+  classDef mod_opt  fill:#d9d9d680,stroke:#43433e,stroke-width:2px,font-size:13,color:#43433e;
+
+  classDef data  fill:#fee8c880,stroke:#b30000,stroke-width:0.5px,font-size:11,color:#b30000;
+  classDef param fill:#d7f4ee80,stroke:#165044,stroke-width:0.5px,font-size:11,color:#165044;
+
+  classDef method   fill:#ffffff80,stroke:#000000,stroke-width:1px,font-size:12,color:#000000;
+  classDef helper   fill:#f5f5f580,stroke:#616161,stroke-width:2px,font-size:12,color:#212121;
+  classDef settings fill:#ffd5f680,stroke:#aa0088,stroke-width:1px,font-size:11,color:#aa0088;
+</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<p>A typical use looks like this:</p>
+<div class="highlight"><pre><span></span><code><span class="n">feeddist</span><span class="o">.</span><span class="n">make</span><span class="p">()</span>
+
+<span class="n">cm</span><span class="o">.</span><span class="n">maximise_nutrient_supply</span><span class="o">.</span><span class="n">change_objective</span><span class="p">(</span>
+    <span class="n">feeddist</span><span class="p">,</span>
+    <span class="n">nutrient</span><span class="o">=</span><span class="s1">'protein'</span><span class="p">,</span>
+    <span class="n">crop_prods</span><span class="o">=</span><span class="p">[</span><span class="s1">'food wheat'</span><span class="p">,</span> <span class="s1">'peas'</span><span class="p">,</span> <span class="s1">'broad beans'</span><span class="p">],</span>
+    <span class="n">animal_prods</span><span class="o">=</span><span class="p">[(</span><span class="s1">'cattle'</span><span class="p">,</span> <span class="s1">'milk'</span><span class="p">),</span> <span class="p">(</span><span class="s1">'cattle'</span><span class="p">,</span> <span class="s1">'meat'</span><span class="p">)]</span>
+<span class="p">)</span>
+<span class="c1"># Optionally require at least 0.5 kg fat per kg protein from the selected products</span>
+<span class="n">cm</span><span class="o">.</span><span class="n">maximise_nutrient_supply</span><span class="o">.</span><span class="n">constrain_nutrient</span><span class="p">(</span><span class="n">feeddist</span><span class="p">,</span> <span class="s1">'fat'</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s1">'&gt;='</span><span class="p">)</span>
+
+<span class="n">feeddist</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">apply_solution</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">cm</span><span class="o">.</span><span class="n">maximise_nutrient_supply</span><span class="o">.</span><span class="n">update_demand</span><span class="p">(</span><span class="n">feeddist</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'trade'</span><span class="p">)</span>
+<span class="n">feeddist</span><span class="o">.</span><span class="n">apply_solution</span><span class="p">()</span>
+
+<span class="n">cm</span><span class="o">.</span><span class="n">maximise_nutrient_supply</span><span class="o">.</span><span class="n">store_objective_contributions</span><span class="p">(</span><span class="n">feeddist</span><span class="p">)</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>update_demand()</code> should be run <strong>before</strong> <code>.apply_solution()</code>, since <code>.apply_solution()</code> allocates crop production between uses based on <code>crop_prod_demand</code>, which would otherwise still reflect the pre-optimisation demand. It must also be run before <code>ByProductMgmt.calculate()</code>.</p>
+</div>
+<h2 id="changing-the-objective">Changing the objective</h2>
+<h3 id="maximise_nutrient_supplychange_objective"><code>maximise_nutrient_supply.change_objective()</code></h3>
+<p><code>change_objective()</code> modifies the distributor in place after <code>.make()</code> has built all constraints. It does four things:</p>
+<ol>
+<li>
+<p><strong>Relaxes constraint C1 for the selected products.</strong> C1 normally requires that production minus feed use exactly equals demand (food + non-food + export) for every crop and animal product. For the selected products this is changed to an inequality where only the <em>food</em> part of demand is relaxed:</p>
+<div class="arithmatex">\[
+\text{production} - \text{feed use} \geq \text{non-food demand} + \text{export demand}
+\]</div>
+<p>Production of the selected products can therefore move freely (up or down) away from the original food demand, while non-food and export demand are still guaranteed to be met. All non-selected products keep their original equality constraint.</p>
+</li>
+<li>
+<p><strong>Rebuilds constraints C10 and C15</strong> (by-product balances, <code>FeedDistributor</code> only). These constraints credit by-products generated per unit of production using ratios that are averaged over all demand routes (food, non-food and export). Without adjustment, extra production of a selected product would credit by-products (and hence feed availability) that the extra production would not actually generate. The by-product supply is therefore split into a fixed part for the baseline non-food and export demand and a part for the food route that scales with the relaxed production.</p>
+</li>
+<li>
+<p><strong>Builds a nutrient mapper</strong> restricted to the selected products using <a href="#maximise_nutrient_supplynutrient_supply_from_x"><code>nutrient_supply_from_x()</code></a>.</p>
+</li>
+<li>
+<p><strong>Replaces the objective</strong> with one that maximises the mapped nutrient supply, subject to the same constraints as before (with C1, C10 and C15 modified as above):</p>
+<div class="arithmatex">\[
+\max \; \frac{\sum m_{crp} \, x_{crp} + \sum m_{ani} \, x_{ani} + \sum m_{fds} \, x_{fds}}{M} \;-\; \text{regularisation}
+\]</div>
+<p>where <span class="arithmatex">\(m\)</span> are the per-unit nutrient coefficients from the mapper (<span class="arithmatex">\(m_{fds}\)</span> is negative, see below), and <span class="arithmatex">\(M\)</span> is the maximum absolute coefficient across the active variables (or 1 if all coefficients are zero). Scaling the nutrient reward improves numerical conditioning; the ridge weight acts relative to this scaled reward, rather than directly in kg or kcal.</p>
+<p>The single regularisation term is a quadratic ridge penalty with weight <code>lambda_ridge</code> (default <code>1e-9</code>):</p>
+<div class="arithmatex">\[
+\text{regularisation} = \lambda_{ridge} \sum_{i \in \{\text{crops, animals}\}} \left[s_i (x_i - x_{0,i})\right]^2
+\]</div>
+<p>Here <span class="arithmatex">\(s_i\)</span> is the corresponding <code>dist.scale_f</code> weight. The penalty applies to <strong>all</strong> crop areas and animal numbers, whether or not they contribute to the nutrient objective. It favours the initial distribution <code>x0</code> and adds curvature that can improve numerical stability. Feed quantities (<code>x_fds</code>) are excluded because their <code>x0</code> values are zero placeholders rather than an initial ration.</p>
+<p>Set <code>lambda_ridge=0</code> to disable regularisation. Larger weights favour the initial distribution more strongly and may reduce nutrient supply; their influence on total supply and the solution mix should be checked for the model being solved.</p>
+<p>If the solver still has numerical problems, try <code>scale_constraints=True</code> (rescales each constraint row without changing the feasible region) before increasing <code>lambda_ridge</code>.</p>
+</li>
+</ol>
+<p>Other constraints (land use, rotations, sub-system shares, feed rations etc.) are left unchanged. These either limit <code>x</code> directly or are only relaxed further by increased production.</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button><button class="panzoom-max panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 32C14.3 32 0 46.3 0 64l0 96c0 17.7 14.3 32 32 32s32-14.3 32-32l0-64 64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L32 32zM64 352c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-64zM320 32c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0 0 64c0 17.7 14.3 32 32 32s32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-96 0zM448 352c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 64-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0c17.7 0 32-14.3 32-32l0-96z"></path>
+    </svg>
+</button><button class="panzoom-min panzoom-button panzoom-hidden">
+    <svg class="panzoom-icon" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M160 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 64-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l96 0c17.7 0 32-14.3 32-32l0-96zM32 320c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0 0 64c0 17.7 14.3 32 32 32s32-14.3 32-32l0-96c0-17.7-14.3-32-32-32l-96 0zM352 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0 0-64zM320 320c-17.7 0-32 14.3-32 32l0 96c0 17.7 14.3 32 32 32s32-14.3 32-32l0-64 64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>
+%%{init: {
+  "flowchart": {
+    "nodeSpacing": 10,
+    "rankSpacing": 20,
+    "padding": 3,
+    "curve": "linear"
+  },
+  "themeVariables": {
+    "fontSize": "12px"
+  }
+}}%%
+
+
+flowchart TD
+  CO["change_objective()"]:::helper
+
+  CO --&gt; R1["_relax_C1_for_selected_products()"]:::helper
+  CO --&gt; R2["_split_byprod_supply_for_selected_products()"]:::helper
+  CO --&gt; NS["nutrient_supply_from_x()"]:::helper
+  CO --&gt; SO["_set_maximise_objective()"]:::helper
+
+  R1 --&gt; C1["&lt;u&gt;Constraint C1&lt;/u&gt;
+  Non-selected products: A1 @ x == b1
+  Selected products: A1 @ x &gt;= non-food + export demand"]:::const
+  R2 --&gt; C10["&lt;u&gt;Constraints C10, C15&lt;/u&gt;
+  By-product supply split into fixed baseline
+  non-food/export part and food-route part"]:::const
+  NS --&gt; MAP["&lt;b&gt;mapper:&lt;/b&gt; nutrient per unit of
+  x_ani, x_crp, x_fds"]:::matrix
+  MAP --&gt; SO
+  C1 --&gt; SO
+  C10 --&gt; SO
+  SO --&gt; P["&lt;b&gt;dist.problem&lt;/b&gt;
+  max nutrient supply − regularisation"]:::data
+
+
+  %% -------------------------
+  %% Styles
+  %% -------------------------
+  classDef mod_main fill:#509e2f80,stroke:#203f13,stroke-width:2px,font-size:13,color:#203f13;
+  classDef mod_mgmt fill:#6ad1e380,stroke:#125560,stroke-width:2px,font-size:13,color:#125560;
+  classDef mod_opt  fill:#d9d9d680,stroke:#43433e,stroke-width:2px,font-size:13,color:#43433e;
+
+  classDef data  fill:#fee8c880,stroke:#b30000,stroke-width:0.5px,font-size:11,color:#b30000;
+  classDef param fill:#d7f4ee80,stroke:#165044,stroke-width:0.5px,font-size:11,color:#165044;
+
+  classDef method   fill:#ffffff80,stroke:#000000,stroke-width:1px,font-size:12,color:#000000;
+  classDef helper   fill:#f5f5f580,stroke:#616161,stroke-width:2px,font-size:12,color:#212121;
+  classDef settings fill:#ffd5f680,stroke:#aa0088,stroke-width:1px,font-size:11,color:#aa0088;
+</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+change_objective(
+    dist,
+    nutrient,
+    crop_prods,
+    animal_prods,
+    lambda_ridge,
+    scale_constraints
+)
+
+<b>Docstring:</b>
+Changes a GeoDistributor/FeedDistributor's optimisation problem (in place) from
+the default objective (minimising deviation of crop areas/animal numbers from x0)
+to instead MAXIMISE the total domestic, edible supply of 'nutrient' from a
+selected set of crop products ('crop_prods') and/or animal products
+('animal_prods'). All other (non-selected) products remain constrained to exactly
+meet their baseline demand, as in the default model.
+
+Must be called after 'dist.make(...)' and before 'dist.solve()'. After solving,
+call 'update_demand()' to keep 'dist.demand' consistent with the optimised
+production.
+
+What this does, step by step
+-----------------------------
+1. Relaxes constraint C1 for the selected products only (see
+   '_relax_C1_for_selected_products()'). C1 normally reads
+   '[production] - [feed use] == [demand]' (where [demand] = food + non-food +
+   export demand) for every crop/animal product. For the selected crop_prods/
+   animal_prods this is changed to
+   '[production] - [feed use] >= [non-food demand] + [export demand]', i.e. only
+   the FOOD portion of demand is relaxed: production must still (at minimum)
+   cover whatever of it is used as feed plus the original non-food and export
+   demand, but is otherwise free to move -- up or down -- away from the original
+   FOOD demand figure, so that the optimiser can trade off between selected
+   products based on nutrient supply and the ridge penalty. Every
+   other (non-selected) product keeps its original equality constraint, i.e.
+   keeps exactly meeting demand (food + non-food + export) as before.
+2. Rebuilds constraints 'C10'/'C15' (if present -- FeedDistributor only; see
+   '_split_byprod_supply_for_selected_products()') so that the by-product
+   supply they credit to a selected product is split the same way: a
+   food-route part that moves with the now-relaxed production, and a fixed
+   non-food+export-route part frozen at the baseline floor. This is needed
+   because C10/C15 apply 'DemandAndConversions.by_prod_per_crop_prod'/
+   'by_prod_per_animal_prod' -- ratios BLENDED across a product's demand
+   routes -- directly to x_ani/x_crp, not to a fixed demand figure like C1; see
+   that function for why the unmodified constraints would otherwise let
+   production growth credit by-products (and hence feed availability) that the
+   extra production was never actually going to generate.
+3. Builds a nutrient-supply mapper restricted to the selected products (see
+   'nutrient_supply_from_x()').
+4. Replaces 'dist.problem' with a new cvxpy.Problem that maximises the mapped
+   scaled nutrient supply (implemented as minimising its negative), subject to
+   the constraints built by 'dist.make()' (with C1, C10 and C15 modified per steps
+   1-2), with one quadratic ridge penalty on scaled deviations of all crop
+   areas and animal numbers from 'dist.x0'. Feed quantities are excluded.
+   The penalty favours the initial distribution and can improve numerical
+   stability; its weight also affects the trade-off with nutrient supply.
+
+The remaining constraints retain their definitions:
+- C2 (regional feed demand share), C16 (crop residue balance): inequalities
+  relative to actual production with no equivalent blended-ratio dependency, so
+  extra production only relaxes them further, never breaks them.
+- C3 (max land use), C5 (max crop share of a crop_prod), C6 (rotation shares):
+  real physical limits on x_crp itself, correctly still enforced -- e.g. C3
+  still caps how much *more* of a selected crop can physically be grown.
+- C4 (animal sub-system shares), C11-C14 (feed rations/imports): relate to
+  x_ani/x_fds directly and are unaffected by relaxing C1's link between crop/
+  animal PRODUCTION and demand.
+
+Note on interpretation: with C1 relaxed, any production beyond baseline FOOD
+demand for the selected products has no explicit downstream disposition in the
+model (i.e. it is not literally allocated to extra consumption, export, etc. by
+other CIBUSmod modules) until 'update_demand()' is run after solving -- see that
+function. Non-food and export demand, by contrast, is still guaranteed to be at
+least met (it forms the floor of the relaxed constraint), so it does not need
+this treatment.
+
+Parameters
+----------
+dist : GeoDistributor or FeedDistributor object
+    Must already have been through 'dist.make(...)' (including constraint 1).
+    Modified in place: 'dist.constraints' (C1 replaced) and 'dist.problem'
+    (replaced with the new objective).
+nutrient : str
+    Nutrient to maximise supply of, see 'nutrient_supply_from_x()'.
+crop_prods : list of str, default None
+    crop_prod(s) to relax demand for and reward in the objective. At least one of
+    'crop_prods'/'animal_prods' must be given.
+animal_prods : list of (species, animal_prod) tuples, default None
+    Analogous to 'crop_prods' but for animal products.
+lambda_ridge : float, default 1e-8
+    Weight of the quadratic penalty on deviations of all crop areas and animal
+    numbers from 'dist.x0', weighted by 'dist.scale_f'. Feed quantities are
+    excluded. The penalty is added to the negative nutrient reward after its
+    coefficients are scaled to a maximum absolute value of 1. Larger weights
+    favour the initial distribution and may reduce nutrient supply. Set to 0
+    to disable the penalty.
+scale_constraints : bool, default False
+    If True, rescales every constraint row to a maximum absolute coefficient
+    of 1 before building 'dist.problem' (see
+    'CIBUSmod.optimisation.utils.scale_constraints_by_row()') -- a pure
+    numerical-conditioning improvement (same feasible region, same optimum),
+    not an approximation. Can help 'dist.solve()' avoid a generic SolverError
+    (or an incorrect 'infeasible' report) on large/tightly-constrained
+    problems. Try this before increasing 'lambda_ridge'. If False, constraint
+    rows retain the scaling supplied by 'dist.make()'.
+
+Returns
+-------
+dict of pandas.Series
+    The nutrient-supply mapper actually used in the objective (i.e. already
+    restricted to 'crop_prods'/'animal_prods'), with keys 'ani', 'crp' and (for a
+    FeedDistributor) 'fds', indexed like 'dist.x_idx[...]'.
+
+<b>File:</b> CIBUSmod/utils/maximise_nutrient_supply.py
+</pre>
+  </div>
+</details>
+
+<h3 id="maximise_nutrient_supplyconstrain_nutrient"><code>maximise_nutrient_supply.constrain_nutrient()</code></h3>
+<p>Maximising a single nutrient often gives a solution that is unbalanced in other respects, e.g. high in protein but with very little energy. <code>constrain_nutrient()</code> adds a constraint that the supply of another nutrient from the <em>same selected products</em> must be at least (<code>'&gt;='</code>) or at most (<code>'&lt;='</code>) a given <code>factor</code> times the supply of the maximised nutrient:</p>
+<div class="arithmatex">\[
+\text{supply}(\text{nutrient}) \;\; \geq \text{ or } \leq \;\; \text{factor} \times \text{supply}(\text{maximised nutrient})
+\]</div>
+<p>Both supplies are calculated with the same type of mapper as the objective. <code>factor</code> is expressed in units of the constrained nutrient per unit of the maximised nutrient (kg/kg, or kcal/kg for energy). For example, after maximising protein:</p>
+<div class="highlight"><pre><span></span><code><span class="n">cm</span><span class="o">.</span><span class="n">maximise_nutrient_supply</span><span class="o">.</span><span class="n">constrain_nutrient</span><span class="p">(</span><span class="n">feeddist</span><span class="p">,</span> <span class="s1">'fat'</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s1">'&gt;='</span><span class="p">)</span>     <span class="c1"># at least 0.5 kg fat per kg protein</span>
+<span class="n">cm</span><span class="o">.</span><span class="n">maximise_nutrient_supply</span><span class="o">.</span><span class="n">constrain_nutrient</span><span class="p">(</span><span class="n">feeddist</span><span class="p">,</span> <span class="s1">'kcal'</span><span class="p">,</span> <span class="mi">20_000</span><span class="p">,</span> <span class="s1">'&lt;='</span><span class="p">)</span> <span class="c1"># at most 20,000 kcal per kg protein</span>
+</code></pre></div>
+<p>The constraint is implemented as a single row <span class="arithmatex">\((m_{\text{nutrient}} - \text{factor} \cdot m_{\text{obj}}) \, x \; \gtrless \; 0\)</span>, scaled to a maximum absolute coefficient of 1. The function can be called several times to constrain several nutrients, or to set both a minimum and a maximum for the same nutrient. Calling it again with the same <code>nutrient</code> and <code>rel</code> replaces the earlier constraint. The objective is rebuilt with the same settings as in <code>change_objective()</code>. All added constraints are removed when <code>.make()</code> is run again.</p>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+constrain_nutrient(dist, nutrient, factor, rel)
+
+<b>Docstring:</b>
+Adds a constraint to a GeoDistributor/FeedDistributor whose objective has been
+changed by 'change_objective()', requiring that the supply of another 'nutrient'
+from the optimised crop and animal products is at least ('>=') or at most ('<=')
+'factor' times the supply of the nutrient being maximised:
+
+    supply('nutrient') <rel> factor * supply(nutrient maximised)
+
+Both supplies are calculated with the same type of mapper and for the same
+selection of crop_prods/animal_prods as the objective (see
+'nutrient_supply_from_x()'), i.e. the domestic food supply from the optimised
+products, net of their use as feed. E.g. after
+'change_objective(dist, "protein", ...)',
+'constrain_nutrient(dist, "fat", 0.5, ">=")' requires the optimised products to
+supply at least 0.5 kg fat per kg protein, and
+'constrain_nutrient(dist, "kcal", 20_000, "<=")' at most 20,000 kcal per kg
+protein. 'factor' is in units of 'nutrient' per unit of the maximised nutrient
+(kg/kg, or kcal/kg for energy).
+
+Must be called after 'change_objective()' and before 'dist.solve()'. Can be
+called several times to constrain several nutrients (or set both a minimum and
+a maximum for one nutrient). Calling it again for the same 'nutrient' and 'rel'
+replaces the earlier constraint, e.g. to change 'factor'. The constraints are
+removed when 'dist.make()' is run again.
+
+Implemented as the single-row constraint
+'(mapper_nutrient - factor * mapper_objective) @ x <rel> 0', scaled to a
+maximum absolute coefficient of 1 (which doesn't change the constraint, since the
+right-hand side is 0), after which 'dist.problem' is rebuilt with the same
+objective settings as in 'change_objective()'.
+
+Parameters
+----------
+dist : GeoDistributor or FeedDistributor object
+    Must have been through 'change_objective()'.
+nutrient : str
+    Nutrient to constrain, e.g. 'fat' or 'kcal' (see 'nutrient_supply_from_x()').
+factor : float
+    Supply of 'nutrient' per unit supply of the maximised nutrient to require.
+rel : {'>=', '<='}, default '>='
+    Whether the supply of 'nutrient' should be at least ('>=') or at most
+    ('<=') 'factor' times the supply of the maximised nutrient.
+
+Returns
+-------
+dict of pandas.Series
+    The mapper for 'nutrient' (see 'nutrient_supply_from_x()'), restricted to
+    the optimised products.
+
+<b>File:</b> CIBUSmod/utils/maximise_nutrient_supply.py
+</pre>
+  </div>
+</details>
+
+<h2 id="after-solving">After solving</h2>
+<h3 id="maximise_nutrient_supplyupdate_demand"><code>maximise_nutrient_supply.update_demand()</code></h3>
+<p>After solving, production of the selected products will usually differ from the demand stored in <code>DemandAndConversions</code>, and the difference has no explicit use (e.g. consumption or export) in the model. <code>update_demand()</code> re-makes the demand so that it is consistent with the optimised production, which is needed by modules that are calculated after solving (e.g. <code>ByProductMgmt</code>).</p>
+<ol>
+<li>The actual production minus feed use of each selected product is read off the relaxed C1 constraint at the solved <code>x</code>. This is the target that the re-made <code>crop_prod_demand</code>/<code>animal_prod_demand</code> must match.</li>
+<li>
+<p>The gap between the target and current demand is allocated to food items whose main product (via <code>conv_factor_main</code>) is the selected product. How the gap is allocated depends on <code>mode</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>mode</code></th>
+<th>Surplus production</th>
+<th>Production deficit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'trade'</code> (default)</td>
+<td>Consumption unchanged. Imports are first replaced by domestic production, then exports are added.</td>
+<td>Consumption unchanged. Domestic production is replaced by imports.</td>
+</tr>
+<tr>
+<td><code>'consumption'</code></td>
+<td>Domestic consumption is scaled up. Imported consumption is unchanged, so the import share decreases.</td>
+<td>Domestic consumption is scaled down. Imported consumption is unchanged.</td>
+</tr>
+</tbody>
+</table>
+<p>Food items made from a by-product of a selected product (e.g. butter from cream, a by-product of milk) are adjusted in proportion to how much of the by-product is generated. This is consistent with how their nutrients are credited in the objective.</p>
+</li>
+<li>
+<p>Waste, nutrient supply, product demand and by-products are re-calculated in <code>DemandAndConversions</code> from the new <code>food_demand</code>/<code>export_demand</code>.</p>
+</li>
+<li>Steps 2–3 are repeated (up to <code>max_iter</code> times) until the re-made totals match the target within <code>rtol</code>/<code>atol</code>. Iteration is needed because the relation between food items and products is not fully linear, e.g. because of the dairy cream balance.</li>
+</ol>
+<p>Demand is re-made starting from the <em>current</em> <code>food_demand</code> and <code>export_demand</code>, so changes made to these after <code>DemandAndConversions.calculate()</code> (e.g. by <code>induce_beef_exports()</code>) are kept. A warning is issued if a gap cannot be fully allocated (e.g. a selected product with no directly mapped food item) or if demand for non-selected products changes as a side effect.</p>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+update_demand(dist, mode, max_iter, rtol, atol)
+
+<b>Docstring:</b>
+After 'dist.solve()', re-makes all data attributes of 'dist.demand' (a
+DemandAndConversions object) so that they reflect the ACTUAL, optimised
+production of whichever crop_prods/animal_prods 'change_objective()' relaxed
+constraint C1 for, rather than the stale, pre-optimisation demand.
+
+Why this is needed: 'change_objective()' relaxes C1 for the selected products
+from '[production] - [feed use] == [demand]' to
+'[production] - [feed use] >= [non-food demand] + [export demand]', so the
+solved production for those products can end up above (or below) their original
+demand. Nothing else in the model is told about that difference --
+'dist.demand.data_attr' still holds the OLD figures, and the surplus (or
+deficit) has no explicit disposition. Any module that runs after solving and
+reads from 'dist.demand.data_attr' (chiefly 'ByProductMgmt', which reads
+'by_products' and 'by_prod_demand') would otherwise work off stale figures.
+
+What this does
+--------------
+1. Re-evaluates the SAME 'C1 (relaxed)' constraint matrix built by
+   'change_objective()' at the solved 'dist.x', giving the actual
+   '[production] - [feed use]' for each relaxed crop_prod/animal_prod row (so
+   the selected products are read back off the constraint itself and need not
+   be passed again here). This is the target that the re-made
+   'crop_prod_demand'/'animal_prod_demand' totals must match.
+2. Allocates the gap between that target and the current demand total to the
+   food items whose main product (via 'conv_factor_main') is the relaxed
+   crop_prod/animal_prod, by changing 'food_demand' and/or 'export_demand'
+   according to 'mode':
+   - 'consumption': the DOMESTIC part of consumption of those food items is
+     scaled up or down (uniformly per product) to match production, while
+     imported consumption is kept as is, implicitly changing import shares.
+     E.g. 10 kg consumption at 50% import share with production increased
+     from 5 to 10 kg gives 15 kg consumption (10 kg domestic + 5 kg
+     imported, i.e. 33% import share); with production reduced to zero, 5 kg
+     of imported consumption remains. Food items that are 100% imported get
+     domestic consumption added in proportion to their imported consumption
+     if production increases. Existing exports are left unchanged.
+   - 'trade': consumption is left unchanged. If production exceeds demand,
+     imports of those food items are first replaced by domestic production
+     and, if that is not enough, exports of the same food items are
+     introduced (pro rata to their consumption). If production falls short
+     of demand, imports are increased (domestic consumption is replaced by
+     imports).
+   Food items supplied from a by-product generated by a relaxed product (i.e.
+   whose main product is a by_prod, e.g. butter from cream, a by-product of
+   milk, or offals from edible offals) have their DOMESTIC consumption
+   changed in proportion to the amount of the by-product generated (in the
+   generating products' 'food' demand route, see '_by_prod_generation()'), so
+   that the share of the generated by-product used for food stays as at
+   baseline -- consistent with how 'change_objective()' credits their
+   nutrients (see '_by_prod_nutrient_credit()'). In 'consumption' mode
+   imported consumption is kept as is; in 'trade' mode total consumption is
+   kept, so that domestic consumption replaces (or is replaced by) imports,
+   and any domestic supply beyond total consumption is exported. This also
+   matters for demand itself, via the dairy "cream balance": cream demand
+   that isn't met by cream generated from other dairy foods induces exports
+   of milk powder (and hence demand for milk), so leaving e.g. butter
+   consumption unchanged when demand for milk is reduced would induce large
+   exports that prevent demand from matching production.
+3. Re-runs 'calculate_waste()', 'calculate_nutrient_supply()' and
+   'calculate_product_demand_and_by_products()', so that every data attribute
+   derived from 'food_demand'/'export_demand' ('food_demand_to_processing',
+   'waste', 'nutrient_supply', 'crop_prod_demand', 'animal_prod_demand',
+   'crop_resid_demand', 'by_prod_demand', 'by_products' and the
+   'by_prod_per_*' ratios) is consistent with the new demand. Since the surplus/
+   deficit is routed through actual food items, by-products are generated by
+   those food items' own conversion routes.
+4. Repeats steps 2-3 until the re-made totals match the target (within
+   'rtol'), since the mapping from food items to products is not exactly
+   linear: compound foods (recipes) are never adjusted (adjusting them would
+   also change demand for their other ingredients), and the dairy "cream
+   balance" (see '_fix_cream_balance()' in DemandAndConversions) may induce
+   further exports when dairy demand changes. Each iteration normally closes
+   the remaining gap almost entirely.
+
+The re-make starts from the CURRENT 'food_demand'/'export_demand' rather than
+re-calculating them from parameters, so that changes made to them after
+'DemandAndConversions.calculate()' (e.g. by
+'CIBUSmod.utils.helpers.induce_beef_exports()') are retained. Changes made
+directly to downstream attributes (e.g. editing 'crop_prod_demand' in place)
+are, however, overwritten by step 3 -- a warning is issued if the re-made
+demand (before any adjustment) does not reproduce the demand that 'dist' was
+built with.
+
+Fallbacks and limitations (each results in a warning):
+- 'consumption' mode, where a relaxed product with surplus production has no
+  consumption (domestic or imported) of any directly mapped food item to scale
+  up (e.g. it is only consumed via compound foods): the surplus is instead
+  exported as in 'trade' mode.
+- A relaxed product with no food item mapped to it via 'conv_factor_main' at
+  all, or a deficit that cannot be covered (e.g. all of its directly mapped
+  domestic consumption already replaced/removed), cannot be fully allocated
+  and its re-made total will not match the target.
+- Demand for non-relaxed products may change if a relaxed product affects
+  them via the cream balance or a compound food. A warning lists any
+  non-relaxed C1 rows whose re-made total no longer matches what 'dist' was
+  solved with.
+
+Must be called after 'dist.solve()', and before anything that consumes
+'dist.demand.data_attr' is calculated. Only the solved 'dist.x' is used, so
+'dist.apply_solution()' is NOT required beforehand -- and should preferably be
+run AFTER this function (i.e. 'dist.solve(apply_solution=False)', then
+'update_demand()', then 'dist.apply_solution()', or alternatively re-make and
+re-solve 'dist' with the default objective), since
+'allocate_crop_production_per_use()' (called by 'dist.apply_solution()') splits
+crop production between uses based on 'crop_prod_demand', which would otherwise
+still be the stale, pre-optimisation demand. It must also be called before
+'ByProductMgmt.calculate()', which aborts (with a warning) if run more than once
+per 'DemandAndConversions.calculate()' -- see its docstring.
+
+Parameters
+----------
+dist : GeoDistributor or FeedDistributor object
+    Must have been through 'change_objective(dist, ...)' followed by
+    'dist.solve()'. 'dist.demand' must be a DemandAndConversions object (not a
+    StaticDemandAndConversions, which cannot re-calculate).
+mode : {'trade', 'consumption'}, default 'trade'
+    How the difference between optimised production and demand is
+    allocated, see step 2 above.
+max_iter : int, default 20
+    Maximum number of allocate/re-make iterations (see step 4 above).
+rtol, atol : float, default 1e-6 and 1.0
+    Relative and absolute (kg/year) tolerance for considering a re-made total
+    equal to its target, i.e. |target - total| <= atol + rtol * |target|. The
+    absolute tolerance avoids acting on solver noise for products with
+    (near) zero production.
+
+Returns
+-------
+None. Modifies 'dist.demand.data_attr' in place.
+
+<b>File:</b> CIBUSmod/utils/maximise_nutrient_supply.py
+</pre>
+  </div>
+</details>
+
+<h3 id="maximise_nutrient_supplystore_objective_contributions"><code>maximise_nutrient_supply.store_objective_contributions()</code></h3>
+<p><code>store_objective_contributions()</code> calculates how much each animal and crop contributes to the objective (nutrient coefficient × <code>x</code>) at the current solution. The results are stored as data attributes on the distributor, so that they are saved with the scenario when <code>session.store()</code> is called:</p>
+<ul>
+<li><code>nutrient_contrib_animals</code>: <span class="arithmatex">\(m_{ani} \cdot x_{ani}\)</span>, indexed like <code>x_animals</code>.</li>
+<li><code>nutrient_contrib_crops</code>: <span class="arithmatex">\(m_{crp} \cdot x_{crp}\)</span>, indexed like <code>x_crops</code>, net of feed use. Feed use is only known nationally per crop product, so the (negative) feed term is allocated to the crops and regions producing that crop product in proportion to their contribution.</li>
+</ul>
+<p>The sum of both attributes equals the unscaled nutrient supply from the mapper, in kg or kcal, before regularisation. The solver minimises the negative of this supply divided by <span class="arithmatex">\(M\)</span>, plus the regularisation penalties, so its objective value has a different sign and scale. The mapper from the most recent <code>change_objective()</code> call is used, but contributions are evaluated at whatever <code>dist.x</code> currently holds. The function can therefore be called either directly after solving or after <code>update_demand()</code> followed by a re-make and re-solve with the default objective.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>dist.data_attr</code> persists across scenarios. If a later scenario does not call <code>store_objective_contributions()</code>, the attributes from the previous scenario are stored again unless removed, e.g. with <code>dist.data_attr.remove('nutrient_contrib_animals')</code>.</p>
+</div>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+store_objective_contributions(dist)
+
+<b>Docstring:</b>
+Stores each animal's and crop's contribution to the objective set by
+'change_objective()' (i.e. mapper * x at the current solution 'dist.x') as data
+attributes on 'dist':
+- 'nutrient_contrib_animals': mapper['ani'] * x_ani, indexed like 'x_animals'.
+- 'nutrient_contrib_crops': mapper['crp'] * x_crp, indexed like 'x_crops', but
+  NET of the (negative) mapper['fds'] * x_fds term for feed use of the selected
+  crop_prods. Feed use is only known per crop_prod nationally (not per crop or
+  region it was grown in), so for each (prod_system, crop_prod) the total feed
+  term is allocated over the crops/regions producing that crop_prod pro rata to
+  their (positive) contribution via that crop_prod. I.e. each crop's
+  contribution via a crop_prod is scaled by
+  (production term + feed term) / production term for that crop_prod.
+
+Summing both attributes gives the unscaled nutrient supply, sum(mapper * x)
+over x_ani, x_crp and x_fds, in kg or kcal before the ridge penalty. The solver
+minimises the negative scaled supply plus the penalty, so its objective value
+has a different sign and scale. If a selected crop_prod is used as feed but
+not produced from any x_crp, its feed term cannot be allocated to a crop and
+a warning is issued.
+
+The nutrient mapper used is the one built by the most recent call to
+'change_objective(dist, ...)', whereas the contributions are evaluated at
+whatever 'dist.x' currently holds. This function can therefore be called either
+right after solving the maximise-nutrient problem, or after 'update_demand()'
+followed by re-making and re-solving 'dist' with the default objective (in
+which case the contributions refer to that final solution). Call it before
+'session.store()' for the attributes to be stored with the scenario.
+
+Note that 'dist.data_attr' persists across scenarios (as do the attributes
+stored here), so for a scenario run after one that called this function but
+that does not call it itself, the previous scenario's contributions would be
+stored too unless removed (e.g. 'dist.data_attr.remove(
+'nutrient_contrib_animals')').
+
+Parameters
+----------
+dist : GeoDistributor or FeedDistributor object
+    Must have been through 'change_objective()' and 'dist.solve()' (possibly
+    followed by 'update_demand()' and a re-make/re-solve).
+
+Returns
+-------
+None. Adds 'nutrient_contrib_animals'/'nutrient_contrib_crops' to
+'dist.data_attr'.
+
+<b>File:</b> CIBUSmod/utils/maximise_nutrient_supply.py
+</pre>
+  </div>
+</details>
+
+<h2 id="nutrient-mapping">Nutrient mapping</h2>
+<h3 id="maximise_nutrient_supplynutrient_supply_from_x"><code>maximise_nutrient_supply.nutrient_supply_from_x()</code></h3>
+<p><code>nutrient_supply_from_x()</code> is the underlying function that translates the optimisation variables into dietary nutrient supply. It returns <em>per-unit</em> coefficients, i.e. how much of the nutrient one hectare of a crop, one animal or one unit of feed is worth, as a dict of Series with keys <code>'crp'</code>, <code>'ani'</code> and (for <code>FeedDistributor</code>) <code>'fds'</code>. The nutrient supply for a given solution is then</p>
+<div class="arithmatex">\[
+\sum m_{crp} \, x_{crp} + \sum m_{ani} \, x_{ani} + \sum m_{fds} \, x_{fds}
+\]</div>
+<p>The coefficients are calculated as follows:</p>
+<ul>
+<li><strong>Crops and animals</strong> (<code>x_crp</code>, <code>x_ani</code>) are mapped to the products they produce (via <code>CropProduction.production</code> and <code>AnimalHerd.production</code>) and get <strong>positive</strong> coefficients.</li>
+<li><strong>Feeds</strong> (<code>x_fds</code>) are mapped to the crop products they use (via <code>FeedMgmt.par.feed_to_prod</code>) and get <strong>negative</strong> coefficients, representing crop production used as feed instead of food.</li>
+<li>The nutrient content per kg of product is based on <code>composition</code>, <code>conv_factor_main</code>, <code>waste_share</code> and <code>recipe</code> in <code>DemandAndConversions</code>. When a product is used for several food items, these are weighted by their share of the product's <em>food</em> demand.</li>
+<li>Non-food and export demand are deliberately ignored. A product's whole production is credited with its full food-nutrient density, so the mapper represents the <em>potential</em> food-nutrient supply from more production, not the baseline average. As a result, the mapper does not sum to <code>DemandAndConversions.nutrient_supply</code> for products that have non-food or export demand.</li>
+<li>Nutrients from food items made from by-products (e.g. butter from cream) are credited to the products generating the by-product. Only the share of the by-product used for food at baseline is credited.</li>
+</ul>
+<p>The function can also be used on its own, e.g. for reporting how much of a nutrient comes from each crop or animal in a solved model. It should be called right after <code>.make()</code> and before <code>.solve()</code>: if a previous solution has scaled a herd to zero animals in a region, the per-animal production cannot be recovered and a warning is raised.</p>
+<details class="admonition info">
+  <summary>View Docstring</summary>
+  <div class="admonition-content">
+    <pre class="ds-pre"><b>Signature:</b>
+nutrient_supply_from_x(
+    geodist,
+    nutrient,
+    crop_prods,
+    animal_prods
+)
+
+<b>Docstring:</b>
+Builds a mapper from x_ani, x_crp and (if available) x_fds to the dietary
+supply of a given 'nutrient', based on the 'composition', 'conv_factor_main' and
+'waste_share' (and, where used, 'recipe') parameters in 'DemandAndConversions'.
+
+This returns PER-UNIT coefficients (not the nutrient supply for any particular
+x) -- i.e. how much 'nutrient' one unit of a given crop area/animal number/feed
+amount is worth. To get the nutrient supply for a given x, take
+sum(mapper['crp'] * x['crp']) + sum(mapper['ani'] * x['ani'])
++ sum(mapper['fds'] * x['fds']) (the last term already carries a negative sign,
+see below).
+
+Crop areas (x_crp) and animal numbers (x_ani) are mapped to the crop and animal
+products they produce (via 'CropProduction.production' and 'AnimalHerd.production')
+and get POSITIVE coefficients, representing crop/animal production that ends up
+as food. Feed amounts (x_fds), if available, are mapped to the crop products they
+consume (via the 'feed_to_prod' parameter in the 'FeedMgmt' module) and get
+NEGATIVE coefficients, representing crop production diverted to feed rather than
+food.
+
+The per-unit nutrient content used for x_crp/x_ani/x_fds is the crop/animal
+product's POTENTIAL food-nutrient density -- i.e. based ONLY on
+DemandAndConversions.crop_prod_demand/animal_prod_demand's 'food' column, ignoring
+'non-food'/'export' entirely (see '_nutrient_supply_factors()'). This means the
+mapper deliberately does NOT net out to DemandAndConversions.nutrient_supply when
+summed over a feasible x in general -- it only does so for a crop_prod/animal_prod
+with no non-food/export demand at baseline. Where a crop_prod/animal_prod DOES
+have non-food/export demand, x_crp/x_ani's production credits the FULL
+food-nutrient density to the ENTIRE quantity produced (including the portion that,
+at baseline, actually goes to non-food/export), which is what makes the mapper
+suitable for 'change_objective()': it answers "how much MORE food-nutrient supply
+is achievable from this product", not "how much does the baseline mix actually
+deliver on average". x_fds is still subtracted using the same per-unit figure, so
+feed use is still correctly netted out of whatever x_crp/x_ani credited -- this
+exclusion only concerns the non-food/export split, not the feed split.
+
+Must be run after GeoDistributor.make() (so that geodist.x_idx is defined).
+CropProduction.production/AnimalHerd.production are re-scaled in place by
+GeoDistributor.apply_solution() (the default when calling .solve()). The crop
+part of the mapper is computed directly from CropProduction's parameters and so
+is unaffected by this either way. The animal part is derived from AnimalHerd's
+current data (there being no similarly simple parameter-only route to herd
+production), which is safe UNLESS a prior .solve() has already scaled some herd
+to 0 animals in a given region -- in that case the corresponding per-animal
+production rate is unrecoverable and a warning is raised. To avoid this, call
+this function right after .make(), before .solve().
+
+Parameters
+----------
+geodist : GeoDistributor or FeedDistributor object
+nutrient : str
+    Nutrient to build the mapper for, e.g. one of 'protein', 'fat',
+    'fibre' or 'kcal' (see the 'nutrient' filter values for parameter
+    'composition' in DemandAndConversions).
+crop_prods : list of str, default None
+    If given, restrict the mapper to only credit these crop_prod(s) (i.e. all
+    other crop_prod get a 0 coefficient in 'mapper['crp']'/'mapper['fds']'). If
+    None (default), all crop_prod are included.
+animal_prods : list of (species, animal_prod) tuples, default None
+    Analogous to 'crop_prods' but for animal products (restricts
+    'mapper['ani']'). If None (default), all animal_prod are included.
+
+Returns
+-------
+dict of pandas.Series
+    Keys 'ani', 'crp' (and 'fds' if 'geodist' is a FeedDistributor). Each Series
+    is indexed like the corresponding entry in geodist.x_idx and gives the
+    nutrient supply (same units as DemandAndConversions.nutrient_supply, i.e. kg
+    or kcal/year) generated per unit of that variable.
+
+<b>File:</b> CIBUSmod/utils/maximise_nutrient_supply.py
+</pre>
+  </div>
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.indexes", "navigation.expand", "toc.integrate", "content.code.copy", "search.highlight", "search.share"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../assets/javascripts/panzoom.min.js"></script>
+      
+        <script src="../../assets/javascripts/zoompan.js"></script>
+      
+    
+  </body>
+</html>
