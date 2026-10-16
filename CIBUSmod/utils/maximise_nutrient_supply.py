@@ -109,8 +109,7 @@ def change_objective(
        nutrient supply (implemented as minimising its negative) subject to the same
        constraints built by 'dist.make()' (with C1, C10 and C15 modified per steps
        1-2), plus a small regularisation term on variables that are not touched by
-       the objective, purely to keep the LP numerically well posed (mirrors
-       'make_opt_goal()' in 'notebooks/no_test/help_funs.py'), and an independently weighted
+       the objective, purely to keep the LP numerically well posed, and an independently weighted
        "ridge" term on EVERY x_ani/x_crp (selected or not) -- see 'lambda_ridge'
        below and '_set_maximise_objective()' for why this second term is needed.
 
