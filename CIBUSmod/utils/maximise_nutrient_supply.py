@@ -6,7 +6,8 @@ the supply of a selected nutrient from a chosen set of crop and/or animal produc
 
 See 'change_objective()' for the main entry point (to be called after 'dist.make()'
 and before 'dist.solve()'), 'constrain_nutrient()' for constraining the supply of
-other nutrients relative to the maximised one (to be called after
+other nutrients relative to the maximised one and 'constrain_food()' for capping
+food consumption (to be called after
 'change_objective()'),'update_demand()' for the helper to be run after
 'dist.solve()' (and before 'dist.apply_solution()') to keep 'DemandAndConversions' consistent with
 the optimised production, 'store_objective_contributions()' for storing each animal's
@@ -328,6 +329,173 @@ def constrain_nutrient(dist, nutrient, factor, rel='>='):
 
     return mapper
 
+def constrain_food(dist, food, max):
+    '''Limit summed consumption of selected foods to 'max' g/cap/day.
+
+    Call after 'change_objective()' and before 'dist.solve()', then run
+    'update_demand(dist, mode="consumption")' before applying the solution. The limit
+    covers total consumption (domestic plus imported), summed over production
+    systems. Imports and consumption supplied by non-selected products remain
+    fixed. Consumption from selected products follows the same food mix as
+    'update_demand(mode="consumption")', including waste and conversion losses.
+
+    A list of foods sets one limit on their combined consumption. May be called
+    several times for separate or overlapping selections. Calling again for the
+    same selection replaces its limit, regardless of list order or duplicates.
+    Constraints are removed by 'dist.make()'. The objective settings
+    from 'change_objective()' are preserved.
+
+    Food items must occur in 'food_demand'. Compound foods are unchanged by
+    'update_demand()' and therefore count as fixed consumption. Foods supplied
+    by by-products follow their food-route generation, as in 'update_demand()'.
+    The mapping assumes fixed conversion factors and food mixes; nonlinear
+    adjustments such as the dairy cream balance can affect this relationship.
+    'update_demand()' checks the resulting limits and raises if they are exceeded.
+
+    Parameters
+    ----------
+    dist : GeoDistributor or FeedDistributor
+        Must have been through 'change_objective()'. Modified in place.
+    food : str or list of str
+        Food item or non-empty list of food items whose summed consumption is
+        constrained (the 'food' index level of 'food_demand'). Each item counts once.
+    max : float
+        Finite, non-negative maximum total consumption in g/cap/day.
+
+    Returns
+    -------
+    None
+    '''
+    obj = getattr(dist, '_nutrient_objective', None)
+    key = 'C1 (relaxed): A1 @ x >= non-food + export demand'
+    if obj is None or dist.problem is None or key not in dist.constraints:
+        raise ValueError(
+            'Run dist.make(...) and change_objective(dist, ...) before constrain_food().'
+        )
+    max = float(max)
+    if not np.isfinite(max) or max < 0:
+        raise ValueError("'max' must be finite and non-negative (g/cap/day).")
+    if isinstance(food, str):
+        foods = (food,)
+    elif isinstance(food, list) and food and all(isinstance(f, str) for f in food):
+        foods = tuple(sorted(set(food)))
+    else:
+        raise ValueError("'food' must be a food name or a non-empty list of food names.")
+    food_label = foods[0] if len(foods) == 1 else repr(foods)
+
+    demand = dist.demand
+    fd = demand.data_attr.get('food_demand').astype(float)
+    available = fd.index.get_level_values('food')
+    missing = [f for f in foods if f not in available]
+    if missing:
+        raise ValueError(f"Food {missing!r} not found in food_demand.")
+    selected = available.isin(foods)
+    population = float(demand.data_attr.get('population'))
+    if not np.isfinite(population) or population <= 0:
+        raise ValueError('Population must be finite and positive.')
+    kg_per_g_cap_day = population * 1_000_000 * 365.25 / 1000
+
+    A1 = dist.constraints[key]['pars']['A1']
+    # Affine food consumption as a function of the relaxed C1 product totals.
+    # Reuse C1 so animal outputs, crop yields, feed deductions and pruned
+    # optimisation variables are exactly those used by update_demand().
+    n_products = A1.M.shape[0]
+    slopes = np.zeros((len(fd), n_products))
+    baseline = []
+    maps = {}
+    offset = 0
+    to_proc = demand.data_attr.get('food_demand_to_processing').astype(float)
+    for k, of in (('ani', ['species', 'animal_prod']), ('crp', ['crop_prod'])):
+        rows = A1.rows[k]
+        totals = demand.data_attr.get(
+            'animal_prod_demand' if k == 'ani' else 'crop_prod_demand'
+        ).sum(axis=1).reindex(rows, fill_value=0)
+        baseline.extend(totals.to_numpy())
+        cf = _food_to_relaxed_prod_map(demand, fd.index, of, rows)
+        maps[k] = cf
+        for j, p in enumerate(rows):
+            sel = cf.index.droplevel(['food', 'food_group']).isin([p])
+            food_rows = cf.index[sel].droplevel(of)
+            in_diet = food_rows.isin(fd.index)
+            food_rows = food_rows[in_diet]
+            cfs = cf.to_numpy()[sel][in_diet]
+            positions = fd.index.get_indexer(food_rows)
+            # With no domestic baseline, update_demand introduces domestic
+            # consumption in proportion to the imported food mix instead.
+            origin = 'domestic'
+            denominator = (to_proc.loc[food_rows, origin].to_numpy() / cfs).sum()
+            if denominator <= 0:
+                origin = 'imported'
+                denominator = (to_proc.loc[food_rows, origin].to_numpy() / cfs).sum()
+            if denominator > 0:
+                slopes[positions, offset + j] = fd.loc[food_rows, origin] / denominator
+        offset += len(rows)
+
+    # By-product foods scale with food-route generation, including generation
+    # from fixed products. Calculate how that generation changes as directly
+    # mapped food consumption changes; fixed generation remains in the intercept.
+    target = {k: pd.Series(0.0, index=A1.rows[k]) for k in ('ani', 'crp')}
+    bp_food = _relaxed_by_prod_foods(demand, fd.index, target)
+    if len(bp_food):
+        gen_food, gen = _by_prod_generation(demand)
+        gen_slopes = {}
+        for k, of in _PROD_OF.items():
+            cf = maps[k]
+            ratios = _food_route_by_prod_ratio(*gen[k], of)
+            for p in A1.rows[k]:
+                sel = cf.index.droplevel(['food', 'food_group']).isin([p])
+                food_rows = cf.index[sel].droplevel(of)
+                in_diet = food_rows.isin(fd.index)
+                food_rows = food_rows[in_diet]
+                cfs = cf.to_numpy()[sel][in_diet]
+                positions = fd.index.get_indexer(food_rows)
+                retention = (
+                    to_proc.loc[food_rows].sum(axis=1)
+                    / fd.loc[food_rows].sum(axis=1).replace(0, np.nan)
+                ).fillna(0).to_numpy()
+                product_slopes = (slopes[positions] * (retention / cfs)[:, None]).sum(axis=0)
+                matched = ratios[ratios.index.droplevel('by_prod').isin([p])]
+                for idx, ratio in matched.items():
+                    bp = (idx[0], idx[-1])
+                    gen_slopes[bp] = gen_slopes.get(bp, np.zeros(n_products)) + ratio * product_slopes
+        for idx, bp in bp_food.items():
+            generation = gen_food.get((idx[-1], bp), 0)
+            if generation > 0:
+                slopes[fd.index.get_loc(idx)] = (
+                    fd.loc[idx, 'domestic'] / generation
+                    * gen_slopes.get((idx[-1], bp), np.zeros(n_products))
+                )
+
+    weights = slopes[selected].sum(axis=0)
+    fixed = fd.loc[selected, 'imported'].sum()
+    fixed += fd.loc[selected, 'domestic'].to_numpy()[~slopes[selected].any(axis=1)].sum()
+    if fixed > max * kg_per_g_cap_day:
+        raise ValueError(
+            f"The limit for '{food_label}' is below its fixed consumption "
+            f"({fixed / kg_per_g_cap_day:g} g/cap/day), including imports."
+        )
+    intercept = fd.loc[selected].to_numpy().sum() - weights @ np.asarray(baseline)
+    row = np.asarray(weights @ A1.M).ravel()
+    rhs = max * kg_per_g_cap_day - intercept
+    scale = np.abs(row).max()
+    if scale > 0:
+        row, rhs = row / scale, rhs / scale
+    A = IndexedMatrix(
+        scipy.sparse.csc_matrix(row.reshape(1, -1)),
+        row_idx=pd.Index([food_label], name='food'),
+        col_idx=dict(dist.x_idx_short),
+    )
+    dist.constraints[f'C_food ({food_label}): A @ x <= b'] = {
+        'left': lambda x, A, b: A.M @ x,
+        'right': lambda A, b: b,
+        'rel': '<=',
+        'pars': {'A': A, 'b': rhs},
+        'food_limit': (foods, max),
+    }
+    _set_maximise_objective(dist, obj['mapper'], **obj['objective_settings'])
+    return None
+
+
 _UPDATE_DEMAND_MODES = ('consumption', 'trade')
 
 def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
@@ -640,7 +808,31 @@ def update_demand(dist, mode='trade', max_iter=20, rtol=1e-6, atol=1.0):
         ),
     )
 
+    if mode == 'consumption':
+        _check_food_limits(dist, rtol, atol)
+
     return None
+
+def _check_food_limits(dist, rtol, atol):
+    if not any('food_limit' in cons for cons in dist.constraints.values()):
+        return
+    consumption = dist.demand.data_attr.get('food_demand').sum(axis=1).groupby('food').sum()
+    kg_per_g_cap_day = float(dist.demand.data_attr.get('population')) * 1_000_000 * 365.25 / 1000
+    for cons in dist.constraints.values():
+        if 'food_limit' not in cons:
+            continue
+        foods, limit = cons['food_limit']
+        actual = consumption.reindex(foods, fill_value=0).sum()
+        bound = limit * kg_per_g_cap_day
+        if actual > bound + atol + rtol * abs(bound):
+            raise ValueError(
+                f"update_demand(): consumption of {foods!r} is "
+                f"{actual / kg_per_g_cap_day:g} g/cap/day, exceeding its "
+                f"constrain_food() limit of {limit:g}. The fixed food-mix "
+                "mapping did not reproduce the recalculated demand; check "
+                "demand convergence and coupled conversions such as the cream balance."
+            )
+
 
 def store_objective_contributions(dist):
     '''Stores each animal's and crop's contribution to the objective set by
