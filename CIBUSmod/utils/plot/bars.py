@@ -372,7 +372,7 @@ def bar(
     edgecolor='black',
     linewidth=0.5,
 
-    totmarker='o',
+    totmarker=None,
     totmarker_size=10,
 
     axis_padding=10,
@@ -454,14 +454,14 @@ def bar(
                 linewidth=linewidth
             )
 
-        if stacked and ncols > 1:
-            ax.scatter(
-                x=x,
-                y=(y_pos + y_neg).sum(axis=1),
-                color='black',
-                marker=totmarker,
-                s=totmarker_size
-            )
+    if stacked and ncols > 1 and (mixed_sign or totmarker is not None):
+        ax.scatter(
+            x=x,
+            y=(y_pos + y_neg).sum(axis=1),
+            color='black',
+            marker='o' if totmarker is None else totmarker,
+            s=totmarker_size
+        )
 
     xmin = x.min() - 0.5
     xmax = x.max() + 0.5
