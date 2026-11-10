@@ -1374,6 +1374,8 @@ class Session(object):
         
         # Change year level to string
         if len(df)>0:
+            # Keep integer years in the cached DataFrame for interpolation.
+            df = df.copy()
             df.index = df.index.set_levels(df.index.levels[-1].astype(str), level=-1)
         
         # print('Retrieved data from', '.'.join([module, attr]))
