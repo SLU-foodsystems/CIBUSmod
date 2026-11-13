@@ -45,7 +45,7 @@ class AquacultureHerd(AnimalHerd):
         slaughtered_juvenile = np.zeros(len(self.index))
 
         lost_lw_adult = lost_adult * p('slaughter_weight', animal='adult fish') / 2 # Assume losses at half slaughter weight [kg round weight]
-        lost_lw_juvenile = lost_juvenile * p('weight_delivery', animal='juvenile fish') / 2 # Assume losses at half delivery weight [kg round weight]
+        lost_lw_juvenile = lost_juvenile * p('weight_delivery', animal='juvenile fish') / 2 / 1_000 # Assume losses at half delivery weight [kg round weight]
 
         heads_adult = (inserted_adult - lost_adult/2) * (p('months_production_cycle', animal='adult fish')/12)
         heads_juvenile = (inserted_juvenile - lost_juvenile/2) * (p('age_delivery', animal='juvenile fish')/12)
