@@ -106,3 +106,20 @@ conv_factor_main, conv_factor_by"]:::param --> PD
 ```
 
 {{ docstring("CIBUSmod.main_modules.demand_and_conversions.DemandAndConversions", "CIBUSmod/main_modules/demand_and_conversions.py") }}
+
+## Parameters
+
+| Parameter name | Unit | Filter levels used for access | Description |
+| --- | --- | --- | --- |
+| `composition` | kg nutrient/kg food; kcal/kg for energy | `prod_system`, `food`, `food_group`, `nutrient` | Nutrient or energy content per kg of consumed food. |
+| `consumption` | g/day | `prod_system`, `food`, `food_group`, `origin` | Daily per-capita consumption of each food item. |
+| `conv_factor_by` | % | `species`, `prod_system`, `crop_prod`, `crop_resid`, `food`, `food_group`, `demand`, `animal_prod`, `by_prod_main`, `by_prod` | By-product yield relative to the main raw-product input. |
+| `conv_factor_main` | % | `species`, `prod_system`, `crop_prod`, `crop_resid`, `food`, `food_group`, `demand`, `animal_prod`, `by_prod_main`, `by_prod` | Mass yield of food from its main raw product, used to convert food demand to raw-product demand. |
+| `export_demand` | tonnes | `prod_system`, `food`, `food_group` | Food/product exports to supply in addition to domestic demand. |
+| `non_food_demand` | tonnes; 1000 heads; tonnes DM | `prod_system`, `food`, `food_group` | Demand for uses other than human food (mass basis or animal heads depends on the item). |
+| `population` | millions | None | Total population served by the diet. |
+| `population_region` | nr | `region` | Population per region, used to distribute wastewater and food waste. |
+| `recipe` | % | `prod_system`, `food`, `food_group`, `food_ingr`, `origin` | Ingredient share used to resolve composite foods into constituent food items. |
+| `share_imported` | % | `prod_system`, `food`, `food_group`, `origin` | Imported share of each food item; domestic supply is the remainder. |
+| `share_in_prod_system` | % | `prod_system`, `food`, `food_group`, `origin` | Share of consumption assigned to each production system; conventional supply is calculated as the remainder. |
+| `waste_share` | % | `prod_system`, `food`, `food_group`, `waste_level` | Share lost at each stage of the food supply chain. |

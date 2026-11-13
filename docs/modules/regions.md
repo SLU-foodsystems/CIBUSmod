@@ -87,3 +87,21 @@ max_land_use"]:::data
 ```
 
 {{ docstring("CIBUSmod.main_modules.regions.Regions", "CIBUSmod/main_modules/regions.py") }}
+
+## Parameters
+
+| Parameter name | Unit | Filter levels used for access | Description |
+| --- | --- | --- | --- |
+| `GDD5` | degree days above 5 degrees C | `prod_system`, `region`, `crop` | Annual growing degree days above 5 degrees C; also read by the distributors to restrict crop suitability. |
+| `max_land_use` | ha (m2 for greenhouse crops) | `region`, `land_use` | Explicit maximum area per land-use category when not derived from initial crop areas. |
+| `max_land_use_factor` | dimensionless | `region`, `land_use` | Multiplier applied to land-use area derived from initial crop areas. |
+| `share_org_soil` | % | `prod_system`, `region`, `crop`, `land_use` | Share of crop area on organic soils; read by PlantNutrientMgmt for soil emissions. |
+| `soil_K_AL` | mg/kg | `region` | Ammonium-lactate extractable soil potassium, used to classify soil K status. |
+| `soil_OM` | % | `region` | Soil organic matter content. |
+| `soil_P_AL` | mg/kg | `region` | Ammonium-lactate extractable soil phosphorus, used to classify soil P status. |
+| `soil_clay` | % | `region` | Clay share of mineral soil texture. |
+| `soil_pH` | pH | `region` | Soil acidity. |
+| `soil_sand` | % | `region` | Sand share of mineral soil texture. |
+| `soil_silt` | % | `region` | Silt share of mineral soil texture. |
+| `x0_animals` | heads | `species`, `breed`, `prod_system`, `region` | Initial animal numbers used to construct herds and the optimisation reference state. |
+| `x0_crops` | ha (m2 for greenhouse crops) | `prod_system`, `region`, `crop` | Initial crop area used to construct production units and the optimisation reference state. |

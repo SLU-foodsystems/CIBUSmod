@@ -14,7 +14,9 @@ flowchart TD
   M --> CO["change_objective()"]:::helper
   CO --> CN["constrain_nutrient()
   (optional, repeatable)"]:::helper
-  CN --> S[".solve(apply_solution=False)"]:::method
+  CN --> CF["constrain_food()
+  (optional, repeatable)"]:::helper
+  CF --> S[".solve(apply_solution=False)"]:::method
   S --> UD["update_demand()"]:::helper
   UD --> DAC["<b>DemandAndConversions</b>.data_attr
   re-made to match optimised production"]:::mod_main
@@ -142,6 +144,26 @@ cm.maximise_nutrient_supply.constrain_nutrient(feeddist, 'kcal', 20_000, '<=') #
 The constraint is implemented as a single row $(m_{\text{nutrient}} - \text{factor} \cdot m_{\text{obj}}) \, x \; \gtrless \; 0$, scaled to a maximum absolute coefficient of 1. The function can be called several times to constrain several nutrients, or to set both a minimum and a maximum for the same nutrient. Calling it again with the same `nutrient` and `rel` replaces the earlier constraint. The objective is rebuilt with the same settings as in `change_objective()`. All added constraints are removed when `.make()` is run again.
 
 {{ docstring("CIBUSmod.utils.maximise_nutrient_supply.constrain_nutrient", "CIBUSmod/utils/maximise_nutrient_supply.py") }}
+
+### `maximise_nutrient_supply.constrain_food()`
+
+Call `constrain_food(dist, food, max)` after `change_objective()` and before solving to cap total consumption of a food or the sum of a list of foods in **g/cap/day**, including imports and all production systems:
+
+```python
+cm.maximise_nutrient_supply.constrain_food(feeddist, 'peas', 100)
+cm.maximise_nutrient_supply.constrain_food(feeddist, 'broad beans', 75)
+# One additional limit on the combined consumption of both foods
+cm.maximise_nutrient_supply.constrain_food(feeddist, ['peas', 'broad beans'], 150)
+feeddist.solve(apply_solution=False)
+cm.maximise_nutrient_supply.update_demand(feeddist, mode='consumption')
+feeddist.apply_solution()
+```
+
+Use food names from `demand.food_demand`, which can differ from crop or animal product names. Repeated calls add limits for different selections, which may overlap. Calling again for the same selection replaces its limit, regardless of list order or duplicates. Each food counts once; a one-item list is equivalent to a food name. The objective settings and nutrient constraints are preserved. Running `.make()` removes the added constraints.
+
+The constraint accounts for the food mix, conversion and waste losses, fixed imports, non-food/export demand and feed use. Consumption supplied by non-selected products stays fixed. A limit below fixed consumption raises `ValueError`. By-product foods follow food-route generation. Coupled conversions such as the dairy cream balance can depart from this fixed-mix mapping; `update_demand()` checks the final consumption within its `rtol`/`atol` tolerances and raises `ValueError` if a limit is exceeded.
+
+{{ docstring("CIBUSmod.utils.maximise_nutrient_supply.constrain_food", "CIBUSmod/utils/maximise_nutrient_supply.py") }}
 
 ## After solving
 

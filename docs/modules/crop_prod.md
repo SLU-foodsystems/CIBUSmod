@@ -67,3 +67,21 @@ seed_demand"]:::data
 ```
 
 {{ docstring("CIBUSmod.main_modules.crop_prod.CropProduction", "CIBUSmod/main_modules/crop_prod.py") }}
+
+## Parameters
+
+| Parameter name | Unit | Filter levels used for access | Description |
+| --- | --- | --- | --- |
+| `ag_resid` | kg DM/kg harvested DM | `prod_system`, `region`, `crop` | Ratio of above-ground residue dry matter to harvested crop dry matter. |
+| `ag_resid_C` | kg C/kg DM | `prod_system`, `region`, `crop` | Carbon content of above-ground crop residues; read by CropResidueMgmt. |
+| `ag_resid_N` | kg N/kg DM | `prod_system`, `region`, `crop` | Nitrogen content of above-ground crop residues; read by CropResidueMgmt. |
+| `bg_resid` | kg DM/kg above-ground DM | `prod_system`, `region`, `crop` | Ratio of below-ground residue dry matter to total above-ground biomass dry matter. |
+| `bg_resid_C` | kg C/kg DM | `prod_system`, `region`, `crop` | Carbon content of below-ground biomass; also read by CropResidueMgmt. |
+| `bg_resid_N` | kg N/kg DM | `prod_system`, `region`, `crop` | Nitrogen content of below-ground crop residues; read by CropResidueMgmt. |
+| `crop_dm` | kg DM/kg | `prod_system`, `region`, `crop` | Dry-matter fraction of harvested crop mass; also used by MachineryAndEnergyMgmt for drying. |
+| `crop_to_prod` | kg/kg | `prod_system`, `region`, `crop`, `crop_prod` | Mass of each crop product obtained per unit harvested crop mass. |
+| `frac_renew` | fraction/year | `prod_system`, `region`, `crop` | Fraction of crop biomass renewed annually; applied to both above- and below-ground residues in the code. |
+| `max_in_rot` | % | `prod_system`, `region`, `crop_group` | Maximum share of a crop group in the rotation; read by the distributors. |
+| `min_GDD5` | degree days above 5 degrees C | `prod_system`, `region`, `crop` | Minimum growing degree days for crop suitability; read by the distributors. |
+| `seed` | kg/ha (kg/m2 for greenhouse crops) | `prod_system`, `region`, `crop`, `crop_prod` | Seed requirement per cultivated area, expressed as demand for a crop product. |
+| `yield` | kg/ha (kg/m2 for greenhouse crops) | `prod_system`, `region`, `crop` | Harvested crop mass per unit cultivated area at the specified crop water content. |
